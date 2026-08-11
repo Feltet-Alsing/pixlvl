@@ -121,16 +121,16 @@
       "isCampaignBoss": false,
       "totalEnemies": 9,
       "composition": {
-        "biters": 5,
+        "biters": 6,
         "swarmers": 3,
-        "tankers": 1
+        "tankers": 0
       },
       "goldPerEnemy": {
         "biter": 2,
         "swarmer": 3,
         "tanker": 6
       },
-      "totalGoldReward": 25,
+      "totalGoldReward": 21,
       "spawnRatePerSecond": 1
     },
     {
@@ -772,16 +772,16 @@
       "isCampaignBoss": false,
       "totalEnemies": 40,
       "composition": {
-        "biters": 22,
+        "biters": 23,
         "swarmers": 13,
-        "tankers": 5
+        "tankers": 4
       },
       "goldPerEnemy": {
         "biter": 5,
         "swarmer": 6,
         "tanker": 9
       },
-      "totalGoldReward": 233,
+      "totalGoldReward": 229,
       "spawnRatePerSecond": 1
     },
     {
@@ -793,16 +793,16 @@
       "isCampaignBoss": false,
       "totalEnemies": 41,
       "composition": {
-        "biters": 23,
+        "biters": 24,
         "swarmers": 13,
-        "tankers": 5
+        "tankers": 4
       },
       "goldPerEnemy": {
         "biter": 5,
         "swarmer": 6,
         "tanker": 9
       },
-      "totalGoldReward": 238,
+      "totalGoldReward": 234,
       "spawnRatePerSecond": 1
     },
     {
@@ -814,16 +814,16 @@
       "isCampaignBoss": false,
       "totalEnemies": 42,
       "composition": {
-        "biters": 23,
+        "biters": 24,
         "swarmers": 14,
-        "tankers": 5
+        "tankers": 4
       },
       "goldPerEnemy": {
         "biter": 5,
         "swarmer": 6,
         "tanker": 9
       },
-      "totalGoldReward": 244,
+      "totalGoldReward": 240,
       "spawnRatePerSecond": 1
     },
     {
@@ -835,16 +835,16 @@
       "isCampaignBoss": false,
       "totalEnemies": 43,
       "composition": {
-        "biters": 24,
+        "biters": 25,
         "swarmers": 14,
-        "tankers": 5
+        "tankers": 4
       },
       "goldPerEnemy": {
         "biter": 5,
         "swarmer": 6,
         "tanker": 9
       },
-      "totalGoldReward": 249,
+      "totalGoldReward": 245,
       "spawnRatePerSecond": 1
     },
     {
@@ -940,16 +940,16 @@
       "isCampaignBoss": false,
       "totalEnemies": 48,
       "composition": {
-        "biters": 26,
+        "biters": 27,
         "swarmers": 16,
-        "tankers": 6
+        "tankers": 5
       },
       "goldPerEnemy": {
         "biter": 6,
         "swarmer": 7,
         "tanker": 10
       },
-      "totalGoldReward": 328,
+      "totalGoldReward": 324,
       "spawnRatePerSecond": 1
     },
     {
@@ -961,16 +961,16 @@
       "isCampaignBoss": false,
       "totalEnemies": 49,
       "composition": {
-        "biters": 27,
+        "biters": 28,
         "swarmers": 16,
-        "tankers": 6
+        "tankers": 5
       },
       "goldPerEnemy": {
         "biter": 6,
         "swarmer": 7,
         "tanker": 10
       },
-      "totalGoldReward": 334,
+      "totalGoldReward": 330,
       "spawnRatePerSecond": 1
     },
     {
@@ -982,16 +982,16 @@
       "isCampaignBoss": false,
       "totalEnemies": 50,
       "composition": {
-        "biters": 28,
+        "biters": 29,
         "swarmers": 16,
-        "tankers": 6
+        "tankers": 5
       },
       "goldPerEnemy": {
         "biter": 6,
         "swarmer": 7,
         "tanker": 10
       },
-      "totalGoldReward": 340,
+      "totalGoldReward": 336,
       "spawnRatePerSecond": 1
     },
     {
@@ -1003,16 +1003,16 @@
       "isCampaignBoss": false,
       "totalEnemies": 51,
       "composition": {
-        "biters": 28,
+        "biters": 29,
         "swarmers": 17,
-        "tankers": 6
+        "tankers": 5
       },
       "goldPerEnemy": {
         "biter": 6,
         "swarmer": 7,
         "tanker": 10
       },
-      "totalGoldReward": 347,
+      "totalGoldReward": 343,
       "spawnRatePerSecond": 1
     },
     {
@@ -1024,16 +1024,16 @@
       "isCampaignBoss": false,
       "totalEnemies": 52,
       "composition": {
-        "biters": 29,
+        "biters": 30,
         "swarmers": 17,
-        "tankers": 6
+        "tankers": 5
       },
       "goldPerEnemy": {
         "biter": 6,
         "swarmer": 7,
         "tanker": 10
       },
-      "totalGoldReward": 353,
+      "totalGoldReward": 349,
       "spawnRatePerSecond": 1
     },
     {
@@ -1045,16 +1045,16 @@
       "isCampaignBoss": false,
       "totalEnemies": 53,
       "composition": {
-        "biters": 30,
+        "biters": 31,
         "swarmers": 17,
-        "tankers": 6
+        "tankers": 5
       },
       "goldPerEnemy": {
         "biter": 6,
         "swarmer": 7,
         "tanker": 10
       },
-      "totalGoldReward": 359,
+      "totalGoldReward": 355,
       "spawnRatePerSecond": 1
     },
     {
@@ -1066,16 +1066,16 @@
       "isCampaignBoss": true,
       "totalEnemies": 54,
       "composition": {
-        "biters": 30,
+        "biters": 31,
         "swarmers": 18,
-        "tankers": 6
+        "tankers": 5
       },
       "goldPerEnemy": {
         "biter": 6,
         "swarmer": 7,
         "tanker": 10
       },
-      "totalGoldReward": 366,
+      "totalGoldReward": 362,
       "spawnRatePerSecond": 1
     }
   ]

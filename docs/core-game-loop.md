@@ -623,7 +623,7 @@ This gives a clean progression from:
 
 ## First campaign data artifact
 
-The first full campaign has been written into a JSON-ready data artifact at `docs/campaign-1.json`.
+The first full campaign has been written into a JSON-ready runtime data artifact at `src/lib/data/campaigns/campaign-1.json`.
 
 That file contains:
 
