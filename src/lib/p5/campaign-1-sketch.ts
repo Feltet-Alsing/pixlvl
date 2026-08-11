@@ -59,6 +59,13 @@ interface CampaignSketchOptions {
 		PersistedCampaignProgress,
 		'currentLevel' | 'highestUnlockedLevel' | 'highestClearedLevel' | 'completed'
 	> | null;
+	onStateChange?: (state: {
+		gold: number;
+		currentLevel: number;
+		highestUnlockedLevel: number;
+		highestClearedLevel: number;
+		completed: boolean;
+	}) => void;
 }
 
 function getCanvasSize(canvas: HTMLCanvasElement | null) {
@@ -142,6 +149,14 @@ export function createCampaignSketch(
 		let completed = options.campaignState?.completed ?? false;
 
 		const persistProgress = (nextCurrentLevel: number) => {
+			options.onStateChange?.({
+				gold: bankedGold,
+				currentLevel: nextCurrentLevel,
+				highestUnlockedLevel,
+				highestClearedLevel,
+				completed
+			});
+
 			if (!persistenceEnabled || !options.persistPath) {
 				return;
 			}
@@ -177,6 +192,43 @@ export function createCampaignSketch(
 			centerX = p.width / 2;
 			centerY = p.height / 2;
 			arenaRadius = Math.min(p.width, p.height) * 0.42;
+		};
+
+		const getEnemyContactRange = (kind: GlitchKind) =>
+			Math.max(
+				combatProfile.collision.contactRange,
+				combatProfile.collision.pixlRadius + ENEMY_VISUALS[kind].radius
+			);
+
+		const syncCanvasSize = () => {
+			if (!canvas) {
+				return;
+			}
+
+			const { width, height } = getCanvasSize(canvas);
+
+			if (width === p.width && height === p.height) {
+				return;
+			}
+
+			const previousCenterX = centerX;
+			const previousCenterY = centerY;
+
+			p.resizeCanvas(width, height);
+			updateArenaMetrics();
+
+			const deltaX = centerX - previousCenterX;
+			const deltaY = centerY - previousCenterY;
+
+			for (const enemy of enemies) {
+				enemy.x += deltaX;
+				enemy.y += deltaY;
+			}
+
+			for (const projectile of projectiles) {
+				projectile.x += deltaX;
+				projectile.y += deltaY;
+			}
 		};
 
 		const startLevel = (levelIndex: number) => {
@@ -285,17 +337,15 @@ export function createCampaignSketch(
 			for (let index = enemies.length - 1; index >= 0; index -= 1) {
 				const enemy = enemies[index];
 				const stats = combatProfile.glitches[enemy.kind];
+				const contactRange = getEnemyContactRange(enemy.kind);
 				enemy.hitFlash = Math.max(0, enemy.hitFlash - dt);
 
 				const dx = centerX - enemy.x;
 				const dy = centerY - enemy.y;
 				const distance = Math.hypot(dx, dy) || 1;
 
-				if (distance > combatProfile.collision.contactRange) {
-					const step = Math.min(
-						distance - combatProfile.collision.contactRange,
-						stats.moveSpeed * dt
-					);
+				if (distance > contactRange) {
+					const step = Math.min(distance - contactRange, stats.moveSpeed * dt);
 					enemy.x += (dx / distance) * step;
 					enemy.y += (dy / distance) * step;
 					continue;
@@ -504,9 +554,8 @@ export function createCampaignSketch(
 		};
 
 		p.setup = () => {
-			const { width, height } = getCanvasSize(canvas);
-			canvas = p.createCanvas(width, height).elt as HTMLCanvasElement;
-			updateArenaMetrics();
+			canvas = p.createCanvas(MAX_WIDTH, BASE_HEIGHT).elt as HTMLCanvasElement;
+			syncCanvasSize();
 			startLevel(currentLevelIndex);
 		};
 
@@ -514,6 +563,7 @@ export function createCampaignSketch(
 			const dt = Math.min(p.deltaTime / 1000, 0.05);
 			pixlFlash = Math.max(0, pixlFlash - dt);
 
+			syncCanvasSize();
 			if (status === 'running') {
 				updateWaveFlow(dt);
 				updateEnemies(dt);
@@ -560,10 +610,7 @@ export function createCampaignSketch(
 		};
 
 		p.windowResized = () => {
-			const { width, height } = getCanvasSize(canvas);
-			p.resizeCanvas(width, height);
-			updateArenaMetrics();
-			startLevel(currentLevelIndex);
+			syncCanvasSize();
 		};
 	};
 }

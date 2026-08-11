@@ -1,16 +1,52 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { createBaselineUpgradeablePixlState, getUpgradeOptions } from '$lib/game/upgrades';
 	import P5Canvas from '$lib/components/P5Canvas.svelte';
 	import { createCampaignSketch } from '$lib/p5/campaign-1-sketch';
-	import type { PageData } from './$types';
+	import type { PageProps } from './$types';
 
-	let { data }: { data: PageData } = $props();
-	let persistedPixlState = $derived(data.gameState?.pixlState ?? null);
+	type LivePixlState = NonNullable<NonNullable<PageProps['data']['gameState']>['pixlState']>;
+	type LiveCampaignState = NonNullable<PageProps['data']['campaignState']>;
+
+	interface SketchStateUpdate {
+		gold: number;
+		currentLevel: number;
+		highestUnlockedLevel: number;
+		highestClearedLevel: number;
+		completed: boolean;
+	}
+
+	let { data, form }: PageProps = $props();
+	let livePixlState: LivePixlState | null = $derived(data.gameState?.pixlState ?? null);
+	let liveCampaignState: LiveCampaignState | null = $derived(data.campaignState ?? null);
+	let upgradeState = $derived(livePixlState ?? createBaselineUpgradeablePixlState());
+	let upgradeOptions = $derived(getUpgradeOptions(upgradeState));
+
+	function handleSketchStateChange(update: SketchStateUpdate) {
+		if (livePixlState) {
+			livePixlState = {
+				...livePixlState,
+				gold: update.gold
+			};
+		}
+
+		if (liveCampaignState) {
+			liveCampaignState = {
+				...liveCampaignState,
+				currentLevel: update.currentLevel,
+				highestUnlockedLevel: update.highestUnlockedLevel,
+				highestClearedLevel: update.highestClearedLevel,
+				completed: update.completed
+			};
+		}
+	}
+
 	const campaignSketch = (p: import('p5').default) =>
 		createCampaignSketch(data.campaign, data.combatProfile, {
 			persistPath: '/api/game/state',
 			pixlState: data.gameState?.pixlState ?? null,
-			campaignState: data.campaignState ?? null
+			campaignState: data.campaignState ?? null,
+			onStateChange: handleSketchStateChange
 		})(p);
 </script>
 
@@ -32,51 +68,91 @@
 		</div>
 
 		<div class="layout">
-			<aside class="panel">
-				<h1>Run surface</h1>
-				<p class="lede">No intro copy here. This is the live campaign view.</p>
-				<div class="stats">
-					<div>
-						<span>Pixl health</span>
-						<strong>{persistedPixlState?.health ?? data.combatProfile.pixl.health}</strong>
-					</div>
-					<div>
-						<span>Pixl damage</span>
-						<strong>{persistedPixlState?.damage ?? data.combatProfile.pixl.damage}</strong>
-					</div>
-					<div>
-						<span>Attack speed</span>
-						<strong>
-							{(persistedPixlState?.attackSpeed ?? data.combatProfile.pixl.attackSpeed).toFixed(
-								1
-							)}/s
-						</strong>
-					</div>
-					<div>
-						<span>{persistedPixlState ? 'Gold' : 'Projectile speed'}</span>
-						<strong
-							>{persistedPixlState
-								? persistedPixlState.gold
-								: data.combatProfile.projectileSpeed}</strong
-						>
-					</div>
-					{#if data.campaignState}
-						<div>
-							<span>Saved progression</span>
-							<strong>
-								Level {data.campaignState.currentLevel} · cleared {data.campaignState
-									.highestClearedLevel}
-							</strong>
+			<section class="canvas-panel">
+				<div class="canvas-copy">
+					<p class="eyebrow">Live preview</p>
+					<h1>Run surface</h1>
+					<p class="lede">No intro copy here. This is the live campaign view.</p>
+				</div>
+
+				<div class="canvas-stage">
+					<aside class="panel stats-panel">
+						<div class="panel-heading">
+							<h2>Pixl stats</h2>
+							<p class="lede">Persistent combat values and saved campaign progress.</p>
 						</div>
+
+						<div class="stats">
+							<div>
+								<span>Pixl health</span>
+								<strong>{livePixlState?.health ?? data.combatProfile.pixl.health}</strong>
+							</div>
+							<div>
+								<span>Pixl damage</span>
+								<strong>{livePixlState?.damage ?? data.combatProfile.pixl.damage}</strong>
+							</div>
+							<div>
+								<span>Attack speed</span>
+								<strong>
+									{(livePixlState?.attackSpeed ?? data.combatProfile.pixl.attackSpeed).toFixed(1)}/s
+								</strong>
+							</div>
+							<div>
+								<span>{livePixlState ? 'Gold' : 'Projectile speed'}</span>
+								<strong
+									>{livePixlState ? livePixlState.gold : data.combatProfile.projectileSpeed}</strong
+								>
+							</div>
+							{#if liveCampaignState}
+								<div>
+									<span>Saved progression</span>
+									<strong>
+										Level {liveCampaignState.currentLevel} · cleared {liveCampaignState.highestClearedLevel}
+									</strong>
+								</div>
+							{/if}
+						</div>
+					</aside>
+
+					{#key data.campaignId}
+						<P5Canvas class="canvas-frame" sketch={campaignSketch} />
+					{/key}
+				</div>
+			</section>
+
+			<aside class="panel shop-panel">
+				<div class="panel-heading upgrade-header">
+					<h2>Shop</h2>
+					<p>Spend saved gold on persistent pixl growth.</p>
+				</div>
+
+				{#if form?.purchaseError}
+					<p class="feedback error">{form.purchaseError}</p>
+				{:else if form?.purchaseSuccess}
+					<p class="feedback success">{form.purchaseSuccess}</p>
+				{/if}
+
+				<div class="upgrade-panel">
+					{#if livePixlState}
+						{#each upgradeOptions as option (option.key)}
+							<form class="upgrade-card" method="post" action="?/purchaseUpgrade">
+								<input type="hidden" name="upgrade" value={option.key} />
+								<div>
+									<span>{option.label}</span>
+									<strong>Cost {option.cost}</strong>
+								</div>
+								<p>{option.description}</p>
+								<p class="upgrade-level">Bought {option.level} times</p>
+								<button class="purchase" type="submit" disabled={!option.canAfford}>
+									{option.canAfford ? `Buy ${option.label}` : 'Not enough gold'}
+								</button>
+							</form>
+						{/each}
+					{:else}
+						<p class="upgrade-note">Sign in to save gold and buy persistent upgrades.</p>
 					{/if}
 				</div>
 			</aside>
-
-			<div class="canvas-panel">
-				{#key data.campaignId}
-					<P5Canvas class="canvas-frame" sketch={campaignSketch} />
-				{/key}
-			</div>
 		</div>
 	</section>
 </div>
@@ -134,7 +210,8 @@
 	.layout {
 		display: grid;
 		gap: 1rem;
-		grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr);
+		grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem);
+		align-items: stretch;
 	}
 
 	.panel {
@@ -145,7 +222,17 @@
 	}
 
 	.canvas-panel {
-		padding: 1rem;
+		padding: 1.25rem;
+		display: grid;
+		gap: 1rem;
+		align-content: start;
+	}
+
+	.canvas-stage {
+		position: relative;
+		display: grid;
+		place-items: center;
+		min-height: 42rem;
 	}
 
 	.eyebrow,
@@ -174,6 +261,22 @@
 		font-size: 1.8rem;
 	}
 
+	h2 {
+		margin: 0;
+		font-size: 1rem;
+	}
+
+	.panel-heading,
+	.canvas-copy {
+		display: grid;
+		gap: 0.35rem;
+	}
+
+	.canvas-copy {
+		justify-items: center;
+		text-align: center;
+	}
+
 	.stats {
 		display: grid;
 		gap: 0.85rem;
@@ -192,7 +295,100 @@
 		font-size: 1.15rem;
 	}
 
+	.feedback {
+		padding: 0.85rem 1rem;
+		border-radius: 1rem;
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		font-size: 0.95rem;
+	}
+
+	.feedback.error {
+		border-color: rgba(255, 96, 96, 0.35);
+		color: #ffb3b3;
+		background: rgba(255, 96, 96, 0.08);
+	}
+
+	.feedback.success {
+		border-color: rgba(255, 255, 255, 0.12);
+		color: #f5f5f5;
+		background: rgba(255, 255, 255, 0.05);
+	}
+
+	.upgrade-panel {
+		display: grid;
+		gap: 0.85rem;
+	}
+
+	.stats-panel {
+		position: absolute;
+		top: 1rem;
+		left: 1rem;
+		z-index: 2;
+		width: min(18rem, calc(100% - 2rem));
+		padding: 1rem;
+		background: rgba(10, 10, 10, 0.82);
+		backdrop-filter: blur(12px);
+		align-content: start;
+	}
+
+	.shop-panel {
+		align-content: center;
+	}
+
+	.upgrade-header {
+		display: grid;
+		gap: 0.35rem;
+	}
+
+	.upgrade-header p,
+	.upgrade-card p,
+	.upgrade-note,
+	.upgrade-level {
+		margin: 0;
+		color: #c4c4c4;
+	}
+
+	.upgrade-card {
+		padding: 1rem;
+		border-radius: 1rem;
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		background: rgba(255, 255, 255, 0.03);
+		display: grid;
+		gap: 0.55rem;
+	}
+
+	.upgrade-card div {
+		display: flex;
+		justify-content: space-between;
+		gap: 0.75rem;
+		align-items: baseline;
+	}
+
+	.upgrade-level {
+		font-size: 0.9rem;
+	}
+
+	.purchase {
+		width: 100%;
+		min-height: 2.75rem;
+		padding: 0.75rem 1rem;
+		border: 1px solid rgba(255, 255, 255, 0.14);
+		border-radius: 999px;
+		background: #ffffff;
+		color: #020202;
+		font: inherit;
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.purchase:disabled {
+		opacity: 0.45;
+		cursor: not-allowed;
+	}
+
 	:global(.canvas-frame) {
+		width: min(100%, 46rem);
+		margin-inline: auto;
 		overflow: hidden;
 		border-radius: 1rem;
 		border: 1px solid rgba(255, 255, 255, 0.08);
@@ -210,11 +406,28 @@
 			padding: 1rem;
 		}
 
-		.topbar,
 		.layout {
 			grid-template-columns: 1fr;
+		}
+
+		.canvas-stage {
+			min-height: auto;
+			place-items: stretch;
+		}
+
+		.stats-panel {
+			position: static;
+			width: auto;
+			margin-bottom: 1rem;
+		}
+
+		.topbar {
 			flex-direction: column;
 			align-items: flex-start;
+		}
+
+		.shop-panel {
+			align-content: start;
 		}
 	}
 </style>

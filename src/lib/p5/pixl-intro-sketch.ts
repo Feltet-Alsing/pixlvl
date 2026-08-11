@@ -70,329 +70,329 @@ export function createPixlIntroSketch(options: PixlIntroSketchOptions = {}) {
 			gold: options.pixlState?.gold ?? 0
 		};
 
-	let canvas: HTMLCanvasElement | null = null;
-	let centerX = 0;
-	let centerY = 0;
-	let arenaRadius = 0;
-	let health = pixlStats.health;
-	let bankedGold = pixlStats.gold;
-	let flashTimer = 0;
-	let shotAccumulator = 0;
-	let spawnAccumulator = 0;
-	let resetTimer = 0;
-	let waveId = 1;
-	let enemyId = 0;
-	let enemies: EnemyState[] = [];
-	let projectiles: ProjectileState[] = [];
+		let canvas: HTMLCanvasElement | null = null;
+		let centerX = 0;
+		let centerY = 0;
+		let arenaRadius = 0;
+		let health = pixlStats.health;
+		let bankedGold = pixlStats.gold;
+		let flashTimer = 0;
+		let shotAccumulator = 0;
+		let spawnAccumulator = 0;
+		let resetTimer = 0;
+		let waveId = 1;
+		let enemyId = 0;
+		let enemies: EnemyState[] = [];
+		let projectiles: ProjectileState[] = [];
 
-	const updateArenaMetrics = () => {
-		centerX = p.width / 2;
-		centerY = p.height / 2;
-		arenaRadius = Math.min(p.width, p.height) * 0.42;
-	};
+		const updateArenaMetrics = () => {
+			centerX = p.width / 2;
+			centerY = p.height / 2;
+			arenaRadius = Math.min(p.width, p.height) * 0.42;
+		};
 
-	const resetLoop = () => {
-		health = pixlStats.health;
-		flashTimer = 0;
-		shotAccumulator = 0;
-		spawnAccumulator = 0;
-		resetTimer = 0;
-		enemyId = 0;
-		enemies = [];
-		projectiles = [];
-		waveId += 1;
-	};
+		const resetLoop = () => {
+			health = pixlStats.health;
+			flashTimer = 0;
+			shotAccumulator = 0;
+			spawnAccumulator = 0;
+			resetTimer = 0;
+			enemyId = 0;
+			enemies = [];
+			projectiles = [];
+			waveId += 1;
+		};
 
-	const pickKind = (): GlitchKind => {
-		const roll = p.random();
+		const pickKind = (): GlitchKind => {
+			const roll = p.random();
 
-		if (roll < 0.55) return 'biter';
-		if (roll < 0.85) return 'swarmer';
-		return 'tanker';
-	};
+			if (roll < 0.55) return 'biter';
+			if (roll < 0.85) return 'swarmer';
+			return 'tanker';
+		};
 
-	const spawnEnemy = () => {
-		const kind = pickKind();
-		const stats = baselineCombatProfile.glitches[kind];
-		const angle = p.random(p.TWO_PI);
+		const spawnEnemy = () => {
+			const kind = pickKind();
+			const stats = baselineCombatProfile.glitches[kind];
+			const angle = p.random(p.TWO_PI);
 
-		enemies.push({
-			id: enemyId,
-			kind,
-			x: centerX + Math.cos(angle) * arenaRadius,
-			y: centerY + Math.sin(angle) * arenaRadius,
-			health: stats.health,
-			attackTimer: 1 / stats.attackSpeed,
-			hitFlash: 0
-		});
+			enemies.push({
+				id: enemyId,
+				kind,
+				x: centerX + Math.cos(angle) * arenaRadius,
+				y: centerY + Math.sin(angle) * arenaRadius,
+				health: stats.health,
+				attackTimer: 1 / stats.attackSpeed,
+				hitFlash: 0
+			});
 
-		enemyId += 1;
-	};
+			enemyId += 1;
+		};
 
-	const getClosestEnemy = () => {
-		let closestEnemy: EnemyState | null = null;
-		let closestDistance = Number.POSITIVE_INFINITY;
+		const getClosestEnemy = () => {
+			let closestEnemy: EnemyState | null = null;
+			let closestDistance = Number.POSITIVE_INFINITY;
 
-		for (const enemy of enemies) {
-			const distance = Math.hypot(enemy.x - centerX, enemy.y - centerY);
+			for (const enemy of enemies) {
+				const distance = Math.hypot(enemy.x - centerX, enemy.y - centerY);
 
-			if (distance < closestDistance) {
-				closestDistance = distance;
-				closestEnemy = enemy;
-			}
-		}
-
-		return closestEnemy;
-	};
-
-	const fireProjectile = (target: EnemyState) => {
-		const dx = target.x - centerX;
-		const dy = target.y - centerY;
-		const distance = Math.hypot(dx, dy) || 1;
-
-		projectiles.push({
-			x: centerX,
-			y: centerY,
-			vx: (dx / distance) * baselineCombatProfile.projectileSpeed,
-			vy: (dy / distance) * baselineCombatProfile.projectileSpeed,
-			damage: pixlStats.damage
-		});
-	};
-
-	const updateWave = (dt: number) => {
-		spawnAccumulator += dt * 1.35;
-
-		while (spawnAccumulator >= 1 && enemies.length < 12) {
-			spawnAccumulator -= 1;
-			spawnEnemy();
-		}
-
-		shotAccumulator += dt * pixlStats.attackSpeed;
-
-		while (shotAccumulator >= 1) {
-			shotAccumulator -= 1;
-			const target = getClosestEnemy();
-
-			if (!target) {
-				break;
+				if (distance < closestDistance) {
+					closestDistance = distance;
+					closestEnemy = enemy;
+				}
 			}
 
-			fireProjectile(target);
-		}
-	};
+			return closestEnemy;
+		};
 
-	const updateEnemies = (dt: number) => {
-		for (let index = enemies.length - 1; index >= 0; index -= 1) {
-			const enemy = enemies[index];
-			const stats = baselineCombatProfile.glitches[enemy.kind];
-			enemy.hitFlash = Math.max(0, enemy.hitFlash - dt);
-
-			const dx = centerX - enemy.x;
-			const dy = centerY - enemy.y;
+		const fireProjectile = (target: EnemyState) => {
+			const dx = target.x - centerX;
+			const dy = target.y - centerY;
 			const distance = Math.hypot(dx, dy) || 1;
 
-			if (distance > baselineCombatProfile.collision.contactRange) {
-				const step = Math.min(
-					distance - baselineCombatProfile.collision.contactRange,
-					stats.moveSpeed * dt
-				);
-				enemy.x += (dx / distance) * step;
-				enemy.y += (dy / distance) * step;
-				continue;
+			projectiles.push({
+				x: centerX,
+				y: centerY,
+				vx: (dx / distance) * baselineCombatProfile.projectileSpeed,
+				vy: (dy / distance) * baselineCombatProfile.projectileSpeed,
+				damage: pixlStats.damage
+			});
+		};
+
+		const updateWave = (dt: number) => {
+			spawnAccumulator += dt * 1.35;
+
+			while (spawnAccumulator >= 1 && enemies.length < 12) {
+				spawnAccumulator -= 1;
+				spawnEnemy();
 			}
 
-			enemy.attackTimer -= dt;
+			shotAccumulator += dt * pixlStats.attackSpeed;
 
-			while (enemy.attackTimer <= 0) {
-				enemy.attackTimer += 1 / stats.attackSpeed;
-				health = Math.max(0, health - stats.contactDamage);
-				flashTimer = 0.16;
+			while (shotAccumulator >= 1) {
+				shotAccumulator -= 1;
+				const target = getClosestEnemy();
 
-				if (health === 0) {
-					resetTimer = RESET_DELAY;
-					return;
-				}
-			}
-		}
-	};
-
-	const updateProjectiles = (dt: number) => {
-		for (let index = projectiles.length - 1; index >= 0; index -= 1) {
-			const projectile = projectiles[index];
-			projectile.x += projectile.vx * dt;
-			projectile.y += projectile.vy * dt;
-
-			let hitEnemyIndex = -1;
-
-			for (let enemyIndex = 0; enemyIndex < enemies.length; enemyIndex += 1) {
-				const enemy = enemies[enemyIndex];
-				const hitRadius = ENEMY_VISUALS[enemy.kind].radius + PROJECTILE_SIZE;
-				const distance = Math.hypot(projectile.x - enemy.x, projectile.y - enemy.y);
-
-				if (distance <= hitRadius) {
-					hitEnemyIndex = enemyIndex;
+				if (!target) {
 					break;
 				}
+
+				fireProjectile(target);
 			}
+		};
 
-			if (hitEnemyIndex >= 0) {
-				const enemy = enemies[hitEnemyIndex];
-				enemy.health -= projectile.damage;
-				enemy.hitFlash = 0.08;
-				projectiles.splice(index, 1);
+		const updateEnemies = (dt: number) => {
+			for (let index = enemies.length - 1; index >= 0; index -= 1) {
+				const enemy = enemies[index];
+				const stats = baselineCombatProfile.glitches[enemy.kind];
+				enemy.hitFlash = Math.max(0, enemy.hitFlash - dt);
 
-				if (enemy.health <= 0) {
-					bankedGold += enemy.kind === 'biter' ? 2 : enemy.kind === 'swarmer' ? 3 : 6;
-					enemies.splice(hitEnemyIndex, 1);
+				const dx = centerX - enemy.x;
+				const dy = centerY - enemy.y;
+				const distance = Math.hypot(dx, dy) || 1;
+
+				if (distance > baselineCombatProfile.collision.contactRange) {
+					const step = Math.min(
+						distance - baselineCombatProfile.collision.contactRange,
+						stats.moveSpeed * dt
+					);
+					enemy.x += (dx / distance) * step;
+					enemy.y += (dy / distance) * step;
+					continue;
 				}
 
-				continue;
+				enemy.attackTimer -= dt;
+
+				while (enemy.attackTimer <= 0) {
+					enemy.attackTimer += 1 / stats.attackSpeed;
+					health = Math.max(0, health - stats.contactDamage);
+					flashTimer = 0.16;
+
+					if (health === 0) {
+						resetTimer = RESET_DELAY;
+						return;
+					}
+				}
 			}
+		};
 
-			if (
-				projectile.x < -24 ||
-				projectile.x > p.width + 24 ||
-				projectile.y < -24 ||
-				projectile.y > p.height + 24
-			) {
-				projectiles.splice(index, 1);
+		const updateProjectiles = (dt: number) => {
+			for (let index = projectiles.length - 1; index >= 0; index -= 1) {
+				const projectile = projectiles[index];
+				projectile.x += projectile.vx * dt;
+				projectile.y += projectile.vy * dt;
+
+				let hitEnemyIndex = -1;
+
+				for (let enemyIndex = 0; enemyIndex < enemies.length; enemyIndex += 1) {
+					const enemy = enemies[enemyIndex];
+					const hitRadius = ENEMY_VISUALS[enemy.kind].radius + PROJECTILE_SIZE;
+					const distance = Math.hypot(projectile.x - enemy.x, projectile.y - enemy.y);
+
+					if (distance <= hitRadius) {
+						hitEnemyIndex = enemyIndex;
+						break;
+					}
+				}
+
+				if (hitEnemyIndex >= 0) {
+					const enemy = enemies[hitEnemyIndex];
+					enemy.health -= projectile.damage;
+					enemy.hitFlash = 0.08;
+					projectiles.splice(index, 1);
+
+					if (enemy.health <= 0) {
+						bankedGold += enemy.kind === 'biter' ? 2 : enemy.kind === 'swarmer' ? 3 : 6;
+						enemies.splice(hitEnemyIndex, 1);
+					}
+
+					continue;
+				}
+
+				if (
+					projectile.x < -24 ||
+					projectile.x > p.width + 24 ||
+					projectile.y < -24 ||
+					projectile.y > p.height + 24
+				) {
+					projectiles.splice(index, 1);
+				}
 			}
-		}
-	};
+		};
 
-	const drawArena = () => {
-		p.background(0);
-		p.noFill();
-		p.stroke(38, 38, 38);
-		p.strokeWeight(1);
-		p.circle(centerX, centerY, arenaRadius * 2);
-		p.stroke(25, 25, 25);
-		p.circle(centerX, centerY, baselineCombatProfile.collision.contactRange * 2.8);
-	};
+		const drawArena = () => {
+			p.background(0);
+			p.noFill();
+			p.stroke(38, 38, 38);
+			p.strokeWeight(1);
+			p.circle(centerX, centerY, arenaRadius * 2);
+			p.stroke(25, 25, 25);
+			p.circle(centerX, centerY, baselineCombatProfile.collision.contactRange * 2.8);
+		};
 
-	const drawPixl = () => {
-		p.push();
-		p.noFill();
-		p.strokeWeight(2);
-		p.stroke(flashTimer > 0 ? 255 : 255, flashTimer > 0 ? 96 : 255, flashTimer > 0 ? 96 : 255);
-		p.circle(centerX, centerY, baselineCombatProfile.collision.pixlRadius * 2);
-		p.pop();
-	};
-
-	const drawProjectiles = () => {
-		p.push();
-		p.noStroke();
-		p.fill(255, 52, 52);
-		p.rectMode(p.CENTER);
-
-		for (const projectile of projectiles) {
-			p.square(projectile.x, projectile.y, PROJECTILE_SIZE);
-		}
-
-		p.pop();
-	};
-
-	const drawEnemies = () => {
-		for (const enemy of enemies) {
-			const visual = ENEMY_VISUALS[enemy.kind];
-
+		const drawPixl = () => {
 			p.push();
+			p.noFill();
+			p.strokeWeight(2);
+			p.stroke(flashTimer > 0 ? 255 : 255, flashTimer > 0 ? 96 : 255, flashTimer > 0 ? 96 : 255);
+			p.circle(centerX, centerY, baselineCombatProfile.collision.pixlRadius * 2);
+			p.pop();
+		};
 
-			if (visual.stroke) {
-				p.stroke(...visual.stroke);
-				p.strokeWeight(1.5);
-			} else {
-				p.noStroke();
-			}
+		const drawProjectiles = () => {
+			p.push();
+			p.noStroke();
+			p.fill(255, 52, 52);
+			p.rectMode(p.CENTER);
 
-			p.fill(
-				enemy.hitFlash > 0 ? 255 : visual.fill[0],
-				enemy.hitFlash > 0 ? 255 : visual.fill[1],
-				enemy.hitFlash > 0 ? 255 : visual.fill[2]
-			);
-
-			if (enemy.kind === 'swarmer') {
-				p.rectMode(p.CENTER);
-				p.square(enemy.x, enemy.y, visual.radius * 1.8);
-			} else {
-				p.circle(enemy.x, enemy.y, visual.radius * 2);
+			for (const projectile of projectiles) {
+				p.square(projectile.x, projectile.y, PROJECTILE_SIZE);
 			}
 
 			p.pop();
-		}
-	};
+		};
 
-	const drawHud = () => {
-		const healthRatio = health / pixlStats.health;
+		const drawEnemies = () => {
+			for (const enemy of enemies) {
+				const visual = ENEMY_VISUALS[enemy.kind];
 
-		p.push();
-		p.textFont('monospace');
-		p.textAlign(p.LEFT, p.TOP);
-		p.noStroke();
-		p.fill(255);
-		p.textSize(12);
-		p.text('PIXL INTRO', 18, 16);
-		p.fill(160);
-		p.text(`HP ${Math.ceil(health)} / ${pixlStats.health}`, 18, 38);
-		p.text(`DMG ${pixlStats.damage}`, 18, 56);
-		p.text(`AS ${pixlStats.attackSpeed.toFixed(1)} /s`, 18, 74);
-		p.text(`GOLD ${bankedGold}`, 18, 92);
-		p.text(`WAVE ${waveId}`, 18, 110);
+				p.push();
 
-		p.fill(255, 52, 52);
-		p.rect(18, 138, 180 * healthRatio, 6, 999);
-		p.noFill();
-		p.stroke(84);
-		p.rect(18, 138, 180, 6, 999);
+				if (visual.stroke) {
+					p.stroke(...visual.stroke);
+					p.strokeWeight(1.5);
+				} else {
+					p.noStroke();
+				}
 
-		p.noStroke();
-		p.fill(128);
-		p.text(
-			'base pixl preview  |  no campaign progression  |  placeholder glitch silhouettes',
-			18,
-			p.height - 28
-		);
-		p.pop();
-	};
+				p.fill(
+					enemy.hitFlash > 0 ? 255 : visual.fill[0],
+					enemy.hitFlash > 0 ? 255 : visual.fill[1],
+					enemy.hitFlash > 0 ? 255 : visual.fill[2]
+				);
 
-	p.setup = () => {
-		const { width, height } = getCanvasSize(canvas);
-		canvas = p.createCanvas(width, height).elt as HTMLCanvasElement;
-		updateArenaMetrics();
-	};
+				if (enemy.kind === 'swarmer') {
+					p.rectMode(p.CENTER);
+					p.square(enemy.x, enemy.y, visual.radius * 1.8);
+				} else {
+					p.circle(enemy.x, enemy.y, visual.radius * 2);
+				}
 
-	p.draw = () => {
-		const dt = Math.min(p.deltaTime / 1000, 0.05);
-		flashTimer = Math.max(0, flashTimer - dt);
-
-		if (resetTimer > 0) {
-			resetTimer -= dt;
-
-			if (resetTimer <= 0) {
-				resetLoop();
+				p.pop();
 			}
-		} else {
-			updateWave(dt);
-			updateEnemies(dt);
+		};
 
-			if (health > 0) {
-				updateProjectiles(dt);
+		const drawHud = () => {
+			const healthRatio = health / pixlStats.health;
+
+			p.push();
+			p.textFont('monospace');
+			p.textAlign(p.LEFT, p.TOP);
+			p.noStroke();
+			p.fill(255);
+			p.textSize(12);
+			p.text('PIXL INTRO', 18, 16);
+			p.fill(160);
+			p.text(`HP ${Math.ceil(health)} / ${pixlStats.health}`, 18, 38);
+			p.text(`DMG ${pixlStats.damage}`, 18, 56);
+			p.text(`AS ${pixlStats.attackSpeed.toFixed(1)} /s`, 18, 74);
+			p.text(`GOLD ${bankedGold}`, 18, 92);
+			p.text(`WAVE ${waveId}`, 18, 110);
+
+			p.fill(255, 52, 52);
+			p.rect(18, 138, 180 * healthRatio, 6, 999);
+			p.noFill();
+			p.stroke(84);
+			p.rect(18, 138, 180, 6, 999);
+
+			p.noStroke();
+			p.fill(128);
+			p.text(
+				'base pixl preview  |  no campaign progression  |  placeholder glitch silhouettes',
+				18,
+				p.height - 28
+			);
+			p.pop();
+		};
+
+		p.setup = () => {
+			const { width, height } = getCanvasSize(canvas);
+			canvas = p.createCanvas(width, height).elt as HTMLCanvasElement;
+			updateArenaMetrics();
+		};
+
+		p.draw = () => {
+			const dt = Math.min(p.deltaTime / 1000, 0.05);
+			flashTimer = Math.max(0, flashTimer - dt);
+
+			if (resetTimer > 0) {
+				resetTimer -= dt;
+
+				if (resetTimer <= 0) {
+					resetLoop();
+				}
+			} else {
+				updateWave(dt);
+				updateEnemies(dt);
+
+				if (health > 0) {
+					updateProjectiles(dt);
+				}
 			}
-		}
 
-		drawArena();
-		drawProjectiles();
-		drawEnemies();
-		drawPixl();
-		drawHud();
-	};
+			drawArena();
+			drawProjectiles();
+			drawEnemies();
+			drawPixl();
+			drawHud();
+		};
 
-	p.windowResized = () => {
-		const { width, height } = getCanvasSize(canvas);
-		p.resizeCanvas(width, height);
-		updateArenaMetrics();
+		p.windowResized = () => {
+			const { width, height } = getCanvasSize(canvas);
+			p.resizeCanvas(width, height);
+			updateArenaMetrics();
+		};
 	};
-	};
-
+}
 
 export const pixlIntroSketch = createPixlIntroSketch();
