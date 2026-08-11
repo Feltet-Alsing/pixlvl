@@ -2,4 +2,4 @@
 	import { resolve } from '$app/paths';
 </script>
 
-<a href={resolve('/auth')}>Top-level email auth flow</a>
+<a href={resolve('/auth/login')}>Email auth flow</a>

@@ -22,7 +22,7 @@
 </script>
 
 <svelte:head>
-	<title>Auth</title>
+	<title>Login</title>
 </svelte:head>
 
 <div class="page">

@@ -29,6 +29,20 @@ npm run dev
 npm run dev -- --open
 ```
 
+## Database setup
+
+The auth flow uses Better Auth with Drizzle on Postgres. To bootstrap the local database:
+
+```sh
+yarn run db:start
+```
+
+In a second terminal, generate the Better Auth tables into the Drizzle schema and push them to the database:
+
+```sh
+yarn run db:setup
+```
+
 ## Building
 
 To create a production version of your app:
