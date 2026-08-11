@@ -112,7 +112,9 @@ export function createCampaignSketch(
 			damage: options.pixlState?.damage ?? combatProfile.pixl.damage,
 			attackSpeed: options.pixlState?.attackSpeed ?? combatProfile.pixl.attackSpeed
 		};
-		const persistenceEnabled = Boolean(options.persistPath && options.pixlState && options.campaignState);
+		const persistenceEnabled = Boolean(
+			options.persistPath && options.pixlState && options.campaignState
+		);
 
 		let canvas: HTMLCanvasElement | null = null;
 		let currentLevelIndex = Math.max(
@@ -541,10 +543,7 @@ export function createCampaignSketch(
 							persistProgress(campaign.totalLevels);
 							startLevel(0);
 						} else {
-							highestUnlockedLevel = Math.max(
-								highestUnlockedLevel,
-								currentLevel.campaignLevel + 1
-							);
+							highestUnlockedLevel = Math.max(highestUnlockedLevel, currentLevel.campaignLevel + 1);
 							persistProgress(currentLevel.campaignLevel + 1);
 							startLevel(currentLevelIndex + 1);
 						}

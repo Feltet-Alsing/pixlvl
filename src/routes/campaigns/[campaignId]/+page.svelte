@@ -46,18 +46,25 @@
 					<div>
 						<span>Attack speed</span>
 						<strong>
-							{(persistedPixlState?.attackSpeed ?? data.combatProfile.pixl.attackSpeed).toFixed(1)}/s
+							{(persistedPixlState?.attackSpeed ?? data.combatProfile.pixl.attackSpeed).toFixed(
+								1
+							)}/s
 						</strong>
 					</div>
 					<div>
 						<span>{persistedPixlState ? 'Gold' : 'Projectile speed'}</span>
-						<strong>{persistedPixlState ? persistedPixlState.gold : data.combatProfile.projectileSpeed}</strong>
+						<strong
+							>{persistedPixlState
+								? persistedPixlState.gold
+								: data.combatProfile.projectileSpeed}</strong
+						>
 					</div>
 					{#if data.campaignState}
 						<div>
 							<span>Saved progression</span>
 							<strong>
-								Level {data.campaignState.currentLevel} · cleared {data.campaignState.highestClearedLevel}
+								Level {data.campaignState.currentLevel} · cleared {data.campaignState
+									.highestClearedLevel}
 							</strong>
 						</div>
 					{/if}
