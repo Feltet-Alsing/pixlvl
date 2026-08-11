@@ -12,7 +12,8 @@
 	const campaignsHref = resolve('/campaigns');
 	const campaignCount = Object.keys(campaigns).length;
 	let persistedPixlState = $derived(data.gameState?.pixlState ?? null);
-	const introSketch = createPixlIntroSketch({ pixlState: persistedPixlState });
+	const introSketch = (p: import('p5').default) =>
+		createPixlIntroSketch({ pixlState: data.gameState?.pixlState ?? null })(p);
 </script>
 
 <svelte:head>

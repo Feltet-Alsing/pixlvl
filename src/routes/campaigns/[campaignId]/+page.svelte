@@ -6,11 +6,12 @@
 
 	let { data }: { data: PageData } = $props();
 	let persistedPixlState = $derived(data.gameState?.pixlState ?? null);
-	const campaignSketch = createCampaignSketch(data.campaign, data.combatProfile, {
-		persistPath: '/api/game/state',
-		pixlState: data.gameState?.pixlState ?? null,
-		campaignState: data.campaignState ?? null
-	});
+	const campaignSketch = (p: import('p5').default) =>
+		createCampaignSketch(data.campaign, data.combatProfile, {
+			persistPath: '/api/game/state',
+			pixlState: data.gameState?.pixlState ?? null,
+			campaignState: data.campaignState ?? null
+		})(p);
 </script>
 
 <svelte:head>
