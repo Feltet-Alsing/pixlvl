@@ -11,7 +11,10 @@ const LEVEL_CLEAR_DELAY = 1.1;
 const LEVEL_RESET_DELAY = 1.2;
 const CAMPAIGN_LOOP_DELAY = 2.2;
 
-const ENEMY_VISUALS: Record<GlitchKind, { radius: number; fill: [number, number, number]; stroke?: [number, number, number] }> = {
+const ENEMY_VISUALS: Record<
+	GlitchKind,
+	{ radius: number; fill: [number, number, number]; stroke?: [number, number, number] }
+> = {
 	biter: {
 		radius: 8,
 		fill: [196, 196, 196]
@@ -229,7 +232,10 @@ export function campaign1Sketch(p: P5) {
 			const distance = Math.hypot(dx, dy) || 1;
 
 			if (distance > combatProfile.collision.contactRange) {
-				const step = Math.min(distance - combatProfile.collision.contactRange, stats.moveSpeed * dt);
+				const step = Math.min(
+					distance - combatProfile.collision.contactRange,
+					stats.moveSpeed * dt
+				);
 				enemy.x += (dx / distance) * step;
 				enemy.y += (dy / distance) * step;
 				continue;
@@ -394,7 +400,11 @@ export function campaign1Sketch(p: P5) {
 
 		p.noStroke();
 		p.fill(128);
-		p.text('white ring = pixl  |  red squares = shots  |  gray forms = placeholder glitches', 18, p.height - 28);
+		p.text(
+			'white ring = pixl  |  red squares = shots  |  gray forms = placeholder glitches',
+			18,
+			p.height - 28
+		);
 		p.pop();
 	};
 

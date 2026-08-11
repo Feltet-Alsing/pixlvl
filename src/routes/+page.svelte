@@ -33,8 +33,8 @@
 				</div>
 			{:else}
 				<p class="lede">
-					The front page is now a first-pass `p5` combat preview: centered hollow `pixl`, red
-					pixel shots, and placeholder `Glitches` running through `Campaign 1`.
+					The front page is now a first-pass `p5` combat preview: centered hollow `pixl`, red pixel
+					shots, and placeholder `Glitches` running through `Campaign 1`.
 				</p>
 				<div class="actions">
 					<a class="primary" href={loginHref}>Sign in to continue</a>
@@ -65,9 +65,7 @@
 		padding: 2rem;
 		display: grid;
 		place-items: center;
-		background:
-			radial-gradient(circle at top, rgba(255, 255, 255, 0.06), transparent 30%),
-			#020202;
+		background: radial-gradient(circle at top, rgba(255, 255, 255, 0.06), transparent 30%), #020202;
 	}
 
 	.shell {
