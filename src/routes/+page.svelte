@@ -1,13 +1,18 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { baselineCombatProfile, campaigns } from '$lib/data';
 	import type { PageServerData } from './$types';
 	import P5Canvas from '$lib/components/P5Canvas.svelte';
-	import { campaign1Sketch } from '$lib/p5/campaign-1-sketch';
+	import { createPixlIntroSketch } from '$lib/p5/pixl-intro-sketch';
 
 	let { data }: { data: PageServerData } = $props();
 
 	const loginHref = resolve('/auth/login');
 	const dashboardHref = resolve('/dashboard');
+	const campaignsHref = resolve('/campaigns');
+	const campaignCount = Object.keys(campaigns).length;
+	let persistedPixlState = $derived(data.gameState?.pixlState ?? null);
+	const introSketch = createPixlIntroSketch({ pixlState: persistedPixlState });
 </script>
 
 <svelte:head>
@@ -18,7 +23,33 @@
 	<section class="shell">
 		<div class="card copy">
 			<p class="eyebrow">pixlvl</p>
-			<h1>Campaign 1 is now a live combat draft.</h1>
+			<h1>Pixl intro and baseline combat profile.</h1>
+			<p class="lede">
+				A clean intro surface for the `pixl` itself before stepping into a campaign run.
+			</p>
+
+			<div class="stats-grid">
+				<div class="stat-tile">
+					<span>Health</span>
+					<strong>{persistedPixlState?.health ?? baselineCombatProfile.pixl.health}</strong>
+				</div>
+				<div class="stat-tile">
+					<span>Damage</span>
+					<strong>{persistedPixlState?.damage ?? baselineCombatProfile.pixl.damage}</strong>
+				</div>
+				<div class="stat-tile">
+					<span>Attack speed</span>
+					<strong>
+						{(persistedPixlState?.attackSpeed ?? baselineCombatProfile.pixl.attackSpeed).toFixed(
+							1
+						)}/s
+					</strong>
+				</div>
+				<div class="stat-tile">
+					<span>{persistedPixlState ? 'Gold' : 'Campaigns'}</span>
+					<strong>{persistedPixlState ? persistedPixlState.gold : campaignCount}</strong>
+				</div>
+			</div>
 
 			{#if data.user && data.session}
 				<p class="lede">
@@ -26,6 +57,7 @@
 				</p>
 				<p class="status">Session active</p>
 				<div class="actions">
+					<a class="primary" href={campaignsHref}>Choose campaign</a>
 					<a class="primary" href={dashboardHref}>Open dashboard</a>
 					<form method="post" action="?/signOut">
 						<button type="submit" class="secondary">Sign out</button>
@@ -33,10 +65,10 @@
 				</div>
 			{:else}
 				<p class="lede">
-					The front page is now a first-pass `p5` combat preview: centered hollow `pixl`, red pixel
-					shots, and placeholder `Glitches` running through `Campaign 1`.
+					This page showcases the base `pixl` loop without tying the preview to a full campaign run.
 				</p>
 				<div class="actions">
+					<a class="primary" href={campaignsHref}>Choose campaign</a>
 					<a class="primary" href={loginHref}>Sign in to continue</a>
 				</div>
 			{/if}
@@ -44,10 +76,10 @@
 
 		<div class="card canvas-panel">
 			<div class="canvas-copy">
-				<h2>Campaign 1 Preview</h2>
-				<p>Black field, white hollow `pixl`, red square shots, and temporary enemy silhouettes.</p>
+				<h2>Pixl Preview</h2>
+				<p>Centered white ring, red square shots, and looping placeholder glitches.</p>
 			</div>
-			<P5Canvas class="canvas-frame" sketch={campaign1Sketch} />
+			<P5Canvas class="canvas-frame" sketch={introSketch} />
 		</div>
 	</section>
 </div>
@@ -89,6 +121,33 @@
 		display: grid;
 		align-content: center;
 		gap: 1rem;
+	}
+
+	.stats-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.75rem;
+	}
+
+	.stat-tile {
+		padding: 0.9rem 1rem;
+		border-radius: 1rem;
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		background: rgba(255, 255, 255, 0.03);
+		display: grid;
+		gap: 0.35rem;
+	}
+
+	.stat-tile span {
+		font-size: 0.8rem;
+		font-weight: 700;
+		letter-spacing: 0.14em;
+		text-transform: uppercase;
+		color: #a3a3a3;
+	}
+
+	.stat-tile strong {
+		font-size: 1.15rem;
 	}
 
 	.eyebrow {
@@ -221,6 +280,10 @@
 
 		.copy {
 			padding: 1.5rem;
+		}
+
+		.stats-grid {
+			grid-template-columns: 1fr;
 		}
 	}
 </style>

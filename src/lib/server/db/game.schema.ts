@@ -1,0 +1,69 @@
+import { relations } from 'drizzle-orm';
+import {
+	boolean,
+	index,
+	integer,
+	pgTable,
+	primaryKey,
+	real,
+	text,
+	timestamp
+} from 'drizzle-orm/pg-core';
+
+import { user } from './auth.schema';
+
+export const pixlState = pgTable('pixl_state', {
+	userId: text('user_id')
+		.primaryKey()
+		.references(() => user.id, { onDelete: 'cascade' }),
+	gold: integer('gold').notNull().default(0),
+	health: integer('health').notNull(),
+	damage: integer('damage').notNull(),
+	attackSpeed: real('attack_speed').notNull(),
+	healthUpgrades: integer('health_upgrades').notNull().default(0),
+	damageUpgrades: integer('damage_upgrades').notNull().default(0),
+	attackSpeedUpgrades: integer('attack_speed_upgrades').notNull().default(0),
+	createdAt: timestamp('created_at').defaultNow().notNull(),
+	updatedAt: timestamp('updated_at')
+		.defaultNow()
+		.$onUpdate(() => new Date())
+		.notNull()
+});
+
+export const campaignProgress = pgTable(
+	'campaign_progress',
+	{
+		userId: text('user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		campaignId: integer('campaign_id').notNull(),
+		currentLevel: integer('current_level').notNull().default(1),
+		highestUnlockedLevel: integer('highest_unlocked_level').notNull().default(1),
+		highestClearedLevel: integer('highest_cleared_level').notNull().default(0),
+		completed: boolean('completed').notNull().default(false),
+		lastPlayedAt: timestamp('last_played_at').defaultNow().notNull(),
+		createdAt: timestamp('created_at').defaultNow().notNull(),
+		updatedAt: timestamp('updated_at')
+			.defaultNow()
+			.$onUpdate(() => new Date())
+			.notNull()
+	},
+	(table) => [
+		primaryKey({ columns: [table.userId, table.campaignId] }),
+		index('campaign_progress_user_id_idx').on(table.userId)
+	]
+);
+
+export const pixlStateRelations = relations(pixlState, ({ one }) => ({
+	user: one(user, {
+		fields: [pixlState.userId],
+		references: [user.id]
+	})
+}));
+
+export const campaignProgressRelations = relations(campaignProgress, ({ one }) => ({
+	user: one(user, {
+		fields: [campaignProgress.userId],
+		references: [user.id]
+	})
+}));
