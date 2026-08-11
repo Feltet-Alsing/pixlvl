@@ -2,7 +2,7 @@
 	import { resolve } from '$app/paths';
 	import type { PageServerData } from './$types';
 	import P5Canvas from '$lib/components/P5Canvas.svelte';
-	import { pulseSketch } from '$lib/p5/pulse-sketch';
+	import { campaign1Sketch } from '$lib/p5/campaign-1-sketch';
 
 	let { data }: { data: PageServerData } = $props();
 
@@ -18,7 +18,7 @@
 	<section class="shell">
 		<div class="card copy">
 			<p class="eyebrow">pixlvl</p>
-			<h1>Generative motion studies with a lightweight auth flow.</h1>
+			<h1>Campaign 1 is now a live combat draft.</h1>
 
 			{#if data.user && data.session}
 				<p class="lede">
@@ -33,8 +33,8 @@
 				</div>
 			{:else}
 				<p class="lede">
-					pixlvl pairs a compact SvelteKit app with a live p5 sketch for experimenting with visual
-					systems and authenticated tools.
+					The front page is now a first-pass `p5` combat preview: centered hollow `pixl`, red
+					pixel shots, and placeholder `Glitches` running through `Campaign 1`.
 				</p>
 				<div class="actions">
 					<a class="primary" href={loginHref}>Sign in to continue</a>
@@ -44,10 +44,10 @@
 
 		<div class="card canvas-panel">
 			<div class="canvas-copy">
-				<h2>Live sketch</h2>
-				<p>The landing page keeps the current pulse study in view as part of the front page.</p>
+				<h2>Campaign 1 Preview</h2>
+				<p>Black field, white hollow `pixl`, red square shots, and temporary enemy silhouettes.</p>
 			</div>
-			<P5Canvas class="canvas-frame" sketch={pulseSketch} />
+			<P5Canvas class="canvas-frame" sketch={campaign1Sketch} />
 		</div>
 	</section>
 </div>
@@ -55,8 +55,8 @@
 <style>
 	:global(body) {
 		margin: 0;
-		background: #f8f5ef;
-		color: #111827;
+		background: #020202;
+		color: #f5f5f5;
 		font-family: 'IBM Plex Sans', 'Avenir Next', sans-serif;
 	}
 
@@ -65,6 +65,9 @@
 		padding: 2rem;
 		display: grid;
 		place-items: center;
+		background:
+			radial-gradient(circle at top, rgba(255, 255, 255, 0.06), transparent 30%),
+			#020202;
 	}
 
 	.shell {
@@ -76,10 +79,10 @@
 	}
 
 	.card {
-		background: rgba(255, 255, 255, 0.82);
-		border: 1px solid rgba(148, 163, 184, 0.28);
+		background: rgba(10, 10, 10, 0.92);
+		border: 1px solid rgba(255, 255, 255, 0.08);
 		border-radius: 1.25rem;
-		box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+		box-shadow: 0 24px 60px rgba(0, 0, 0, 0.42);
 		backdrop-filter: blur(12px);
 	}
 
@@ -96,7 +99,7 @@
 		font-weight: 700;
 		letter-spacing: 0.16em;
 		text-transform: uppercase;
-		color: #475569;
+		color: #a3a3a3;
 	}
 
 	h1,
@@ -117,7 +120,7 @@
 	.canvas-copy p {
 		font-size: 1rem;
 		line-height: 1.6;
-		color: #475569;
+		color: #c4c4c4;
 	}
 
 	.status {
@@ -127,8 +130,8 @@
 		width: fit-content;
 		padding: 0.45rem 0.75rem;
 		border-radius: 999px;
-		background: rgba(37, 99, 235, 0.1);
-		color: #1d4ed8;
+		background: rgba(255, 255, 255, 0.08);
+		color: #f5f5f5;
 		font-weight: 600;
 	}
 
@@ -169,14 +172,14 @@
 	}
 
 	.primary {
-		background: #111827;
-		color: #ffffff;
+		background: #ffffff;
+		color: #020202;
 	}
 
 	.secondary {
-		border: 1px solid rgba(15, 23, 42, 0.14);
-		background: #ffffff;
-		color: #111827;
+		border: 1px solid rgba(255, 255, 255, 0.18);
+		background: transparent;
+		color: #f5f5f5;
 		cursor: pointer;
 	}
 
@@ -199,8 +202,8 @@
 	:global(.canvas-frame) {
 		overflow: hidden;
 		border-radius: 1rem;
-		border: 1px solid rgba(148, 163, 184, 0.24);
-		background: #f4f1eb;
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		background: #000000;
 	}
 
 	:global(.canvas-frame canvas) {
