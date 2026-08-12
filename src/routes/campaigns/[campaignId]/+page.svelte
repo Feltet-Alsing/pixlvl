@@ -12,7 +12,7 @@
 		getUpgradeOptions,
 		isUpgradeKey
 	} from '$lib/game/upgrades';
-	import type { WeaponDefinition } from '$lib/data/types';
+	import type { OwnedWeaponInstance, WeaponDefinition } from '$lib/data/types';
 	import type { PageProps } from './$types';
 
 	type LocalRunMode = 'management' | 'combat';
@@ -62,7 +62,8 @@
 		maxPixlHealth: number;
 		bankedXp: number;
 		waveXp: number;
-		waveDrops: number;
+		waveDrops: OwnedWeaponInstance[];
+		statusTimerRemaining: number;
 		remainingEnemies: number;
 		composition: {
 			biters: number;
@@ -70,6 +71,14 @@
 			tankers: number;
 		};
 		status: 'running' | 'cleared' | 'defeated' | 'complete';
+	}
+
+	interface RewardDropRow {
+		instanceId: string;
+		definitionId: string;
+		name: string;
+		rarity: WeaponDefinition['rarity'];
+		isNew: boolean;
 	}
 
 	interface LoadoutRow {
@@ -108,7 +117,8 @@
 			maxPixlHealth,
 			bankedXp: pageData.gameState?.pixlState.xp ?? 0,
 			waveXp: 0,
-			waveDrops: 0,
+			waveDrops: [],
+			statusTimerRemaining: 0,
 			remainingEnemies: composition.biters + composition.swarmers + composition.tankers,
 			composition,
 			status: 'running'
@@ -119,6 +129,7 @@
 	let runMode = $state<LocalRunMode>('combat');
 	let showStatsOverlay = $state(false);
 	let showStageDrawer = $state(false);
+	let skipResultsSignal = $state(0);
 	let pixlStateOverride = $state.raw<PixlStateOverride | null>(null);
 	let campaignStateOverride = $state.raw<CampaignStateOverride | null>(null);
 	let livePixlState: LivePixlState | null = $derived.by(() => {
@@ -227,12 +238,41 @@
 		combatOverlay.maxPixlHealth > 0 ? combatOverlay.pixlHealth / combatOverlay.maxPixlHealth : 0
 	);
 	let combatStatusLabel = $derived.by(() => {
-		if (combatOverlay.status === 'running') return null;
+		if (combatOverlay.status === 'running' || combatOverlay.status === 'cleared') return null;
 		if (combatOverlay.status === 'defeated') return 'PIXL DOWN';
-		if (combatOverlay.status === 'complete') return `CAMPAIGN ${data.campaign.campaign} COMPLETE`;
-		return 'LEVEL CLEAR';
+		if (combatOverlay.status === 'complete') return null;
+		return null;
 	});
 	let combatStatusTone = $derived(combatOverlay.status === 'defeated' ? 'danger' : 'neutral');
+	let ownedDefinitionIdsBeforeDrops = $derived.by(() => {
+		return new Set(ownedWeapons.map((weapon) => weapon.definitionId));
+	});
+	let rewardDropRows = $derived.by(() => {
+		return combatOverlay.waveDrops
+			.map((weapon) => {
+				const definition = weaponDefinitionById[weapon.definitionId];
+
+				if (!definition) {
+					return null;
+				}
+
+				return {
+					instanceId: weapon.instanceId,
+					definitionId: definition.id,
+					name: definition.name,
+					rarity: definition.rarity,
+					isNew: !ownedDefinitionIdsBeforeDrops.has(definition.id)
+				} satisfies RewardDropRow;
+			})
+			.filter((entry): entry is RewardDropRow => entry !== null);
+	});
+	let showResultsPopup = $derived(
+		combatOverlay.status === 'cleared' || combatOverlay.status === 'complete'
+	);
+	let resultsCountdownLabel = $derived.by(() => {
+		const secondsRemaining = Math.max(0, Math.ceil(combatOverlay.statusTimerRemaining));
+		return `Auto-continue in ${secondsRemaining}s`;
+	});
 	let loadoutTooltip = $derived(
 		currentLoadoutRows.map((weapon) => `${weapon.name} (${weapon.x}, ${weapon.y})`).join('\n') ||
 			'No equipped weapons'
@@ -249,6 +289,7 @@
 		combatOverlayOverride = null;
 		showStatsOverlay = false;
 		showStageDrawer = false;
+		skipResultsSignal = 0;
 	});
 
 	$effect(() => {
@@ -370,6 +411,7 @@
 				showLoadoutSketch: false,
 				pixlState: livePixlState ?? data.gameState?.pixlState ?? null,
 				campaignState: liveCampaignState ?? data.campaignState ?? null,
+				getSkipResultsSignal: () => skipResultsSignal,
 				onCombatStateChange: handleCombatStateChange,
 				onStateChange: handleSketchStateChange
 			})(p);
@@ -575,6 +617,46 @@
 					</div>
 				{/if}
 
+				{#if showResultsPopup}
+					<div class="overlay results-popup" aria-live="polite">
+						<div class="results-popup-header compact-heading">
+							<p class="eyebrow">Level rewards</p>
+							<p class="results-context">
+								Campaign {data.campaign.campaign} · Stage {combatOverlay.stage} · Level {combatOverlay.stageLevel}
+							</p>
+						</div>
+
+						{#if rewardDropRows.length > 0}
+							<div class="results-drop-list">
+								{#each rewardDropRows as drop (drop.instanceId)}
+									<div class={`summary-row results-drop-row rarity-${drop.rarity}`}>
+										<div class="results-drop-copy">
+											<strong>{drop.name}</strong>
+											<span>{drop.rarity}</span>
+										</div>
+										<strong class:results-tag-new={drop.isNew} class="results-tag">
+											{drop.isNew ? 'New' : 'Duplicate'}
+										</strong>
+									</div>
+								{/each}
+							</div>
+						{:else}
+							<p class="results-empty">No weapon drops were earned this level.</p>
+						{/if}
+
+						<div class="results-popup-footer">
+							<p class="results-countdown">{resultsCountdownLabel}</p>
+							<button
+								class="toggle results-skip"
+								type="button"
+								onclick={() => (skipResultsSignal += 1)}
+							>
+								Skip
+							</button>
+						</div>
+					</div>
+				{/if}
+
 				<div class="overlay combat-panel">
 					<p class="combat-title">
 						Campaign {data.campaign.campaign} · Stage {combatOverlay.stage} · Level {combatOverlay.stageLevel}
@@ -594,7 +676,7 @@
 						</div>
 						<div>
 							<span>Wave drops</span>
-							<strong>{combatOverlay.waveDrops}</strong>
+							<strong>{combatOverlay.waveDrops.length}</strong>
 						</div>
 						<div>
 							<span>Remaining</span>
@@ -1065,6 +1147,71 @@
 		color: #f5f5f5;
 	}
 
+	.results-popup {
+		grid-column: 1;
+		grid-row: 2;
+		justify-self: center;
+		align-self: center;
+		width: min(28rem, calc(100vw - 2rem));
+		padding: 1rem;
+		display: grid;
+		gap: 0.9rem;
+		text-align: left;
+	}
+
+	.results-popup-header,
+	.results-popup-footer,
+	.results-drop-copy {
+		display: grid;
+		gap: 0.2rem;
+	}
+
+	.results-context,
+	.results-countdown,
+	.results-drop-copy span,
+	.results-empty {
+		color: #cfcfcf;
+	}
+
+	.results-drop-list {
+		display: grid;
+		gap: 0.6rem;
+	}
+
+	.results-drop-row {
+		align-items: center;
+	}
+
+	.results-drop-copy strong {
+		font-size: 1rem;
+	}
+
+	.results-drop-copy span,
+	.results-tag,
+	.results-countdown {
+		font-size: 0.82rem;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+	}
+
+	.results-tag {
+		color: #bfbfbf;
+	}
+
+	.results-tag-new {
+		color: #c9f8cc;
+	}
+
+	.results-popup-footer {
+		grid-template-columns: minmax(0, 1fr) auto;
+		align-items: center;
+		gap: 0.75rem;
+	}
+
+	.results-skip {
+		justify-self: end;
+	}
+
 	.placement-row.active {
 		border-color: rgba(103, 217, 111, 0.42);
 		background: rgba(103, 217, 111, 0.12);
@@ -1221,6 +1368,10 @@
 			justify-self: center;
 			align-self: start;
 			margin-top: 0;
+		}
+
+		.results-popup {
+			width: min(100%, 28rem);
 		}
 
 		.campaign-drawer {

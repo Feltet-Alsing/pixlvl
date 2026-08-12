@@ -271,7 +271,6 @@
 		return cells;
 	});
 	let visiblePlacedWeapons = $derived(loadoutWeapons);
-	let isDraggingWeapon = $derived(Boolean(draggedWeaponInstanceId));
 	let previewCellStateByKey = $derived.by(() => {
 		const preview: Record<string, 'valid' | 'invalid'> = {};
 
@@ -305,12 +304,16 @@
 	);
 	let equippedDamagePerCycle = $derived(
 		loadoutWeapons.reduce(
-			(total, weapon) => total + weapon.baseDamage * weapon.attack.projectileCount,
+			(total, weapon) =>
+				total + weapon.baseDamage * weapon.attack.projectileCount * getWeaponCycleRate(weapon),
 			0
 		)
 	);
 	let equippedProjectilesPerCycle = $derived(
-		loadoutWeapons.reduce((total, weapon) => total + weapon.attack.projectileCount, 0)
+		loadoutWeapons.reduce(
+			(total, weapon) => total + weapon.attack.projectileCount * getWeaponCycleRate(weapon),
+			0
+		)
 	);
 	let hiddenSketchPixlState = $derived.by(() => {
 		const source = livePixlState ?? data.gameState?.pixlState ?? null;
@@ -551,6 +554,25 @@
 		draggedWeaponAnchor = null;
 		hoveredGridOrigin = null;
 		isInventoryDropTargetActive = false;
+	}
+
+	function getGridCellFromPoint(event: DragEvent): GridCell | null {
+		for (const element of document.elementsFromPoint(event.clientX, event.clientY)) {
+			if (!(element instanceof HTMLElement) || !element.classList.contains('grid-cell')) {
+				continue;
+			}
+
+			const x = Number(element.dataset.gridX);
+			const y = Number(element.dataset.gridY);
+
+			if (!Number.isInteger(x) || !Number.isInteger(y)) {
+				continue;
+			}
+
+			return { x, y, key: getGridCellKey(x, y) };
+		}
+
+		return null;
 	}
 
 	function isPointWithinElementBounds(element: HTMLElement, x: number, y: number) {
@@ -807,6 +829,26 @@
 		beginWeaponDrag(event, weapon.weaponInstanceId, getPlacedWeaponDragAnchor(event, weapon.shape));
 	}
 
+	function handlePlacedWeaponDragOver(event: DragEvent) {
+		const cell = getGridCellFromPoint(event);
+
+		if (!cell) {
+			return;
+		}
+
+		handleGridDragOver(event, cell);
+	}
+
+	function handlePlacedWeaponDrop(event: DragEvent) {
+		const cell = getGridCellFromPoint(event);
+
+		if (!cell) {
+			return;
+		}
+
+		handleGridDrop(event, cell);
+	}
+
 	function beginInventoryWeaponDrag(event: DragEvent, weapon: InventoryWeapon) {
 		const target = event.currentTarget;
 		const defaultAnchor = getDefaultDragAnchor(weapon.shape);
@@ -853,6 +895,10 @@
 		return `${group.availableCount} ready, ${group.equippedCount} equipped`;
 	}
 
+	function getWeaponCycleRate(weapon: Pick<LoadoutWeapon, 'attack'>) {
+		return 1 / Math.max(1, weapon.attack.cycleInterval ?? 1);
+	}
+
 	function formatAttackLabel(kind: WeaponDefinition['attack']['kind']) {
 		switch (kind) {
 			case 'single':
@@ -868,6 +914,15 @@
 
 	function formatRarityLabel(rarity: WeaponDefinition['rarity']) {
 		return `${rarity.slice(0, 1).toUpperCase()}${rarity.slice(1)}`;
+	}
+
+	function formatCycleAverage(value: number) {
+		return Number.isInteger(value)
+			? value.toString()
+			: value.toLocaleString(undefined, {
+					minimumFractionDigits: 0,
+					maximumFractionDigits: 2
+				});
 	}
 </script>
 
@@ -972,11 +1027,11 @@
 					</div>
 					<div class="loadout-summary-card">
 						<span>Damage / cycle</span>
-						<strong>{equippedDamagePerCycle}</strong>
+						<strong>{formatCycleAverage(equippedDamagePerCycle)}</strong>
 					</div>
 					<div class="loadout-summary-card">
 						<span>Projectiles / cycle</span>
-						<strong>{equippedProjectilesPerCycle}</strong>
+						<strong>{formatCycleAverage(equippedProjectilesPerCycle)}</strong>
 					</div>
 					<div class="loadout-summary-card">
 						<span>Weapons equipped</span>
@@ -1042,6 +1097,8 @@
 						{#each gridCells as cell (cell.key)}
 							<div
 								class="grid-cell"
+								data-grid-x={cell.x}
+								data-grid-y={cell.y}
 								role="gridcell"
 								tabindex="-1"
 								aria-label={`Loadout cell ${cell.x}, ${cell.y}`}
@@ -1056,7 +1113,6 @@
 
 					<div
 						class="placed-weapons-layer"
-						class:drag-pass-through={isDraggingWeapon}
 						style:grid-template-columns={loadoutGridTemplateColumns}
 						style:grid-template-rows={loadoutGridTemplateRows}
 					>
@@ -1067,6 +1123,8 @@
 								draggable="true"
 								class:dragging={draggedWeaponInstanceId === weapon.weaponInstanceId}
 								style={getWeaponGridArea(weapon)}
+								ondragover={handlePlacedWeaponDragOver}
+								ondrop={handlePlacedWeaponDrop}
 								ondragstart={(event) => beginPlacedWeaponDrag(event, weapon)}
 								ondragend={handleWeaponDragEnd}
 								title={`${weapon.name} at ${weapon.x}, ${weapon.y}`}
@@ -1491,10 +1549,6 @@
 	.placed-weapons-layer {
 		position: absolute;
 		inset: 0;
-		pointer-events: auto;
-	}
-
-	.placed-weapons-layer.drag-pass-through {
 		pointer-events: none;
 	}
 

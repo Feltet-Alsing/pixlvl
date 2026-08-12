@@ -24,9 +24,9 @@ const BASE_HEIGHT = 520;
 const FIXED_ARENA_RADIUS = BASE_HEIGHT * 0.42;
 const LOADOUT_ROW_COUNT = 5;
 const LOADOUT_COLUMN_COUNT = 8;
-const LEVEL_CLEAR_DELAY = 1.1;
+const LEVEL_CLEAR_DELAY = 15;
 const LEVEL_RESET_DELAY = 1.2;
-const CAMPAIGN_LOOP_DELAY = 2.2;
+const CAMPAIGN_LOOP_DELAY = 15;
 
 const PROJECTILE_SIZE_BY_VISUAL: Record<WeaponProjectileSize, number> = {
 	small: 5,
@@ -165,7 +165,8 @@ interface CampaignSketchOptions {
 		maxPixlHealth: number;
 		bankedXp: number;
 		waveXp: number;
-		waveDrops: number;
+		waveDrops: OwnedWeaponInstance[];
+		statusTimerRemaining: number;
 		remainingEnemies: number;
 		composition: {
 			biters: number;
@@ -174,6 +175,7 @@ interface CampaignSketchOptions {
 		};
 		status: WaveStatus;
 	}) => void;
+	getSkipResultsSignal?: () => number;
 	onStateChange?: (state: {
 		xp: number;
 		level: number;
@@ -344,6 +346,7 @@ export function createCampaignSketch(
 		let highestUnlockedLevel = options.campaignState?.highestUnlockedLevel ?? currentLevelIndex + 1;
 		let completed = options.campaignState?.completed ?? false;
 		let lastCombatStateKey = '';
+		let lastSkipResultsSignal = options.getSkipResultsSignal?.() ?? 0;
 
 		const persistProgress = (nextCurrentLevel: number) => {
 			options.onStateChange?.({
@@ -435,7 +438,8 @@ export function createCampaignSketch(
 				maxPixlHealth: pixlProgression.health,
 				bankedXp,
 				waveXp,
-				waveDrops: waveDrops.length,
+				waveDrops,
+				statusTimerRemaining: status === 'running' ? 0 : Math.max(0, statusTimer),
 				remainingEnemies: enemies.length + spawnQueue.length,
 				composition: {
 					biters: currentLevel.composition.biters,
@@ -453,6 +457,10 @@ export function createCampaignSketch(
 
 			lastCombatStateKey = nextKey;
 			options.onCombatStateChange?.(combatState);
+		};
+
+		const getWeaponDropChance = (weapon: WeaponDefinition) => {
+			return Math.max(0, weapon.drop.perLevelDropChance ?? weapon.drop.perEnemyDropChance ?? 0);
 		};
 
 		const syncCanvasSize = () => {
@@ -509,7 +517,7 @@ export function createCampaignSketch(
 			}
 		};
 
-		const rollWeaponDrop = () => {
+		const rollLevelDrops = () => {
 			const eligibleDrops = weaponPool.filter((weapon) => {
 				if (weapon.drop.mode !== 'drop') {
 					return false;
@@ -527,32 +535,30 @@ export function createCampaignSketch(
 					return false;
 				}
 
-				if (weapon.drop.perEnemyDropChance === undefined || weapon.drop.perEnemyDropChance <= 0) {
+				if (getWeaponDropChance(weapon) <= 0) {
 					return false;
 				}
 
 				return true;
 			});
 
-			const successfulDrops = eligibleDrops.filter(
-				(weapon) => p.random() < (weapon.drop.perEnemyDropChance ?? 0)
-			);
+			return eligibleDrops.flatMap((weapon) => {
+				if (p.random() >= getWeaponDropChance(weapon)) {
+					return [];
+				}
 
-			if (successfulDrops.length === 0) {
-				return null;
-			}
-
-			const droppedWeapon = successfulDrops[Math.floor(p.random(successfulDrops.length))];
-
-			return {
-				instanceId: createWeaponInstanceId(Math.floor(p.random(1_000_000_000))),
-				definitionId: droppedWeapon.id,
-				source: 'drop',
-				acquiredAt: new Date().toISOString(),
-				campaignId: campaign.campaign,
-				stage: currentLevel.stage,
-				level: currentLevel.campaignLevel
-			} satisfies OwnedWeaponInstance;
+				return [
+					{
+						instanceId: createWeaponInstanceId(Math.floor(p.random(1_000_000_000))),
+						definitionId: weapon.id,
+						source: 'drop',
+						acquiredAt: new Date().toISOString(),
+						campaignId: campaign.campaign,
+						stage: currentLevel.stage,
+						level: currentLevel.campaignLevel
+					} satisfies OwnedWeaponInstance
+				];
+			});
 		};
 
 		const spawnEnemy = (kind: GlitchKind) => {
@@ -599,11 +605,6 @@ export function createCampaignSketch(
 			}
 
 			waveXp += currentLevel.xpPerEnemy[defeatedEnemy.kind];
-			const droppedWeapon = rollWeaponDrop();
-
-			if (droppedWeapon) {
-				waveDrops = [...waveDrops, droppedWeapon];
-			}
 
 			enemies.splice(enemyIndex, 1);
 		};
@@ -829,8 +830,23 @@ export function createCampaignSketch(
 		};
 
 		const markCleared = () => {
+			waveDrops = rollLevelDrops();
 			status = currentLevelIndex === levels.length - 1 ? 'complete' : 'cleared';
 			statusTimer = status === 'complete' ? CAMPAIGN_LOOP_DELAY : LEVEL_CLEAR_DELAY;
+		};
+
+		const applySkipResultsSignal = () => {
+			const nextSkipResultsSignal = options.getSkipResultsSignal?.() ?? 0;
+
+			if (nextSkipResultsSignal === lastSkipResultsSignal) {
+				return;
+			}
+
+			lastSkipResultsSignal = nextSkipResultsSignal;
+
+			if (status === 'cleared' || status === 'complete') {
+				statusTimer = 0;
+			}
 		};
 
 		const markDefeated = () => {
@@ -1265,6 +1281,7 @@ export function createCampaignSketch(
 		p.draw = () => {
 			const dt = Math.min(p.deltaTime / 1000, 0.05);
 			pixlFlash = Math.max(0, pixlFlash - dt);
+			applySkipResultsSignal();
 
 			syncCanvasSize();
 			if (runMode === 'combat' && status === 'running') {

@@ -65,7 +65,7 @@
 			"campaignId": 1,
 			"stageStart": 1,
 			"stageEnd": 3,
-			"perEnemyDropChance": 0.02
+			"perLevelDropChance": 0.22
 		},
 		"role": "Early high-impact burst upgrade over the starter weapon"
 	},
@@ -100,7 +100,7 @@
 			"campaignId": 1,
 			"stageStart": 1,
 			"stageEnd": 5,
-			"perEnemyDropChance": 0.04
+			"perLevelDropChance": 0.28
 		},
 		"role": "Compact efficient filler for tight loadouts"
 	},
@@ -137,7 +137,7 @@
 			"campaignId": 1,
 			"stageStart": 2,
 			"stageEnd": 5,
-			"perEnemyDropChance": 0.01
+			"perLevelDropChance": 0.14
 		},
 		"role": "Early spread-shot weapon that improves wave clear"
 	},
@@ -179,7 +179,7 @@
 			"campaignId": 1,
 			"stageStart": 4,
 			"stageEnd": 5,
-			"perEnemyDropChance": 0.0035
+			"perLevelDropChance": 0.06
 		},
 		"role": "Oversized premium weapon that trades space for high single-hit output"
 	}

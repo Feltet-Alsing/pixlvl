@@ -87,6 +87,7 @@ export interface WeaponDropConfig {
 	campaignId?: number;
 	stageStart?: number;
 	stageEnd?: number;
+	perLevelDropChance?: number;
 	perEnemyDropChance?: number;
 }
 

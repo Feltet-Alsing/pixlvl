@@ -53,7 +53,7 @@ export const campaign2Weapons: WeaponDefinition[] = [
 			campaignId: 2,
 			stageStart: 3,
 			stageEnd: 5,
-			perEnemyDropChance: 0.0045
+			perLevelDropChance: 0.06
 		},
 		role: 'Expanding 360 wave that detonates outward from the pixl and pulses once every three sweep cycles'
 	},
@@ -98,7 +98,7 @@ export const campaign2Weapons: WeaponDefinition[] = [
 			campaignId: 2,
 			stageStart: 2,
 			stageEnd: 5,
-			perEnemyDropChance: 0.0085
+			perLevelDropChance: 0.03
 		},
 		role: 'Legendary rotating beam that takes longer to complete a full accelerating sweep around the pixl'
 	},
@@ -140,7 +140,7 @@ export const campaign2Weapons: WeaponDefinition[] = [
 			campaignId: 2,
 			stageStart: 2,
 			stageEnd: 5,
-			perEnemyDropChance: 0.009
+			perLevelDropChance: 0.11
 		},
 		role: 'Chain-hit projectile that bounces through the nearest enemies before dissipating'
 	},
@@ -179,7 +179,7 @@ export const campaign2Weapons: WeaponDefinition[] = [
 			campaignId: 2,
 			stageStart: 1,
 			stageEnd: 2,
-			perEnemyDropChance: 0.02
+			perLevelDropChance: 0.18
 		},
 		role: 'Early fan-fire weapon with a brighter projectile profile than the baseline campaign'
 	},
@@ -220,7 +220,7 @@ export const campaign2Weapons: WeaponDefinition[] = [
 			campaignId: 2,
 			stageStart: 1,
 			stageEnd: 4,
-			perEnemyDropChance: 0.012
+			perLevelDropChance: 0.14
 		},
 		role: 'Fast single-shot piercer tuned for picking off priority targets in dense waves'
 	},
@@ -257,7 +257,7 @@ export const campaign2Weapons: WeaponDefinition[] = [
 			campaignId: 2,
 			stageStart: 1,
 			stageEnd: 5,
-			perEnemyDropChance: 0.028
+			perLevelDropChance: 0.26
 		},
 		role: 'Compact twin-shot filler that keeps up with the faster sweep tempo'
 	},
@@ -301,7 +301,7 @@ export const campaign2Weapons: WeaponDefinition[] = [
 			campaignId: 2,
 			stageStart: 2,
 			stageEnd: 5,
-			perEnemyDropChance: 0.0075
+			perLevelDropChance: 0.09
 		},
 		role: 'Mid-campaign scatter weapon built to light up wider enemy packs'
 	},
@@ -343,7 +343,7 @@ export const campaign2Weapons: WeaponDefinition[] = [
 			campaignId: 2,
 			stageStart: 3,
 			stageEnd: 5,
-			perEnemyDropChance: 0.006
+			perLevelDropChance: 0.08
 		},
 		role: 'Heavy paired volley that makes the projectile animation read larger on screen'
 	},
@@ -390,7 +390,7 @@ export const campaign2Weapons: WeaponDefinition[] = [
 			campaignId: 2,
 			stageStart: 4,
 			stageEnd: 5,
-			perEnemyDropChance: 0.0025
+			perLevelDropChance: 0.02
 		},
 		role: 'Endgame spread battery that trades footprint for the flashiest projectile burst in the game'
 	}
