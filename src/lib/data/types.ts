@@ -6,6 +6,14 @@ export type WeaponAttackKind = 'single' | 'dual' | 'spread';
 
 export type WeaponProjectileSize = 'small' | 'medium' | 'large';
 
+export type WeaponProjectileShape = 'square' | 'diamond' | 'orb' | 'spark';
+
+export type WeaponTrailStyle = 'none' | 'streak' | 'pulse';
+
+export type WeaponProjectileMotion = 'straight' | 'wave' | 'accelerate';
+
+export type WeaponSpecialAttackKind = 'force-field' | 'laser-sweep' | 'ricochet';
+
 export interface PixlBaseStats {
 	health: number;
 	attackSpeed: number;
@@ -41,12 +49,36 @@ export interface WeaponShape {
 export interface WeaponProjectileVisual {
 	color: string;
 	size: WeaponProjectileSize;
+	shape?: WeaponProjectileShape;
+	trail?: WeaponTrailStyle;
+	glow?: boolean;
 }
 
 export interface WeaponAttackBehavior {
 	kind: WeaponAttackKind;
 	projectileCount: number;
+	cycleInterval?: number;
 	spreadDegrees?: number;
+	motion?: WeaponProjectileMotion;
+	pierceCount?: number;
+	impactRadius?: number;
+	special?:
+		| {
+				type: 'force-field';
+				maxRadius: number;
+				expansionSpeed: number;
+				lineWidth: number;
+		  }
+		| {
+				type: 'laser-sweep';
+				duration: number;
+				beamLength: number;
+				beamWidth: number;
+		  }
+		| {
+				type: 'ricochet';
+				bounceCount: number;
+		  };
 	targeting: 'current-target';
 }
 

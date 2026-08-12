@@ -5,6 +5,17 @@
 
 	let { data }: { data: PageData } = $props();
 	const campaignList = Object.values(campaigns);
+	const campaignCardContent: Record<number, { title: string; description: string }> = {
+		1: {
+			title: 'Stage-based survival draft',
+			description: 'Baseline progression, steady density ramp, and the original weapon set.'
+		},
+		2: {
+			title: 'Weapons lab escalation',
+			description:
+				'A harsher ramp with faster enemy growth and a flashier projectile-focused drop pool.'
+		}
+	};
 </script>
 
 <svelte:head>
@@ -24,9 +35,11 @@
 		<div class="grid">
 			{#each campaignList as campaign (campaign.campaign)}
 				{@const progress = data.progressByCampaign[campaign.campaign]}
+				{@const card = campaignCardContent[campaign.campaign]}
 				<a class="campaign-card" href={resolve(`/campaigns/${campaign.campaign}`)}>
 					<p class="label">Campaign {campaign.campaign}</p>
-					<h2>Stage-based survival draft</h2>
+					<h2>{card?.title ?? 'Campaign run'}</h2>
+					<p>{card?.description ?? 'Pick a campaign and enter the arena.'}</p>
 					<p>
 						{campaign.stages} stages · {campaign.totalLevels} levels · profile {campaign.combatProfile}
 					</p>

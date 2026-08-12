@@ -152,9 +152,7 @@
 	);
 	let overlayUpgradeOptions = $derived(getUpgradeOptions(upgradeState));
 	let weaponDefinitionById = $derived(
-		Object.fromEntries(
-			data.weaponPool.map((weapon) => [weapon.id, weapon] satisfies [string, WeaponDefinition])
-		) as Record<string, WeaponDefinition>
+		data.weaponDefinitionsById as Record<string, WeaponDefinition>
 	);
 	let ownedWeapons = $derived(livePixlState?.ownedWeapons ?? []);
 	let loadoutPlacements = $derived(livePixlState?.loadoutPlacements ?? []);
@@ -932,7 +930,7 @@
 	}
 
 	.summary-row.rarity-legendary {
-		border-color: rgba(179, 132, 62, 0.28);
+		border-color: rgba(170, 104, 48, 0.34);
 	}
 
 	.upgrade-level {

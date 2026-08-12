@@ -1,5 +1,5 @@
-import campaign1WeaponsJson from './campaign-1.json';
+import { campaign1Weapons } from './campaign-1';
+import { campaign2Weapons } from './campaign-2';
 
-import type { WeaponDefinition } from '$lib/data/types';
-
-export const campaign1Weapons = campaign1WeaponsJson as WeaponDefinition[];
+export { campaign2Weapons };
+export { campaign1Weapons };

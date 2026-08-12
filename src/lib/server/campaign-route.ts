@@ -4,7 +4,8 @@ import {
 	getCampaign,
 	getCampaignCombatProfile,
 	getCampaignWeaponPool,
-	getWeaponDefinition
+	getWeaponDefinition,
+	weaponDefinitions
 } from '$lib/data';
 import { applyUpgradePurchase, isUpgradeKey } from '$lib/game/upgrades';
 import {
@@ -47,6 +48,7 @@ export async function loadCampaignRouteData(
 		campaign,
 		combatProfile,
 		weaponPool,
+		weaponDefinitionsById: weaponDefinitions,
 		gameState,
 		campaignState,
 		notificationCounts: getCampaignRouteNotificationCounts(gameState?.pixlState)
@@ -129,6 +131,7 @@ function validateLoadoutPlacements(
 ): { ok: true } | { ok: false; error: string } {
 	const ownedWeaponById = buildOwnedWeaponById(ownedWeapons);
 	const seenWeaponInstanceIds = new Set<string>();
+	const equippedLegendaryDefinitionIds = new Set<string>();
 
 	for (const placement of placements) {
 		if (seenWeaponInstanceIds.has(placement.weaponInstanceId)) {
@@ -148,6 +151,17 @@ function validateLoadoutPlacements(
 		}
 
 		const definition = getWeaponDefinition(ownedWeapon.definitionId);
+
+		if (definition.rarity === 'legendary') {
+			if (equippedLegendaryDefinitionIds.has(definition.id)) {
+				return {
+					ok: false,
+					error: 'Duplicate legendary weapons cannot be equipped at the same time.'
+				};
+			}
+
+			equippedLegendaryDefinitionIds.add(definition.id);
+		}
 
 		if (!isPlacementWithinBounds(definition, placement.x, placement.y, columnCount, rowCount)) {
 			return {

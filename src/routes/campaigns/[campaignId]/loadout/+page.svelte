@@ -132,9 +132,7 @@
 	let loadoutGridTemplateRows = $derived(`repeat(${loadoutRowCount}, minmax(0, 1fr))`);
 
 	let weaponDefinitionById = $derived(
-		Object.fromEntries(
-			data.weaponPool.map((weapon) => [weapon.id, weapon] satisfies [string, WeaponDefinition])
-		) as Record<string, WeaponDefinition>
+		data.weaponDefinitionsById as Record<string, WeaponDefinition>
 	);
 	let ownedWeapons = $derived(
 		livePixlState?.ownedWeapons ?? data.gameState?.pixlState.ownedWeapons ?? []
@@ -555,6 +553,12 @@
 		isInventoryDropTargetActive = false;
 	}
 
+	function isPointWithinElementBounds(element: HTMLElement, x: number, y: number) {
+		const rect = element.getBoundingClientRect();
+
+		return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+	}
+
 	function handleBackgroundStateChange(update: {
 		xp: number;
 		level: number;
@@ -617,11 +621,41 @@
 		showSaveWarning = false;
 	}
 
+	function hasLegendaryPlacementConflict(weaponInstanceId: string) {
+		const ownedWeapon = ownedWeaponByInstanceId[weaponInstanceId];
+		const definition = ownedWeapon ? weaponDefinitionById[ownedWeapon.definitionId] : null;
+
+		if (!definition || definition.rarity !== 'legendary') {
+			return false;
+		}
+
+		return draftLoadoutPlacements.some((placement) => {
+			if (placement.weaponInstanceId === weaponInstanceId) {
+				return false;
+			}
+
+			const placedOwnedWeapon = ownedWeaponByInstanceId[placement.weaponInstanceId];
+			const placedDefinition = placedOwnedWeapon
+				? weaponDefinitionById[placedOwnedWeapon.definitionId]
+				: null;
+
+			return Boolean(
+				placedDefinition &&
+				placedDefinition.rarity === 'legendary' &&
+				placedDefinition.id === definition.id
+			);
+		});
+	}
+
 	function canPlaceWeaponAt(weaponInstanceId: string, x: number, y: number) {
 		const ownedWeapon = ownedWeaponByInstanceId[weaponInstanceId];
 		const definition = ownedWeapon ? weaponDefinitionById[ownedWeapon.definitionId] : null;
 
 		if (!definition) {
+			return false;
+		}
+
+		if (hasLegendaryPlacementConflict(weaponInstanceId)) {
 			return false;
 		}
 
@@ -686,6 +720,14 @@
 		}
 	}
 
+	function scrollLoadoutGridIntoView() {
+		document.getElementById('loadout-grid-shell')?.scrollIntoView({
+			behavior: 'smooth',
+			block: 'center',
+			inline: 'nearest'
+		});
+	}
+
 	function handleGridDragOver(event: DragEvent, cell: GridCell) {
 		if (!draggedWeaponInstanceId) {
 			return;
@@ -745,6 +787,22 @@
 		removeDraftPlacement(draggedWeaponInstanceId);
 	}
 
+	function handleWeaponDragEnd(event: DragEvent) {
+		const loadoutGridShell = document.getElementById('loadout-grid-shell');
+
+		if (
+			draggedWeaponInstanceId &&
+			draggedInventoryWeapon?.isEquipped &&
+			loadoutGridShell instanceof HTMLElement &&
+			!isPointWithinElementBounds(loadoutGridShell, event.clientX, event.clientY)
+		) {
+			removeDraftPlacement(draggedWeaponInstanceId);
+			return;
+		}
+
+		clearDragState();
+	}
+
 	function beginPlacedWeaponDrag(event: DragEvent, weapon: LoadoutWeapon) {
 		beginWeaponDrag(event, weapon.weaponInstanceId, getPlacedWeaponDragAnchor(event, weapon.shape));
 	}
@@ -763,6 +821,7 @@
 			}
 		}
 
+		scrollLoadoutGridIntoView();
 		beginWeaponDrag(event, weapon.weaponInstanceId, anchor);
 	}
 
@@ -974,7 +1033,7 @@
 					</div>
 				{/if}
 
-				<div class="loadout-grid-shell">
+				<div class="loadout-grid-shell" id="loadout-grid-shell">
 					<div
 						class="loadout-grid main-loadout-grid"
 						style:grid-template-columns={loadoutGridTemplateColumns}
@@ -1009,7 +1068,7 @@
 								class:dragging={draggedWeaponInstanceId === weapon.weaponInstanceId}
 								style={getWeaponGridArea(weapon)}
 								ondragstart={(event) => beginPlacedWeaponDrag(event, weapon)}
-								ondragend={clearDragState}
+								ondragend={handleWeaponDragEnd}
 								title={`${weapon.name} at ${weapon.x}, ${weapon.y}`}
 							>
 								<div class="placed-weapon-shape" style={getShapeGridTemplate(weapon.shape)}>
@@ -1065,7 +1124,7 @@
 									class:unavailable={group.availableCount < 1}
 									class:dragging={draggedWeaponInstanceId === group.representativeWeaponInstanceId}
 									ondragstart={(event) => beginInventoryWeaponGroupDrag(event, group)}
-									ondragend={clearDragState}
+									ondragend={handleWeaponDragEnd}
 								>
 									{#if group.totalCount > 1}
 										<span class="inventory-count-badge">{group.totalCount}</span>
@@ -1787,16 +1846,16 @@
 
 	.placed-weapon.rarity-legendary,
 	.inventory-weapon.rarity-legendary {
-		border-color: rgba(179, 132, 62, 0.28);
+		border-color: rgba(170, 104, 48, 0.34);
 	}
 
 	.placed-weapon.rarity-legendary,
 	.inventory-weapon.rarity-legendary {
-		--weapon-fill-color: rgba(118, 88, 34, 0.97);
-		--weapon-border-color: rgba(255, 220, 145, 0.98);
-		--weapon-outline-stroke: rgba(255, 220, 145, 0.98);
-		--inventory-fill-color: rgba(118, 88, 34, 0.9);
-		--inventory-border-color: rgba(255, 220, 145, 0.94);
+		--weapon-fill-color: rgba(123, 72, 28, 0.97);
+		--weapon-border-color: rgba(224, 156, 92, 0.98);
+		--weapon-outline-stroke: rgba(224, 156, 92, 0.98);
+		--inventory-fill-color: rgba(123, 72, 28, 0.9);
+		--inventory-border-color: rgba(224, 156, 92, 0.94);
 	}
 
 	@media (max-width: 860px) {

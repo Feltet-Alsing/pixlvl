@@ -17,7 +17,7 @@
 					(weapon) => weapon.instanceId === placement.weaponInstanceId
 				);
 				const definition = ownedWeapon
-					? data.weaponPool.find((weapon) => weapon.id === ownedWeapon.definitionId)
+					? data.weaponDefinitionsById[ownedWeapon.definitionId]
 					: null;
 				return definition ? `${definition.name} (${placement.x}, ${placement.y})` : null;
 			})

@@ -1,11 +1,11 @@
-import baselineCombatProfileJson from './combat/baseline-v1.json';
-import campaign1Json from './campaigns/campaign-1.json';
-import { campaign1Weapons } from './weapons';
+import { baselineCombatProfile } from './combat/baseline-v1';
+import { campaign1 } from './campaigns/campaign-1';
+import { campaign2 } from './campaigns/campaign-2';
+import { campaign1Weapons, campaign2Weapons } from './weapons';
 
 import type { CampaignDefinition, CombatProfile, WeaponDefinition } from './types';
 
-export const baselineCombatProfile = baselineCombatProfileJson as CombatProfile;
-export const campaign1 = campaign1Json as CampaignDefinition;
+export { baselineCombatProfile };
 export const starterWeaponId = 'pea-shooter';
 
 export const combatProfiles = {
@@ -13,11 +13,13 @@ export const combatProfiles = {
 } as const;
 
 export const campaigns = {
-	[campaign1.campaign]: campaign1
+	[campaign1.campaign]: campaign1,
+	[campaign2.campaign]: campaign2
 } as const;
 
 export const campaignWeaponPools = {
-	[campaign1.campaign]: campaign1Weapons
+	[campaign1.campaign]: campaign1Weapons,
+	[campaign2.campaign]: campaign2Weapons
 } as const;
 
 export const weaponDefinitions = Object.fromEntries(
