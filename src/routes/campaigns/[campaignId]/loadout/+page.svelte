@@ -899,6 +899,12 @@
 		return 1 / Math.max(1, weapon.attack.cycleInterval ?? 1);
 	}
 
+	function formatCycleThreshold(attack: WeaponDefinition['attack']) {
+		const cycleInterval = Math.max(1, attack.cycleInterval ?? 1);
+
+		return cycleInterval.toString();
+	}
+
 	function formatAttackLabel(kind: WeaponDefinition['attack']['kind']) {
 		switch (kind) {
 			case 'single':
@@ -1235,6 +1241,10 @@
 											<div>
 												<span>Projectiles</span>
 												<strong>{group.attack.projectileCount}</strong>
+											</div>
+											<div>
+												<span>Cycle</span>
+												<strong>{formatCycleThreshold(group.attack)}</strong>
 											</div>
 											<div>
 												<span>Shape</span>
