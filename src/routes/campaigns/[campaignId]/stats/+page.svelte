@@ -8,6 +8,8 @@
 
 	let upgradeState = $derived(data.gameState?.pixlState ?? createBaselineUpgradeablePixlState());
 	let upgradeOptions = $derived(getUpgradeOptions(upgradeState));
+	let equippedWeaponCount = $derived(data.gameState?.pixlState.loadoutPlacements.length ?? 0);
+	let ownedWeaponCount = $derived(data.gameState?.pixlState.ownedWeapons.length ?? 0);
 	let loadoutTooltip = $derived(
 		(data.gameState?.pixlState.loadoutPlacements ?? [])
 			.map((placement) => {
@@ -51,12 +53,16 @@
 					<strong>{upgradeState.health}</strong>
 				</div>
 				<div class="stat-card">
-					<span>Damage</span>
-					<strong>{upgradeState.damage}</strong>
-				</div>
-				<div class="stat-card">
 					<span>Attack speed</span>
 					<strong>{upgradeState.attackSpeed.toFixed(1)}/s</strong>
+				</div>
+				<div class="stat-card">
+					<span>Equipped</span>
+					<strong>{equippedWeaponCount}</strong>
+				</div>
+				<div class="stat-card">
+					<span>Owned weapons</span>
+					<strong>{ownedWeaponCount}</strong>
 				</div>
 				<div class="stat-card">
 					<span>Gold</span>

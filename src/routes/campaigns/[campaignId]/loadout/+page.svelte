@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import CampaignRouteNav from '$lib/components/campaigns/CampaignRouteNav.svelte';
-	import type { WeaponDefinition } from '$lib/data/types';
+	import type { LoadoutPlacement, WeaponDefinition } from '$lib/data/types';
 	import type { PageProps } from './$types';
 
 	const LOADOUT_ROW_COUNT = 5;
@@ -40,13 +40,17 @@
 		) as Record<string, WeaponDefinition>
 	);
 	let ownedWeapons = $derived(data.gameState?.pixlState.ownedWeapons ?? []);
-	let loadoutPlacements = $derived(data.gameState?.pixlState.loadoutPlacements ?? []);
+	let savedLoadoutPlacements = $derived(data.gameState?.pixlState.loadoutPlacements ?? []);
+	let draftLoadoutPlacements = $derived(savedLoadoutPlacements);
+	let draftLoadoutPayload = $derived(JSON.stringify(draftLoadoutPlacements));
+	let hasUnsavedChanges = $derived(JSON.stringify(savedLoadoutPlacements) !== draftLoadoutPayload);
+	let canSaveLoadout = $derived(Boolean(data.gameState) && hasUnsavedChanges);
 	let currentLoadoutRows = $derived.by(() => {
 		const ownedWeaponById = Object.fromEntries(
 			ownedWeapons.map((weapon) => [weapon.instanceId, weapon])
 		) as Record<string, (typeof ownedWeapons)[number]>;
 
-		return loadoutPlacements
+		return draftLoadoutPlacements
 			.map((placement) => {
 				const ownedWeapon = ownedWeaponById[placement.weaponInstanceId];
 				const definition = ownedWeapon ? weaponDefinitionById[ownedWeapon.definitionId] : null;
@@ -71,7 +75,7 @@
 	});
 	let equippedWeaponInstanceIds = $derived(
 		Object.fromEntries(
-			loadoutPlacements.map((placement) => [placement.weaponInstanceId, true])
+			draftLoadoutPlacements.map((placement) => [placement.weaponInstanceId, true])
 		) as Record<string, true>
 	);
 	let unequippedOwnedWeaponRows = $derived.by(() => {
@@ -168,6 +172,33 @@
 		currentLoadoutRows.map((weapon) => `${weapon.name} (${weapon.x}, ${weapon.y})`).join('\n') ||
 			'No equipped weapons'
 	);
+
+	function removeDraftPlacement(weaponInstanceId: string) {
+		draftLoadoutPlacements = draftLoadoutPlacements.filter(
+			(placement) => placement.weaponInstanceId !== weaponInstanceId
+		);
+	}
+
+	function placeSelectedWeaponAt(x: number, y: number) {
+		if (!selectedPlacementWeapon) {
+			return;
+		}
+
+		draftLoadoutPlacements = [
+			...draftLoadoutPlacements,
+			{
+				weaponInstanceId: selectedPlacementWeapon.weaponInstanceId,
+				x,
+				y
+			} satisfies LoadoutPlacement
+		];
+		selectedPlacementWeaponInstanceId = null;
+	}
+
+	function resetDraftLoadout() {
+		draftLoadoutPlacements = savedLoadoutPlacements;
+		selectedPlacementWeaponInstanceId = null;
+	}
 </script>
 
 <svelte:head>
@@ -192,31 +223,55 @@
 
 		<section class="grid">
 			<div class="panel">
-				<div class="section-head">
-					<h2>Equipped weapons</h2>
-					<p>Hover any row to inspect the exact placement.</p>
+				<div class="section-head section-head-split">
+					<div>
+						<h2>Equipped weapons</h2>
+						<p>Hover any row to inspect the exact placement.</p>
+					</div>
+					<form method="post" action="?/saveLoadout">
+						<input type="hidden" name="loadoutPlacements" value={draftLoadoutPayload} />
+						<button class="save" type="submit" disabled={!canSaveLoadout}>Save loadout</button>
+					</form>
 				</div>
 
 				{#if form?.loadoutError}
 					<p class="feedback error">{form.loadoutError}</p>
 				{:else if form?.loadoutSuccess}
 					<p class="feedback success">{form.loadoutSuccess}</p>
+				{:else if hasUnsavedChanges}
+					<p class="feedback neutral">You have unsaved loadout changes.</p>
 				{/if}
+
+				<div class="draft-actions">
+					<button
+						class="ghost"
+						type="button"
+						onclick={resetDraftLoadout}
+						disabled={!hasUnsavedChanges}
+					>
+						Reset draft
+					</button>
+				</div>
 
 				{#if currentLoadoutRows.length > 0}
 					<div class="summary-list">
 						{#each currentLoadoutRows as weapon (weapon.weaponInstanceId)}
-							<form
+							<div
 								class={`summary-row rarity-${weapon.rarity}`}
-								method="post"
-								action="?/removeLoadoutPlacement"
 								title={`${weapon.name} at ${weapon.x}, ${weapon.y}`}
 							>
-								<input type="hidden" name="weaponInstanceId" value={weapon.weaponInstanceId} />
-								<span>{weapon.name}</span>
-								<strong>({weapon.x}, {weapon.y})</strong>
-								<button class="remove" type="submit">Remove</button>
-							</form>
+								<div class="summary-row-copy">
+									<span>{weapon.name}</span>
+									<strong>({weapon.x}, {weapon.y})</strong>
+								</div>
+								<button
+									class="remove"
+									type="button"
+									onclick={() => removeDraftPlacement(weapon.weaponInstanceId)}
+								>
+									Remove
+								</button>
+							</div>
 						{/each}
 					</div>
 				{:else}
@@ -283,22 +338,14 @@
 									<span>{cell.occupiedByName.slice(0, 2).toUpperCase()}</span>
 								</div>
 							{:else if selectedPlacementWeapon && cell.canPlaceSelectedWeapon}
-								<form method="post" action="?/placeLoadoutWeapon">
-									<input
-										type="hidden"
-										name="weaponInstanceId"
-										value={selectedPlacementWeapon.weaponInstanceId}
-									/>
-									<input type="hidden" name="x" value={cell.x} />
-									<input type="hidden" name="y" value={cell.y} />
-									<button
-										class="grid-cell anchor"
-										type="submit"
-										aria-label={`Place at ${cell.x}, ${cell.y}`}
-									>
-										<span>+</span>
-									</button>
-								</form>
+								<button
+									class="grid-cell anchor"
+									type="button"
+									onclick={() => placeSelectedWeaponAt(cell.x, cell.y)}
+									aria-label={`Place at ${cell.x}, ${cell.y}`}
+								>
+									<span>+</span>
+								</button>
 							{:else}
 								<div class="grid-cell empty"></div>
 							{/if}
@@ -346,7 +393,9 @@
 	.feedback,
 	.summary-row,
 	.remove,
-	.anchor {
+	.anchor,
+	.save,
+	.ghost {
 		border-radius: 1.1rem;
 		border: 1px solid rgba(255, 255, 255, 0.08);
 		background: rgba(10, 10, 10, 0.92);
@@ -369,6 +418,29 @@
 		padding: 1rem;
 		display: grid;
 		gap: 0.8rem;
+	}
+
+	.section-head-split,
+	.draft-actions,
+	.summary-row-copy {
+		display: flex;
+		justify-content: space-between;
+		gap: 0.75rem;
+		align-items: center;
+	}
+
+	.section-head-split {
+		align-items: start;
+		flex-wrap: wrap;
+	}
+
+	.draft-actions {
+		justify-content: flex-end;
+	}
+
+	.summary-row-copy {
+		flex: 1;
+		min-width: 0;
 	}
 
 	.hero h1,
@@ -439,6 +511,30 @@
 		color: #f5f5f5;
 		font: inherit;
 		cursor: pointer;
+	}
+
+	.save,
+	.ghost {
+		min-height: 2.2rem;
+		padding: 0 0.9rem;
+		color: #f5f5f5;
+		font: inherit;
+		cursor: pointer;
+	}
+
+	.save {
+		background: rgba(103, 217, 111, 0.14);
+		border-color: rgba(103, 217, 111, 0.42);
+	}
+
+	.ghost {
+		background: rgba(255, 255, 255, 0.04);
+	}
+
+	.save:disabled,
+	.ghost:disabled {
+		opacity: 0.45;
+		cursor: not-allowed;
 	}
 
 	.shape-grid,

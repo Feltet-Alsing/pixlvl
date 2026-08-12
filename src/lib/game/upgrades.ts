@@ -1,14 +1,14 @@
 import { baselineCombatProfile } from '$lib/data';
 
-export type UpgradeKey = 'health' | 'damage' | 'attackSpeed';
+export type UpgradeKey = 'health' | 'attackSpeed';
 
 export interface UpgradeablePixlState {
 	gold: number;
 	health: number;
-	damage: number;
+	// damage: number; // Commenting out damage for future reference
 	attackSpeed: number;
 	healthUpgrades: number;
-	damageUpgrades: number;
+	// damageUpgrades: number; // Commenting out damageUpgrades for future reference
 	attackSpeedUpgrades: number;
 }
 
@@ -16,13 +16,9 @@ interface UpgradeRule {
 	label: string;
 	baseCost: number;
 	costGrowth: number;
-	upgradeField: keyof Pick<
-		UpgradeablePixlState,
-		'healthUpgrades' | 'damageUpgrades' | 'attackSpeedUpgrades'
-	>;
+	upgradeField: keyof Pick<UpgradeablePixlState, 'healthUpgrades' | 'attackSpeedUpgrades'>;
 	apply: (
-		state: UpgradeablePixlState
-	) => Pick<UpgradeablePixlState, 'health' | 'damage' | 'attackSpeed'>;
+	apply: (state: UpgradeablePixlState) => Pick<UpgradeablePixlState, 'health' | 'attackSpeed'>; // Removing damage from apply
 	describe: (state: UpgradeablePixlState) => string;
 }
 
@@ -34,22 +30,10 @@ const UPGRADE_RULES: Record<UpgradeKey, UpgradeRule> = {
 		upgradeField: 'healthUpgrades',
 		apply: (state) => ({
 			health: Math.ceil(state.health * 1.15),
-			damage: state.damage,
+			// damage: state.damage, // Commenting out damage for future reference
 			attackSpeed: state.attackSpeed
 		}),
 		describe: (state) => `+15% health -> ${Math.ceil(state.health * 1.15)}`
-	},
-	damage: {
-		label: 'Damage',
-		baseCost: 20,
-		costGrowth: 1.2,
-		upgradeField: 'damageUpgrades',
-		apply: (state) => ({
-			health: state.health,
-			damage: Math.ceil(state.damage * 1.15),
-			attackSpeed: state.attackSpeed
-		}),
-		describe: (state) => `+15% damage -> ${Math.ceil(state.damage * 1.15)}`
 	},
 	attackSpeed: {
 		label: 'Attack speed',
@@ -58,7 +42,7 @@ const UPGRADE_RULES: Record<UpgradeKey, UpgradeRule> = {
 		upgradeField: 'attackSpeedUpgrades',
 		apply: (state) => ({
 			health: state.health,
-			damage: state.damage,
+			// damage: state.damage, // Commenting out damage for future reference
 			attackSpeed: Number((state.attackSpeed * 1.05).toFixed(3))
 		}),
 		describe: (state) => `+5% attack speed -> ${(state.attackSpeed * 1.05).toFixed(2)}/s`
@@ -78,16 +62,16 @@ export function createBaselineUpgradeablePixlState(): UpgradeablePixlState {
 	return {
 		gold: 0,
 		health: baselineCombatProfile.pixl.health,
-		damage: baselineCombatProfile.pixl.damage,
+		// damage: baselineCombatProfile.pixl.damage, // Commenting out damage for future reference
 		attackSpeed: baselineCombatProfile.pixl.attackSpeed,
 		healthUpgrades: 0,
-		damageUpgrades: 0,
+		// damageUpgrades: 0, // Commenting out damageUpgrades for future reference
 		attackSpeedUpgrades: 0
 	};
 }
 
 export function isUpgradeKey(value: string): value is UpgradeKey {
-	return value === 'health' || value === 'damage' || value === 'attackSpeed';
+	return value === 'health' || value === 'attackSpeed';
 }
 
 export function getUpgradeCost(key: UpgradeKey, state: UpgradeablePixlState): number {

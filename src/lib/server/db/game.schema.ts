@@ -21,10 +21,10 @@ export const pixlState = pgTable('pixl_state', {
 		.references(() => user.id, { onDelete: 'cascade' }),
 	gold: integer('gold').notNull().default(0),
 	health: integer('health').notNull(),
-	damage: integer('damage').notNull(),
+	// damage: integer('damage').notNull(), // Commenting out damage for future reference
 	attackSpeed: real('attack_speed').notNull(),
 	healthUpgrades: integer('health_upgrades').notNull().default(0),
-	damageUpgrades: integer('damage_upgrades').notNull().default(0),
+	// damageUpgrades: integer('damage_upgrades').notNull().default(0), // Commenting out damageUpgrades for future reference
 	attackSpeedUpgrades: integer('attack_speed_upgrades').notNull().default(0),
 	ownedWeapons: jsonb('owned_weapons')
 		.$type<OwnedWeaponInstance[]>()

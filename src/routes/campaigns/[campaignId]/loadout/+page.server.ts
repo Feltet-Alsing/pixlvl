@@ -1,6 +1,7 @@
 import {
 	placeLoadoutWeaponForUser,
 	removeLoadoutPlacementForUser,
+	saveLoadoutForUser,
 	toActionFailure
 } from '$lib/server/campaign-route';
 
@@ -24,6 +25,12 @@ export const actions: Actions = {
 			campaignId,
 			await request.formData()
 		);
+
+		return toActionFailure(result);
+	},
+	saveLoadout: async ({ request, locals, params }) => {
+		const campaignId = Number(params.campaignId);
+		const result = await saveLoadoutForUser(locals.user?.id, campaignId, await request.formData());
 
 		return toActionFailure(result);
 	}

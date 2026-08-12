@@ -8,7 +8,7 @@ export type WeaponProjectileSize = 'small' | 'medium' | 'large';
 
 export interface PixlBaseStats {
 	health: number;
-	damage: number;
+	// damage: number; // Commenting out damage for future reference
 	attackSpeed: number;
 }
 

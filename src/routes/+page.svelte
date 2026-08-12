@@ -35,16 +35,16 @@
 					<strong>{persistedPixlState?.health ?? baselineCombatProfile.pixl.health}</strong>
 				</div>
 				<div class="stat-tile">
-					<span>Damage</span>
-					<strong>{persistedPixlState?.damage ?? baselineCombatProfile.pixl.damage}</strong>
-				</div>
-				<div class="stat-tile">
 					<span>Attack speed</span>
 					<strong>
 						{(persistedPixlState?.attackSpeed ?? baselineCombatProfile.pixl.attackSpeed).toFixed(
 							1
 						)}/s
 					</strong>
+				</div>
+				<div class="stat-tile">
+					<span>Equipped</span>
+					<strong>{persistedPixlState?.loadoutPlacements.length ?? 1}</strong>
 				</div>
 				<div class="stat-tile">
 					<span>{persistedPixlState ? 'Gold' : 'Campaigns'}</span>

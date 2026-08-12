@@ -9,6 +9,7 @@ const BASE_HEIGHT = 520;
 const ASPECT_RATIO = MAX_WIDTH / BASE_HEIGHT;
 const PROJECTILE_SIZE = 5;
 const RESET_DELAY = 1.2;
+const INTRO_PROJECTILE_DAMAGE = 1; // New constant for projectile damage
 
 const ENEMY_VISUALS: Record<
 	GlitchKind,
@@ -58,14 +59,13 @@ function getCanvasSize(canvas: HTMLCanvasElement | null) {
 }
 
 interface PixlIntroSketchOptions {
-	pixlState?: Pick<PersistedPixlState, 'gold' | 'health' | 'damage' | 'attackSpeed'> | null;
+	pixlState?: Pick<PersistedPixlState, 'gold' | 'health' | 'attackSpeed'> | null; // Removing damage from pixlState
 }
 
 export function createPixlIntroSketch(options: PixlIntroSketchOptions = {}) {
 	return (p: P5) => {
 		const pixlStats = {
 			health: options.pixlState?.health ?? baselineCombatProfile.pixl.health,
-			damage: options.pixlState?.damage ?? baselineCombatProfile.pixl.damage,
 			attackSpeed: options.pixlState?.attackSpeed ?? baselineCombatProfile.pixl.attackSpeed,
 			gold: options.pixlState?.gold ?? 0
 		};
@@ -155,7 +155,7 @@ export function createPixlIntroSketch(options: PixlIntroSketchOptions = {}) {
 				y: centerY,
 				vx: (dx / distance) * baselineCombatProfile.projectileSpeed,
 				vy: (dy / distance) * baselineCombatProfile.projectileSpeed,
-				damage: pixlStats.damage
+				damage: INTRO_PROJECTILE_DAMAGE // Using new constant for projectile damage
 			});
 		};
 

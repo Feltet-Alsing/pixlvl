@@ -99,6 +99,115 @@ function placementsOverlap(
 	return definition.shape.cells.some(([cellX, cellY]) => occupied.has(`${x + cellX}:${y + cellY}`));
 }
 
+function validateLoadoutPlacements(
+	ownedWeapons: OwnedWeaponInstance[],
+	placements: LoadoutPlacement[]
+): { ok: true } | { ok: false; error: string } {
+	const ownedWeaponById = buildOwnedWeaponById(ownedWeapons);
+	const seenWeaponInstanceIds = new Set<string>();
+
+	for (const placement of placements) {
+		if (seenWeaponInstanceIds.has(placement.weaponInstanceId)) {
+			return { ok: false, error: 'Each weapon can only be equipped once.' };
+		}
+
+		seenWeaponInstanceIds.add(placement.weaponInstanceId);
+
+		const ownedWeapon = ownedWeaponById[placement.weaponInstanceId];
+
+		if (!ownedWeapon) {
+			return { ok: false, error: 'Loadout contains an unknown owned weapon.' };
+		}
+
+		if (!Number.isInteger(placement.x) || !Number.isInteger(placement.y)) {
+			return { ok: false, error: 'Loadout contains an invalid grid coordinate.' };
+		}
+
+		const definition = getWeaponDefinition(ownedWeapon.definitionId);
+
+		if (!isPlacementWithinBounds(definition, placement.x, placement.y)) {
+			return { ok: false, error: 'A weapon does not fit inside the 5 x 8 grid.' };
+		}
+
+		if (
+			placementsOverlap(
+				ownedWeapons,
+				placements,
+				placement.weaponInstanceId,
+				definition,
+				placement.x,
+				placement.y
+			)
+		) {
+			return { ok: false, error: 'A weapon overlaps another equipped weapon.' };
+		}
+	}
+
+	return { ok: true };
+}
+
+async function persistLoadoutPlacementsForUser(userId: string, placements: LoadoutPlacement[]) {
+	const gameState = await getOrCreateGameState(userId);
+	const validation = validateLoadoutPlacements(gameState.pixlState.ownedWeapons, placements);
+
+	if (!validation.ok) {
+		return {
+			ok: false as const,
+			status: 400,
+			data: { loadoutError: validation.error }
+		};
+	}
+
+	await updateGameState(userId, {
+		pixlState: {
+			loadoutPlacements: placements
+		}
+	});
+
+	return {
+		ok: true as const,
+		data: { loadoutSuccess: 'Loadout saved' }
+	};
+}
+
+function parseLoadoutPlacementsFromFormData(formData: FormData) {
+	const rawPlacements = formData.get('loadoutPlacements');
+
+	if (typeof rawPlacements !== 'string') {
+		return null;
+	}
+
+	try {
+		const parsed = JSON.parse(rawPlacements);
+
+		if (!Array.isArray(parsed)) {
+			return null;
+		}
+
+		return parsed
+			.map((entry) => {
+				if (
+					typeof entry !== 'object' ||
+					entry === null ||
+					typeof entry.weaponInstanceId !== 'string' ||
+					typeof entry.x !== 'number' ||
+					typeof entry.y !== 'number'
+				) {
+					return null;
+				}
+
+				return {
+					weaponInstanceId: entry.weaponInstanceId,
+					x: entry.x,
+					y: entry.y
+				} satisfies LoadoutPlacement;
+			})
+			.filter((entry): entry is LoadoutPlacement => entry !== null);
+	} catch {
+		return null;
+	}
+}
+
 export async function placeLoadoutWeaponForUser(
 	userId: string | undefined,
 	campaignId: number,
@@ -138,44 +247,19 @@ export async function placeLoadoutWeaponForUser(
 	}
 
 	const definition = getWeaponDefinition(ownedWeapon.definitionId);
-
-	if (!isPlacementWithinBounds(definition, x, y)) {
-		return {
-			ok: false,
-			status: 400,
-			data: { loadoutError: 'That placement does not fit inside the 5 x 8 grid.' }
-		};
-	}
-
-	if (
-		placementsOverlap(
-			gameState.pixlState.ownedWeapons,
-			gameState.pixlState.loadoutPlacements,
+	const nextPlacements = [
+		...gameState.pixlState.loadoutPlacements,
+		{
 			weaponInstanceId,
-			definition,
 			x,
 			y
-		)
-	) {
-		return {
-			ok: false,
-			status: 400,
-			data: { loadoutError: 'That placement overlaps an equipped weapon.' }
-		};
-	}
-
-	await updateGameState(userId, {
-		pixlState: {
-			loadoutPlacements: [
-				...gameState.pixlState.loadoutPlacements,
-				{
-					weaponInstanceId,
-					x,
-					y
-				}
-			]
 		}
-	});
+	];
+	const result = await persistLoadoutPlacementsForUser(userId, nextPlacements);
+
+	if (!result.ok) {
+		return result;
+	}
 
 	return { ok: true, data: { loadoutSuccess: `${definition.name} placed at (${x}, ${y})` } };
 }
@@ -217,16 +301,38 @@ export async function removeLoadoutPlacementForUser(
 	);
 	const definition = ownedWeapon ? getWeaponDefinition(ownedWeapon.definitionId) : null;
 
-	await updateGameState(userId, {
-		pixlState: {
-			loadoutPlacements: nextPlacements
-		}
-	});
+	const result = await persistLoadoutPlacementsForUser(userId, nextPlacements);
+
+	if (!result.ok) {
+		return result;
+	}
 
 	return {
 		ok: true,
 		data: { loadoutSuccess: `${definition?.name ?? 'Weapon'} removed from loadout` }
 	};
+}
+
+export async function saveLoadoutForUser(
+	userId: string | undefined,
+	campaignId: number,
+	formData: FormData
+): Promise<ActionResult<{ loadoutError?: string; loadoutSuccess?: string }>> {
+	if (!userId) {
+		return {
+			ok: false,
+			status: 401,
+			data: { loadoutError: 'Sign in to manage your loadout.' }
+		};
+	}
+
+	const placements = parseLoadoutPlacementsFromFormData(formData);
+
+	if (!placements) {
+		return { ok: false, status: 400, data: { loadoutError: 'Invalid loadout save request.' } };
+	}
+
+	return persistLoadoutPlacementsForUser(userId, placements);
 }
 
 export async function selectStageForUser(
@@ -296,10 +402,10 @@ export async function purchaseUpgradeForUser(
 			pixlState: {
 				gold: nextPixlState.gold,
 				health: nextPixlState.health,
-				damage: nextPixlState.damage,
+				// damage: nextPixlState.damage, // Commenting out damage for future reference
 				attackSpeed: nextPixlState.attackSpeed,
 				healthUpgrades: nextPixlState.healthUpgrades,
-				damageUpgrades: nextPixlState.damageUpgrades,
+				// damageUpgrades: nextPixlState.damageUpgrades, // Commenting out damageUpgrades for future reference
 				attackSpeedUpgrades: nextPixlState.attackSpeedUpgrades
 			}
 		});

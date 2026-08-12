@@ -20,10 +20,10 @@ export interface GameStatePatch {
 			PersistedPixlState,
 			| 'gold'
 			| 'health'
-			| 'damage'
+			// | 'damage' // Commenting out damage for future reference
 			| 'attackSpeed'
 			| 'healthUpgrades'
-			| 'damageUpgrades'
+			// | 'damageUpgrades' // Commenting out damageUpgrades for future reference
 			| 'attackSpeedUpgrades'
 			| 'ownedWeapons'
 			| 'loadoutPlacements'
@@ -109,10 +109,10 @@ function createDefaultPixlState(userId: string): InferInsertModel<typeof pixlSta
 		userId,
 		gold: 0,
 		health: baselineCombatProfile.pixl.health,
-		damage: baselineCombatProfile.pixl.damage,
+		// damage: baselineCombatProfile.pixl.damage, // Commenting out damage for future reference
 		attackSpeed: baselineCombatProfile.pixl.attackSpeed,
 		healthUpgrades: 0,
-		damageUpgrades: 0,
+		// damageUpgrades: 0, // Commenting out damageUpgrades for future reference
 		attackSpeedUpgrades: 0,
 		ownedWeapons: createStarterOwnedWeapons(),
 		loadoutPlacements: createStarterLoadoutPlacements()
@@ -242,10 +242,10 @@ export async function updateGameState(userId: string, patch: GameStatePatch): Pr
 
 		const gold = toNonNegativeInteger(patch.pixlState.gold);
 		const health = toPositiveInteger(patch.pixlState.health);
-		const damage = toPositiveInteger(patch.pixlState.damage);
+		// const damage = toPositiveInteger(patch.pixlState.damage); // Commenting out damage for future reference
 		const attackSpeed = toFiniteNumber(patch.pixlState.attackSpeed);
 		const healthUpgrades = toNonNegativeInteger(patch.pixlState.healthUpgrades);
-		const damageUpgrades = toNonNegativeInteger(patch.pixlState.damageUpgrades);
+		// const damageUpgrades = toNonNegativeInteger(patch.pixlState.damageUpgrades); // Commenting out damageUpgrades for future reference
 		const attackSpeedUpgrades = toNonNegativeInteger(patch.pixlState.attackSpeedUpgrades);
 		const ownedWeapons = Array.isArray(patch.pixlState.ownedWeapons)
 			? normalizeOwnedWeapons(patch.pixlState.ownedWeapons)
@@ -259,10 +259,10 @@ export async function updateGameState(userId: string, patch: GameStatePatch): Pr
 
 		if (gold !== undefined) nextPixlState.gold = gold;
 		if (health !== undefined) nextPixlState.health = health;
-		if (damage !== undefined) nextPixlState.damage = damage;
+		// if (damage !== undefined) nextPixlState.damage = damage; // Commenting out damage for future reference
 		if (attackSpeed !== undefined && attackSpeed > 0) nextPixlState.attackSpeed = attackSpeed;
 		if (healthUpgrades !== undefined) nextPixlState.healthUpgrades = healthUpgrades;
-		if (damageUpgrades !== undefined) nextPixlState.damageUpgrades = damageUpgrades;
+		// if (damageUpgrades !== undefined) nextPixlState.damageUpgrades = damageUpgrades; // Commenting out damageUpgrades for future reference
 		if (attackSpeedUpgrades !== undefined) nextPixlState.attackSpeedUpgrades = attackSpeedUpgrades;
 		if (ownedWeapons !== undefined) nextPixlState.ownedWeapons = ownedWeapons;
 		if (loadoutPlacements !== undefined) nextPixlState.loadoutPlacements = loadoutPlacements;

@@ -105,7 +105,7 @@ interface CampaignSketchOptions {
 	runMode?: RunMode;
 	pixlState?: Pick<
 		PersistedPixlState,
-		'gold' | 'health' | 'damage' | 'attackSpeed' | 'ownedWeapons' | 'loadoutPlacements'
+		'gold' | 'health' | 'attackSpeed' | 'ownedWeapons' | 'loadoutPlacements' // Removing damage from pixlState
 	> | null;
 	campaignState?: Pick<
 		PersistedCampaignProgress,
@@ -244,7 +244,7 @@ export function createCampaignSketch(
 		const runMode = options.runMode ?? 'combat';
 		const pixlStats = {
 			health: options.pixlState?.health ?? combatProfile.pixl.health,
-			damage: options.pixlState?.damage ?? combatProfile.pixl.damage,
+			// damage: options.pixlState?.damage ?? combatProfile.pixl.damage, // Commenting out damage for future reference
 			attackSpeed: options.pixlState?.attackSpeed ?? combatProfile.pixl.attackSpeed
 		};
 		const equippedWeapons = buildEquippedWeapons(
@@ -309,7 +309,7 @@ export function createCampaignSketch(
 					pixlState: {
 						gold: bankedGold,
 						health: pixlStats.health,
-						damage: pixlStats.damage,
+						// damage: pixlStats.damage, // Commenting out damage for future reference
 						attackSpeed: pixlStats.attackSpeed,
 						ownedWeapons
 					},
@@ -536,7 +536,7 @@ export function createCampaignSketch(
 				y: centerY,
 				vx: Math.cos(baseAngle) * weapon.projectileSpeed,
 				vy: Math.sin(baseAngle) * weapon.projectileSpeed,
-				damage: Math.max(1, Math.round(pixlStats.damage + weapon.baseDamage - 1)),
+				damage: Math.max(1, Math.round(weapon.baseDamage)),
 				color: weapon.projectileVisual.color,
 				size: PROJECTILE_SIZE_BY_VISUAL[weapon.projectileVisual.size]
 			});

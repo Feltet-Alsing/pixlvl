@@ -479,7 +479,7 @@
 						<a class="route-card" href={resolve(`/campaigns/${data.campaignId}/stats`)}>
 							<span>Stats</span>
 							<strong>{livePixlState?.gold ?? 0} gold banked</strong>
-							<p>Health, damage, attack speed, and upgrades without combat clutter.</p>
+							<p>Health, attack speed, and upgrades without combat clutter.</p>
 						</a>
 						<a
 							class="route-card"
@@ -498,16 +498,16 @@
 							<strong>{livePixlState?.health ?? data.combatProfile.pixl.health}</strong>
 						</div>
 						<div>
-							<span>Damage</span>
-							<strong>{livePixlState?.damage ?? data.combatProfile.pixl.damage}</strong>
-						</div>
-						<div>
 							<span>Attack speed</span>
 							<strong
 								>{(livePixlState?.attackSpeed ?? data.combatProfile.pixl.attackSpeed).toFixed(
 									1
 								)}/s</strong
 							>
+						</div>
+						<div>
+							<span>Equipped</span>
+							<strong>{currentLoadoutRows.length}</strong>
 						</div>
 					</div>
 				</aside>
