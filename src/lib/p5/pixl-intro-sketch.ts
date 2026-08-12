@@ -47,6 +47,12 @@ const ENEMY_VISUALS: Record<
 		fill: [128, 95, 245],
 		stroke: [244, 239, 255],
 		shape: 'diamond'
+	},
+	shielder: {
+		radius: 14,
+		fill: [92, 156, 255],
+		stroke: [220, 236, 255],
+		shape: 'circle'
 	}
 };
 

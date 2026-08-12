@@ -485,3 +485,71 @@ That is a strong version 1 foundation.
 
 The next step is not to rediscover the game.
 The next step is to deepen it.
+
+---
+
+## Next expansion: utilities and Campaign 3
+
+The next major gameplay layer should add utility items and a third campaign that builds on the Campaign 2 roster rather than replacing it.
+
+### Utilities
+
+Utilities should use the same grid as weapons, but they are not damage items.
+They trade loadout space for defensive or tempo-oriented effects.
+
+Initial utility set:
+
+- Shield
+  - normal rarity
+  - 2x2 footprint
+  - triggered utility
+  - grants a 20-point shield pool for 1 cycle
+  - visual: blue circle around the pixl while active
+- Cycle Booster
+  - legendary rarity
+  - 1x1 footprint
+  - passive utility
+  - reduces the cycle interval of touching weapons by 1, minimum 1
+  - only shared-edge contact counts as touching
+- Damage Boost
+  - rare rarity
+  - 1x5 vertical footprint
+  - triggered utility
+  - grants +20% damage to all weapons for the rest of the current cycle
+
+Utilities should begin dropping in mid-Campaign 2 so the player learns them before Campaign 3 begins to lean on utility-aware builds.
+
+### Campaign 3 direction
+
+Campaign 3 should continue using the Campaign 2 enemy roster:
+
+- biter
+- swarmer
+- tanker
+- shard
+- bulwark
+
+It should then add one new support enemy first, rather than replacing the existing identities.
+
+### New enemy: shielder
+
+The new shielder glitch should:
+
+- use the same movement pattern as shard
+- stay on the outer ring as a ranged support unit
+- have very high HP
+- periodically shield the enemy closest to the pixl
+- never target bulwark
+
+Targeting rule:
+
+- find the non-bulwark enemy closest to the pixl
+- apply or refresh a shield pool on that target
+- if only bulwarks remain, the shielder does not cast on that tick
+
+Role separation is important here:
+
+- bulwark is the self-protecting frontliner
+- shielder is the backline support unit that protects someone else
+
+This avoids the worst stall case where a highly durable bulwark is also the primary support target.

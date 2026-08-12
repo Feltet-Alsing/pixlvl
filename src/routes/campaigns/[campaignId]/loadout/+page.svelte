@@ -2,10 +2,17 @@
 	import { resolve } from '$app/paths';
 	import P5Canvas from '$lib/components/P5Canvas.svelte';
 	import CampaignRouteNav from '$lib/components/campaigns/CampaignRouteNav.svelte';
+	import { isUtilityDefinition, isWeaponDefinition } from '$lib/data';
 	import { getCampaignRouteNotificationCounts } from '$lib/game/notifications';
 	import { createBaselineUpgradeablePixlState } from '$lib/game/upgrades';
 	import { createCampaignSketch } from '$lib/p5/campaign-1-sketch';
-	import type { LoadoutPlacement, WeaponDefinition, WeaponShape } from '$lib/data/types';
+	import type {
+		LoadoutItemDefinition,
+		LoadoutPlacement,
+		UtilityDefinition,
+		WeaponDefinition,
+		WeaponShape
+	} from '$lib/data/types';
 	import type { PageProps } from './$types';
 
 	const baselinePixlProgression = createBaselineUpgradeablePixlState();
@@ -13,11 +20,14 @@
 	interface LoadoutWeapon {
 		weaponInstanceId: string;
 		definitionId: string;
+		category: 'weapon' | 'utility';
 		name: string;
 		rarity: WeaponDefinition['rarity'];
 		shape: WeaponShape;
-		baseDamage: number;
-		attack: WeaponDefinition['attack'];
+		baseDamage?: number;
+		attack?: WeaponDefinition['attack'];
+		activationKind?: UtilityDefinition['activationKind'];
+		effectSummary: string;
 		role: string;
 		x: number;
 		y: number;
@@ -26,13 +36,16 @@
 	interface InventoryWeapon {
 		weaponInstanceId: string;
 		definitionId: string;
+		category: 'weapon' | 'utility';
 		name: string;
 		rarity: WeaponDefinition['rarity'];
 		shape: WeaponShape;
-		baseDamage: number;
-		projectileSpeed: number;
-		attack: WeaponDefinition['attack'];
-		projectileVisual: WeaponDefinition['projectileVisual'];
+		baseDamage?: number;
+		projectileSpeed?: number;
+		attack?: WeaponDefinition['attack'];
+		projectileVisual?: WeaponDefinition['projectileVisual'];
+		activationKind?: UtilityDefinition['activationKind'];
+		effectSummary: string;
 		role: string;
 		x: number | null;
 		y: number | null;
@@ -41,13 +54,16 @@
 
 	interface InventoryWeaponGroup {
 		definitionId: string;
+		category: 'weapon' | 'utility';
 		name: string;
 		rarity: WeaponDefinition['rarity'];
 		shape: WeaponShape;
-		baseDamage: number;
-		projectileSpeed: number;
-		attack: WeaponDefinition['attack'];
-		projectileVisual: WeaponDefinition['projectileVisual'];
+		baseDamage?: number;
+		projectileSpeed?: number;
+		attack?: WeaponDefinition['attack'];
+		projectileVisual?: WeaponDefinition['projectileVisual'];
+		activationKind?: UtilityDefinition['activationKind'];
+		effectSummary: string;
 		role: string;
 		totalCount: number;
 		availableCount: number;
@@ -132,7 +148,7 @@
 	let loadoutGridTemplateRows = $derived(`repeat(${loadoutRowCount}, minmax(0, 1fr))`);
 
 	let weaponDefinitionById = $derived(
-		data.weaponDefinitionsById as Record<string, WeaponDefinition>
+		data.weaponDefinitionsById as Record<string, LoadoutItemDefinition>
 	);
 	let ownedWeapons = $derived(
 		livePixlState?.ownedWeapons ?? data.gameState?.pixlState.ownedWeapons ?? []
@@ -189,11 +205,16 @@
 			rows.push({
 				weaponInstanceId: placement.weaponInstanceId,
 				definitionId: ownedWeapon.definitionId,
+				category: isWeaponDefinition(definition) ? 'weapon' : 'utility',
 				name: definition.name,
 				rarity: definition.rarity,
 				shape: definition.shape,
-				baseDamage: definition.baseDamage,
-				attack: definition.attack,
+				baseDamage: isWeaponDefinition(definition) ? definition.baseDamage : undefined,
+				attack: isWeaponDefinition(definition) ? definition.attack : undefined,
+				activationKind: isUtilityDefinition(definition)
+					? definition.activationKind
+					: undefined,
+				effectSummary: getLoadoutItemEffectSummary(definition),
 				role: definition.role,
 				x: placement.x,
 				y: placement.y
@@ -218,13 +239,20 @@
 			rows.push({
 				weaponInstanceId: weapon.instanceId,
 				definitionId: weapon.definitionId,
+				category: isWeaponDefinition(definition) ? 'weapon' : 'utility',
 				name: definition.name,
 				rarity: definition.rarity,
 				shape: definition.shape,
-				baseDamage: definition.baseDamage,
-				projectileSpeed: definition.projectileSpeed,
-				attack: definition.attack,
-				projectileVisual: definition.projectileVisual,
+				baseDamage: isWeaponDefinition(definition) ? definition.baseDamage : undefined,
+				projectileSpeed: isWeaponDefinition(definition) ? definition.projectileSpeed : undefined,
+				attack: isWeaponDefinition(definition) ? definition.attack : undefined,
+				projectileVisual: isWeaponDefinition(definition)
+					? definition.projectileVisual
+					: undefined,
+				activationKind: isUtilityDefinition(definition)
+					? definition.activationKind
+					: undefined,
+				effectSummary: getLoadoutItemEffectSummary(definition),
 				role: definition.role,
 				x: placement?.x ?? null,
 				y: placement?.y ?? null,
@@ -297,7 +325,7 @@
 	});
 	let loadoutTooltip = $derived(
 		loadoutWeapons.map((weapon) => `${weapon.name} (${weapon.x}, ${weapon.y})`).join('\n') ||
-			'No equipped weapons'
+			'No equipped items'
 	);
 	let notificationCounts = $derived(
 		getCampaignRouteNotificationCounts(livePixlState ?? data.gameState?.pixlState ?? null)
@@ -305,13 +333,20 @@
 	let equippedDamagePerCycle = $derived(
 		loadoutWeapons.reduce(
 			(total, weapon) =>
-				total + weapon.baseDamage * weapon.attack.projectileCount * getWeaponCycleRate(weapon),
+				total +
+				(weapon.category === 'weapon' && weapon.baseDamage && weapon.attack
+					? weapon.baseDamage * weapon.attack.projectileCount * getWeaponCycleRate(weapon)
+					: 0),
 			0
 		)
 	);
 	let equippedProjectilesPerCycle = $derived(
 		loadoutWeapons.reduce(
-			(total, weapon) => total + weapon.attack.projectileCount * getWeaponCycleRate(weapon),
+			(total, weapon) =>
+				total +
+				(weapon.category === 'weapon' && weapon.attack
+					? weapon.attack.projectileCount * getWeaponCycleRate(weapon)
+					: 0),
 			0
 		)
 	);
@@ -360,6 +395,7 @@
 			if (!existing) {
 				groups[weapon.definitionId] = {
 					definitionId: weapon.definitionId,
+					category: weapon.category,
 					name: weapon.name,
 					rarity: weapon.rarity,
 					shape: weapon.shape,
@@ -391,6 +427,7 @@
 
 		return Object.values(groups).sort(
 			(left, right) =>
+				Number(left.category === 'utility') - Number(right.category === 'utility') ||
 				right.availableCount - left.availableCount ||
 				right.totalCount - left.totalCount ||
 				left.name.localeCompare(right.name)
@@ -896,7 +933,34 @@
 	}
 
 	function getWeaponCycleRate(weapon: Pick<LoadoutWeapon, 'attack'>) {
+		if (!weapon.attack) {
+			return 0;
+		}
+
 		return 1 / Math.max(1, weapon.attack.cycleInterval ?? 1);
+	}
+
+	function getLoadoutItemEffectSummary(definition: LoadoutItemDefinition) {
+		if (isWeaponDefinition(definition)) {
+			return formatAttackLabel(definition.attack.kind);
+		}
+
+		switch (definition.effect.type) {
+			case 'shield-pool':
+				return `Shield ${definition.effect.shieldAmount} for ${definition.effect.durationCycles} cycles`;
+			case 'cycle-adjacency-reduction':
+				return `Adjacent weapons activate ${definition.effect.reduction} cycle faster`;
+			case 'cycle-damage-boost':
+				return `${definition.effect.damageMultiplier}x damage next cycle`;
+		}
+	}
+
+	function formatActivationLabel(weapon: Pick<InventoryWeaponGroup, 'category' | 'attack' | 'activationKind'>) {
+		if (weapon.category === 'weapon') {
+			return weapon.attack ? formatCycleThreshold(weapon.attack) : '1';
+		}
+
+		return weapon.activationKind === 'passive' ? 'Passive' : 'Triggered';
 	}
 
 	function formatCycleThreshold(attack: WeaponDefinition['attack']) {

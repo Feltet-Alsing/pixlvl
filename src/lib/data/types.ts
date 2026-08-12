@@ -1,4 +1,4 @@
-export type GlitchKind = 'biter' | 'swarmer' | 'tanker' | 'shard' | 'bulwark';
+export type GlitchKind = 'biter' | 'swarmer' | 'tanker' | 'shard' | 'bulwark' | 'shielder';
 
 export type WeaponRarity = 'normal' | 'magic' | 'rare' | 'exotic' | 'legendary';
 
@@ -40,12 +40,15 @@ export interface GlitchStats {
 	attackSpeed: number;
 	moveSpeed: number;
 	attackPattern?: 'melee' | 'siege';
+	supportPattern?: 'shield-nearest-non-bulwark';
 	preferredRange?: number;
 	orbitSpeed?: number;
 	projectileSpeed?: number;
 	projectileDamage?: number;
 	projectileColor?: string;
 	projectileSize?: number;
+	allyShieldAmount?: number;
+	allyShieldDuration?: number;
 	onHitShieldDuration?: number;
 	onHitShieldCooldown?: number;
 	onHitShieldDamageReduction?: number;
@@ -136,6 +139,43 @@ export interface WeaponDropConfig {
 	perEnemyDropChance?: number;
 }
 
+export type UtilityActivationKind = 'triggered' | 'passive';
+
+export interface UtilityVisual {
+	color: string;
+	shape?: 'ring' | 'column-glow';
+	glow?: boolean;
+}
+
+export interface UtilityDefinition {
+	id: string;
+	name: string;
+	category: 'utility';
+	rarity: WeaponRarity;
+	shape: WeaponShape;
+	activationKind: UtilityActivationKind;
+	cycleInterval?: number;
+	effect:
+		| {
+				type: 'shield-pool';
+				shieldAmount: number;
+				durationCycles: number;
+		  }
+		| {
+				type: 'cycle-adjacency-reduction';
+				reduction: number;
+				minimumCycleInterval: number;
+		  }
+		| {
+				type: 'cycle-damage-boost';
+				damageMultiplier: number;
+				duration: 'rest-of-cycle';
+		  };
+	utilityVisual?: UtilityVisual;
+	drop: WeaponDropConfig;
+	role: string;
+}
+
 export interface WeaponDefinition {
 	id: string;
 	name: string;
@@ -149,6 +189,8 @@ export interface WeaponDefinition {
 	role: string;
 }
 
+export type LoadoutItemDefinition = WeaponDefinition | UtilityDefinition;
+
 export interface OwnedWeaponInstance {
 	instanceId: string;
 	definitionId: string;
@@ -158,6 +200,8 @@ export interface OwnedWeaponInstance {
 	stage: number | null;
 	level: number | null;
 }
+
+export type OwnedLoadoutItemInstance = OwnedWeaponInstance;
 
 export interface LoadoutPlacement {
 	weaponInstanceId: string;
@@ -171,6 +215,7 @@ export interface WaveComposition {
 	tankers?: number;
 	shard?: number;
 	bulwark?: number;
+	shielder?: number;
 }
 
 export interface XpPerEnemy {
@@ -179,6 +224,7 @@ export interface XpPerEnemy {
 	tanker?: number;
 	shard?: number;
 	bulwark?: number;
+	shielder?: number;
 }
 
 export interface CampaignLevel {
@@ -214,6 +260,7 @@ export interface CampaignBaseline {
 			tankers?: string;
 			shard?: string;
 			bulwark?: string;
+			shielder?: string;
 		};
 	};
 	bossEnemyMultipliers: {
@@ -226,6 +273,7 @@ export interface CampaignBaseline {
 		tanker?: string;
 		shard?: string;
 		bulwark?: string;
+		shielder?: string;
 	};
 }
 

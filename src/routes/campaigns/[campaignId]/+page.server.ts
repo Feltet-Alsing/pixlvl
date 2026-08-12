@@ -3,6 +3,7 @@ import { error, fail } from '@sveltejs/kit';
 import {
 	getCampaign,
 	getCampaignCombatProfile,
+	getLoadoutItemDefinition,
 	getWeaponDefinition,
 	getCampaignWeaponPool
 } from '$lib/data';
@@ -13,7 +14,7 @@ import {
 	updateGameState
 } from '$lib/server/game-state';
 
-import type { LoadoutPlacement, OwnedWeaponInstance, WeaponDefinition } from '$lib/data/types';
+import type { LoadoutItemDefinition, LoadoutPlacement, OwnedWeaponInstance } from '$lib/data/types';
 
 import type { Actions, PageServerLoad } from './$types';
 
@@ -41,7 +42,7 @@ function buildOwnedWeaponById(ownedWeapons: OwnedWeaponInstance[]) {
 	>;
 }
 
-function isPlacementWithinBounds(definition: WeaponDefinition, x: number, y: number) {
+function isPlacementWithinBounds(definition: LoadoutItemDefinition, x: number, y: number) {
 	return definition.shape.cells.every(([cellX, cellY]) => {
 		const gridX = x + cellX;
 		const gridY = y + cellY;
@@ -54,7 +55,7 @@ function placementsOverlap(
 	ownedWeapons: OwnedWeaponInstance[],
 	placements: LoadoutPlacement[],
 	currentInstanceId: string,
-	definition: WeaponDefinition,
+	definition: LoadoutItemDefinition,
 	x: number,
 	y: number
 ) {
@@ -72,7 +73,7 @@ function placementsOverlap(
 			continue;
 		}
 
-		const placedDefinition = getWeaponDefinition(ownedWeapon.definitionId);
+		const placedDefinition = getLoadoutItemDefinition(ownedWeapon.definitionId);
 
 		for (const [cellX, cellY] of placedDefinition.shape.cells) {
 			occupied.add(`${placement.x + cellX}:${placement.y + cellY}`);
@@ -149,7 +150,7 @@ export const actions: Actions = {
 			return fail(400, { loadoutError: 'That weapon is already equipped.' });
 		}
 
-		const definition = getWeaponDefinition(ownedWeapon.definitionId);
+		const definition = getLoadoutItemDefinition(ownedWeapon.definitionId);
 
 		if (!isPlacementWithinBounds(definition, x, y)) {
 			return fail(400, { loadoutError: 'That placement does not fit inside the 5 x 8 grid.' });
@@ -215,7 +216,7 @@ export const actions: Actions = {
 		const ownedWeapon = gameState.pixlState.ownedWeapons.find(
 			(weapon) => weapon.instanceId === weaponInstanceId
 		);
-		const definition = ownedWeapon ? getWeaponDefinition(ownedWeapon.definitionId) : null;
+		const definition = ownedWeapon ? getLoadoutItemDefinition(ownedWeapon.definitionId) : null;
 
 		await updateGameState(locals.user.id, {
 			pixlState: {

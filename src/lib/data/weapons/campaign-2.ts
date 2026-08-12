@@ -1,6 +1,6 @@
-import type { WeaponDefinition } from '$lib/data/types';
+import type { LoadoutItemDefinition } from '$lib/data/types';
 
-export const campaign2Weapons: WeaponDefinition[] = [
+export const campaign2Weapons: LoadoutItemDefinition[] = [
 	{
 		id: 'force-field',
 		name: 'Force Field',
@@ -389,5 +389,108 @@ export const campaign2Weapons: WeaponDefinition[] = [
 			perLevelDropChance: 0.02
 		},
 		role: 'Endgame spread battery that trades footprint for the flashiest projectile burst in the game'
+	},
+	{
+		id: 'shield-matrix',
+		name: 'Shield Matrix',
+		category: 'utility',
+		rarity: 'normal',
+		shape: {
+			width: 2,
+			height: 2,
+			cells: [
+				[0, 0],
+				[1, 0],
+				[0, 1],
+				[1, 1]
+			]
+		},
+		activationKind: 'triggered',
+		cycleInterval: 3,
+		effect: {
+			type: 'shield-pool',
+			shieldAmount: 20,
+			durationCycles: 1
+		},
+		utilityVisual: {
+			color: '#60a5fa',
+			shape: 'ring',
+			glow: true
+		},
+		drop: {
+			mode: 'drop',
+			campaignId: 2,
+			stageStart: 3,
+			stageEnd: 5,
+			perLevelDropChance: 0.16
+		},
+		role: 'Defensive utility that grants a temporary 20-point shield pool around the pixl'
+	},
+	{
+		id: 'cycle-booster',
+		name: 'Cycle Booster',
+		category: 'utility',
+		rarity: 'legendary',
+		shape: {
+			width: 1,
+			height: 1,
+			cells: [[0, 0]]
+		},
+		activationKind: 'passive',
+		effect: {
+			type: 'cycle-adjacency-reduction',
+			reduction: 1,
+			minimumCycleInterval: 1
+		},
+		utilityVisual: {
+			color: '#facc15',
+			shape: 'column-glow',
+			glow: true
+		},
+		drop: {
+			mode: 'drop',
+			campaignId: 2,
+			stageStart: 5,
+			stageEnd: 5,
+			perLevelDropChance: 0.02
+		},
+		role: 'Passive utility that reduces the cycle interval of touching weapons by 1'
+	},
+	{
+		id: 'damage-spire',
+		name: 'Damage Spire',
+		category: 'utility',
+		rarity: 'rare',
+		shape: {
+			width: 1,
+			height: 5,
+			cells: [
+				[0, 0],
+				[0, 1],
+				[0, 2],
+				[0, 3],
+				[0, 4]
+			]
+		},
+		activationKind: 'triggered',
+		cycleInterval: 4,
+		effect: {
+			type: 'cycle-damage-boost',
+			damageMultiplier: 1.2,
+			duration: 'rest-of-cycle'
+		},
+		utilityVisual: {
+			color: '#fb7185',
+			shape: 'column-glow',
+			glow: true
+		},
+		drop: {
+			mode: 'drop',
+			campaignId: 2,
+			stageStart: 4,
+			stageEnd: 5,
+			perLevelDropChance: 0.08
+		},
+		role: 'Timed utility that boosts all weapon damage by 20% for the rest of the current cycle'
 	}
 ];

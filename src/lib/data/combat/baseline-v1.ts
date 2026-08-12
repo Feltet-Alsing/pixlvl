@@ -42,6 +42,19 @@ export const baselineCombatProfile: CombatProfile = {
 			contactDamage: 15,
 			attackSpeed: 0.4,
 			moveSpeed: 28
+		},
+		shielder: {
+			health: 52,
+			contactDamage: 0,
+			attackSpeed: 0.45,
+			moveSpeed: 28,
+			attackPattern: 'siege',
+			supportPattern: 'shield-nearest-non-bulwark',
+			preferredRange: 138,
+			orbitSpeed: 24,
+			allyShieldAmount: 16,
+			allyShieldDuration: 1,
+			shieldColor: '#7fb7ff'
 		}
 	}
 };

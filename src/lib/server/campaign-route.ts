@@ -4,6 +4,7 @@ import {
 	getCampaign,
 	getCampaignCombatProfile,
 	getCampaignWeaponPool,
+	getLoadoutItemDefinition,
 	getWeaponDefinition,
 	weaponDefinitions
 } from '$lib/data';
@@ -19,7 +20,7 @@ import {
 
 import { getCampaignRouteNotificationCounts } from '$lib/game/notifications';
 
-import type { LoadoutPlacement, OwnedWeaponInstance, WeaponDefinition } from '$lib/data/types';
+import type { LoadoutItemDefinition, LoadoutPlacement, OwnedWeaponInstance } from '$lib/data/types';
 
 type ActionResult<T> = { ok: true; data: T } | { ok: false; status: number; data: T };
 
@@ -77,7 +78,7 @@ function buildOwnedWeaponById(ownedWeapons: OwnedWeaponInstance[]) {
 }
 
 function isPlacementWithinBounds(
-	definition: WeaponDefinition,
+	definition: LoadoutItemDefinition,
 	x: number,
 	y: number,
 	columnCount: number,
@@ -95,7 +96,7 @@ function placementsOverlap(
 	ownedWeapons: OwnedWeaponInstance[],
 	placements: LoadoutPlacement[],
 	currentInstanceId: string,
-	definition: WeaponDefinition,
+	definition: LoadoutItemDefinition,
 	x: number,
 	y: number
 ) {
@@ -113,7 +114,7 @@ function placementsOverlap(
 			continue;
 		}
 
-		const placedDefinition = getWeaponDefinition(ownedWeapon.definitionId);
+		const placedDefinition = getLoadoutItemDefinition(ownedWeapon.definitionId);
 
 		for (const [cellX, cellY] of placedDefinition.shape.cells) {
 			occupied.add(`${placement.x + cellX}:${placement.y + cellY}`);
@@ -150,7 +151,7 @@ function validateLoadoutPlacements(
 			return { ok: false, error: 'Loadout contains an invalid grid coordinate.' };
 		}
 
-		const definition = getWeaponDefinition(ownedWeapon.definitionId);
+		const definition = getLoadoutItemDefinition(ownedWeapon.definitionId);
 
 		if (definition.rarity === 'legendary') {
 			if (equippedLegendaryDefinitionIds.has(definition.id)) {
@@ -294,7 +295,7 @@ export async function placeLoadoutWeaponForUser(
 		return { ok: false, status: 400, data: { loadoutError: 'That weapon is already equipped.' } };
 	}
 
-	const definition = getWeaponDefinition(ownedWeapon.definitionId);
+	const definition = getLoadoutItemDefinition(ownedWeapon.definitionId);
 	const nextPlacements = [
 		...gameState.pixlState.loadoutPlacements,
 		{
@@ -347,7 +348,7 @@ export async function removeLoadoutPlacementForUser(
 	const ownedWeapon = gameState.pixlState.ownedWeapons.find(
 		(weapon) => weapon.instanceId === weaponInstanceId
 	);
-	const definition = ownedWeapon ? getWeaponDefinition(ownedWeapon.definitionId) : null;
+	const definition = ownedWeapon ? getLoadoutItemDefinition(ownedWeapon.definitionId) : null;
 
 	const result = await persistLoadoutPlacementsForUser(userId, nextPlacements);
 

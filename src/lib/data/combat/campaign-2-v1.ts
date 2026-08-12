@@ -53,6 +53,19 @@ export const campaign2CombatProfile: CombatProfile = {
 			onHitShieldCooldown: 2.4,
 			onHitShieldDamageReduction: 0.65,
 			shieldColor: '#ffd36b'
+		},
+		shielder: {
+			health: 72,
+			contactDamage: 0,
+			attackSpeed: 0.55,
+			moveSpeed: 56,
+			attackPattern: 'siege',
+			supportPattern: 'shield-nearest-non-bulwark',
+			preferredRange: 138,
+			orbitSpeed: 28,
+			allyShieldAmount: 24,
+			allyShieldDuration: 1,
+			shieldColor: '#7fb7ff'
 		}
 	}
 };
