@@ -211,9 +211,7 @@
 				shape: definition.shape,
 				baseDamage: isWeaponDefinition(definition) ? definition.baseDamage : undefined,
 				attack: isWeaponDefinition(definition) ? definition.attack : undefined,
-				activationKind: isUtilityDefinition(definition)
-					? definition.activationKind
-					: undefined,
+				activationKind: isUtilityDefinition(definition) ? definition.activationKind : undefined,
 				effectSummary: getLoadoutItemEffectSummary(definition),
 				role: definition.role,
 				x: placement.x,
@@ -246,12 +244,8 @@
 				baseDamage: isWeaponDefinition(definition) ? definition.baseDamage : undefined,
 				projectileSpeed: isWeaponDefinition(definition) ? definition.projectileSpeed : undefined,
 				attack: isWeaponDefinition(definition) ? definition.attack : undefined,
-				projectileVisual: isWeaponDefinition(definition)
-					? definition.projectileVisual
-					: undefined,
-				activationKind: isUtilityDefinition(definition)
-					? definition.activationKind
-					: undefined,
+				projectileVisual: isWeaponDefinition(definition) ? definition.projectileVisual : undefined,
+				activationKind: isUtilityDefinition(definition) ? definition.activationKind : undefined,
 				effectSummary: getLoadoutItemEffectSummary(definition),
 				role: definition.role,
 				x: placement?.x ?? null,
@@ -955,7 +949,9 @@
 		}
 	}
 
-	function formatActivationLabel(weapon: Pick<InventoryWeaponGroup, 'category' | 'attack' | 'activationKind'>) {
+	function formatActivationLabel(
+		weapon: Pick<InventoryWeaponGroup, 'category' | 'attack' | 'activationKind'>
+	) {
 		if (weapon.category === 'weapon') {
 			return weapon.attack ? formatCycleThreshold(weapon.attack) : '1';
 		}
@@ -1024,8 +1020,8 @@
 			<p class="eyebrow">Campaign {data.campaign.campaign}</p>
 			<h1>Loadout</h1>
 			<p class="lede">
-				Every weapon keeps its exact shape. If the shape fits inside the {loadoutRowCount} x {loadoutColumnCount}
-				grid without overlapping another weapon, it can be equipped.
+				Every item keeps its exact shape. If the shape fits inside the {loadoutRowCount} x {loadoutColumnCount}
+				grid without overlapping another item, it can be equipped.
 			</p>
 			<p class="live-run-label">
 				Pixl level {progressionState.level} · {progressionState.perkPoints} perk {progressionState.perkPoints ===
@@ -1044,7 +1040,7 @@
 					<div>
 						<h2>Loadout grid</h2>
 						<p>
-							Drag a weapon from inventory into the grid, drag placed weapons to reposition, or drag
+							Drag an item from inventory into the grid, drag placed items to reposition, or drag
 							them back out to unequip.
 						</p>
 					</div>
@@ -1088,7 +1084,7 @@
 					</button>
 				</div>
 
-				<div class="loadout-summary-strip" aria-label="Equipped weapon cycle summary">
+				<div class="loadout-summary-strip" aria-label="Equipped loadout cycle summary">
 					<div class="loadout-summary-card">
 						<span>Run state</span>
 						<strong>Stage {liveRunStage} · {liveRunStageLevel}</strong>
@@ -1104,7 +1100,7 @@
 						<strong>{formatCycleAverage(equippedProjectilesPerCycle)}</strong>
 					</div>
 					<div class="loadout-summary-card">
-						<span>Weapons equipped</span>
+						<span>Items equipped</span>
 						<strong>{loadoutWeapons.length}</strong>
 					</div>
 				</div>
@@ -1223,10 +1219,10 @@
 
 			<div class="panel inventory-panel">
 				<div class="section-head">
-					<h2>Weapon toolbox</h2>
+					<h2>Loadout toolbox</h2>
 					<p>
-						Acquired weapons sit in a structured toolbox under the loadout. Drag any ready copy into
-						the grid to equip it, or drag equipped weapons back here to unequip.
+						Acquired weapons and utilities sit in a structured toolbox under the loadout. Drag any
+						ready copy into the grid to equip it, or drag equipped items back here to unequip.
 					</p>
 				</div>
 
@@ -1236,6 +1232,7 @@
 					role="button"
 					tabindex="0"
 					aria-label="Drag equipped weapons here to unequip them"
+					aria-label="Drag equipped items here to unequip them"
 					ondragover={handleInventoryDragOver}
 					ondragleave={handleInventoryDragLeave}
 					ondrop={handleInventoryDrop}
@@ -1291,36 +1288,50 @@
 
 										<div class="inventory-tooltip-stats">
 											<div>
-												<span>Damage</span>
-												<strong>{group.baseDamage}</strong>
+												<span>Category</span>
+												<strong>{group.category === 'weapon' ? 'Weapon' : 'Utility'}</strong>
 											</div>
 											<div>
-												<span>Projectile</span>
-												<strong>{group.projectileSpeed}</strong>
+												<span>Activation</span>
+												<strong>{formatActivationLabel(group)}</strong>
 											</div>
 											<div>
-												<span>Pattern</span>
-												<strong>{formatAttackLabel(group.attack.kind)}</strong>
-											</div>
-											<div>
-												<span>Projectiles</span>
-												<strong>{group.attack.projectileCount}</strong>
-											</div>
-											<div>
-												<span>Cycle</span>
-												<strong>{formatCycleThreshold(group.attack)}</strong>
+												<span>Effect</span>
+												<strong>{group.effectSummary}</strong>
 											</div>
 											<div>
 												<span>Shape</span>
 												<strong>{group.shape.width} x {group.shape.height}</strong>
 											</div>
-											<div>
-												<span>Payload</span>
-												<strong>{group.projectileVisual.size}</strong>
-											</div>
+											{#if group.category === 'weapon' && group.baseDamage && group.attack}
+												<div>
+													<span>Damage</span>
+													<strong>{group.baseDamage}</strong>
+												</div>
+												<div>
+													<span>Pattern</span>
+													<strong>{formatAttackLabel(group.attack.kind)}</strong>
+												</div>
+												<div>
+													<span>Projectiles</span>
+													<strong>{group.attack.projectileCount}</strong>
+												</div>
+												{#if group.projectileSpeed}
+													<div>
+														<span>Projectile</span>
+														<strong>{group.projectileSpeed}</strong>
+													</div>
+												{/if}
+												{#if group.projectileVisual}
+													<div>
+														<span>Payload</span>
+														<strong>{group.projectileVisual.size}</strong>
+													</div>
+												{/if}
+											{/if}
 										</div>
 
-										{#if group.attack.spreadDegrees}
+										{#if group.category === 'weapon' && group.attack?.spreadDegrees}
 											<p class="inventory-tooltip-note">
 												Spread: {group.attack.spreadDegrees} degrees
 											</p>
