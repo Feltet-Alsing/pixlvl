@@ -12,7 +12,16 @@ export type WeaponTrailStyle = 'none' | 'streak' | 'pulse';
 
 export type WeaponProjectileMotion = 'straight' | 'wave' | 'accelerate';
 
-export type WeaponSpecialAttackKind = 'force-field' | 'laser-sweep' | 'ricochet' | 'needle-fan';
+export type WeaponSpecialAttackKind =
+	| 'force-field'
+	| 'laser-sweep'
+	| 'ricochet'
+	| 'needle-fan'
+	| 'expanding-wave'
+	| 'sniper-line'
+	| 'shrapnel-burst';
+
+export type WeaponTargetingKind = 'current-target' | 'furthest-target';
 
 export interface PixlBaseStats {
 	health: number;
@@ -95,8 +104,27 @@ export interface WeaponAttackBehavior {
 				duration: number;
 				maxReach: number;
 				lineWidth: number;
+		  }
+		| {
+				type: 'expanding-wave';
+				sizeGrowth: number;
+				maxSize: number;
+				impactRadiusGrowth: number;
+				maxImpactRadius: number;
+		  }
+		| {
+				type: 'sniper-line';
+				chargeDuration: number;
+				lineWidth: number;
+		  }
+		| {
+				type: 'shrapnel-burst';
+				fragmentCount: number;
+				fragmentDamageMultiplier: number;
+				fragmentSearchRadius: number;
+				fragmentSpeedMultiplier: number;
 		  };
-	targeting: 'current-target';
+	targeting: WeaponTargetingKind;
 }
 
 export interface WeaponDropConfig {

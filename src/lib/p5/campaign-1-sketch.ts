@@ -22,11 +22,11 @@ import type { PersistedCampaignProgress, PersistedPixlState } from '$lib/server/
 const MAX_WIDTH = 760;
 const BASE_HEIGHT = 520;
 const FIXED_ARENA_RADIUS = BASE_HEIGHT * 0.42;
-const LOADOUT_ROW_COUNT = 5;
+const ARENA_VERTICAL_OFFSET_RATIO = 0.1;
 const LOADOUT_COLUMN_COUNT = 8;
-const LEVEL_CLEAR_DELAY = 15;
+const LEVEL_CLEAR_DELAY = 3;
 const LEVEL_RESET_DELAY = 1.2;
-const CAMPAIGN_LOOP_DELAY = 15;
+const CAMPAIGN_LOOP_DELAY = 3;
 const LOADOUT_PREVIEW_MAX_WIDTH = 320;
 const LOADOUT_PREVIEW_BASE_HEIGHT = 240;
 
@@ -112,6 +112,7 @@ interface EnemyState {
 }
 
 interface ProjectileState {
+	weaponId: string;
 	originX: number;
 	originY: number;
 	x: number;
@@ -131,11 +132,28 @@ interface ProjectileState {
 	shape: WeaponProjectileShape;
 	trail: WeaponTrailStyle;
 	glow: boolean;
+	canSplitOnImpact: boolean;
 	motion: WeaponProjectileMotion;
 	pierceRemaining: number;
 	impactRadius: number;
+	impactRadiusGrowth: number;
+	maxImpactRadius: number;
 	ricochetRemaining: number;
+	sizeGrowth: number;
+	maxSize: number;
 	hitEnemyIds: number[];
+}
+
+interface SniperLockState {
+	enemyId: number | null;
+	targetX: number;
+	targetY: number;
+	age: number;
+	chargeDuration: number;
+	lineWidth: number;
+	color: string;
+	glow: boolean;
+	weapon: WeaponDefinition;
 }
 
 interface EnemyProjectileState {
@@ -413,6 +431,7 @@ export function createCampaignSketch(
 		let forceFields: ForceFieldState[] = [];
 		let laserSweeps: LaserSweepState[] = [];
 		let needleBursts: NeedleBurstState[] = [];
+		let sniperLocks: SniperLockState[] = [];
 		let centerX = 0;
 		let centerY = 0;
 		let arenaRadius = 0;
@@ -473,7 +492,7 @@ export function createCampaignSketch(
 
 		const updateArenaMetrics = () => {
 			centerX = p.width / 2;
-			centerY = p.height / 2;
+			centerY = p.height * (0.5 - ARENA_VERTICAL_OFFSET_RATIO);
 			arenaRadius = Math.min(Math.min(p.width, p.height) * 0.42, FIXED_ARENA_RADIUS);
 		};
 
@@ -596,11 +615,16 @@ export function createCampaignSketch(
 			forceFields = [];
 			laserSweeps = [];
 			needleBursts = [];
+			sniperLocks = [];
 			spawnQueue = shuffleInPlace(buildSpawnQueue(currentLevel), p);
 
 			if (spawnQueue.length > 0) {
 				spawnEnemy(spawnQueue.shift() as GlitchKind);
 			}
+		};
+
+		const getCurrentStageStartLevelIndex = () => {
+			return Math.max(0, (currentLevel.stage - 1) * campaign.levelsPerStage);
 		};
 
 		const rollLevelDrops = () => {
@@ -653,6 +677,8 @@ export function createCampaignSketch(
 			const y = centerY + Math.sin(angle) * arenaRadius;
 			const stats = combatProfile.glitches[kind];
 			const preferredRange = stats.preferredRange ?? getEnemyContactRange(kind);
+			const holdRadius =
+				stats.attackPattern === 'siege' ? arenaRadius : preferredRange + p.random(-12, 16);
 			const healthMultiplier = getEnemyStageMultiplier('healthPerStage');
 			const scaledHealth = Math.max(1, Math.round(stats.health * healthMultiplier));
 
@@ -666,7 +692,7 @@ export function createCampaignSketch(
 				attackTimer: 1 / stats.attackSpeed,
 				hitFlash: 0,
 				orbitDirection: p.random() < 0.5 ? -1 : 1,
-				holdRadius: preferredRange + p.random(-12, 16),
+				holdRadius: holdRadius,
 				shieldPulseTimer: 0,
 				shieldPulseCooldown: p.random(0, Math.max(0.15, (stats.onHitShieldCooldown ?? 0) * 0.5)),
 				damageMultiplier: getEnemyStageMultiplier('damagePerStage')
@@ -689,6 +715,49 @@ export function createCampaignSketch(
 			}
 
 			return closestEnemy;
+		};
+
+		const getClosestEnemiesToPoint = (
+			originX: number,
+			originY: number,
+			limit: number,
+			maxDistance = Number.POSITIVE_INFINITY,
+			excludeEnemyIds: number[] = []
+		) => {
+			return [...enemies]
+				.filter((enemy) => !excludeEnemyIds.includes(enemy.id))
+				.map((enemy) => ({
+					enemy,
+					distance: Math.hypot(enemy.x - originX, enemy.y - originY)
+				}))
+				.filter(({ distance }) => distance <= maxDistance)
+				.sort((left, right) => left.distance - right.distance)
+				.slice(0, limit)
+				.map(({ enemy }) => enemy);
+		};
+
+		const getFurthestEnemy = () => {
+			let furthestEnemy: EnemyState | null = null;
+			let furthestDistance = Number.NEGATIVE_INFINITY;
+
+			for (const enemy of enemies) {
+				const distance = Math.hypot(enemy.x - centerX, enemy.y - centerY);
+
+				if (distance > furthestDistance) {
+					furthestDistance = distance;
+					furthestEnemy = enemy;
+				}
+			}
+
+			return furthestEnemy;
+		};
+
+		const getWeaponTarget = (targeting: WeaponAttackBehavior['targeting']) => {
+			if (targeting === 'furthest-target') {
+				return getFurthestEnemy();
+			}
+
+			return getClosestEnemy();
 		};
 
 		const getClosestEnemies = (count: number) => {
@@ -845,6 +914,32 @@ export function createCampaignSketch(
 			});
 		};
 
+		const spawnSniperLock = (weapon: WeaponDefinition) => {
+			const special = weapon.attack.special;
+
+			if (!special || special.type !== 'sniper-line') {
+				return;
+			}
+
+			const target = getWeaponTarget(weapon.attack.targeting);
+
+			if (!target) {
+				return;
+			}
+
+			sniperLocks.push({
+				enemyId: target.id,
+				targetX: target.x,
+				targetY: target.y,
+				age: 0,
+				chargeDuration: special.chargeDuration,
+				lineWidth: special.lineWidth,
+				color: weapon.projectileVisual.color,
+				glow: weapon.projectileVisual.glow ?? false,
+				weapon
+			});
+		};
+
 		const retargetRicochetProjectile = (projectile: ProjectileState) => {
 			let nextEnemy: EnemyState | null = null;
 			let closestDistance = Number.POSITIVE_INFINITY;
@@ -884,44 +979,197 @@ export function createCampaignSketch(
 			return true;
 		};
 
+		const spawnProjectile = ({
+			originX,
+			originY,
+			target,
+			angleRadians,
+			weapon,
+			angleOffsetRadians = 0,
+			damage = Math.max(1, Math.round(weapon.baseDamage)),
+			speed = weapon.projectileSpeed,
+			size = PROJECTILE_SIZE_BY_VISUAL[weapon.projectileVisual.size],
+			shape = weapon.projectileVisual.shape ?? 'square',
+			trail = weapon.projectileVisual.trail ?? 'none',
+			glow = weapon.projectileVisual.glow ?? false,
+			color = weapon.projectileVisual.color,
+			motion = weapon.attack.motion ?? 'straight',
+			pierceRemaining = Math.max(0, weapon.attack.pierceCount ?? 0),
+			impactRadius = Math.max(0, weapon.attack.impactRadius ?? 0),
+			impactRadiusGrowth,
+			maxImpactRadius,
+			ricochetRemaining,
+			sizeGrowth,
+			maxSize,
+			canSplitOnImpact = weapon.attack.special?.type === 'shrapnel-burst'
+		}: {
+			originX: number;
+			originY: number;
+			target?: EnemyState;
+			angleRadians?: number;
+			weapon: WeaponDefinition;
+			angleOffsetRadians?: number;
+			damage?: number;
+			speed?: number;
+			size?: number;
+			shape?: WeaponProjectileShape;
+			trail?: WeaponTrailStyle;
+			glow?: boolean;
+			color?: string;
+			motion?: WeaponProjectileMotion;
+			pierceRemaining?: number;
+			impactRadius?: number;
+			impactRadiusGrowth?: number;
+			maxImpactRadius?: number;
+			ricochetRemaining?: number;
+			sizeGrowth?: number;
+			maxSize?: number;
+			canSplitOnImpact?: boolean;
+		}) => {
+			const baseAngle =
+				(angleRadians ??
+					(target ? Math.atan2(target.y - originY, target.x - originX) : undefined) ??
+					0) + angleOffsetRadians;
+			const directionX = Math.cos(baseAngle);
+			const directionY = Math.sin(baseAngle);
+
+			const expandingWave =
+				weapon.attack.special?.type === 'expanding-wave' ? weapon.attack.special : null;
+			const primaryShrapnelOrb = canSplitOnImpact;
+			const scaledSpeed = primaryShrapnelOrb ? speed / 3 : speed;
+			const scaledSize = primaryShrapnelOrb ? size * 3 : size;
+
+			projectiles.push({
+				weaponId: weapon.id,
+				originX,
+				originY,
+				x: originX,
+				y: originY,
+				lastX: originX,
+				lastY: originY,
+				directionX,
+				directionY,
+				perpendicularX: -directionY,
+				perpendicularY: directionX,
+				speed: scaledSpeed,
+				distanceTravelled: 0,
+				age: 0,
+				damage,
+				color,
+				size: scaledSize,
+				shape,
+				trail,
+				glow,
+				canSplitOnImpact,
+				motion,
+				pierceRemaining,
+				impactRadius,
+				impactRadiusGrowth: Math.max(
+					0,
+					impactRadiusGrowth ?? expandingWave?.impactRadiusGrowth ?? 0
+				),
+				maxImpactRadius: Math.max(
+					0,
+					maxImpactRadius ?? expandingWave?.maxImpactRadius ?? impactRadius
+				),
+				ricochetRemaining:
+					ricochetRemaining ??
+					(weapon.attack.special?.type === 'ricochet' ? weapon.attack.special.bounceCount : 0),
+				sizeGrowth: Math.max(0, sizeGrowth ?? expandingWave?.sizeGrowth ?? 0),
+				maxSize: Math.max(
+					scaledSize,
+					primaryShrapnelOrb ? scaledSize : (maxSize ?? expandingWave?.maxSize ?? scaledSize)
+				),
+				hitEnemyIds: []
+			});
+		};
+
 		const fireProjectile = (
 			target: EnemyState,
 			weapon: WeaponDefinition,
 			angleOffsetRadians = 0
 		) => {
-			const dx = target.x - centerX;
-			const dy = target.y - centerY;
-			const baseAngle = Math.atan2(dy, dx) + angleOffsetRadians;
-			const directionX = Math.cos(baseAngle);
-			const directionY = Math.sin(baseAngle);
-
-			projectiles.push({
+			spawnProjectile({
 				originX: centerX,
 				originY: centerY,
-				x: centerX,
-				y: centerY,
-				lastX: centerX,
-				lastY: centerY,
-				directionX,
-				directionY,
-				perpendicularX: -directionY,
-				perpendicularY: directionX,
-				speed: weapon.projectileSpeed,
-				distanceTravelled: 0,
-				age: 0,
-				damage: Math.max(1, Math.round(weapon.baseDamage)),
-				color: weapon.projectileVisual.color,
-				size: PROJECTILE_SIZE_BY_VISUAL[weapon.projectileVisual.size],
-				shape: weapon.projectileVisual.shape ?? 'square',
-				trail: weapon.projectileVisual.trail ?? 'none',
-				glow: weapon.projectileVisual.glow ?? false,
-				motion: weapon.attack.motion ?? 'straight',
-				pierceRemaining: Math.max(0, weapon.attack.pierceCount ?? 0),
-				impactRadius: Math.max(0, weapon.attack.impactRadius ?? 0),
-				ricochetRemaining:
-					weapon.attack.special?.type === 'ricochet' ? weapon.attack.special.bounceCount : 0,
-				hitEnemyIds: []
+				target,
+				weapon,
+				angleOffsetRadians
 			});
+		};
+
+		const spawnShrapnelBurst = (
+			projectile: ProjectileState,
+			weapon: WeaponDefinition,
+			impactX: number,
+			impactY: number,
+			hitEnemyId: number
+		) => {
+			const special = weapon.attack.special;
+
+			if (!projectile.canSplitOnImpact || !special || special.type !== 'shrapnel-burst') {
+				return;
+			}
+
+			const nearbyEnemies = getClosestEnemiesToPoint(
+				impactX,
+				impactY,
+				special.fragmentCount,
+				special.fragmentSearchRadius,
+				[hitEnemyId]
+			);
+
+			for (const enemy of nearbyEnemies) {
+				spawnProjectile({
+					originX: impactX,
+					originY: impactY,
+					target: enemy,
+					weapon,
+					damage: Math.max(1, Math.round(weapon.baseDamage * special.fragmentDamageMultiplier)),
+					speed: weapon.projectileSpeed * special.fragmentSpeedMultiplier,
+					size: Math.max(4, projectile.size * 0.45),
+					shape: 'spark',
+					trail: 'streak',
+					glow: true,
+					color: '#ffb08f',
+					motion: 'straight',
+					pierceRemaining: 0,
+					impactRadius: 0,
+					impactRadiusGrowth: 0,
+					maxImpactRadius: 0,
+					ricochetRemaining: 0,
+					sizeGrowth: 0,
+					maxSize: Math.max(4, projectile.size * 0.45),
+					canSplitOnImpact: false
+				});
+			}
+
+			const remainingFragments = Math.max(0, special.fragmentCount - nearbyEnemies.length);
+
+			for (let index = 0; index < remainingFragments; index += 1) {
+				spawnProjectile({
+					originX: impactX,
+					originY: impactY,
+					angleRadians: (index / Math.max(1, remainingFragments)) * Math.PI * 2,
+					weapon,
+					damage: Math.max(1, Math.round(weapon.baseDamage * special.fragmentDamageMultiplier)),
+					speed: weapon.projectileSpeed * special.fragmentSpeedMultiplier,
+					size: Math.max(4, projectile.size * 0.45),
+					shape: 'spark',
+					trail: 'streak',
+					glow: true,
+					color: '#ffb08f',
+					motion: 'straight',
+					pierceRemaining: 0,
+					impactRadius: 0,
+					impactRadiusGrowth: 0,
+					maxImpactRadius: 0,
+					ricochetRemaining: 0,
+					sizeGrowth: 0,
+					maxSize: Math.max(4, projectile.size * 0.45),
+					canSplitOnImpact: false
+				});
+			}
 		};
 
 		const activateWeapon = (weapon: EquippedWeaponState, target: EnemyState) => {
@@ -949,6 +1197,11 @@ export function createCampaignSketch(
 				return;
 			}
 
+			if (special?.type === 'sniper-line') {
+				spawnSniperLock(weapon.definition);
+				return;
+			}
+
 			const { projectileCount, spreadDegrees } = weapon.definition.attack;
 
 			if (projectileCount <= 1) {
@@ -966,14 +1219,14 @@ export function createCampaignSketch(
 		};
 
 		const activateWeaponsAtColumn = (column: number) => {
-			const target = getClosestEnemy();
-
-			if (!target) {
-				return;
-			}
-
 			for (const weapon of equippedWeapons) {
 				if (weapon.triggerColumn !== column) {
+					continue;
+				}
+
+				const target = getWeaponTarget(weapon.definition.attack.targeting);
+
+				if (!target) {
 					continue;
 				}
 
@@ -1236,6 +1489,33 @@ export function createCampaignSketch(
 			}
 		};
 
+		const updateSniperLocks = (dt: number) => {
+			for (let index = sniperLocks.length - 1; index >= 0; index -= 1) {
+				const lock = sniperLocks[index];
+				lock.age += dt;
+
+				const trackedTarget =
+					(lock.enemyId !== null && enemies.find((enemy) => enemy.id === lock.enemyId)) ?? null;
+
+				if (trackedTarget) {
+					lock.targetX = trackedTarget.x;
+					lock.targetY = trackedTarget.y;
+				}
+
+				if (lock.age < lock.chargeDuration) {
+					continue;
+				}
+
+				const releaseTarget = trackedTarget ?? getWeaponTarget(lock.weapon.attack.targeting);
+
+				if (releaseTarget) {
+					fireProjectile(releaseTarget, lock.weapon);
+				}
+
+				sniperLocks.splice(index, 1);
+			}
+		};
+
 		const updateProjectiles = (dt: number) => {
 			for (let index = projectiles.length - 1; index >= 0; index -= 1) {
 				const projectile = projectiles[index];
@@ -1248,6 +1528,20 @@ export function createCampaignSketch(
 				}
 
 				projectile.distanceTravelled += projectile.speed * dt;
+
+				if (projectile.sizeGrowth > 0) {
+					projectile.size = Math.min(
+						projectile.maxSize,
+						projectile.size + projectile.sizeGrowth * dt
+					);
+				}
+
+				if (projectile.impactRadiusGrowth > 0) {
+					projectile.impactRadius = Math.min(
+						projectile.maxImpactRadius,
+						projectile.impactRadius + projectile.impactRadiusGrowth * dt
+					);
+				}
 
 				const waveOffset = projectile.motion === 'wave' ? Math.sin(projectile.age * 18) * 10 : 0;
 
@@ -1304,6 +1598,14 @@ export function createCampaignSketch(
 							}
 						}
 					}
+
+					spawnShrapnelBurst(
+						projectile,
+						getWeaponDefinition(projectile.weaponId),
+						projectile.x,
+						projectile.y,
+						enemy.id
+					);
 
 					applyDamageToEnemy(hitEnemyIndex, projectile.damage, 0.08);
 
@@ -1508,6 +1810,27 @@ export function createCampaignSketch(
 				p.circle(projectile.x, projectile.y, projectile.size);
 			}
 
+			for (const lock of sniperLocks) {
+				const progress = Math.min(1, lock.age / lock.chargeDuration);
+				const pulseWidth = lock.lineWidth + Math.sin(progress * Math.PI * 6) * 0.35;
+
+				if (lock.glow) {
+					p.stroke(`${lock.color}33`);
+					p.strokeWeight(lock.lineWidth * 4);
+					p.line(centerX, centerY, lock.targetX, lock.targetY);
+				}
+
+				p.stroke(lock.color);
+				p.strokeWeight(Math.max(1.2, pulseWidth));
+				p.line(centerX, centerY, lock.targetX, lock.targetY);
+
+				p.noFill();
+				p.stroke(`${lock.color}cc`);
+				p.strokeWeight(1.4);
+				p.circle(lock.targetX, lock.targetY, 10 + progress * 8);
+				p.circle(lock.targetX, lock.targetY, 18 + Math.sin(progress * Math.PI * 4) * 3);
+			}
+
 			for (const burst of needleBursts) {
 				const progress = Math.min(1, burst.age / burst.duration);
 				const reachFactor = Math.sin(progress * Math.PI);
@@ -1621,6 +1944,7 @@ export function createCampaignSketch(
 				updateNeedleBursts(dt);
 				updateEnemies(dt);
 				updateEnemyProjectiles(dt);
+				updateSniperLocks(dt);
 
 				if (pixlHealth === 0) {
 					markDefeated();
@@ -1636,7 +1960,7 @@ export function createCampaignSketch(
 
 				if (statusTimer <= 0) {
 					if (status === 'defeated') {
-						startLevel(currentLevelIndex);
+						startLevel(getCurrentStageStartLevelIndex());
 					} else {
 						pixlProgression = applyXpGain(pixlProgression, waveXp);
 						bankedXp = pixlProgression.xp;

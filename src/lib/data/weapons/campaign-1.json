@@ -171,16 +171,26 @@
 				[3, 2]
 			]
 		},
-		"baseDamage": 12,
+		"baseDamage": 24,
 		"projectileSpeed": 220,
 		"attack": {
 			"kind": "single",
 			"projectileCount": 1,
+			"cycleInterval": 2,
+			"special": {
+				"type": "shrapnel-burst",
+				"fragmentCount": 8,
+				"fragmentDamageMultiplier": 0.4,
+				"fragmentSearchRadius": 170,
+				"fragmentSpeedMultiplier": 1.45
+			},
 			"targeting": "current-target"
 		},
 		"projectileVisual": {
 			"color": "#d44a38",
-			"size": "large"
+			"size": "large",
+			"shape": "orb",
+			"glow": true
 		},
 		"drop": {
 			"mode": "drop",
@@ -189,6 +199,99 @@
 			"stageEnd": 5,
 			"perLevelDropChance": 0.06
 		},
-		"role": "Oversized premium weapon that trades space for high single-hit output"
+		"role": "Oversized premium weapon that cracks on impact and sprays nearby glitches with heavy shrapnel"
+	},
+	{
+		"id": "tide-caster",
+		"name": "Tide Caster",
+		"rarity": "rare",
+		"shape": {
+			"width": 4,
+			"height": 3,
+			"cells": [
+				[0, 0],
+				[1, 0],
+				[1, 1],
+				[2, 1],
+				[2, 2],
+				[3, 2]
+			]
+		},
+		"baseDamage": 6,
+		"projectileSpeed": 260,
+		"attack": {
+			"kind": "single",
+			"projectileCount": 1,
+			"impactRadius": 32,
+			"special": {
+				"type": "expanding-wave",
+				"sizeGrowth": 42,
+				"maxSize": 38,
+				"impactRadiusGrowth": 96,
+				"maxImpactRadius": 124
+			},
+			"targeting": "current-target"
+		},
+		"projectileVisual": {
+			"color": "#67e8f9",
+			"size": "medium",
+			"shape": "orb",
+			"trail": "pulse",
+			"glow": true
+		},
+		"drop": {
+			"mode": "drop",
+			"campaignId": 1,
+			"stageStart": 4,
+			"stageEnd": 5,
+			"perLevelDropChance": 0.1
+		},
+		"role": "Late-campaign rare that launches a swelling wave orb whose hit zone expands the farther it travels"
+	},
+	{
+		"id": "redline-sniper",
+		"name": "Redline Sniper",
+		"rarity": "rare",
+		"shape": {
+			"width": 5,
+			"height": 2,
+			"cells": [
+				[0, 0],
+				[1, 0],
+				[2, 0],
+				[3, 0],
+				[4, 0],
+				[2, 1],
+				[3, 1]
+			]
+		},
+		"baseDamage": 30,
+		"projectileSpeed": 900,
+		"attack": {
+			"kind": "single",
+			"projectileCount": 1,
+			"cycleInterval": 2,
+			"special": {
+				"type": "sniper-line",
+				"chargeDuration": 0.45,
+				"lineWidth": 2
+			},
+			"targeting": "furthest-target"
+		},
+		"projectileVisual": {
+			"color": "#ef4444",
+			"size": "small",
+			"shape": "spark",
+			"trail": "streak",
+			"glow": true
+		},
+		"drop": {
+			"mode": "drop",
+			"campaignId": 1,
+			"stageStart": 5,
+			"stageEnd": 5,
+			"perLevelDropChance": 0.08
+		},
+		"role": "Late-campaign precision rifle that paints the furthest glitch with a red lock line before firing a heavy delayed shot"
 	}
 ]

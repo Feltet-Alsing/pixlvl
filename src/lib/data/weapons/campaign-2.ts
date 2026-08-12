@@ -107,14 +107,13 @@ export const campaign2Weapons: WeaponDefinition[] = [
 		name: 'Ricochet Zigzag',
 		rarity: 'rare',
 		shape: {
-			width: 5,
+			width: 4,
 			height: 2,
 			cells: [
 				[0, 0],
 				[1, 1],
 				[2, 0],
-				[3, 1],
-				[4, 0]
+				[3, 1]
 			]
 		},
 		baseDamage: 6,
@@ -188,15 +187,12 @@ export const campaign2Weapons: WeaponDefinition[] = [
 		name: 'Ember Lance',
 		rarity: 'rare',
 		shape: {
-			width: 4,
+			width: 2,
 			height: 2,
 			cells: [
-				[0, 0],
+				[0, 1],
 				[1, 0],
-				[2, 0],
-				[1, 1],
-				[2, 1],
-				[3, 1]
+				[1, 1]
 			]
 		},
 		baseDamage: 7,

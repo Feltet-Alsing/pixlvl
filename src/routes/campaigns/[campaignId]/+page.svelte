@@ -9,6 +9,7 @@
 	import {
 		applyUpgradePurchase,
 		createBaselineUpgradeablePixlState,
+		getXpProgress,
 		getUpgradeOptions,
 		isUpgradeKey
 	} from '$lib/game/upgrades';
@@ -178,6 +179,13 @@
 		liveCampaignState?.highestClearedLevel ?? data.campaignState?.highestClearedLevel ?? 0
 	);
 	let currentStage = $derived(Math.ceil(sketchCampaignLevel / data.campaign.levelsPerStage));
+	const rarityOrder = {
+		legendary: 0,
+		exotic: 1,
+		rare: 2,
+		magic: 3,
+		normal: 4
+	} as const satisfies Record<WeaponDefinition['rarity'], number>;
 	let unlockedStages = $derived.by(() => {
 		return Array.from({ length: data.campaign.stages }, (_, index) => index + 1)
 			.map((stage) => {
@@ -227,6 +235,16 @@
 				(left, right) => left.y - right.y || left.x - right.x || left.name.localeCompare(right.name)
 			);
 	});
+	let previewLoadoutRows = $derived.by(() => {
+		return [...currentLoadoutRows].sort((left, right) => {
+			return (
+				rarityOrder[left.rarity] - rarityOrder[right.rarity] ||
+				left.name.localeCompare(right.name) ||
+				left.y - right.y ||
+				left.x - right.x
+			);
+		});
+	});
 	let loadoutSignature = $derived(
 		currentLoadoutRows
 			.map((weapon) => `${weapon.weaponInstanceId}:${weapon.x}:${weapon.y}`)
@@ -239,8 +257,17 @@
 	let loadoutPreviewRemountKey = $derived(
 		`${data.campaignId}:${loadoutSignature}:${previewPixlState?.attackSpeed ?? 0}:${upgradeState.loadoutRows}:${upgradeState.loadoutColumns}`
 	);
+	let currentXpProgress = $derived(getXpProgress(upgradeState));
 	let combatHealthRatio = $derived(
 		combatOverlay.maxPixlHealth > 0 ? combatOverlay.pixlHealth / combatOverlay.maxPixlHealth : 0
+	);
+	let combatXpRatio = $derived(
+		currentXpProgress.xpNeeded > 0
+			? Math.min(1, Math.max(0, currentXpProgress.xpIntoLevel / currentXpProgress.xpNeeded))
+			: 0
+	);
+	let combatXpLabel = $derived(
+		`XP ${currentXpProgress.xpIntoLevel} / ${currentXpProgress.xpNeeded} · L${currentXpProgress.nextLevel} next`
 	);
 	let combatStatusLabel = $derived.by(() => {
 		if (combatOverlay.status === 'running' || combatOverlay.status === 'cleared') return null;
@@ -300,7 +327,7 @@
 	});
 
 	$effect(() => {
-		if (form?.purchaseError || form?.purchaseSuccess) {
+		if (form?.purchaseError) {
 			showStatsOverlay = true;
 		}
 	});
@@ -424,6 +451,19 @@
 			})(p);
 	});
 
+	let loadoutSweepPreviewSketch = $derived.by(() => {
+		return (p: import('p5').default) =>
+			createLoadoutSweepPreviewSketch({
+				pixlState: previewPixlState
+			})(p);
+	});
+</script>
+
+<svelte:head>
+	<title>Campaign {data.campaignId} | pixlvl</title>
+</svelte:head>
+
+<div class="page">
 	<div class={['arena-shell', runMode === 'combat' && showLoadoutPreview ? 'preview-enabled' : '']}>
 		<section class="canvas-stage">
 			{#key sketchRemountKey}
@@ -570,8 +610,6 @@
 
 							{#if form?.purchaseError}
 								<p class="feedback error">{form.purchaseError}</p>
-							{:else if form?.purchaseSuccess}
-								<p class="feedback success">{form.purchaseSuccess}</p>
 							{/if}
 
 							<div class="stats-overlay-grid compact-stats">
@@ -702,8 +740,25 @@
 								</strong>
 							</div>
 						</div>
-						<div class="combat-health">
-							<div class="combat-health-fill" style:--health-ratio={combatHealthRatio}></div>
+						<div class="combat-bars">
+							<div class="combat-bar-group">
+								<div class="combat-bar-meta">
+									<span>Health</span>
+									<strong>{combatOverlay.pixlHealth} / {combatOverlay.maxPixlHealth}</strong>
+								</div>
+								<div class="combat-health">
+									<div class="combat-health-fill" style:--health-ratio={combatHealthRatio}></div>
+								</div>
+							</div>
+							<div class="combat-bar-group">
+								<div class="combat-bar-meta">
+									<span>XP</span>
+									<strong>{combatXpLabel}</strong>
+								</div>
+								<div class="combat-xp">
+									<div class="combat-xp-fill" style:--xp-ratio={combatXpRatio}></div>
+								</div>
+							</div>
 						</div>
 					</div>
 
@@ -720,12 +775,29 @@
 			<aside class="overlay loadout-preview-panel" aria-label="Loadout sweep preview">
 				<div class="loadout-preview-header compact-heading">
 					<p class="eyebrow">Loadout sweep</p>
-					<p class="upgrade-note">Live preview synced to equipped weapons, attack speed, and loadout size.</p>
+					<p class="upgrade-note">
+						Live preview synced to equipped weapons, attack speed, and loadout size.
+					</p>
 				</div>
 				<div class="loadout-preview-meta summary-row">
 					<span>Equipped</span>
 					<strong>{currentLoadoutRows.length}</strong>
 				</div>
+				{#if previewLoadoutRows.length > 0}
+					<div class="loadout-preview-list" aria-label="Equipped weapons sorted by rarity">
+						{#each previewLoadoutRows as weapon (weapon.weaponInstanceId)}
+							<div class={`summary-row loadout-preview-row rarity-${weapon.rarity}`}>
+								<div class="loadout-preview-copy">
+									<strong>{weapon.name}</strong>
+									<span>{weapon.rarity}</span>
+								</div>
+								<span class="loadout-preview-coords">{weapon.x},{weapon.y}</span>
+							</div>
+						{/each}
+					</div>
+				{:else}
+					<p class="loadout-preview-empty">No equipped weapons.</p>
+				{/if}
 				<div class="loadout-preview-canvas-shell">
 					{#key loadoutPreviewRemountKey}
 						<P5Canvas class="preview-canvas-frame" sketch={loadoutSweepPreviewSketch} />
@@ -1123,13 +1195,13 @@
 		justify-self: center;
 		align-self: end;
 		width: min(42rem, 100%);
-		padding: 0.85rem 1rem;
+		padding: 0.7rem 0.9rem;
 		display: grid;
-		gap: 0.75rem;
+		gap: 0.55rem;
 	}
 
 	.combat-title {
-		font-size: 0.76rem;
+		font-size: 0.72rem;
 		letter-spacing: 0.14em;
 		text-transform: uppercase;
 		color: #cfcfcf;
@@ -1138,23 +1210,54 @@
 	.combat-grid {
 		display: grid;
 		grid-template-columns: repeat(6, minmax(0, 1fr));
-		gap: 0.75rem;
+		gap: 0.55rem 0.7rem;
 	}
 
 	.combat-grid div {
 		display: grid;
-		gap: 0.25rem;
+		gap: 0.15rem;
 		align-content: start;
 	}
 
 	.combat-grid strong {
-		font-size: 0.95rem;
+		font-size: 0.88rem;
 		color: #f5f5f5;
 		text-align: left;
 	}
 
+	.combat-bars {
+		display: grid;
+		gap: 0.4rem;
+	}
+
+	.combat-bar-group {
+		display: grid;
+		gap: 0.18rem;
+	}
+
+	.combat-bar-meta {
+		display: flex;
+		justify-content: space-between;
+		gap: 0.6rem;
+		align-items: baseline;
+	}
+
+	.combat-bar-meta span {
+		font-size: 0.63rem;
+		font-weight: 700;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: #8abdcf;
+	}
+
+	.combat-bar-meta strong {
+		font-size: 0.74rem;
+		color: #dff8ff;
+		text-align: right;
+	}
+
 	.combat-health {
-		height: 0.45rem;
+		height: 0.32rem;
 		border-radius: 999px;
 		background: rgba(255, 255, 255, 0.08);
 		overflow: hidden;
@@ -1165,6 +1268,20 @@
 		width: calc(var(--health-ratio) * 100%);
 		border-radius: inherit;
 		background: #ff3434;
+	}
+
+	.combat-xp {
+		height: 0.3rem;
+		border-radius: 999px;
+		background: rgba(93, 210, 255, 0.14);
+		overflow: hidden;
+	}
+
+	.combat-xp-fill {
+		height: 100%;
+		width: calc(var(--xp-ratio) * 100%);
+		border-radius: inherit;
+		background: linear-gradient(90deg, #27d3ff, #6bf0c8);
 	}
 
 	.status-overlay {
@@ -1266,7 +1383,7 @@
 		min-height: 0;
 		padding: 0.9rem;
 		display: grid;
-		grid-template-rows: auto auto minmax(0, 1fr);
+		grid-template-rows: auto auto auto minmax(0, 1fr);
 		gap: 0.75rem;
 		overflow: hidden;
 	}
@@ -1278,6 +1395,45 @@
 
 	.loadout-preview-meta {
 		align-items: center;
+	}
+
+	.loadout-preview-list {
+		display: grid;
+		gap: 0.45rem;
+		max-height: 12rem;
+		overflow: auto;
+	}
+
+	.loadout-preview-row {
+		align-items: center;
+		padding: 0.55rem 0.7rem;
+	}
+
+	.loadout-preview-copy {
+		display: grid;
+		gap: 0.1rem;
+		min-width: 0;
+	}
+
+	.loadout-preview-copy strong {
+		font-size: 0.88rem;
+	}
+
+	.loadout-preview-copy span,
+	.loadout-preview-coords,
+	.loadout-preview-empty {
+		font-size: 0.72rem;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: #cfcfcf;
+	}
+
+	.loadout-preview-coords {
+		white-space: nowrap;
+	}
+
+	.loadout-preview-empty {
+		padding: 0 0.1rem;
 	}
 
 	.loadout-preview-canvas-shell {

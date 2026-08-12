@@ -677,7 +677,7 @@
         "swarmers": 11,
         "tankers": 4
       },
-      "spawnRatePerSecond": 1,
+      "spawnRatePerSecond": 1.5,
       "xpPerEnemy": {
         "biter": 5,
         "swarmer": 6,
@@ -698,7 +698,7 @@
         "swarmers": 12,
         "tankers": 4
       },
-      "spawnRatePerSecond": 1,
+      "spawnRatePerSecond": 1.5,
       "xpPerEnemy": {
         "biter": 5,
         "swarmer": 6,
@@ -719,7 +719,7 @@
         "swarmers": 12,
         "tankers": 4
       },
-      "spawnRatePerSecond": 1,
+      "spawnRatePerSecond": 1.5,
       "xpPerEnemy": {
         "biter": 5,
         "swarmer": 6,
@@ -740,7 +740,7 @@
         "swarmers": 12,
         "tankers": 4
       },
-      "spawnRatePerSecond": 1,
+      "spawnRatePerSecond": 1.5,
       "xpPerEnemy": {
         "biter": 5,
         "swarmer": 6,
@@ -761,7 +761,7 @@
         "swarmers": 12,
         "tankers": 4
       },
-      "spawnRatePerSecond": 1,
+      "spawnRatePerSecond": 1.5,
       "xpPerEnemy": {
         "biter": 5,
         "swarmer": 6,
@@ -782,7 +782,7 @@
         "swarmers": 13,
         "tankers": 5
       },
-      "spawnRatePerSecond": 1,
+      "spawnRatePerSecond": 1.5,
       "xpPerEnemy": {
         "biter": 5,
         "swarmer": 6,
@@ -803,7 +803,7 @@
         "swarmers": 13,
         "tankers": 5
       },
-      "spawnRatePerSecond": 1,
+      "spawnRatePerSecond": 1.5,
       "xpPerEnemy": {
         "biter": 5,
         "swarmer": 6,
@@ -824,7 +824,7 @@
         "swarmers": 14,
         "tankers": 5
       },
-      "spawnRatePerSecond": 1,
+      "spawnRatePerSecond": 1.5,
       "xpPerEnemy": {
         "biter": 5,
         "swarmer": 6,
@@ -845,7 +845,7 @@
         "swarmers": 15,
         "tankers": 5
       },
-      "spawnRatePerSecond": 1,
+      "spawnRatePerSecond": 1.5,
       "xpPerEnemy": {
         "biter": 5,
         "swarmer": 6,
@@ -866,7 +866,7 @@
         "swarmers": 19,
         "tankers": 7
       },
-      "spawnRatePerSecond": 1,
+      "spawnRatePerSecond": 1.5,
       "xpPerEnemy": {
         "biter": 5,
         "swarmer": 6,
@@ -887,7 +887,7 @@
         "swarmers": 15,
         "tankers": 5
       },
-      "spawnRatePerSecond": 1,
+      "spawnRatePerSecond": 1.5,
       "xpPerEnemy": {
         "biter": 6,
         "swarmer": 7,
@@ -908,7 +908,7 @@
         "swarmers": 15,
         "tankers": 5
       },
-      "spawnRatePerSecond": 1,
+      "spawnRatePerSecond": 1.5,
       "xpPerEnemy": {
         "biter": 6,
         "swarmer": 7,
@@ -929,7 +929,7 @@
         "swarmers": 15,
         "tankers": 5
       },
-      "spawnRatePerSecond": 1,
+      "spawnRatePerSecond": 1.5,
       "xpPerEnemy": {
         "biter": 6,
         "swarmer": 7,
@@ -950,7 +950,7 @@
         "swarmers": 15,
         "tankers": 5
       },
-      "spawnRatePerSecond": 1,
+      "spawnRatePerSecond": 1.5,
       "xpPerEnemy": {
         "biter": 6,
         "swarmer": 7,
@@ -971,7 +971,7 @@
         "swarmers": 16,
         "tankers": 6
       },
-      "spawnRatePerSecond": 1,
+      "spawnRatePerSecond": 1.5,
       "xpPerEnemy": {
         "biter": 6,
         "swarmer": 7,
@@ -992,7 +992,7 @@
         "swarmers": 16,
         "tankers": 6
       },
-      "spawnRatePerSecond": 1,
+      "spawnRatePerSecond": 1.5,
       "xpPerEnemy": {
         "biter": 6,
         "swarmer": 7,
@@ -1013,7 +1013,7 @@
         "swarmers": 17,
         "tankers": 6
       },
-      "spawnRatePerSecond": 1,
+      "spawnRatePerSecond": 1.5,
       "xpPerEnemy": {
         "biter": 6,
         "swarmer": 7,
@@ -1034,7 +1034,7 @@
         "swarmers": 17,
         "tankers": 6
       },
-      "spawnRatePerSecond": 1,
+      "spawnRatePerSecond": 1.5,
       "xpPerEnemy": {
         "biter": 6,
         "swarmer": 7,
@@ -1055,7 +1055,7 @@
         "swarmers": 18,
         "tankers": 6
       },
-      "spawnRatePerSecond": 1,
+      "spawnRatePerSecond": 1.5,
       "xpPerEnemy": {
         "biter": 6,
         "swarmer": 7,
@@ -1076,7 +1076,7 @@
         "swarmers": 26,
         "tankers": 10
       },
-      "spawnRatePerSecond": 1,
+      "spawnRatePerSecond": 1.5,
       "xpPerEnemy": {
         "biter": 6,
         "swarmer": 7,
