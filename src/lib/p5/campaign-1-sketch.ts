@@ -6,7 +6,7 @@ import type { PersistedCampaignProgress, PersistedPixlState } from '$lib/server/
 
 const MAX_WIDTH = 760;
 const BASE_HEIGHT = 520;
-const ASPECT_RATIO = MAX_WIDTH / BASE_HEIGHT;
+const FIXED_ARENA_RADIUS = BASE_HEIGHT * 0.42;
 const PROJECTILE_SIZE = 5;
 const LEVEL_CLEAR_DELAY = 1.1;
 const LEVEL_RESET_DELAY = 1.2;
@@ -59,6 +59,22 @@ interface CampaignSketchOptions {
 		PersistedCampaignProgress,
 		'currentLevel' | 'highestUnlockedLevel' | 'highestClearedLevel' | 'completed'
 	> | null;
+	onCombatStateChange?: (state: {
+		stage: number;
+		stageLevel: number;
+		campaignLevel: number;
+		pixlHealth: number;
+		maxPixlHealth: number;
+		bankedGold: number;
+		waveGold: number;
+		remainingEnemies: number;
+		composition: {
+			biters: number;
+			swarmers: number;
+			tankers: number;
+		};
+		status: WaveStatus;
+	}) => void;
 	onStateChange?: (state: {
 		gold: number;
 		currentLevel: number;
@@ -70,11 +86,13 @@ interface CampaignSketchOptions {
 
 function getCanvasSize(canvas: HTMLCanvasElement | null) {
 	const parentWidth = canvas?.parentElement?.clientWidth ?? MAX_WIDTH;
-	const width = Math.min(parentWidth, MAX_WIDTH);
+	const parentHeight = canvas?.parentElement?.clientHeight ?? BASE_HEIGHT;
+	const width = Math.max(1, Math.round(parentWidth));
+	const height = Math.max(1, Math.round(parentHeight));
 
 	return {
 		width,
-		height: Math.round(width / ASPECT_RATIO)
+		height
 	};
 }
 
@@ -147,6 +165,7 @@ export function createCampaignSketch(
 		let highestClearedLevel = options.campaignState?.highestClearedLevel ?? 0;
 		let highestUnlockedLevel = options.campaignState?.highestUnlockedLevel ?? currentLevelIndex + 1;
 		let completed = options.campaignState?.completed ?? false;
+		let lastCombatStateKey = '';
 
 		const persistProgress = (nextCurrentLevel: number) => {
 			options.onStateChange?.({
@@ -191,7 +210,7 @@ export function createCampaignSketch(
 		const updateArenaMetrics = () => {
 			centerX = p.width / 2;
 			centerY = p.height / 2;
-			arenaRadius = Math.min(p.width, p.height) * 0.42;
+			arenaRadius = Math.min(Math.min(p.width, p.height) * 0.42, FIXED_ARENA_RADIUS);
 		};
 
 		const getEnemyContactRange = (kind: GlitchKind) =>
@@ -199,6 +218,34 @@ export function createCampaignSketch(
 				combatProfile.collision.contactRange,
 				combatProfile.collision.pixlRadius + ENEMY_VISUALS[kind].radius
 			);
+
+		const emitCombatState = () => {
+			const combatState = {
+				stage: currentLevel.stage,
+				stageLevel: currentLevel.stageLevel,
+				campaignLevel: currentLevel.campaignLevel,
+				pixlHealth: Math.ceil(pixlHealth),
+				maxPixlHealth: pixlStats.health,
+				bankedGold,
+				waveGold,
+				remainingEnemies: enemies.length + spawnQueue.length,
+				composition: {
+					biters: currentLevel.composition.biters,
+					swarmers: currentLevel.composition.swarmers,
+					tankers: currentLevel.composition.tankers
+				},
+				status
+			};
+
+			const nextKey = JSON.stringify(combatState);
+
+			if (nextKey === lastCombatStateKey) {
+				return;
+			}
+
+			lastCombatStateKey = nextKey;
+			options.onCombatStateChange?.(combatState);
+		};
 
 		const syncCanvasSize = () => {
 			if (!canvas) {
@@ -480,83 +527,11 @@ export function createCampaignSketch(
 			}
 		};
 
-		const drawHud = () => {
-			const healthRatio = pixlHealth / pixlStats.health;
-			const remainingEnemies = enemies.length + spawnQueue.length;
-
-			p.push();
-			p.textFont('monospace');
-			p.textAlign(p.LEFT, p.TOP);
-			p.noStroke();
-			p.fill(255);
-			p.textSize(12);
-			p.text(
-				`CAMPAIGN ${campaign.campaign}  STAGE ${currentLevel.stage}  LEVEL ${currentLevel.stageLevel}`,
-				18,
-				16
-			);
-			p.fill(160);
-			p.text(`PIXL HP ${Math.ceil(pixlHealth)} / ${pixlStats.health}`, 18, 38);
-			p.text(`BANKED GOLD ${bankedGold}`, 18, 56);
-			p.text(`WAVE GOLD ${waveGold}`, 18, 74);
-			p.text(`REMAINING ${remainingEnemies}`, 18, 92);
-			p.text(
-				`B ${currentLevel.composition.biters}  S ${currentLevel.composition.swarmers}  T ${currentLevel.composition.tankers}`,
-				18,
-				110
-			);
-
-			p.fill(255, 52, 52);
-			p.rect(18, 138, 180 * healthRatio, 6, 999);
-			p.noFill();
-			p.stroke(84);
-			p.rect(18, 138, 180, 6, 999);
-
-			p.noStroke();
-			p.fill(128);
-			p.text(
-				'white ring = pixl  |  red squares = shots  |  gray forms = placeholder glitches',
-				18,
-				p.height - 28
-			);
-			p.pop();
-		};
-
-		const drawStatusBanner = () => {
-			if (status === 'running') {
-				return;
-			}
-
-			let label = 'LEVEL CLEAR';
-			let color: [number, number, number] = [255, 255, 255];
-
-			if (status === 'defeated') {
-				label = 'PIXL DOWN';
-				color = [255, 96, 96];
-			}
-
-			if (status === 'complete') {
-				label = `CAMPAIGN ${campaign.campaign} COMPLETE`;
-				color = [255, 255, 255];
-			}
-
-			p.push();
-			p.textAlign(p.CENTER, p.CENTER);
-			p.textFont('monospace');
-			p.fill(0, 190);
-			p.noStroke();
-			p.rectMode(p.CENTER);
-			p.rect(centerX, 40, 240, 34, 999);
-			p.fill(...color);
-			p.textSize(13);
-			p.text(label, centerX, 40);
-			p.pop();
-		};
-
 		p.setup = () => {
 			canvas = p.createCanvas(MAX_WIDTH, BASE_HEIGHT).elt as HTMLCanvasElement;
 			syncCanvasSize();
 			startLevel(currentLevelIndex);
+			emitCombatState();
 		};
 
 		p.draw = () => {
@@ -601,12 +576,12 @@ export function createCampaignSketch(
 				}
 			}
 
+			emitCombatState();
+
 			drawArena();
 			drawProjectiles();
 			drawEnemies();
 			drawPixl();
-			drawHud();
-			drawStatusBanner();
 		};
 
 		p.windowResized = () => {

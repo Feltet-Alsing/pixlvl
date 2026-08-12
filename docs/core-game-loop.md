@@ -81,15 +81,36 @@ Before coding the combat system further, the next design step should define:
 4. What the player can change between failed wave attempts
 5. Which rewards are earned on wave clear versus over longer progression arcs
 
+## UI notes
+
+The combat surface should be treated as a full-screen arena first, with interface chrome added as overlays instead of shrinking or boxing the play area.
+
+Reusable UI rules for this surface:
+
+- The `pixl` remains visually centered in the viewport-driven arena
+- Combat HUD text such as banked gold, wave gold, and remaining enemies should anchor relative to the arena ring, not the screen edge
+- Shop and stats are overlay panels that can be hidden without changing the combat layout
+- Utility controls such as `hide/show stats` and `hide/show shop` should stay compact and visually quiet
+- Purchase buttons inside overlay panels should be smaller and more discreet than primary navigation actions
+- Larger screens may reveal more empty space, but they must not increase enemy spawn distance or reduce pressure
+
 ## Pixl core attributes
 
 The first combat version should keep the `pixl` stat model intentionally small.
 
 The `pixl` currently has three core combat attributes:
 
-- `health`
-- `damage`
-- `attack speed`
+- `defence`
+- `strength`
+- `agility`
+
+These are the three core permanent perks the player levels outside of combat.
+
+Each perk maps directly to a first-pass combat output:
+
+- `defence` scales `health`
+- `strength` scales `damage`
+- `agility` scales loadout `sweep speed`
 
 ### Health
 
@@ -105,25 +126,30 @@ This is the primary defensive stat in the first combat model.
 
 This is the core per-shot power stat.
 
-### Attack speed
+### Agility
 
-`Attack speed` is how often the `pixl` attacks.
+`Agility` does not directly mean a shorter universal weapon cooldown.
 
-This should be thought of as attacks per second rather than a hidden cooldown, because it is easier to reason about and balance.
+Instead, it controls how quickly the loadout sweep travels from the left side of the loadout grid to the right side.
+
+The faster the sweep moves, the more often placed weapons are activated over time.
 
 ### Offensive relationship
 
-`Damage` and `attack speed` combine into effective offensive output:
+`Strength` and `agility` combine into effective offensive output, but not through a simple global fire-rate formula.
 
-$$
-DPS = damage \times attack\ speed
-$$
+Actual damage output depends on:
 
-This creates a clean division:
+- weapon damage values
+- where weapons are placed in the loadout
+- how many weapons are triggered during each sweep
+- how quickly `agility` moves the sweep across the grid
+
+This creates a clean first division:
 
 - `health` controls how long the `pixl` survives under pressure
-- `damage` controls how hard each attack hits
-- `attack speed` controls how quickly attacks are delivered
+- `damage` controls how hard each activation hits
+- `agility` controls how quickly the activation sequence progresses
 
 This should remain the full first-pass `pixl` combat stat model.
 
@@ -238,21 +264,59 @@ Instead, the `pixl` attacks by firing projectiles that travel through space towa
 
 This is important because it preserves room for a later `projectile speed` stat and keeps combat visually legible.
 
-For the initial combat model:
+For the current combat direction:
 
-- attacks use projectile travel
-- projectile speed is not yet configurable
-- all projectiles use a fixed standard projectile speed
+- the loadout has a sweep line that travels from left to right
+- whenever that sweep crosses a weapon, that weapon activates once
+- activated weapons then perform their own attack behavior, which can include firing projectiles
+- projectile speed should be defined per weapon
+- different weapons can use different projectile travel speeds
 
-This means `projectile speed` exists as part of the combat model conceptually, but remains a constant until later progression systems make it modifiable.
+This means the timing model is no longer "one global fire interval."
+
+Instead, combat timing comes from sweep traversal across the loadout grid.
+
+### Framerate independence rule
+
+Combat difficulty must not depend on browser render performance.
+
+That means all gameplay-relevant timing and movement should be simulated using elapsed time, not raw frame count.
+
+In practice, this means these values should be treated as time-based rates:
+
+- projectile speed in pixels per second
+- enemy move speed in pixels per second
+- enemy attack cadence in attacks per second or seconds per attack
+- sweep traversal speed in a time-based unit such as columns per second
+
+The design should avoid frame-based rules such as "move `1` pixel every render" for combat systems, because that would make slower machines play an easier or harder version of the game.
+
+Lower framerate may still reduce visual smoothness, but it should not intentionally change combat balance.
+
+### Sweep rules
+
+The first sweep model should follow these rules:
+
+- the sweep always starts at the far left of the loadout
+- it moves continuously toward the far right
+- `agility` determines how quickly it traverses the grid
+- when it reaches a weapon's leftmost occupied column, that weapon activates once
+- if multiple weapons share that same column, they all activate at the same time
+- when the sweep reaches the far right edge, it instantly resets to the far left and begins again
+
+For the first version, weapons do not have individual cooldowns.
+
+That means a placed weapon can activate once per sweep cycle.
+
+Later balancing may allow a sweep to reset early when no more weapons remain to the right, which would help lightweight builds, but that is a later tuning rule rather than the initial baseline.
 
 The design should not worry about advanced projectile edge cases yet, such as unusual retargeting or more complex miss rules.
 
 The immediate purpose is simply:
 
 - the `pixl` chooses the closest `Glitch`
-- the `pixl` fires a projectile toward it
-- the projectile travels at a standard speed
+- the active weapon fires its attack toward it
+- the projectile travels at that weapon's projectile speed
 - if it connects, it applies the `pixl`'s damage
 
 ## First glitch archetypes
@@ -346,12 +410,34 @@ This gives the game three useful scales of progression:
 - `Stage` for mid-sized checkpoints and pacing shifts
 - `Campaign` for larger progression arcs and thematic advancement
 
+Terminology should stay consistent in implementation:
+
+- `Campaign`: the overall content category
+- `Stage`: one of `5` difficulty bands inside a campaign
+- `Level`: one of `10` encounters inside a stage
+
 Within this structure:
 
 - normal levels follow a readable baseline growth pattern
 - stages can act as pacing bands within a campaign
 - the final level in a stage or campaign can act as a `boss level`
 - boss levels intentionally break the normal scaling curve
+
+## Stage access model
+
+Players should be able to move back and forth across available stages freely.
+
+The game should not force a one-way climb where earlier stages become inaccessible.
+
+This matters because the intended rhythm includes regularly revisiting lower difficulties for testing, farming, or trying different builds.
+
+That means stage selection should work more like a difficulty ladder the player can browse at will than a locked forward march.
+
+The player should be able to:
+
+- choose a currently available stage before starting combat
+- step back down to easier stages when desired
+- return to harder stages later without penalty
 
 ## Baseline linear growth
 
@@ -419,21 +505,102 @@ The most important part of `pixlvl` progression is experimentation and granular 
 
 That means `pixl` scaling should not be mostly automatic.
 
-Instead, the player should actively shape the `pixl` by investing resources into its core stats.
+## Revised scaling direction
 
-## Gold-driven pixl leveling
+The current direction is that the main way a `pixl` scales is not through repeated direct stat leveling.
 
-The current progression model is:
+Instead, the primary source of build power should be `weapons` and `items` that drop from enemies.
+
+Direct stat upgrades can still exist, but they should act as a supporting progression layer rather than the main identity of a build.
+
+This is a better fit for the intended fantasy because it gives the player something more expressive than simply pushing `health`, `damage`, or `attack speed` upward.
+
+The player should primarily be asking:
+
+- what dropped
+- what fits into the current build
+- how to arrange a stronger loadout
+- which pieces are worth replacing
+
+That makes progression more about buildcraft and spatial optimization than about buying raw numbers.
+
+## Pixl loadout grid
+
+Each `pixl` has a `5 x 8` grid that acts as its loadout space.
+
+This loadout grid is the main build surface for the player.
+
+Players should be able to drag `weapons` and `items` from their inventory into this grid.
+
+Not every weapon or item uses the same amount of space.
+
+Different pieces can have different footprint sizes, meaning they occupy different shapes or amounts of cells inside the `5 x 8` grid.
+
+Because the grid is limited, part of the skill of building a strong `pixl` is using the available space efficiently.
+
+That means a good build is not only about owning strong pieces, but also about arranging them so the loadout uses as much of the `5 x 8` space as possible.
+
+## Out-of-combat build editing
+
+Perks and loadout editing should be restricted to non-combat states.
+
+The player should not be changing core perk allocation or rearranging the loadout while an active combat attempt is running.
+
+Instead, build editing happens when combat is not active, such as:
+
+- before starting a run
+- after a run ends
+- after the player manually stops a run
+- in other non-combat management states
+
+This means the combat portion stays committed and readable, while the management portion remains strategic and deliberate.
+
+## Why this matters
+
+This loadout system creates several useful pressures at once:
+
+- loot drops matter because they can open new build paths
+- footprint size matters because larger pieces compete for limited space
+- inventory decisions matter because not every good item can necessarily fit
+- arrangement matters because efficient packing becomes part of player mastery
+
+This gives `pixlvl` a much stronger identity than a pure stat-purchase loop.
+
+It also creates room for later nuance such as:
+
+- differently shaped items
+- adjacency or synergy rules
+- utility items versus weapons
+- rare oversized pieces that force tradeoffs
+- inventory sorting and build presets
+
+Those details are not locked yet, but the core rule is now clear:
+
+> the `pixl`'s main progression comes from equipping dropped weapons and items into a limited `5 x 8` loadout grid.
+
+## Perk-driven pixl leveling
+
+The current supporting progression model is:
 
 - enemies drop `gold`
-- the player uses that `gold` to level up the `pixl`
-- each level-up investment is directed into a chosen stat
+- the player uses out-of-combat progression to invest into permanent perks
+- each level-up investment is directed into a chosen perk
 
-This makes power growth an active decision rather than a passive background increase.
+This still makes power growth an active decision rather than a passive background increase, but it should now be understood as secondary to the weapon-and-loadout system.
+
+The resource flow for perk leveling is now locked:
+
+- perks are upgraded out of combat
+- perk upgrades are permanent
+- perk upgrades support the equipment-driven build rather than replacing it
+- `gold` is the resource spent on those perk upgrades
 
 The exact drop rates can be tuned later, but the reward-scaling direction should already be defined.
 
-For now, the important system rule is that enemy drops are the resource that fuels `pixl` growth.
+For now, the important system rule is that enemy drops fuel `pixl` growth in two layers:
+
+- equipment drops drive the main build
+- progression resources support smaller direct perk upgrades around that build
 
 ## Gold reward scaling
 
@@ -489,15 +656,21 @@ With the current `Stage 1` baseline of `5` starting enemies and `+1 enemy per le
 
 In the first progression version, the player can invest in only three upgrade paths:
 
-- `health`
-- `damage`
-- `attack speed`
+- `defence`
+- `strength`
+- `agility`
+
+These map to combat effects like this:
+
+- `defence` increases `health`
+- `strength` increases `damage`
+- `agility` increases loadout `sweep speed`
 
 For the first pass, these upgrades use simple percentage-based growth:
 
-- `health`: `+15%` per upgrade
-- `damage`: `+15%` per upgrade
-- `attack speed`: `+5%` per upgrade
+- `defence`: `+15%` health per upgrade
+- `strength`: `+15%` damage per upgrade
+- `agility`: `+5%` sweep speed per upgrade
 
 These numbers are not final balance targets. They are the initial design baseline and can be tuned later.
 
@@ -507,15 +680,15 @@ This mirrors the `pixl`'s core combat attributes and keeps the progression model
 
 This approach supports the intended fantasy of build experimentation:
 
-- a player can create a tankier `pixl` by prioritizing `health`
-- a player can create a harder-hitting `pixl` by prioritizing `damage`
-- a player can create a faster-firing `pixl` by prioritizing `attack speed`
+- a player can create a tankier `pixl` by prioritizing `defence`
+- a player can create a harder-hitting `pixl` by prioritizing `strength`
+- a player can create a faster-cycling loadout by prioritizing `agility`
 
 Even with only three stats, this already creates meaningful directional builds.
 
-The weaker `attack speed` increase is intentional.
+The weaker `agility` increase is intentional.
 
-Because `attack speed` compounds offensive output very efficiently, its per-upgrade gain should start lower than `health` and `damage`.
+Because faster sweep speed compounds offensive output very efficiently, its per-upgrade gain should start lower than `defence` and `strength`.
 
 ## Provisional upgrade cost baseline
 
@@ -523,14 +696,14 @@ For the first economy pass, upgrade prices should be easy to understand and spac
 
 Recommended starting costs:
 
-- `health`: starts at `20 gold`
-- `damage`: starts at `20 gold`
-- `attack speed`: starts at `35 gold`
+- `defence`: starts at `20 gold`
+- `strength`: starts at `20 gold`
+- `agility`: starts at `35 gold`
 
 This gives a useful early rhythm:
 
-- early `Stage 1` levels can usually fund a `health` or `damage` upgrade after a small number of clears
-- `attack speed` feels more premium and requires more deliberate saving
+- early `Stage 1` levels can usually fund a `defence` or `strength` upgrade after a small number of clears
+- `agility` feels more premium and requires more deliberate saving
 
 ## Cost growth principle
 
@@ -538,8 +711,8 @@ Upgrade costs should rise smoothly over time rather than staying flat.
 
 The current design direction is:
 
-- `health` and `damage` should share the same cost curve
-- `attack speed` should either start more expensive or scale more harshly
+- `defence` and `strength` should share the same cost curve
+- `agility` should either start more expensive or scale more harshly
 
 For the first implementation, a practical rule is:
 
@@ -547,24 +720,211 @@ For the first implementation, a practical rule is:
 
 That would produce an early cost flow like:
 
-- `health`: `20`, `24`, `29`, `35`, `42`, `50`
-- `damage`: `20`, `24`, `29`, `35`, `42`, `50`
-- `attack speed`: `35`, `42`, `50`, `60`, `72`, `86`
+- `defence`: `20`, `24`, `29`, `35`, `42`, `50`
+- `strength`: `20`, `24`, `29`, `35`, `42`, `50`
+- `agility`: `35`, `42`, `50`, `60`, `72`, `86`
 
-These are not final balance targets, but they are a coherent opening range that matches the current reward model and preserves the idea that `attack speed` is the more premium offensive investment.
+These are not final balance targets, but they are a coherent opening range that matches the current reward model and preserves the idea that `agility` is the more premium offensive investment.
 
 ## First progression principle
 
-For the first version of the game, `pixl` power should primarily come from player-directed investment rather than large automatic stat growth from simply advancing levels.
+For the first version of the game, `pixl` power should primarily come from player-directed build decisions rather than large automatic stat growth from simply advancing levels.
 
 That means the main progression loop is:
 
 1. clear waves
-2. earn `gold` from defeated `Glitches`
-3. invest `gold` into `health`, `damage`, or `attack speed`
-4. test the updated build against harder levels
+2. get `weapon` and `item` drops from defeated `Glitches`
+3. arrange those drops inside the `5 x 8` loadout grid
+4. use `gold` for supporting upgrades when useful
+5. test the updated build against harder levels
 
 This creates a clean feedback loop between combat success, resource gain, and build refinement.
+
+## First weapon system direction
+
+Weapons are the primary active pieces inside the `pixl` loadout.
+
+For the first pass, each weapon should define at least:
+
+- a unique id
+- a name
+- a rarity
+- a shape
+- a base damage value
+- an attack behavior
+- a projectile speed value
+- a visual projectile style
+- a drop source or drop band
+
+Because the sweep already determines activation timing, the first weapon pass should stay simple.
+
+That means the earliest weapons do not need per-weapon cooldowns, charge states, or conditional trigger rules.
+
+Each placed weapon simply activates when the sweep reaches its leftmost occupied column.
+
+## Weapon rarity ladder
+
+The game uses five weapon rarities:
+
+- `Normal`: white
+- `Magic`: blue
+- `Rare`: yellow
+- `Exotic`: red
+- `Legendary`: brown-gold
+
+For the first campaign, the drop pool should heavily favor lower rarities.
+
+That keeps the early game readable and prevents the first campaign from being balanced around rare outliers.
+
+## Shape definition direction
+
+Weapons can occupy any fixed shape inside the `5 x 8` loadout grid.
+
+For the first implementation, weapon orientation should also be fixed.
+
+That means weapons do not rotate inside the loadout in the first version.
+
+This may change later, but rotation is intentionally excluded for the initial implementation to keep placement rules simpler.
+
+For the first implementation, weapon shape data should be stored explicitly rather than inferred from width and height alone.
+
+The cleanest first-pass representation is:
+
+- a bounding box width
+- a bounding box height
+- a list of occupied cells inside that box
+
+Example shape definition:
+
+```json
+{
+	"width": 3,
+	"height": 2,
+	"cells": [
+		[0, 0],
+		[1, 0],
+		[2, 0],
+		[0, 1],
+		[1, 1],
+		[2, 1]
+	]
+}
+```
+
+This is better than only storing a rectangular size because it supports both simple rectangles and later irregular shapes without changing the data model.
+
+It also makes persistence straightforward because a weapon instance can simply reference a weapon definition id, while the equipped loadout stores position data.
+
+## Persistence direction
+
+The weapon system should eventually separate three layers of data:
+
+- `weapon definitions`: static data such as name, rarity, shape, damage, visuals, and behavior
+- `owned weapon instances`: which weapons a player has actually acquired
+- `equipped loadout placements`: which owned weapons are currently placed, and at which grid coordinates
+
+For now, the important rule is that weapon definitions should be saved as static content data, while ownership and loadout state should be saved in player progression data.
+
+## Inventory direction
+
+For the first implementation, player inventory should be treated as effectively infinite.
+
+That keeps the first weapon rollout simple and avoids prematurely designing inventory pressure before the weapon system itself is proven.
+
+If large inventories later create performance or UI-management issues, inventory limits can be introduced as a follow-up system.
+
+## Duplicate weapon handling
+
+Duplicate drops should eventually be salvageable.
+
+The intended long-term rule is that a player can delete an unwanted duplicate weapon in exchange for a common weapon resource.
+
+That salvage system should be noted now, but it does not need to block the first implementation.
+
+For the initial build, duplicates can simply be stored as owned items while salvage remains a later follow-up.
+
+## First Campaign 1 weapon pool
+
+For the first pass, the opening weapon pool should stay intentionally small.
+
+This draft assumes `5` opening weapons total, counting the guaranteed starter weapon.
+
+If the intended count was `5` droppable weapons plus the starter, the pool should be expanded later.
+
+### 1. Pea Shooter
+
+- `type`: starter weapon
+- `rarity`: `Normal`
+- `drop source`: always owned at the start
+- `shape`: `3 x 2` full rectangle
+- `base damage`: `1`
+- `projectile speed`: `360`
+- `attack behavior`: fires one small green projectile at the current target
+- `role`: baseline filler weapon that teaches the sweep system
+
+### 2. Blaster
+
+- `type`: drop weapon
+- `rarity`: `Magic`
+- `drop band`: `Campaign 1`, `Stages 1-3`
+- `drop chance`: `2%` per defeated enemy in its valid stage band
+- `shape`: `3 x 2` full rectangle
+- `base damage`: `5`
+- `projectile speed`: `300`
+- `attack behavior`: fires two large red projectiles at the current target when activated
+- `role`: early high-impact burst upgrade over the starter weapon
+
+### 3. Needle
+
+- `type`: drop weapon
+- `rarity`: `Normal`
+- `drop band`: `Campaign 1`, `Stages 1-5`
+- `drop chance`: `4%` per defeated enemy
+- `shape`: `1 x 2` full rectangle
+- `base damage`: `2`
+- `projectile speed`: `520`
+- `attack behavior`: fires one thin fast white projectile at the current target
+- `role`: compact efficient filler for tight loadouts
+
+### 4. Splitter
+
+- `type`: drop weapon
+- `rarity`: `Rare`
+- `drop band`: `Campaign 1`, `Stages 2-5`
+- `drop chance`: `1%` per defeated enemy
+- `shape`: `2 x 3` full rectangle
+- `base damage`: `3` per projectile
+- `projectile speed`: `340`
+- `attack behavior`: fires three small yellow projectiles in a narrow spread toward the current target
+- `role`: first weapon that improves wave clear through multi-projectile coverage
+
+### 5. Heavy Orb
+
+- `type`: drop weapon
+- `rarity`: `Exotic`
+- `drop band`: `Campaign 1`, `Stages 4-5`
+- `drop chance`: `0.35%` per defeated enemy
+- `shape`: `4 x 3` full rectangle
+- `base damage`: `12`
+- `projectile speed`: `220`
+- `attack behavior`: fires one large slow red orb at the current target
+- `role`: oversized premium weapon that trades loadout space for strong single-hit output
+
+## Why this opening pool works
+
+This first set creates simple, readable tradeoffs without overcomplicating the system:
+
+- `Pea Shooter` teaches the baseline
+- `Needle` rewards compact packing
+- `Blaster` offers an obvious early power spike
+- `Splitter` introduces multi-projectile behavior
+- `Heavy Orb` introduces oversized high-commitment weapons
+
+That is enough variety to start testing three important questions:
+
+- how much space efficiency should matter
+- how much stronger larger weapons should be
+- whether early campaign drop rates feel rewarding without flooding the inventory
 
 ## First campaign composition rules
 
@@ -661,10 +1021,13 @@ $$
 
 ### Shared combat constants
 
-- `projectile speed`: `360`
 - `pixl collision radius`: `20`
 - `enemy collision radius`: `14`
 - `enemy contact range`: `26`
+
+Projectile speed should no longer be treated as one shared constant for all weapons.
+
+Instead, each weapon definition should carry its own projectile speed value.
 
 These are implementation-facing constants meant to keep the first arena readable rather than physically perfect.
 
