@@ -1,40 +1,48 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import CampaignRouteNav from '$lib/components/campaigns/CampaignRouteNav.svelte';
-	import type { LoadoutPlacement, WeaponDefinition } from '$lib/data/types';
+	import type { LoadoutPlacement, WeaponDefinition, WeaponShape } from '$lib/data/types';
 	import type { PageProps } from './$types';
 
 	const LOADOUT_ROW_COUNT = 5;
 	const LOADOUT_COLUMN_COUNT = 8;
+	const LOADOUT_GRID_TEMPLATE_COLUMNS = `repeat(${LOADOUT_COLUMN_COUNT}, minmax(0, 1fr))`;
+	const LOADOUT_GRID_TEMPLATE_ROWS = `repeat(${LOADOUT_ROW_COUNT}, minmax(0, 1fr))`;
 
-	interface LoadoutRow {
+	interface LoadoutWeapon {
 		weaponInstanceId: string;
 		definitionId: string;
 		name: string;
 		rarity: WeaponDefinition['rarity'];
+		shape: WeaponShape;
+		role: string;
 		x: number;
 		y: number;
 	}
 
-	interface UnequippedOwnedWeaponRow {
+	interface InventoryWeapon {
 		weaponInstanceId: string;
 		definitionId: string;
 		name: string;
 		rarity: WeaponDefinition['rarity'];
+		shape: WeaponShape;
+		role: string;
+		x: number | null;
+		y: number | null;
+		isEquipped: boolean;
 	}
 
-	interface LoadoutGridCell {
+	interface GridCell {
 		x: number;
 		y: number;
-		occupiedByName: string | null;
-		occupiedRarity: WeaponDefinition['rarity'] | null;
-		canPlaceActiveWeapon: boolean;
+		key: string;
 	}
 
 	let { data, form }: PageProps = $props();
-	let selectedPlacementWeaponInstanceId = $state<string | null>(null);
-	let draggedPlacementWeaponInstanceId = $state<string | null>(null);
-	let dragOverGridCellKey = $state<string | null>(null);
+	let draggedWeaponInstanceId = $state<string | null>(null);
+	let draggedWeaponAnchor = $state<{ x: number; y: number } | null>(null);
+	let hoveredGridOrigin = $state<{ x: number; y: number } | null>(null);
+	let isInventoryDropTargetActive = $state(false);
 
 	let weaponDefinitionById = $derived(
 		Object.fromEntries(
@@ -49,163 +57,230 @@
 		>
 	);
 	let savedLoadoutPlacements = $derived(data.gameState?.pixlState.loadoutPlacements ?? []);
-	let draftLoadoutPlacements = $derived(savedLoadoutPlacements);
-	let draftLoadoutPayload = $derived(JSON.stringify(draftLoadoutPlacements));
-	let hasUnsavedChanges = $derived(JSON.stringify(savedLoadoutPlacements) !== draftLoadoutPayload);
-	let canSaveLoadout = $derived(Boolean(data.gameState) && hasUnsavedChanges);
-	let currentLoadoutRows = $derived.by(() => {
-		const ownedWeaponById = Object.fromEntries(
-			ownedWeapons.map((weapon) => [weapon.instanceId, weapon])
-		) as Record<string, (typeof ownedWeapons)[number]>;
-
-		return draftLoadoutPlacements
-			.map((placement) => {
-				const ownedWeapon = ownedWeaponById[placement.weaponInstanceId];
-				const definition = ownedWeapon ? weaponDefinitionById[ownedWeapon.definitionId] : null;
-
-				if (!ownedWeapon || !definition) {
-					return null;
-				}
-
-				return {
-					weaponInstanceId: placement.weaponInstanceId,
-					definitionId: definition.id,
-					name: definition.name,
-					rarity: definition.rarity,
-					x: placement.x,
-					y: placement.y
-				} satisfies LoadoutRow;
-			})
-			.filter((entry): entry is LoadoutRow => entry !== null)
-			.sort(
-				(left, right) => left.y - right.y || left.x - right.x || left.name.localeCompare(right.name)
-			);
-	});
-	let equippedWeaponInstanceIds = $derived(
+	let savedLoadoutPayload = $derived(JSON.stringify(savedLoadoutPlacements));
+	let draftLoadoutPlacements = $state.raw(getInitialLoadoutPlacements());
+	let lastSyncedSavedLoadoutPayload = $state(getInitialSavedLoadoutPayload());
+	let placementByWeaponInstanceId = $derived(
 		Object.fromEntries(
-			draftLoadoutPlacements.map((placement) => [placement.weaponInstanceId, true])
-		) as Record<string, true>
+			draftLoadoutPlacements.map((placement) => [placement.weaponInstanceId, placement])
+		) as Record<string, LoadoutPlacement>
 	);
-	let unequippedOwnedWeaponRows = $derived.by(() => {
-		return ownedWeapons
-			.map((weapon) => {
-				if (equippedWeaponInstanceIds[weapon.instanceId]) {
-					return null;
-				}
+	let draftLoadoutPayload = $derived(JSON.stringify(draftLoadoutPlacements));
+	let hasUnsavedChanges = $derived(savedLoadoutPayload !== draftLoadoutPayload);
+	let canSaveLoadout = $derived(Boolean(data.gameState) && hasUnsavedChanges);
+	let loadoutWeapons = $derived.by(() => {
+		const rows: LoadoutWeapon[] = [];
 
-				const definition = weaponDefinitionById[weapon.definitionId];
+		for (const placement of draftLoadoutPlacements) {
+			const ownedWeapon = ownedWeaponByInstanceId[placement.weaponInstanceId];
+			const definition = ownedWeapon ? weaponDefinitionById[ownedWeapon.definitionId] : null;
 
-				if (!definition) {
-					return null;
-				}
-
-				return {
-					weaponInstanceId: weapon.instanceId,
-					definitionId: definition.id,
-					name: definition.name,
-					rarity: definition.rarity
-				} satisfies UnequippedOwnedWeaponRow;
-			})
-			.filter((entry): entry is UnequippedOwnedWeaponRow => entry !== null)
-			.sort(
-				(left, right) =>
-					left.name.localeCompare(right.name) ||
-					left.weaponInstanceId.localeCompare(right.weaponInstanceId)
-			);
-	});
-	let activePlacementWeaponInstanceId = $derived(
-		draggedPlacementWeaponInstanceId ?? selectedPlacementWeaponInstanceId
-	);
-	let activePlacementOwnedWeapon = $derived(
-		activePlacementWeaponInstanceId
-			? ownedWeaponByInstanceId[activePlacementWeaponInstanceId]
-			: null
-	);
-	let activePlacementDefinition = $derived(
-		activePlacementOwnedWeapon
-			? weaponDefinitionById[activePlacementOwnedWeapon.definitionId]
-			: null
-	);
-	let occupiedLoadoutCells = $derived.by(() => {
-		const occupied: Record<
-			string,
-			{ occupiedByName: string; occupiedRarity: WeaponDefinition['rarity'] }
-		> = {};
-
-		for (const weapon of currentLoadoutRows) {
-			if (weapon.weaponInstanceId === draggedPlacementWeaponInstanceId) {
+			if (!ownedWeapon || !definition) {
 				continue;
 			}
 
+			rows.push({
+				weaponInstanceId: placement.weaponInstanceId,
+				definitionId: ownedWeapon.definitionId,
+				name: definition.name,
+				rarity: definition.rarity,
+				shape: definition.shape,
+				role: definition.role,
+				x: placement.x,
+				y: placement.y
+			});
+		}
+
+		return rows.sort(
+			(left, right) => left.y - right.y || left.x - right.x || left.name.localeCompare(right.name)
+		);
+	});
+	let inventoryWeapons = $derived.by(() => {
+		const rows: InventoryWeapon[] = [];
+
+		for (const weapon of ownedWeapons) {
 			const definition = weaponDefinitionById[weapon.definitionId];
+			const placement = placementByWeaponInstanceId[weapon.instanceId] ?? null;
 
 			if (!definition) {
 				continue;
 			}
 
-			for (const [cellX, cellY] of definition.shape.cells) {
-				occupied[`${weapon.x + cellX}:${weapon.y + cellY}`] = {
-					occupiedByName: weapon.name,
-					occupiedRarity: weapon.rarity
-				};
+			rows.push({
+				weaponInstanceId: weapon.instanceId,
+				definitionId: weapon.definitionId,
+				name: definition.name,
+				rarity: definition.rarity,
+				shape: definition.shape,
+				role: definition.role,
+				x: placement?.x ?? null,
+				y: placement?.y ?? null,
+				isEquipped: Boolean(placement)
+			});
+		}
+
+		return rows.sort(
+			(left, right) =>
+				Number(right.isEquipped) - Number(left.isEquipped) ||
+				left.name.localeCompare(right.name) ||
+				left.weaponInstanceId.localeCompare(right.weaponInstanceId)
+		);
+	});
+	let draggedWeaponDefinition = $derived(
+		draggedWeaponInstanceId
+			? weaponDefinitionById[ownedWeaponByInstanceId[draggedWeaponInstanceId]?.definitionId]
+			: null
+	);
+	let occupiedCellKeys = $derived.by(() => {
+		const occupied: Record<string, true> = {};
+
+		for (const weapon of loadoutWeapons) {
+			if (weapon.weaponInstanceId === draggedWeaponInstanceId) {
+				continue;
+			}
+
+			for (const [shapeX, shapeY] of weapon.shape.cells) {
+				occupied[getGridCellKey(weapon.x + shapeX, weapon.y + shapeY)] = true;
 			}
 		}
 
 		return occupied;
 	});
-	let loadoutGridRows = $derived.by(() => {
-		const activeDefinition = activePlacementDefinition;
+	let gridCells = $derived.by(() => {
+		const cells: GridCell[] = [];
 
-		return Array.from({ length: LOADOUT_ROW_COUNT }, (_, y) => {
-			return Array.from({ length: LOADOUT_COLUMN_COUNT }, (_, x) => {
-				const occupiedCell = occupiedLoadoutCells[`${x}:${y}`];
-				const canPlaceActiveWeapon =
-					!occupiedCell && activeDefinition
-						? activeDefinition.shape.cells.every(([cellX, cellY]) => {
-								const gridX = x + cellX;
-								const gridY = y + cellY;
+		for (let y = 0; y < LOADOUT_ROW_COUNT; y += 1) {
+			for (let x = 0; x < LOADOUT_COLUMN_COUNT; x += 1) {
+				cells.push({ x, y, key: getGridCellKey(x, y) });
+			}
+		}
 
-								return (
-									gridX >= 0 &&
-									gridX < LOADOUT_COLUMN_COUNT &&
-									gridY >= 0 &&
-									gridY < LOADOUT_ROW_COUNT &&
-									!occupiedLoadoutCells[`${gridX}:${gridY}`]
-								);
-							})
-						: false;
-
-				return {
-					x,
-					y,
-					occupiedByName: occupiedCell?.occupiedByName ?? null,
-					occupiedRarity: occupiedCell?.occupiedRarity ?? null,
-					canPlaceActiveWeapon
-				} satisfies LoadoutGridCell;
-			});
-		});
+		return cells;
 	});
-	let loadoutTooltip = $derived(
-		currentLoadoutRows.map((weapon) => `${weapon.name} (${weapon.x}, ${weapon.y})`).join('\n') ||
-			'No equipped weapons'
-	);
+	let visiblePlacedWeapons = $derived(loadoutWeapons);
+	let isDraggingWeapon = $derived(Boolean(draggedWeaponInstanceId));
+	let previewCellStateByKey = $derived.by(() => {
+		const preview: Record<string, 'valid' | 'invalid'> = {};
 
-	function removeDraftPlacement(weaponInstanceId: string) {
-		draftLoadoutPlacements = draftLoadoutPlacements.filter(
-			(placement) => placement.weaponInstanceId !== weaponInstanceId
+		if (!draggedWeaponInstanceId || !draggedWeaponDefinition || !hoveredGridOrigin) {
+			return preview;
+		}
+
+		const isValid = canPlaceWeaponAt(
+			draggedWeaponInstanceId,
+			hoveredGridOrigin.x,
+			hoveredGridOrigin.y
 		);
 
-		if (selectedPlacementWeaponInstanceId === weaponInstanceId) {
-			selectedPlacementWeaponInstanceId = null;
+		for (const [shapeX, shapeY] of draggedWeaponDefinition.shape.cells) {
+			const gridX = hoveredGridOrigin.x + shapeX;
+			const gridY = hoveredGridOrigin.y + shapeY;
+
+			if (gridX >= 0 && gridX < LOADOUT_COLUMN_COUNT && gridY >= 0 && gridY < LOADOUT_ROW_COUNT) {
+				preview[getGridCellKey(gridX, gridY)] = isValid ? 'valid' : 'invalid';
+			}
 		}
 
-		if (draggedPlacementWeaponInstanceId === weaponInstanceId) {
-			clearDragState();
-		}
-	}
+		return preview;
+	});
+	let loadoutTooltip = $derived(
+		loadoutWeapons.map((weapon) => `${weapon.name} (${weapon.x}, ${weapon.y})`).join('\n') ||
+			'No equipped weapons'
+	);
+	let draggedInventoryWeapon = $derived(
+		draggedWeaponInstanceId
+			? (inventoryWeapons.find((weapon) => weapon.weaponInstanceId === draggedWeaponInstanceId) ??
+					null)
+			: null
+	);
 
 	function getGridCellKey(x: number, y: number) {
 		return `${x}:${y}`;
+	}
+
+	function cloneLoadoutPlacements(placements: LoadoutPlacement[]) {
+		return placements.map((placement) => ({ ...placement }));
+	}
+
+	function getInitialLoadoutPlacements() {
+		return cloneLoadoutPlacements(data.gameState?.pixlState.loadoutPlacements ?? []);
+	}
+
+	function getInitialSavedLoadoutPayload() {
+		return JSON.stringify(data.gameState?.pixlState.loadoutPlacements ?? []);
+	}
+
+	function isShapeCellFilled(shape: WeaponShape, x: number, y: number) {
+		return shape.cells.some(([cellX, cellY]) => cellX === x && cellY === y);
+	}
+
+	function isLabelCell(shape: WeaponShape, x: number, y: number) {
+		const [labelX, labelY] = shape.cells[0] ?? [0, 0];
+		return labelX === x && labelY === y;
+	}
+
+	function getWeaponGridArea(weapon: { x: number; y: number; shape: WeaponShape }) {
+		return `grid-column: ${weapon.x + 1} / span ${weapon.shape.width}; grid-row: ${weapon.y + 1} / span ${weapon.shape.height};`;
+	}
+
+	function getShapeGridTemplate(shape: WeaponShape) {
+		return `grid-template-columns: repeat(${shape.width}, minmax(0, 1fr)); grid-template-rows: repeat(${shape.height}, minmax(0, 1fr));`;
+	}
+
+	function getDefaultDragAnchor(shape: WeaponShape) {
+		let topLeftCell = shape.cells[0] ?? [0, 0];
+
+		for (const cell of shape.cells) {
+			if (cell[1] < topLeftCell[1] || (cell[1] === topLeftCell[1] && cell[0] < topLeftCell[0])) {
+				topLeftCell = cell;
+			}
+		}
+
+		return { x: topLeftCell[0], y: topLeftCell[1] };
+	}
+
+	function clamp(value: number, min: number, max: number) {
+		return Math.min(Math.max(value, min), max);
+	}
+
+	function getPlacedWeaponDragAnchor(event: DragEvent, shape: WeaponShape) {
+		const target = event.currentTarget;
+
+		if (!(target instanceof HTMLElement)) {
+			return getDefaultDragAnchor(shape);
+		}
+
+		const rect = target.getBoundingClientRect();
+
+		if (!rect.width || !rect.height) {
+			return getDefaultDragAnchor(shape);
+		}
+
+		const localX = clamp(event.clientX - rect.left, 0, rect.width - 1);
+		const localY = clamp(event.clientY - rect.top, 0, rect.height - 1);
+		const anchorX = clamp(Math.floor((localX / rect.width) * shape.width), 0, shape.width - 1);
+		const anchorY = clamp(Math.floor((localY / rect.height) * shape.height), 0, shape.height - 1);
+
+		return { x: anchorX, y: anchorY };
+	}
+
+	$effect(() => {
+		const nextSavedLoadoutPayload = savedLoadoutPayload;
+
+		if (nextSavedLoadoutPayload === lastSyncedSavedLoadoutPayload) {
+			return;
+		}
+
+		draftLoadoutPlacements = cloneLoadoutPlacements(savedLoadoutPlacements);
+		lastSyncedSavedLoadoutPayload = nextSavedLoadoutPayload;
+		clearDragState();
+	});
+
+	function clearDragState() {
+		draggedWeaponInstanceId = null;
+		draggedWeaponAnchor = null;
+		hoveredGridOrigin = null;
+		isInventoryDropTargetActive = false;
 	}
 
 	function canPlaceWeaponAt(weaponInstanceId: string, x: number, y: number) {
@@ -216,23 +291,18 @@
 			return false;
 		}
 
-		return definition.shape.cells.every(([cellX, cellY]) => {
-			const gridX = x + cellX;
-			const gridY = y + cellY;
+		return definition.shape.cells.every(([shapeX, shapeY]) => {
+			const gridX = x + shapeX;
+			const gridY = y + shapeY;
 
 			return (
 				gridX >= 0 &&
 				gridX < LOADOUT_COLUMN_COUNT &&
 				gridY >= 0 &&
 				gridY < LOADOUT_ROW_COUNT &&
-				!occupiedLoadoutCells[getGridCellKey(gridX, gridY)]
+				!occupiedCellKeys[getGridCellKey(gridX, gridY)]
 			);
 		});
-	}
-
-	function clearDragState() {
-		draggedPlacementWeaponInstanceId = null;
-		dragOverGridCellKey = null;
 	}
 
 	function placeWeaponAt(weaponInstanceId: string, x: number, y: number) {
@@ -244,65 +314,115 @@
 			...draftLoadoutPlacements.filter(
 				(placement) => placement.weaponInstanceId !== weaponInstanceId
 			),
-			{
-				weaponInstanceId,
-				x,
-				y
-			} satisfies LoadoutPlacement
+			{ weaponInstanceId, x, y } satisfies LoadoutPlacement
 		];
-		selectedPlacementWeaponInstanceId = null;
 		clearDragState();
 	}
 
-	function placeSelectedWeaponAt(x: number, y: number) {
-		if (!selectedPlacementWeaponInstanceId) {
-			return;
-		}
-
-		placeWeaponAt(selectedPlacementWeaponInstanceId, x, y);
+	function removeDraftPlacement(weaponInstanceId: string) {
+		draftLoadoutPlacements = draftLoadoutPlacements.filter(
+			(placement) => placement.weaponInstanceId !== weaponInstanceId
+		);
+		clearDragState();
 	}
 
-	function beginWeaponDrag(event: DragEvent, weaponInstanceId: string) {
-		draggedPlacementWeaponInstanceId = weaponInstanceId;
-		selectedPlacementWeaponInstanceId = null;
-		dragOverGridCellKey = null;
+	function resetDraftLoadout() {
+		draftLoadoutPlacements = cloneLoadoutPlacements(savedLoadoutPlacements);
+		clearDragState();
+	}
+
+	function clearDraftLoadout() {
+		draftLoadoutPlacements = [];
+		clearDragState();
+	}
+
+	function beginWeaponDrag(
+		event: DragEvent,
+		weaponInstanceId: string,
+		anchor: { x: number; y: number }
+	) {
+		draggedWeaponInstanceId = weaponInstanceId;
+		draggedWeaponAnchor = anchor;
+		hoveredGridOrigin = null;
+		isInventoryDropTargetActive = false;
 		event.dataTransfer?.setData('text/plain', weaponInstanceId);
+
 		if (event.dataTransfer) {
 			event.dataTransfer.effectAllowed = 'move';
 		}
 	}
 
-	function handleGridDragOver(event: DragEvent, cell: LoadoutGridCell) {
-		if (!activePlacementWeaponInstanceId || !cell.canPlaceActiveWeapon) {
+	function handleGridDragOver(event: DragEvent, cell: GridCell) {
+		if (!draggedWeaponInstanceId) {
 			return;
 		}
 
 		event.preventDefault();
-		dragOverGridCellKey = getGridCellKey(cell.x, cell.y);
+		const anchor = draggedWeaponAnchor ?? { x: 0, y: 0 };
+		const nextOrigin = { x: cell.x - anchor.x, y: cell.y - anchor.y };
+		hoveredGridOrigin = nextOrigin;
+		isInventoryDropTargetActive = false;
+
+		if (event.dataTransfer) {
+			event.dataTransfer.dropEffect = canPlaceWeaponAt(
+				draggedWeaponInstanceId,
+				nextOrigin.x,
+				nextOrigin.y
+			)
+				? 'move'
+				: 'none';
+		}
+	}
+
+	function handleGridDrop(event: DragEvent, cell: GridCell) {
+		if (!draggedWeaponInstanceId) {
+			return;
+		}
+
+		event.preventDefault();
+		const anchor = draggedWeaponAnchor ?? { x: 0, y: 0 };
+		placeWeaponAt(draggedWeaponInstanceId, cell.x - anchor.x, cell.y - anchor.y);
+	}
+
+	function handleInventoryDragOver(event: DragEvent) {
+		if (!draggedWeaponInstanceId || !draggedInventoryWeapon?.isEquipped) {
+			return;
+		}
+
+		event.preventDefault();
+		hoveredGridOrigin = null;
+		isInventoryDropTargetActive = true;
+
 		if (event.dataTransfer) {
 			event.dataTransfer.dropEffect = 'move';
 		}
 	}
 
-	function handleGridDragLeave(cell: LoadoutGridCell) {
-		if (dragOverGridCellKey === getGridCellKey(cell.x, cell.y)) {
-			dragOverGridCellKey = null;
-		}
+	function handleInventoryDragLeave() {
+		isInventoryDropTargetActive = false;
 	}
 
-	function handleGridDrop(event: DragEvent, cell: LoadoutGridCell) {
-		if (!activePlacementWeaponInstanceId || !cell.canPlaceActiveWeapon) {
+	function handleInventoryDrop(event: DragEvent) {
+		if (!draggedWeaponInstanceId || !draggedInventoryWeapon?.isEquipped) {
 			return;
 		}
 
 		event.preventDefault();
-		placeWeaponAt(activePlacementWeaponInstanceId, cell.x, cell.y);
+		removeDraftPlacement(draggedWeaponInstanceId);
 	}
 
-	function resetDraftLoadout() {
-		draftLoadoutPlacements = savedLoadoutPlacements;
-		selectedPlacementWeaponInstanceId = null;
-		clearDragState();
+	function formatInventoryStatus(weapon: InventoryWeapon) {
+		return weapon.isEquipped && weapon.x !== null && weapon.y !== null
+			? `Equipped at (${weapon.x}, ${weapon.y})`
+			: 'Unequipped';
+	}
+
+	function beginPlacedWeaponDrag(event: DragEvent, weapon: LoadoutWeapon) {
+		beginWeaponDrag(event, weapon.weaponInstanceId, getPlacedWeaponDragAnchor(event, weapon.shape));
+	}
+
+	function beginInventoryWeaponDrag(event: DragEvent, weapon: InventoryWeapon) {
+		beginWeaponDrag(event, weapon.weaponInstanceId, getDefaultDragAnchor(weapon.shape));
 	}
 </script>
 
@@ -321,17 +441,20 @@
 			<p class="eyebrow">Campaign {data.campaign.campaign}</p>
 			<h1>Loadout</h1>
 			<p class="lede">
-				Weapons and placement live on a separate route so the whole 5 x 8 grid can be read at a
-				glance. Hover equipped weapons to inspect them.
+				Every weapon keeps its exact shape. If the shape fits inside the 5 x 8 grid without
+				overlapping another weapon, it can be equipped.
 			</p>
 		</section>
 
-		<section class="grid">
-			<div class="panel">
+		<section class="layout-stack">
+			<div class="panel grid-panel">
 				<div class="section-head section-head-split">
 					<div>
-						<h2>Equipped weapons</h2>
-						<p>Hover any row to inspect the exact placement.</p>
+						<h2>Loadout grid</h2>
+						<p>
+							Drag a weapon from inventory into the grid, drag placed weapons to reposition, or drag
+							them back out to unequip.
+						</p>
 					</div>
 					<form method="post" action="?/saveLoadout">
 						<input type="hidden" name="loadoutPlacements" value={draftLoadoutPayload} />
@@ -351,6 +474,14 @@
 					<button
 						class="ghost"
 						type="button"
+						onclick={clearDraftLoadout}
+						disabled={!draftLoadoutPlacements.length}
+					>
+						Reset loadout
+					</button>
+					<button
+						class="ghost"
+						type="button"
 						onclick={resetDraftLoadout}
 						disabled={!hasUnsavedChanges}
 					>
@@ -358,120 +489,139 @@
 					</button>
 				</div>
 
-				{#if currentLoadoutRows.length > 0}
-					<div class="summary-list">
-						{#each currentLoadoutRows as weapon (weapon.weaponInstanceId)}
-							<div
-								class={`summary-row rarity-${weapon.rarity}`}
-								title={`${weapon.name} at ${weapon.x}, ${weapon.y}`}
-							>
-								<div
-									class:dragging={draggedPlacementWeaponInstanceId === weapon.weaponInstanceId}
-									class="summary-row-copy drag-copy"
-									draggable="true"
-									role="button"
-									tabindex="0"
-									ondragstart={(event) => beginWeaponDrag(event, weapon.weaponInstanceId)}
-									ondragend={clearDragState}
-								>
-									<span>{weapon.name}</span>
-									<strong>({weapon.x}, {weapon.y})</strong>
-								</div>
-								<button
-									class="remove"
-									type="button"
-									onclick={() => removeDraftPlacement(weapon.weaponInstanceId)}
-								>
-									Remove
-								</button>
-							</div>
-						{/each}
-					</div>
-				{:else}
-					<p class="feedback neutral">No equipped weapons yet.</p>
-				{/if}
-			</div>
-
-			<div class="panel">
-				<div class="section-head">
-					<h2>Placement grid</h2>
-					<p>Select or drag a weapon, then place it on a highlighted anchor cell.</p>
-				</div>
-
-				{#if unequippedOwnedWeaponRows.length > 0}
-					<div class="summary-list">
-						{#each unequippedOwnedWeaponRows as weapon (weapon.weaponInstanceId)}
-							<button
-								draggable="true"
-								class:active={selectedPlacementWeaponInstanceId === weapon.weaponInstanceId}
-								class:dragging={draggedPlacementWeaponInstanceId === weapon.weaponInstanceId}
-								class={`summary-row picker-row rarity-${weapon.rarity}`}
-								type="button"
-								onclick={() => (selectedPlacementWeaponInstanceId = weapon.weaponInstanceId)}
-								ondragstart={(event) => beginWeaponDrag(event, weapon.weaponInstanceId)}
-								ondragend={clearDragState}
-							>
-								<span>{weapon.name}</span>
-								<strong>{weapon.weaponInstanceId.slice(-6)}</strong>
-							</button>
-						{/each}
-					</div>
-				{:else}
-					<p class="feedback neutral">All owned weapons are already equipped.</p>
-				{/if}
-
-				{#if activePlacementDefinition}
-					<div class="weapon-shape-preview">
+				{#if draggedWeaponDefinition}
+					<div class="weapon-shape-preview centered-preview">
 						<div
 							class="shape-grid"
-							style:grid-template-columns={`repeat(${activePlacementDefinition.shape.width}, 1fr)`}
+							style:grid-template-columns={`repeat(${draggedWeaponDefinition.shape.width}, 1fr)`}
 						>
-							{#each Array.from( { length: activePlacementDefinition.shape.height } ) as _, shapeY (shapeY)}
-								{#each Array.from( { length: activePlacementDefinition.shape.width } ) as _, shapeX (shapeX)}
+							{#each Array.from( { length: draggedWeaponDefinition.shape.height } ) as _, shapeY (shapeY)}
+								{#each Array.from( { length: draggedWeaponDefinition.shape.width } ) as _, shapeX (shapeX)}
 									<div
-										class:filled={activePlacementDefinition.shape.cells.some(
-											([cellX, cellY]) => cellX === shapeX && cellY === shapeY
-										)}
 										class="shape-cell"
+										class:filled={isShapeCellFilled(draggedWeaponDefinition.shape, shapeX, shapeY)}
 									></div>
 								{/each}
 							{/each}
 						</div>
-						<p class="weapon-role">{activePlacementDefinition.role}</p>
+						<p class="weapon-role">{draggedWeaponDefinition.role}</p>
 					</div>
 				{/if}
 
-				<div
-					class="loadout-grid"
-					style:grid-template-columns={`repeat(${LOADOUT_COLUMN_COUNT}, minmax(0, 1fr))`}
-				>
-					{#each loadoutGridRows as row, rowIndex (rowIndex)}
-						{#each row as cell (`${rowIndex}:${cell.x}:${cell.y}`)}
-							{#if cell.occupiedByName}
-								<div
-									class={`grid-cell occupied rarity-${cell.occupiedRarity ?? 'normal'}`}
-									title={cell.occupiedByName}
-								>
-									<span>{cell.occupiedByName.slice(0, 2).toUpperCase()}</span>
-								</div>
-							{:else if cell.canPlaceActiveWeapon}
-								<button
-									class:drop-target={dragOverGridCellKey === getGridCellKey(cell.x, cell.y)}
-									class="grid-cell anchor"
-									type="button"
-									ondragover={(event) => handleGridDragOver(event, cell)}
-									ondragleave={() => handleGridDragLeave(cell)}
-									ondrop={(event) => handleGridDrop(event, cell)}
-									onclick={() => placeSelectedWeaponAt(cell.x, cell.y)}
-									aria-label={`Place at ${cell.x}, ${cell.y}`}
-								>
-									<span>+</span>
-								</button>
-							{:else}
-								<div class="grid-cell empty"></div>
-							{/if}
+				<div class="loadout-grid-shell">
+					<div
+						class="loadout-grid main-loadout-grid"
+						style:grid-template-columns={LOADOUT_GRID_TEMPLATE_COLUMNS}
+						style:grid-template-rows={LOADOUT_GRID_TEMPLATE_ROWS}
+					>
+						{#each gridCells as cell (cell.key)}
+							<div
+								class="grid-cell"
+								role="gridcell"
+								tabindex="-1"
+								aria-label={`Loadout cell ${cell.x}, ${cell.y}`}
+								class:occupied={occupiedCellKeys[cell.key] && !previewCellStateByKey[cell.key]}
+								class:preview-valid={previewCellStateByKey[cell.key] === 'valid'}
+								class:preview-invalid={previewCellStateByKey[cell.key] === 'invalid'}
+								ondragover={(event) => handleGridDragOver(event, cell)}
+								ondrop={(event) => handleGridDrop(event, cell)}
+							></div>
 						{/each}
-					{/each}
+					</div>
+
+					<div
+						class="placed-weapons-layer"
+						class:drag-pass-through={isDraggingWeapon}
+						style:grid-template-columns={LOADOUT_GRID_TEMPLATE_COLUMNS}
+						style:grid-template-rows={LOADOUT_GRID_TEMPLATE_ROWS}
+					>
+						{#each visiblePlacedWeapons as weapon (weapon.weaponInstanceId)}
+							<button
+								class={`placed-weapon rarity-${weapon.rarity}`}
+								type="button"
+								draggable="true"
+								class:dragging={draggedWeaponInstanceId === weapon.weaponInstanceId}
+								style={getWeaponGridArea(weapon)}
+								ondragstart={(event) => beginPlacedWeaponDrag(event, weapon)}
+								ondragend={clearDragState}
+								title={`${weapon.name} at ${weapon.x}, ${weapon.y}`}
+							>
+								<div class="placed-weapon-shape" style={getShapeGridTemplate(weapon.shape)}>
+									{#each Array.from( { length: weapon.shape.height } ) as _, shapeY (`${weapon.weaponInstanceId}:${shapeY}`)}
+										{#each Array.from( { length: weapon.shape.width } ) as _, shapeX (`${weapon.weaponInstanceId}:${shapeY}:${shapeX}`)}
+											{@const isFilled = isShapeCellFilled(weapon.shape, shapeX, shapeY)}
+											<div
+												class="placed-weapon-cell"
+												class:filled={isFilled}
+												aria-hidden={!isFilled}
+											>
+												{#if isLabelCell(weapon.shape, shapeX, shapeY)}
+													<span>{weapon.name.slice(0, 2).toUpperCase()}</span>
+												{/if}
+											</div>
+										{/each}
+									{/each}
+								</div>
+							</button>
+						{/each}
+					</div>
+				</div>
+			</div>
+
+			<div class="panel inventory-panel">
+				<div class="section-head">
+					<h2>Weapon inventory</h2>
+					<p>
+						Weapons stay rigid here too. Drag them into the grid to equip, or drag equipped ones
+						back here to unequip.
+					</p>
+				</div>
+
+				<div
+					class="inventory-drop-zone"
+					class:drop-target={isInventoryDropTargetActive}
+					role="button"
+					tabindex="0"
+					aria-label="Drag equipped weapons here to unequip them"
+					ondragover={handleInventoryDragOver}
+					ondragleave={handleInventoryDragLeave}
+					ondrop={handleInventoryDrop}
+				>
+					<div class="inventory-scroll">
+						{#each inventoryWeapons as weapon (weapon.weaponInstanceId)}
+							<button
+								class={`inventory-weapon rarity-${weapon.rarity}`}
+								type="button"
+								draggable="true"
+								class:equipped={weapon.isEquipped}
+								class:dragging={draggedWeaponInstanceId === weapon.weaponInstanceId}
+								ondragstart={(event) => beginInventoryWeaponDrag(event, weapon)}
+								ondragend={clearDragState}
+							>
+								<div class="inventory-weapon-head">
+									<div>
+										<strong>{weapon.name}</strong>
+										<p class="weapon-role">{weapon.role}</p>
+									</div>
+									<span class="inventory-status">{formatInventoryStatus(weapon)}</span>
+								</div>
+
+								<div
+									class="shape-grid inventory-shape-grid"
+									style:grid-template-columns={`repeat(${weapon.shape.width}, 1fr)`}
+								>
+									{#each Array.from( { length: weapon.shape.height } ) as _, shapeY (`inventory:${weapon.weaponInstanceId}:${shapeY}`)}
+										{#each Array.from( { length: weapon.shape.width } ) as _, shapeX (`inventory:${weapon.weaponInstanceId}:${shapeY}:${shapeX}`)}
+											<div
+												class="shape-cell"
+												class:filled={isShapeCellFilled(weapon.shape, shapeX, shapeY)}
+											></div>
+										{/each}
+									{/each}
+								</div>
+							</button>
+						{/each}
+					</div>
 				</div>
 			</div>
 		</section>
@@ -512,11 +662,9 @@
 	.panel,
 	.back,
 	.feedback,
-	.summary-row,
-	.remove,
-	.anchor,
 	.save,
-	.ghost {
+	.ghost,
+	.inventory-weapon {
 		border-radius: 1.1rem;
 		border: 1px solid rgba(255, 255, 255, 0.08);
 		background: rgba(10, 10, 10, 0.92);
@@ -543,7 +691,7 @@
 
 	.section-head-split,
 	.draft-actions,
-	.summary-row-copy {
+	.inventory-weapon-head {
 		display: flex;
 		justify-content: space-between;
 		gap: 0.75rem;
@@ -559,11 +707,6 @@
 		justify-content: flex-end;
 	}
 
-	.summary-row-copy {
-		flex: 1;
-		min-width: 0;
-	}
-
 	.hero h1,
 	.section-head h2 {
 		margin: 0;
@@ -574,8 +717,8 @@
 	}
 
 	.eyebrow,
-	.summary-row span,
-	.section-head p {
+	.section-head p,
+	.inventory-status {
 		letter-spacing: 0.12em;
 	}
 
@@ -593,54 +736,17 @@
 		color: #c4c4c4;
 	}
 
-	.grid {
+	.layout-stack {
 		display: grid;
-		grid-template-columns: minmax(18rem, 24rem) minmax(0, 1fr);
 		gap: 1rem;
 	}
 
-	.summary-list,
-	.weapon-shape-preview {
-		display: grid;
-		gap: 0.65rem;
+	.grid-panel {
+		justify-items: center;
 	}
 
-	.summary-row {
-		padding: 0.85rem;
-		display: flex;
-		justify-content: space-between;
-		gap: 0.75rem;
-		align-items: center;
-		color: #f5f5f5;
-	}
-
-	.picker-row {
-		width: 100%;
-		cursor: pointer;
-		font: inherit;
-		text-align: left;
-	}
-
-	.drag-copy,
-	.picker-row[draggable='true'] {
-		cursor: grab;
-	}
-
-	.dragging {
-		opacity: 0.55;
-	}
-
-	.picker-row.active {
-		border-color: rgba(103, 217, 111, 0.42);
-		background: rgba(103, 217, 111, 0.12);
-	}
-
-	.remove {
-		min-height: 2rem;
-		padding: 0.35rem 0.65rem;
-		color: #f5f5f5;
-		font: inherit;
-		cursor: pointer;
+	.inventory-panel {
+		gap: 0.9rem;
 	}
 
 	.save,
@@ -668,9 +774,11 @@
 	}
 
 	.shape-grid,
-	.loadout-grid {
+	.loadout-grid,
+	.placed-weapons-layer,
+	.placed-weapon-shape {
 		display: grid;
-		gap: 0.3rem;
+		gap: 0.35rem;
 	}
 
 	.shape-grid {
@@ -678,23 +786,49 @@
 	}
 
 	.shape-cell,
+	.grid-cell,
+	.placed-weapon-cell {
+		border-radius: 0.6rem;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		background: rgba(255, 255, 255, 0.05);
+		box-sizing: border-box;
+	}
+
+	.shape-cell,
 	.grid-cell {
 		aspect-ratio: 1;
-		border-radius: 0.6rem;
-		border: 1px solid rgba(255, 255, 255, 0.14);
-		background: rgba(255, 255, 255, 0.05);
 	}
 
-	.shape-cell.filled {
-		background: rgba(103, 217, 111, 0.18);
-		border-color: rgba(103, 217, 111, 0.42);
+	.shape-cell.filled,
+	.placed-weapon-cell.filled {
+		background: rgba(255, 255, 255, 0.14);
 	}
 
-	.loadout-grid {
-		grid-auto-rows: minmax(2.6rem, 1fr);
+	.loadout-grid-shell {
+		position: relative;
+		width: min(100%, 58rem);
+		margin: 0 auto;
+		--board-gap: 0.35rem;
 	}
 
-	.grid-cell {
+	.main-loadout-grid,
+	.placed-weapons-layer {
+		gap: var(--board-gap);
+		grid-auto-rows: minmax(4.9rem, 1fr);
+	}
+
+	.placed-weapons-layer {
+		position: absolute;
+		inset: 0;
+		pointer-events: auto;
+	}
+
+	.placed-weapons-layer.drag-pass-through {
+		pointer-events: none;
+	}
+
+	.grid-cell,
+	.placed-weapon-cell {
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -704,24 +838,95 @@
 		letter-spacing: 0.08em;
 	}
 
-	.grid-cell.empty {
-		opacity: 0.45;
+	.grid-cell {
+		background: rgba(255, 255, 255, 0.03);
+		transition:
+			background-color 120ms ease,
+			border-color 120ms ease,
+			box-shadow 120ms ease;
 	}
 
-	.anchor {
+	.grid-cell.occupied {
+		background: transparent;
+		border-color: transparent;
+		box-shadow: none;
+	}
+
+	.grid-cell.preview-valid {
+		background: rgba(103, 217, 111, 0.18);
+		border-color: rgba(103, 217, 111, 0.7);
+		box-shadow: inset 0 0 0 1px rgba(103, 217, 111, 0.25);
+	}
+
+	.grid-cell.preview-invalid {
+		background: rgba(255, 96, 96, 0.15);
+		border-color: rgba(255, 96, 96, 0.52);
+		box-shadow: inset 0 0 0 1px rgba(255, 96, 96, 0.15);
+	}
+
+	.placed-weapon,
+	.inventory-weapon {
+		color: #f5f5f5;
+		cursor: grab;
+	}
+
+	.placed-weapon {
+		display: block;
+		pointer-events: auto;
 		width: 100%;
 		height: 100%;
 		padding: 0;
-		cursor: pointer;
-		background: rgba(103, 217, 111, 0.12);
-		border-color: rgba(103, 217, 111, 0.42);
-		color: #c9f8cc;
+		border: 0;
+		border-radius: 0;
+		background: transparent;
+		box-shadow: none;
+		appearance: none;
+		-webkit-appearance: none;
 	}
 
-	.anchor.drop-target {
-		background: rgba(103, 217, 111, 0.22);
-		border-color: rgba(103, 217, 111, 0.82);
-		box-shadow: inset 0 0 0 1px rgba(103, 217, 111, 0.35);
+	.placed-weapon-shape {
+		width: 100%;
+		height: 100%;
+	}
+
+	.placed-weapon-cell {
+		border-radius: 0.6rem;
+		border-color: transparent;
+		background: transparent;
+		pointer-events: none;
+	}
+
+	.placed-weapon-cell.filled {
+		background: rgba(64, 64, 64, 0.94);
+		border-color: rgba(255, 255, 255, 0.16);
+	}
+
+	.inventory-weapon {
+		width: 100%;
+		padding: 0.9rem;
+		display: grid;
+		gap: 0.85rem;
+		text-align: left;
+		font: inherit;
+	}
+
+	.inventory-weapon.equipped {
+		border-color: rgba(103, 217, 111, 0.3);
+		background: rgba(103, 217, 111, 0.08);
+	}
+
+	.inventory-status {
+		font-size: 0.72rem;
+		text-transform: uppercase;
+		color: #d6d6d6;
+	}
+
+	.inventory-shape-grid {
+		justify-self: start;
+	}
+
+	.dragging {
+		opacity: 0.5;
 	}
 
 	.feedback {
@@ -741,34 +946,74 @@
 		background: rgba(255, 255, 255, 0.05);
 	}
 
-	.summary-row.rarity-normal,
-	.grid-cell.rarity-normal {
+	.centered-preview {
+		justify-items: center;
+		text-align: center;
+	}
+
+	.inventory-drop-zone {
+		border-radius: 1rem;
+		border: 1px dashed rgba(255, 255, 255, 0.12);
+		background: rgba(255, 255, 255, 0.02);
+		padding: 0.5rem;
+		transition:
+			border-color 120ms ease,
+			background-color 120ms ease;
+	}
+
+	.inventory-drop-zone.drop-target {
+		border-color: rgba(255, 96, 96, 0.78);
+		background: rgba(255, 96, 96, 0.08);
+	}
+
+	.inventory-scroll {
+		max-height: 20rem;
+		overflow-y: auto;
+		display: grid;
+		gap: 0.75rem;
+		padding-right: 0.25rem;
+	}
+
+	.placed-weapon.rarity-normal,
+	.inventory-weapon.rarity-normal {
 		border-color: rgba(236, 236, 236, 0.14);
 	}
 
-	.summary-row.rarity-magic,
-	.grid-cell.rarity-magic {
+	.placed-weapon.rarity-magic,
+	.inventory-weapon.rarity-magic {
 		border-color: rgba(84, 150, 255, 0.28);
 	}
 
-	.summary-row.rarity-rare,
-	.grid-cell.rarity-rare {
+	.placed-weapon.rarity-rare,
+	.inventory-weapon.rarity-rare {
 		border-color: rgba(255, 210, 74, 0.28);
 	}
 
-	.summary-row.rarity-exotic,
-	.grid-cell.rarity-exotic {
+	.placed-weapon.rarity-exotic,
+	.inventory-weapon.rarity-exotic {
 		border-color: rgba(224, 74, 74, 0.28);
 	}
 
-	.summary-row.rarity-legendary,
-	.grid-cell.rarity-legendary {
+	.placed-weapon.rarity-legendary,
+	.inventory-weapon.rarity-legendary {
 		border-color: rgba(179, 132, 62, 0.28);
 	}
 
 	@media (max-width: 860px) {
-		.grid {
-			grid-template-columns: 1fr;
+		.save,
+		.ghost {
+			width: 100%;
+		}
+
+		.inventory-weapon-head,
+		.section-head-split {
+			align-items: start;
+			flex-direction: column;
+		}
+
+		.main-loadout-grid,
+		.placed-weapons-layer {
+			grid-auto-rows: minmax(3.5rem, 1fr);
 		}
 	}
 </style>
