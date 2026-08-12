@@ -15,8 +15,8 @@
 				[2, 1]
 			]
 		},
-		"baseDamage": 3,
-		"projectileSpeed": 360,
+		"baseDamage": 5,
+		"projectileSpeed": 200,
 		"attack": {
 			"kind": "single",
 			"projectileCount": 1,
@@ -84,16 +84,24 @@
 				[2, 2]
 			]
 		},
-		"baseDamage": 2,
+		"baseDamage": 4,
 		"projectileSpeed": 520,
 		"attack": {
 			"kind": "single",
-			"projectileCount": 1,
+			"projectileCount": 3,
+			"special": {
+				"type": "needle-fan",
+				"duration": 0.42,
+				"maxReach": 240,
+				"lineWidth": 1
+			},
 			"targeting": "current-target"
 		},
 		"projectileVisual": {
 			"color": "#f8f8f8",
-			"size": "small"
+			"size": "small",
+			"shape": "spark",
+			"glow": true
 		},
 		"drop": {
 			"mode": "drop",
@@ -102,7 +110,7 @@
 			"stageEnd": 5,
 			"perLevelDropChance": 0.28
 		},
-		"role": "Compact efficient filler for tight loadouts"
+		"role": "Triple needle burst that lashes out from the pixl toward different targets before snapping back"
 	},
 	{
 		"id": "splitter",
@@ -125,7 +133,7 @@
 		"attack": {
 			"kind": "spread",
 			"projectileCount": 3,
-			"spreadDegrees": 16,
+			"spreadDegrees": 8,
 			"targeting": "current-target"
 		},
 		"projectileVisual": {

@@ -13,20 +13,40 @@ const INTRO_PROJECTILE_DAMAGE = 1; // New constant for projectile damage
 
 const ENEMY_VISUALS: Record<
 	GlitchKind,
-	{ radius: number; fill: [number, number, number]; stroke?: [number, number, number] }
+	{
+		radius: number;
+		fill: [number, number, number];
+		stroke?: [number, number, number];
+		shape?: 'circle' | 'square' | 'diamond' | 'triangle';
+	}
 > = {
 	biter: {
 		radius: 8,
-		fill: [196, 196, 196]
+		fill: [196, 196, 196],
+		shape: 'circle'
 	},
 	swarmer: {
 		radius: 6,
-		fill: [232, 232, 232]
+		fill: [232, 232, 232],
+		shape: 'square'
 	},
 	tanker: {
 		radius: 13,
 		fill: [96, 96, 96],
-		stroke: [255, 255, 255]
+		stroke: [255, 255, 255],
+		shape: 'circle'
+	},
+	shard: {
+		radius: 9,
+		fill: [68, 214, 255],
+		stroke: [216, 247, 255],
+		shape: 'triangle'
+	},
+	bulwark: {
+		radius: 15,
+		fill: [128, 95, 245],
+		stroke: [244, 239, 255],
+		shape: 'diamond'
 	}
 };
 
@@ -311,9 +331,25 @@ export function createPixlIntroSketch(options: PixlIntroSketchOptions = {}) {
 					enemy.hitFlash > 0 ? 255 : visual.fill[2]
 				);
 
-				if (enemy.kind === 'swarmer') {
+				if (visual.shape === 'square') {
 					p.rectMode(p.CENTER);
 					p.square(enemy.x, enemy.y, visual.radius * 1.8);
+				} else if (visual.shape === 'diamond') {
+					p.push();
+					p.translate(enemy.x, enemy.y);
+					p.rotate(Math.PI / 4);
+					p.rectMode(p.CENTER);
+					p.square(0, 0, visual.radius * 2.1);
+					p.pop();
+				} else if (visual.shape === 'triangle') {
+					p.triangle(
+						enemy.x,
+						enemy.y - visual.radius * 1.25,
+						enemy.x - visual.radius,
+						enemy.y + visual.radius,
+						enemy.x + visual.radius,
+						enemy.y + visual.radius
+					);
 				} else {
 					p.circle(enemy.x, enemy.y, visual.radius * 2);
 				}

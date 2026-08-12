@@ -15,13 +15,23 @@ const baseline = {
 	stageLevelBonusScale: 4,
 	stageLevelGrowthFactor: 1.14,
 	spawnRatePerSecond: 1.65,
+	enemyStageScaling: {
+		healthPerStage: 0.2,
+		damagePerStage: 0.2
+	},
 	tutorialLevels: [1],
 	compositionRules: {
-		tutorial: 'level 1 opens with biters only before specialist enemies arrive immediately after',
+		tutorial:
+			'level 1 introduces the full campaign 2 roster immediately, but keeps the advanced glitches in low counts',
 		standard: {
+			biters:
+				'remain the baseline threat but gradually give way to more dangerous campaign-specific glitches',
 			swarmers: 'increase their share every stage so the screen pressure ramps quickly',
-			tankers: 'enter in stage 2 and become regular anchors for the larger weapon roster',
-			biters: 'remain the backbone of each wave but lose share to faster and heavier variants'
+			tankers: 'can appear immediately and become regular anchors for the larger weapon roster',
+			shard:
+				'appear from the opening wave as standoff artillery that circle just outside the core and fire inward',
+			bulwark:
+				'appear from the opening wave as dense frontliners that flash a shield pulse when hit and soak burst damage'
 		}
 	},
 	bossEnemyMultipliers: {
@@ -31,7 +41,9 @@ const baseline = {
 	xpDropRules: {
 		biter: '2 + floor(stage / 2) + floor((stageLevel - 1) / 3)',
 		swarmer: '3 + floor(stage / 2) + floor(stageLevel / 3)',
-		tanker: '6 + stage + floor(stageLevel / 2)'
+		tanker: '6 + stage + floor(stageLevel / 2)',
+		shard: '5 + stage + floor(stageLevel / 2)',
+		bulwark: '10 + stage * 2 + floor(stageLevel / 2)'
 	}
 } satisfies CampaignDefinition['baseline'];
 
@@ -39,44 +51,102 @@ function getXpPerEnemy(stage: number, stageLevel: number): XpPerEnemy {
 	return {
 		biter: 2 + Math.floor(stage / 2) + Math.floor((stageLevel - 1) / 3),
 		swarmer: 3 + Math.floor(stage / 2) + Math.floor(stageLevel / 3),
-		tanker: 6 + stage + Math.floor(stageLevel / 2)
+		tanker: 6 + stage + Math.floor(stageLevel / 2),
+		shard: 5 + stage + Math.floor(stageLevel / 2),
+		bulwark: 10 + stage * 2 + Math.floor(stageLevel / 2)
 	};
 }
 
-function getComposition(totalEnemies: number, stage: number, stageLevel: number): WaveComposition {
-	if (stage === 1 && stageLevel === 1) {
-		return {
-			biters: totalEnemies,
-			swarmers: 0,
-			tankers: 0
-		};
-	}
+const glitchOrder = ['biter', 'swarmer', 'tanker', 'shard', 'bulwark'] as const;
+const compositionKeyByKind = {
+	biter: 'biters',
+	swarmer: 'swarmers',
+	tanker: 'tankers',
+	shard: 'shard',
+	bulwark: 'bulwark'
+} as const;
 
+function getComposition(totalEnemies: number, stage: number, stageLevel: number): WaveComposition {
 	const swarmerShare = Math.min(0.12 + stage * 0.05 + stageLevel * 0.01, 0.42);
-	const tankerShare =
-		stage >= 2 ? Math.min(0.04 + (stage - 2) * 0.03 + stageLevel * 0.005, 0.18) : 0;
+	const tankerShare = Math.min(0.03 + (stage - 1) * 0.025 + stageLevel * 0.004, 0.18);
+	const shardShare = Math.min(0.04 + (stage - 1) * 0.022 + stageLevel * 0.005, 0.2);
+	const bulwarkShare = Math.min(0.02 + (stage - 1) * 0.018 + stageLevel * 0.003, 0.1);
 
 	let swarmers = Math.round(totalEnemies * swarmerShare);
 	let tankers = Math.round(totalEnemies * tankerShare);
-	let biters = totalEnemies - swarmers - tankers;
+	let shards = Math.round(totalEnemies * shardShare);
+	let bulwarks = Math.round(totalEnemies * bulwarkShare);
+	let biters = totalEnemies - swarmers - tankers - shards - bulwarks;
 
 	if (biters < 1) {
 		const deficit = 1 - biters;
 		biters = 1;
+		let remainingDeficit = deficit;
 
-		if (tankers >= deficit) {
-			tankers -= deficit;
-		} else {
-			swarmers = Math.max(0, swarmers - (deficit - tankers));
-			tankers = 0;
+		for (const key of ['bulwark', 'shard', 'tanker', 'swarmer'] as const) {
+			if (remainingDeficit <= 0) {
+				break;
+			}
+
+			if (key === 'bulwark') {
+				const reduction = Math.min(bulwarks, remainingDeficit);
+				bulwarks -= reduction;
+				remainingDeficit -= reduction;
+			} else if (key === 'shard') {
+				const reduction = Math.min(shards, remainingDeficit);
+				shards -= reduction;
+				remainingDeficit -= reduction;
+			} else if (key === 'tanker') {
+				const reduction = Math.min(tankers, remainingDeficit);
+				tankers -= reduction;
+				remainingDeficit -= reduction;
+			} else {
+				const reduction = Math.min(swarmers, remainingDeficit);
+				swarmers -= reduction;
+				remainingDeficit -= reduction;
+			}
+		}
+	}
+
+	if (stage === 1 && stageLevel === 1) {
+		const immediateKinds = ['shard', 'bulwark'] as const;
+
+		for (const kind of immediateKinds) {
+			if ((kind === 'shard' ? shards : bulwarks) > 0) {
+				continue;
+			}
+
+			if (biters > 1) {
+				biters -= 1;
+			} else if (swarmers > 0) {
+				swarmers -= 1;
+			} else if (tankers > 0) {
+				tankers -= 1;
+			}
+
+			if (kind === 'shard') {
+				shards = 1;
+			} else {
+				bulwarks = 1;
+			}
 		}
 	}
 
 	return {
 		biters,
 		swarmers,
-		tankers
+		tankers,
+		shard: shards,
+		bulwark: bulwarks
 	};
+}
+
+function getTotalXpReward(composition: WaveComposition, xpPerEnemy: XpPerEnemy) {
+	return glitchOrder.reduce(
+		(total, kind) =>
+			total + (composition[compositionKeyByKind[kind]] ?? 0) * (xpPerEnemy[kind] ?? 0),
+		0
+	);
 }
 
 function createLevel(stage: number, stageLevel: number): CampaignLevel {
@@ -118,10 +188,7 @@ function createLevel(stage: number, stageLevel: number): CampaignLevel {
 		totalEnemies,
 		composition,
 		xpPerEnemy,
-		totalXpReward:
-			composition.biters * xpPerEnemy.biter +
-			composition.swarmers * xpPerEnemy.swarmer +
-			composition.tankers * xpPerEnemy.tanker,
+		totalXpReward: getTotalXpReward(composition, xpPerEnemy),
 		spawnRatePerSecond
 	};
 }
@@ -131,7 +198,7 @@ export const campaign2: CampaignDefinition = {
 	stages,
 	levelsPerStage,
 	totalLevels,
-	combatProfile: 'baseline-v1',
+	combatProfile: 'campaign-2-v1',
 	baseline,
 	levels: Array.from({ length: totalLevels }, (_, index) => {
 		const stage = Math.floor(index / levelsPerStage) + 1;

@@ -1,15 +1,17 @@
 import { baselineCombatProfile } from './combat/baseline-v1';
+import { campaign2CombatProfile } from './combat/campaign-2-v1';
 import { campaign1 } from './campaigns/campaign-1';
 import { campaign2 } from './campaigns/campaign-2';
 import { campaign1Weapons, campaign2Weapons } from './weapons';
 
 import type { CampaignDefinition, CombatProfile, WeaponDefinition } from './types';
 
-export { baselineCombatProfile };
+export { baselineCombatProfile, campaign2CombatProfile };
 export const starterWeaponId = 'pea-shooter';
 
 export const combatProfiles = {
-	[baselineCombatProfile.id]: baselineCombatProfile
+	[baselineCombatProfile.id]: baselineCombatProfile,
+	[campaign2CombatProfile.id]: campaign2CombatProfile
 } as const;
 
 export const campaigns = {

@@ -5,7 +5,7 @@
   "totalLevels": 50,
   "combatProfile": "baseline-v1",
   "baseline": {
-    "startingEnemies": 5,
+    "startingEnemies": 3,
     "stageEnemyIncrease": 10,
     "stageLevelBonusScale": 4,
     "stageLevelGrowthFactor": 1.17,
@@ -41,13 +41,76 @@
       "campaignLevel": 1,
       "isStageBoss": false,
       "isCampaignBoss": false,
+      "totalEnemies": 3,
+      "composition": {
+        "biters": 3,
+        "swarmers": 0,
+        "tankers": 0
+      },
+      "spawnRatePerSecond": 0.3,
+      "xpPerEnemy": {
+        "biter": 2,
+        "swarmer": 3,
+        "tanker": 6
+      },
+      "totalXpReward": 6
+    },
+    {
+      "campaign": 1,
+      "stage": 1,
+      "stageLevel": 2,
+      "campaignLevel": 2,
+      "isStageBoss": false,
+      "isCampaignBoss": false,
+      "totalEnemies": 4,
+      "composition": {
+        "biters": 4,
+        "swarmers": 0,
+        "tankers": 0
+      },
+      "spawnRatePerSecond": 0.3,
+      "xpPerEnemy": {
+        "biter": 2,
+        "swarmer": 3,
+        "tanker": 6
+      },
+      "totalXpReward": 8
+    },
+    {
+      "campaign": 1,
+      "stage": 1,
+      "stageLevel": 3,
+      "campaignLevel": 3,
+      "isStageBoss": false,
+      "isCampaignBoss": false,
+      "totalEnemies": 4,
+      "composition": {
+        "biters": 4,
+        "swarmers": 0,
+        "tankers": 0
+      },
+      "spawnRatePerSecond": 0.3,
+      "xpPerEnemy": {
+        "biter": 2,
+        "swarmer": 3,
+        "tanker": 6
+      },
+      "totalXpReward": 8
+    },
+    {
+      "campaign": 1,
+      "stage": 1,
+      "stageLevel": 4,
+      "campaignLevel": 4,
+      "isStageBoss": false,
+      "isCampaignBoss": false,
       "totalEnemies": 5,
       "composition": {
         "biters": 5,
         "swarmers": 0,
         "tankers": 0
       },
-      "spawnRatePerSecond": 1,
+      "spawnRatePerSecond": 0.3,
       "xpPerEnemy": {
         "biter": 2,
         "swarmer": 3,
@@ -58,86 +121,23 @@
     {
       "campaign": 1,
       "stage": 1,
-      "stageLevel": 2,
-      "campaignLevel": 2,
-      "isStageBoss": false,
-      "isCampaignBoss": false,
-      "totalEnemies": 6,
-      "composition": {
-        "biters": 6,
-        "swarmers": 0,
-        "tankers": 0
-      },
-      "spawnRatePerSecond": 1,
-      "xpPerEnemy": {
-        "biter": 2,
-        "swarmer": 3,
-        "tanker": 6
-      },
-      "totalXpReward": 12
-    },
-    {
-      "campaign": 1,
-      "stage": 1,
-      "stageLevel": 3,
-      "campaignLevel": 3,
-      "isStageBoss": false,
-      "isCampaignBoss": false,
-      "totalEnemies": 6,
-      "composition": {
-        "biters": 6,
-        "swarmers": 0,
-        "tankers": 0
-      },
-      "spawnRatePerSecond": 1,
-      "xpPerEnemy": {
-        "biter": 2,
-        "swarmer": 3,
-        "tanker": 6
-      },
-      "totalXpReward": 12
-    },
-    {
-      "campaign": 1,
-      "stage": 1,
-      "stageLevel": 4,
-      "campaignLevel": 4,
-      "isStageBoss": false,
-      "isCampaignBoss": false,
-      "totalEnemies": 7,
-      "composition": {
-        "biters": 5,
-        "swarmers": 2,
-        "tankers": 0
-      },
-      "spawnRatePerSecond": 1,
-      "xpPerEnemy": {
-        "biter": 2,
-        "swarmer": 3,
-        "tanker": 6
-      },
-      "totalXpReward": 16
-    },
-    {
-      "campaign": 1,
-      "stage": 1,
       "stageLevel": 5,
       "campaignLevel": 5,
       "isStageBoss": false,
       "isCampaignBoss": false,
-      "totalEnemies": 8,
+      "totalEnemies": 6,
       "composition": {
-        "biters": 5,
+        "biters": 4,
         "swarmers": 2,
-        "tankers": 1
+        "tankers": 0
       },
-      "spawnRatePerSecond": 1,
+      "spawnRatePerSecond": 0.3,
       "xpPerEnemy": {
         "biter": 2,
         "swarmer": 3,
         "tanker": 6
       },
-      "totalXpReward": 22
+      "totalXpReward": 14
     },
     {
       "campaign": 1,
@@ -146,11 +146,11 @@
       "campaignLevel": 6,
       "isStageBoss": false,
       "isCampaignBoss": false,
-      "totalEnemies": 10,
+      "totalEnemies": 8,
       "composition": {
-        "biters": 6,
+        "biters": 5,
         "swarmers": 3,
-        "tankers": 1
+        "tankers": 0
       },
       "spawnRatePerSecond": 1,
       "xpPerEnemy": {
@@ -158,7 +158,7 @@
         "swarmer": 3,
         "tanker": 6
       },
-      "totalXpReward": 27
+      "totalXpReward": 19
     },
     {
       "campaign": 1,
@@ -167,11 +167,11 @@
       "campaignLevel": 7,
       "isStageBoss": false,
       "isCampaignBoss": false,
-      "totalEnemies": 11,
+      "totalEnemies": 9,
       "composition": {
-        "biters": 7,
+        "biters": 6,
         "swarmers": 3,
-        "tankers": 1
+        "tankers": 0
       },
       "spawnRatePerSecond": 1,
       "xpPerEnemy": {
@@ -179,7 +179,7 @@
         "swarmer": 3,
         "tanker": 6
       },
-      "totalXpReward": 29
+      "totalXpReward": 21
     },
     {
       "campaign": 1,
@@ -188,9 +188,30 @@
       "campaignLevel": 8,
       "isStageBoss": false,
       "isCampaignBoss": false,
-      "totalEnemies": 13,
+      "totalEnemies": 10,
       "composition": {
-        "biters": 8,
+        "biters": 6,
+        "swarmers": 4,
+        "tankers": 0
+      },
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
+        "biter": 2,
+        "swarmer": 3,
+        "tanker": 6
+      },
+      "totalXpReward": 24
+    },
+    {
+      "campaign": 1,
+      "stage": 1,
+      "stageLevel": 9,
+      "campaignLevel": 9,
+      "isStageBoss": false,
+      "isCampaignBoss": false,
+      "totalEnemies": 12,
+      "composition": {
+        "biters": 7,
         "swarmers": 4,
         "tankers": 1
       },
@@ -200,28 +221,7 @@
         "swarmer": 3,
         "tanker": 6
       },
-      "totalXpReward": 34
-    },
-    {
-      "campaign": 1,
-      "stage": 1,
-      "stageLevel": 9,
-      "campaignLevel": 9,
-      "isStageBoss": false,
-      "isCampaignBoss": false,
-      "totalEnemies": 15,
-      "composition": {
-        "biters": 9,
-        "swarmers": 5,
-        "tankers": 1
-      },
-      "spawnRatePerSecond": 1,
-      "xpPerEnemy": {
-        "biter": 2,
-        "swarmer": 3,
-        "tanker": 6
-      },
-      "totalXpReward": 39
+      "totalXpReward": 26
     },
     {
       "campaign": 1,
@@ -230,10 +230,10 @@
       "campaignLevel": 10,
       "isStageBoss": true,
       "isCampaignBoss": false,
-      "totalEnemies": 21,
+      "totalEnemies": 16,
       "composition": {
-        "biters": 12,
-        "swarmers": 7,
+        "biters": 9,
+        "swarmers": 5,
         "tankers": 2
       },
       "spawnRatePerSecond": 1,
@@ -242,7 +242,7 @@
         "swarmer": 3,
         "tanker": 6
       },
-      "totalXpReward": 57
+      "totalXpReward": 45
     },
     {
       "campaign": 1,

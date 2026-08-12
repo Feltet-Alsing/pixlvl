@@ -5,7 +5,7 @@
 	import CampaignRouteNav from '$lib/components/campaigns/CampaignRouteNav.svelte';
 	import P5Canvas from '$lib/components/P5Canvas.svelte';
 	import { getCampaignRouteNotificationCounts } from '$lib/game/notifications';
-	import { createCampaignSketch } from '$lib/p5/campaign-1-sketch';
+	import { createCampaignSketch, createLoadoutSweepPreviewSketch } from '$lib/p5/campaign-1-sketch';
 	import {
 		applyUpgradePurchase,
 		createBaselineUpgradeablePixlState,
@@ -129,6 +129,7 @@
 	let runMode = $state<LocalRunMode>('combat');
 	let showStatsOverlay = $state(false);
 	let showStageDrawer = $state(false);
+	let showLoadoutPreview = $state(true);
 	let skipResultsSignal = $state(0);
 	let pixlStateOverride = $state.raw<PixlStateOverride | null>(null);
 	let campaignStateOverride = $state.raw<CampaignStateOverride | null>(null);
@@ -231,8 +232,12 @@
 			.map((weapon) => `${weapon.weaponInstanceId}:${weapon.x}:${weapon.y}`)
 			.join('|')
 	);
+	let previewPixlState = $derived(livePixlState ?? data.gameState?.pixlState ?? null);
 	let sketchRemountKey = $derived(
 		`${data.campaignId}:${runMode}:${sketchCampaignLevel}:${loadoutSignature}`
+	);
+	let loadoutPreviewRemountKey = $derived(
+		`${data.campaignId}:${loadoutSignature}:${previewPixlState?.attackSpeed ?? 0}:${upgradeState.loadoutRows}:${upgradeState.loadoutColumns}`
 	);
 	let combatHealthRatio = $derived(
 		combatOverlay.maxPixlHealth > 0 ? combatOverlay.pixlHealth / combatOverlay.maxPixlHealth : 0
@@ -273,6 +278,7 @@
 		const secondsRemaining = Math.max(0, Math.ceil(combatOverlay.statusTimerRemaining));
 		return `Auto-continue in ${secondsRemaining}s`;
 	});
+	let resultsEmptyLabel = $derived(`No weapon drops. +${combatOverlay.waveXp} XP earned.`);
 	let loadoutTooltip = $derived(
 		currentLoadoutRows.map((weapon) => `${weapon.name} (${weapon.x}, ${weapon.y})`).join('\n') ||
 			'No equipped weapons'
@@ -289,6 +295,7 @@
 		combatOverlayOverride = null;
 		showStatsOverlay = false;
 		showStageDrawer = false;
+		showLoadoutPreview = true;
 		skipResultsSignal = 0;
 	});
 
@@ -416,293 +423,317 @@
 				onStateChange: handleSketchStateChange
 			})(p);
 	});
-</script>
 
-<svelte:head>
-	<title>Campaign {data.campaignId} | pixlvl</title>
-</svelte:head>
+	<div class={['arena-shell', runMode === 'combat' && showLoadoutPreview ? 'preview-enabled' : '']}>
+		<section class="canvas-stage">
+			{#key sketchRemountKey}
+				<P5Canvas class="canvas-frame" sketch={campaignSketch} />
+			{/key}
 
-<div class="page">
-	<section class="canvas-stage">
-		{#key sketchRemountKey}
-			<P5Canvas class="canvas-frame" sketch={campaignSketch} />
-		{/key}
+			<div class="overlay-layout">
+				{#if showStageDrawer}
+					<button
+						class="drawer-backdrop"
+						type="button"
+						aria-label="Close campaign menu"
+						onclick={() => (showStageDrawer = false)}
+					></button>
+				{/if}
 
-		<div class="overlay-layout">
-			{#if showStageDrawer}
-				<button
-					class="drawer-backdrop"
-					type="button"
-					aria-label="Close campaign menu"
-					onclick={() => (showStageDrawer = false)}
-				></button>
-			{/if}
-
-			<div class="utility-bar">
-				<button
-					class="toggle campaign-toggle"
-					type="button"
-					onclick={() => {
-						showStageDrawer = !showStageDrawer;
-						if (showStageDrawer) {
-							showStatsOverlay = false;
-						}
-					}}
-					aria-pressed={showStageDrawer}
-				>
-					{showStageDrawer ? 'Close campaign' : 'Campaign menu'}
-				</button>
-				<div class="utility-actions">
-					{#if runMode === 'combat'}
-						<button
-							class="toggle slim-toggle"
-							type="button"
-							onclick={() => {
-								showStatsOverlay = !showStatsOverlay;
-								if (showStatsOverlay) {
-									showStageDrawer = false;
-								}
-							}}
-							aria-pressed={showStatsOverlay}
-						>
-							{showStatsOverlay ? 'Hide stats' : 'Show stats'}
-						</button>
-					{/if}
-					<CampaignRouteNav
-						campaignId={data.campaignId}
-						active="arena"
-						{loadoutTooltip}
-						{notificationCounts}
-					/>
+				<div class="utility-bar">
+					<button
+						class="toggle campaign-toggle"
+						type="button"
+						onclick={() => {
+							showStageDrawer = !showStageDrawer;
+							if (showStageDrawer) {
+								showStatsOverlay = false;
+							}
+						}}
+						aria-pressed={showStageDrawer}
+					>
+						{showStageDrawer ? 'Close campaign' : 'Campaign menu'}
+					</button>
+					<div class="utility-actions">
+						{#if runMode === 'combat'}
+							<button
+								class="toggle slim-toggle"
+								type="button"
+								onclick={() => {
+									showLoadoutPreview = !showLoadoutPreview;
+								}}
+								aria-pressed={showLoadoutPreview}
+							>
+								{showLoadoutPreview ? 'Hide Loadout Sweep' : 'Show Loadout Sweep'}
+							</button>
+							<button
+								class="toggle slim-toggle"
+								type="button"
+								onclick={() => {
+									showStatsOverlay = !showStatsOverlay;
+									if (showStatsOverlay) {
+										showStageDrawer = false;
+									}
+								}}
+								aria-pressed={showStatsOverlay}
+							>
+								{showStatsOverlay ? 'Hide stats' : 'Show stats'}
+							</button>
+						{/if}
+						<CampaignRouteNav
+							campaignId={data.campaignId}
+							active="arena"
+							{loadoutTooltip}
+							{notificationCounts}
+						/>
+					</div>
 				</div>
-			</div>
 
-			{#if showStageDrawer}
-				<aside class="overlay campaign-drawer" aria-label="Campaign menu">
-					<div class="campaign-drawer-header">
-						<div class="compact-heading">
-							<p class="eyebrow">Campaign {data.campaign.campaign}</p>
-							<p class="upgrade-note">Jump between unlocked stages without leaving the arena.</p>
-						</div>
-						<a class="back drawer-back-link" href={resolve('/campaigns')}>All campaigns</a>
-						<button
-							class="drawer-close"
-							type="button"
-							aria-label="Close campaign menu"
-							onclick={() => (showStageDrawer = false)}
-						>
-							Close
-						</button>
-					</div>
-
-					<div class="campaign-summary-grid">
-						<div class="summary-row">
-							<span>Current stage</span>
-							<strong>{currentStage}</strong>
-						</div>
-						<div class="summary-row">
-							<span>Current level</span>
-							<strong>{sketchCampaignLevel}</strong>
-						</div>
-						<div class="summary-row">
-							<span>Unlocked</span>
-							<strong>{highestUnlockedLevel}</strong>
-						</div>
-						<div class="summary-row">
-							<span>Cleared</span>
-							<strong>{highestClearedLevel}</strong>
-						</div>
-					</div>
-
-					{#if form?.stageError}
-						<p class="feedback error">{form.stageError}</p>
-					{:else if form?.stageSuccess}
-						<p class="feedback success">{form.stageSuccess}</p>
-					{/if}
-
-					{#if data.campaignState}
-						<div class="campaign-stage-list">
-							{#each unlockedStages as stage (stage.stage)}
-								<form method="post" action="?/selectStage" use:enhance={selectStage}>
-									<input type="hidden" name="stage" value={stage.stage} />
-									<button
-										class:active={stage.isCurrentStage}
-										class="stage-card drawer-stage-card"
-										type="submit"
-									>
-										<span>Stage {stage.stage}</span>
-										<strong
-											>{stage.unlockedLevelCount} / {data.campaign.levelsPerStage} levels</strong
-										>
-										<small>
-											Levels {stage.startLevel}-{stage.endLevel}
-											{stage.isCleared ? ' · cleared' : ''}
-										</small>
-									</button>
-								</form>
-							{/each}
-						</div>
-					{:else}
-						<p class="feedback">Sign in to persist stage progression.</p>
-					{/if}
-				</aside>
-			{/if}
-
-			{#if runMode === 'combat'}
-				{#if showStatsOverlay}
-					<div class="overlay stats-overlay">
-						<div class="stats-overlay-header compact-heading">
-							<p class="eyebrow">Arena stats</p>
-							<p class="upgrade-note">Spend perk points without leaving the arena.</p>
+				{#if showStageDrawer}
+					<aside class="overlay campaign-drawer" aria-label="Campaign menu">
+						<div class="campaign-drawer-header">
+							<div class="compact-heading">
+								<p class="eyebrow">Campaign {data.campaign.campaign}</p>
+								<p class="upgrade-note">Jump between unlocked stages without leaving the arena.</p>
+							</div>
+							<a class="back drawer-back-link" href={resolve('/campaigns')}>All campaigns</a>
+							<button
+								class="drawer-close"
+								type="button"
+								aria-label="Close campaign menu"
+								onclick={() => (showStageDrawer = false)}
+							>
+								Close
+							</button>
 						</div>
 
-						{#if form?.purchaseError}
-							<p class="feedback error">{form.purchaseError}</p>
-						{:else if form?.purchaseSuccess}
-							<p class="feedback success">{form.purchaseSuccess}</p>
+						<div class="campaign-summary-grid">
+							<div class="summary-row">
+								<span>Current stage</span>
+								<strong>{currentStage}</strong>
+							</div>
+							<div class="summary-row">
+								<span>Current level</span>
+								<strong>{sketchCampaignLevel}</strong>
+							</div>
+							<div class="summary-row">
+								<span>Unlocked</span>
+								<strong>{highestUnlockedLevel}</strong>
+							</div>
+							<div class="summary-row">
+								<span>Cleared</span>
+								<strong>{highestClearedLevel}</strong>
+							</div>
+						</div>
+
+						{#if form?.stageError}
+							<p class="feedback error">{form.stageError}</p>
+						{:else if form?.stageSuccess}
+							<p class="feedback success">{form.stageSuccess}</p>
 						{/if}
 
-						<div class="stats-overlay-grid compact-stats">
-							<div class="summary-row">
-								<span>Level</span>
-								<strong>{upgradeState.level}</strong>
-							</div>
-							<div class="summary-row">
-								<span>Perk points</span>
-								<strong>{upgradeState.perkPoints}</strong>
-							</div>
-							<div class="summary-row">
-								<span>XP</span>
-								<strong>{upgradeState.xp}</strong>
-							</div>
-							<div class="summary-row">
-								<span>Health</span>
-								<strong>{upgradeState.health}</strong>
-							</div>
-							<div class="summary-row">
-								<span>Attack speed</span>
-								<strong>{upgradeState.attackSpeed.toFixed(1)}/s</strong>
-							</div>
-							<div class="summary-row">
-								<span>Loadout size</span>
-								<strong>{upgradeState.loadoutRows} x {upgradeState.loadoutColumns}</strong>
-							</div>
-						</div>
-
-						<div class="upgrade-grid overlay-upgrade-grid">
-							{#if data.gameState}
-								{#each overlayUpgradeOptions as option (option.key)}
-									<form
-										class="upgrade-card overlay-upgrade-card"
-										method="post"
-										action="?/purchaseUpgrade"
-										use:enhance={purchaseUpgrade}
-									>
-										<input type="hidden" name="upgrade" value={option.key} />
-										<div class="upgrade-head">
-											<span>{option.label}</span>
-											<strong>Rank {option.level}</strong>
-										</div>
-										<p>{option.description}</p>
-										<small>Allocated {option.level} point{option.level === 1 ? '' : 's'}</small>
-										<button class="purchase" type="submit" disabled={!option.canSpend}>
-											{option.canSpend ? 'Spend perk point' : 'No perk points'}
+						{#if data.campaignState}
+							<div class="campaign-stage-list">
+								{#each unlockedStages as stage (stage.stage)}
+									<form method="post" action="?/selectStage" use:enhance={selectStage}>
+										<input type="hidden" name="stage" value={stage.stage} />
+										<button
+											class:active={stage.isCurrentStage}
+											class="stage-card drawer-stage-card"
+											type="submit"
+										>
+											<span>Stage {stage.stage}</span>
+											<strong
+												>{stage.unlockedLevelCount} / {data.campaign.levelsPerStage} levels</strong
+											>
+											<small>
+												Levels {stage.startLevel}-{stage.endLevel}
+												{stage.isCleared ? ' · cleared' : ''}
+											</small>
 										</button>
 									</form>
 								{/each}
-							{:else}
-								<p class="feedback">Sign in to save stats and assign perk points.</p>
-							{/if}
-						</div>
-					</div>
-				{/if}
-
-				{#if showResultsPopup}
-					<div class="overlay results-popup" aria-live="polite">
-						<div class="results-popup-header compact-heading">
-							<p class="eyebrow">Level rewards</p>
-							<p class="results-context">
-								Campaign {data.campaign.campaign} · Stage {combatOverlay.stage} · Level {combatOverlay.stageLevel}
-							</p>
-						</div>
-
-						{#if rewardDropRows.length > 0}
-							<div class="results-drop-list">
-								{#each rewardDropRows as drop (drop.instanceId)}
-									<div class={`summary-row results-drop-row rarity-${drop.rarity}`}>
-										<div class="results-drop-copy">
-											<strong>{drop.name}</strong>
-											<span>{drop.rarity}</span>
-										</div>
-										<strong class:results-tag-new={drop.isNew} class="results-tag">
-											{drop.isNew ? 'New' : 'Duplicate'}
-										</strong>
-									</div>
-								{/each}
 							</div>
 						{:else}
-							<p class="results-empty">No weapon drops were earned this level.</p>
+							<p class="feedback">Sign in to persist stage progression.</p>
 						{/if}
-
-						<div class="results-popup-footer">
-							<p class="results-countdown">{resultsCountdownLabel}</p>
-							<button
-								class="toggle results-skip"
-								type="button"
-								onclick={() => (skipResultsSignal += 1)}
-							>
-								Skip
-							</button>
-						</div>
-					</div>
+					</aside>
 				{/if}
 
-				<div class="overlay combat-panel">
-					<p class="combat-title">
-						Campaign {data.campaign.campaign} · Stage {combatOverlay.stage} · Level {combatOverlay.stageLevel}
-					</p>
-					<div class="combat-grid">
-						<div>
-							<span>Pixl hp</span>
-							<strong>{combatOverlay.pixlHealth} / {combatOverlay.maxPixlHealth}</strong>
+				{#if runMode === 'combat'}
+					{#if showStatsOverlay}
+						<div class="overlay stats-overlay">
+							<div class="stats-overlay-header compact-heading">
+								<p class="eyebrow">Arena stats</p>
+								<p class="upgrade-note">Spend perk points without leaving the arena.</p>
+							</div>
+
+							{#if form?.purchaseError}
+								<p class="feedback error">{form.purchaseError}</p>
+							{:else if form?.purchaseSuccess}
+								<p class="feedback success">{form.purchaseSuccess}</p>
+							{/if}
+
+							<div class="stats-overlay-grid compact-stats">
+								<div class="summary-row">
+									<span>Level</span>
+									<strong>{upgradeState.level}</strong>
+								</div>
+								<div class="summary-row">
+									<span>Perk points</span>
+									<strong>{upgradeState.perkPoints}</strong>
+								</div>
+								<div class="summary-row">
+									<span>XP</span>
+									<strong>{upgradeState.xp}</strong>
+								</div>
+								<div class="summary-row">
+									<span>Health</span>
+									<strong>{upgradeState.health}</strong>
+								</div>
+								<div class="summary-row">
+									<span>Attack speed</span>
+									<strong>{upgradeState.attackSpeed.toFixed(1)}/s</strong>
+								</div>
+								<div class="summary-row">
+									<span>Loadout size</span>
+									<strong>{upgradeState.loadoutRows} x {upgradeState.loadoutColumns}</strong>
+								</div>
+							</div>
+
+							<div class="upgrade-grid overlay-upgrade-grid">
+								{#if data.gameState}
+									{#each overlayUpgradeOptions as option (option.key)}
+										<form
+											class="upgrade-card overlay-upgrade-card"
+											method="post"
+											action="?/purchaseUpgrade"
+											use:enhance={purchaseUpgrade}
+										>
+											<input type="hidden" name="upgrade" value={option.key} />
+											<div class="upgrade-head">
+												<span>{option.label}</span>
+												<strong>Rank {option.level}</strong>
+											</div>
+											<p>{option.description}</p>
+											<small>Allocated {option.level} point{option.level === 1 ? '' : 's'}</small>
+											<button class="purchase" type="submit" disabled={!option.canSpend}>
+												{option.canSpend ? 'Spend perk point' : 'No perk points'}
+											</button>
+										</form>
+									{/each}
+								{:else}
+									<p class="feedback">Sign in to save stats and assign perk points.</p>
+								{/if}
+							</div>
 						</div>
-						<div>
-							<span>Banked xp</span>
-							<strong>{combatOverlay.bankedXp}</strong>
+					{/if}
+
+					{#if showResultsPopup}
+						<div class="overlay results-popup" aria-live="polite">
+							<div class="results-popup-header compact-heading">
+								<p class="eyebrow">Level rewards</p>
+								<p class="results-context">
+									Campaign {data.campaign.campaign} · Stage {combatOverlay.stage} · Level {combatOverlay.stageLevel}
+								</p>
+							</div>
+
+							{#if rewardDropRows.length > 0}
+								<div class="results-drop-list">
+									{#each rewardDropRows as drop (drop.instanceId)}
+										<div class={`summary-row results-drop-row rarity-${drop.rarity}`}>
+											<div class="results-drop-copy">
+												<strong>{drop.name}</strong>
+												<span>{drop.rarity}</span>
+											</div>
+											<strong class:results-tag-new={drop.isNew} class="results-tag">
+												{drop.isNew ? 'New' : 'Duplicate'}
+											</strong>
+										</div>
+									{/each}
+								</div>
+							{:else}
+								<p class="results-empty">{resultsEmptyLabel}</p>
+							{/if}
+
+							<div class="results-popup-footer">
+								<p class="results-countdown">{resultsCountdownLabel}</p>
+								<button
+									class="toggle results-skip"
+									type="button"
+									onclick={() => (skipResultsSignal += 1)}
+								>
+									Skip
+								</button>
+							</div>
 						</div>
-						<div>
-							<span>Wave xp</span>
-							<strong>{combatOverlay.waveXp}</strong>
+					{/if}
+
+					<div class="overlay combat-panel">
+						<p class="combat-title">
+							Campaign {data.campaign.campaign} · Stage {combatOverlay.stage} · Level {combatOverlay.stageLevel}
+						</p>
+						<div class="combat-grid">
+							<div>
+								<span>Pixl hp</span>
+								<strong>{combatOverlay.pixlHealth} / {combatOverlay.maxPixlHealth}</strong>
+							</div>
+							<div>
+								<span>Banked xp</span>
+								<strong>{combatOverlay.bankedXp}</strong>
+							</div>
+							<div>
+								<span>Wave xp</span>
+								<strong>{combatOverlay.waveXp}</strong>
+							</div>
+							<div>
+								<span>Wave drops</span>
+								<strong>{combatOverlay.waveDrops.length}</strong>
+							</div>
+							<div>
+								<span>Remaining</span>
+								<strong>{combatOverlay.remainingEnemies}</strong>
+							</div>
+							<div>
+								<span>Wave mix</span>
+								<strong>
+									B {combatOverlay.composition.biters} · S {combatOverlay.composition.swarmers} · T {combatOverlay
+										.composition.tankers}
+								</strong>
+							</div>
 						</div>
-						<div>
-							<span>Wave drops</span>
-							<strong>{combatOverlay.waveDrops.length}</strong>
-						</div>
-						<div>
-							<span>Remaining</span>
-							<strong>{combatOverlay.remainingEnemies}</strong>
-						</div>
-						<div>
-							<span>Wave mix</span>
-							<strong>
-								B {combatOverlay.composition.biters} · S {combatOverlay.composition.swarmers} · T {combatOverlay
-									.composition.tankers}
-							</strong>
+						<div class="combat-health">
+							<div class="combat-health-fill" style:--health-ratio={combatHealthRatio}></div>
 						</div>
 					</div>
-					<div class="combat-health">
-						<div class="combat-health-fill" style:--health-ratio={combatHealthRatio}></div>
-					</div>
+
+					{#if combatStatusLabel}
+						<div class={`status-overlay ${combatStatusTone}`}>
+							{combatStatusLabel}
+						</div>
+					{/if}
+				{/if}
+			</div>
+		</section>
+
+		{#if runMode === 'combat' && showLoadoutPreview}
+			<aside class="overlay loadout-preview-panel" aria-label="Loadout sweep preview">
+				<div class="loadout-preview-header compact-heading">
+					<p class="eyebrow">Loadout sweep</p>
+					<p class="upgrade-note">Live preview synced to equipped weapons, attack speed, and loadout size.</p>
 				</div>
-
-				{#if combatStatusLabel}
-					<div class={`status-overlay ${combatStatusTone}`}>
-						{combatStatusLabel}
-					</div>
-				{/if}
-			{/if}
-		</div>
-	</section>
+				<div class="loadout-preview-meta summary-row">
+					<span>Equipped</span>
+					<strong>{currentLoadoutRows.length}</strong>
+				</div>
+				<div class="loadout-preview-canvas-shell">
+					{#key loadoutPreviewRemountKey}
+						<P5Canvas class="preview-canvas-frame" sketch={loadoutSweepPreviewSketch} />
+					{/key}
+				</div>
+			</aside>
+		{/if}
+	</div>
 </div>
 
 <style>
@@ -722,11 +753,28 @@
 		background: radial-gradient(circle at top, rgba(255, 255, 255, 0.05), transparent 28%), #020202;
 	}
 
+	.arena-shell {
+		width: 100%;
+		height: 100%;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		gap: 1rem;
+		padding: 1rem;
+		box-sizing: border-box;
+	}
+
+	.arena-shell.preview-enabled {
+		grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
+	}
+
 	.canvas-stage {
 		position: relative;
 		width: 100%;
 		height: 100%;
+		min-width: 0;
+		min-height: 0;
 		overflow: hidden;
+		border-radius: 1.5rem;
 	}
 
 	.overlay-layout {
@@ -1212,6 +1260,37 @@
 		justify-self: end;
 	}
 
+	.loadout-preview-panel {
+		align-self: stretch;
+		min-width: 0;
+		min-height: 0;
+		padding: 0.9rem;
+		display: grid;
+		grid-template-rows: auto auto minmax(0, 1fr);
+		gap: 0.75rem;
+		overflow: hidden;
+	}
+
+	.loadout-preview-header {
+		display: grid;
+		gap: 0.2rem;
+	}
+
+	.loadout-preview-meta {
+		align-items: center;
+	}
+
+	.loadout-preview-canvas-shell {
+		min-width: 0;
+		min-height: 0;
+		height: 100%;
+		border-radius: 1rem;
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+		overflow: hidden;
+		pointer-events: none;
+	}
+
 	.placement-row.active {
 		border-color: rgba(103, 217, 111, 0.42);
 		background: rgba(103, 217, 111, 0.12);
@@ -1299,9 +1378,34 @@
 		height: 100%;
 	}
 
+	:global(.preview-canvas-frame) {
+		width: 100%;
+		height: 100%;
+		background: transparent;
+	}
+
+	:global(.preview-canvas-frame canvas) {
+		display: block;
+		width: 100%;
+		height: 100%;
+		pointer-events: none;
+	}
+
 	@media (max-width: 860px) {
+		.arena-shell,
 		.overlay-layout {
 			grid-template-columns: 1fr;
+		}
+
+		.arena-shell,
+		.arena-shell.preview-enabled {
+			grid-template-columns: 1fr;
+			grid-template-rows: minmax(0, 1fr) auto;
+			gap: 0.75rem;
+			padding: 0.75rem;
+		}
+
+		.overlay-layout {
 			grid-template-rows: auto auto auto auto;
 			gap: 0.75rem;
 			padding: 0.75rem;
@@ -1328,7 +1432,8 @@
 		.stats-panel,
 		.shop-panel,
 		.stats-overlay,
-		.combat-panel {
+		.combat-panel,
+		.loadout-preview-panel {
 			grid-column: 1;
 			width: 100%;
 			max-height: none;
@@ -1381,6 +1486,10 @@
 
 		.campaign-summary-grid {
 			grid-template-columns: 1fr;
+		}
+
+		.loadout-preview-panel {
+			min-height: 18rem;
 		}
 	}
 </style>

@@ -30,6 +30,18 @@ export const baselineCombatProfile: CombatProfile = {
 			contactDamage: 12,
 			attackSpeed: 0.5,
 			moveSpeed: 35
+		},
+		shard: {
+			health: 14,
+			contactDamage: 8,
+			attackSpeed: 1,
+			moveSpeed: 70
+		},
+		bulwark: {
+			health: 42,
+			contactDamage: 15,
+			attackSpeed: 0.4,
+			moveSpeed: 28
 		}
 	}
 };

@@ -1,4 +1,4 @@
-export type GlitchKind = 'biter' | 'swarmer' | 'tanker';
+export type GlitchKind = 'biter' | 'swarmer' | 'tanker' | 'shard' | 'bulwark';
 
 export type WeaponRarity = 'normal' | 'magic' | 'rare' | 'exotic' | 'legendary';
 
@@ -12,7 +12,7 @@ export type WeaponTrailStyle = 'none' | 'streak' | 'pulse';
 
 export type WeaponProjectileMotion = 'straight' | 'wave' | 'accelerate';
 
-export type WeaponSpecialAttackKind = 'force-field' | 'laser-sweep' | 'ricochet';
+export type WeaponSpecialAttackKind = 'force-field' | 'laser-sweep' | 'ricochet' | 'needle-fan';
 
 export interface PixlBaseStats {
 	health: number;
@@ -30,6 +30,17 @@ export interface GlitchStats {
 	contactDamage: number;
 	attackSpeed: number;
 	moveSpeed: number;
+	attackPattern?: 'melee' | 'siege';
+	preferredRange?: number;
+	orbitSpeed?: number;
+	projectileSpeed?: number;
+	projectileDamage?: number;
+	projectileColor?: string;
+	projectileSize?: number;
+	onHitShieldDuration?: number;
+	onHitShieldCooldown?: number;
+	onHitShieldDamageReduction?: number;
+	shieldColor?: string;
 }
 
 export interface CombatProfile {
@@ -78,6 +89,12 @@ export interface WeaponAttackBehavior {
 		| {
 				type: 'ricochet';
 				bounceCount: number;
+		  }
+		| {
+				type: 'needle-fan';
+				duration: number;
+				maxReach: number;
+				lineWidth: number;
 		  };
 	targeting: 'current-target';
 }
@@ -121,15 +138,19 @@ export interface LoadoutPlacement {
 }
 
 export interface WaveComposition {
-	biters: number;
-	swarmers: number;
-	tankers: number;
+	biters?: number;
+	swarmers?: number;
+	tankers?: number;
+	shard?: number;
+	bulwark?: number;
 }
 
 export interface XpPerEnemy {
-	biter: number;
-	swarmer: number;
-	tanker: number;
+	biter?: number;
+	swarmer?: number;
+	tanker?: number;
+	shard?: number;
+	bulwark?: number;
 }
 
 export interface CampaignLevel {
@@ -152,13 +173,19 @@ export interface CampaignBaseline {
 	stageLevelBonusScale: number;
 	stageLevelGrowthFactor: number;
 	spawnRatePerSecond: number;
+	enemyStageScaling?: {
+		healthPerStage: number;
+		damagePerStage: number;
+	};
 	tutorialLevels: number[];
 	compositionRules: {
 		tutorial: string;
 		standard: {
-			swarmers: string;
-			tankers: string;
-			biters: string;
+			biters?: string;
+			swarmers?: string;
+			tankers?: string;
+			shard?: string;
+			bulwark?: string;
 		};
 	};
 	bossEnemyMultipliers: {
@@ -166,9 +193,11 @@ export interface CampaignBaseline {
 		campaign: number;
 	};
 	xpDropRules: {
-		biter: string;
-		swarmer: string;
-		tanker: string;
+		biter?: string;
+		swarmer?: string;
+		tanker?: string;
+		shard?: string;
+		bulwark?: string;
 	};
 }
 
