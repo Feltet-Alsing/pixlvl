@@ -80,6 +80,15 @@
 		y: number;
 	}
 
+	interface CampaignStageSummary {
+		stage: number;
+		startLevel: number;
+		endLevel: number;
+		unlockedLevelCount: number;
+		isCurrentStage: boolean;
+		isCleared: boolean;
+	}
+
 	function createInitialCombatOverlay(pageData: PageProps['data']): CombatOverlayState {
 		const firstLevel = pageData.campaign.levels[0];
 		const maxPixlHealth =
@@ -108,6 +117,7 @@
 	let { data, form }: PageProps = $props();
 	let runMode = $state<LocalRunMode>('combat');
 	let showStatsOverlay = $state(false);
+	let showStageDrawer = $state(false);
 	let pixlStateOverride = $state.raw<PixlStateOverride | null>(null);
 	let campaignStateOverride = $state.raw<CampaignStateOverride | null>(null);
 	let livePixlState: LivePixlState | null = $derived.by(() => {
@@ -150,6 +160,34 @@
 	let sketchCampaignLevel = $derived(
 		liveCampaignState?.currentLevel ?? data.campaignState?.currentLevel ?? 1
 	);
+	let highestUnlockedLevel = $derived(
+		liveCampaignState?.highestUnlockedLevel ?? data.campaignState?.highestUnlockedLevel ?? 1
+	);
+	let highestClearedLevel = $derived(
+		liveCampaignState?.highestClearedLevel ?? data.campaignState?.highestClearedLevel ?? 0
+	);
+	let currentStage = $derived(Math.ceil(sketchCampaignLevel / data.campaign.levelsPerStage));
+	let unlockedStages = $derived.by(() => {
+		return Array.from({ length: data.campaign.stages }, (_, index) => index + 1)
+			.map((stage) => {
+				const startLevel = (stage - 1) * data.campaign.levelsPerStage + 1;
+				const endLevel = startLevel + data.campaign.levelsPerStage - 1;
+				const unlockedLevelCount = Math.max(
+					0,
+					Math.min(highestUnlockedLevel - startLevel + 1, data.campaign.levelsPerStage)
+				);
+
+				return {
+					stage,
+					startLevel,
+					endLevel,
+					unlockedLevelCount,
+					isCurrentStage: currentStage === stage,
+					isCleared: highestClearedLevel >= endLevel
+				} satisfies CampaignStageSummary;
+			})
+			.filter((stage) => stage.unlockedLevelCount > 0);
+	});
 	let currentLoadoutRows = $derived.by(() => {
 		const ownedWeaponById = Object.fromEntries(
 			ownedWeapons.map((weapon) => [weapon.instanceId, weapon])
@@ -208,6 +246,7 @@
 		campaignStateOverride = null;
 		combatOverlayOverride = null;
 		showStatsOverlay = false;
+		showStageDrawer = false;
 	});
 
 	$effect(() => {
@@ -287,6 +326,40 @@
 		};
 	};
 
+	const selectStage: SubmitFunction = ({ formData }) => {
+		const rawStage = formData.get('stage');
+		const stage = typeof rawStage === 'string' ? Number(rawStage) : NaN;
+
+		return async ({ result }) => {
+			if (result.type === 'success' || result.type === 'failure') {
+				form = result.data as PageProps['form'];
+			}
+
+			if (result.type !== 'success' || !Number.isInteger(stage)) {
+				showStageDrawer = true;
+				return;
+			}
+
+			const targetLevel = (stage - 1) * data.campaign.levelsPerStage + 1;
+			const baseCampaignState = liveCampaignState ?? data.campaignState;
+
+			showStageDrawer = false;
+			showStatsOverlay = false;
+
+			if (!baseCampaignState || targetLevel === sketchCampaignLevel) {
+				return;
+			}
+
+			campaignStateOverride = {
+				currentLevel: targetLevel,
+				highestUnlockedLevel: baseCampaignState.highestUnlockedLevel,
+				highestClearedLevel: baseCampaignState.highestClearedLevel,
+				completed: baseCampaignState.completed
+			};
+			combatOverlayOverride = null;
+		};
+	};
+
 	let campaignSketch = $derived.by(() => {
 		return (p: import('p5').default) =>
 			createCampaignSketch(data.campaign, data.combatProfile, {
@@ -312,14 +385,40 @@
 		{/key}
 
 		<div class="overlay-layout">
+			{#if showStageDrawer}
+				<button
+					class="drawer-backdrop"
+					type="button"
+					aria-label="Close campaign menu"
+					onclick={() => (showStageDrawer = false)}
+				></button>
+			{/if}
+
 			<div class="utility-bar">
-				<a class="back" href={resolve('/campaigns')}>All campaigns</a>
+				<button
+					class="toggle campaign-toggle"
+					type="button"
+					onclick={() => {
+						showStageDrawer = !showStageDrawer;
+						if (showStageDrawer) {
+							showStatsOverlay = false;
+						}
+					}}
+					aria-pressed={showStageDrawer}
+				>
+					{showStageDrawer ? 'Close campaign' : 'Campaign menu'}
+				</button>
 				<div class="utility-actions">
 					{#if runMode === 'combat'}
 						<button
 							class="toggle slim-toggle"
 							type="button"
-							onclick={() => (showStatsOverlay = !showStatsOverlay)}
+							onclick={() => {
+								showStatsOverlay = !showStatsOverlay;
+								if (showStatsOverlay) {
+									showStageDrawer = false;
+								}
+							}}
 							aria-pressed={showStatsOverlay}
 						>
 							{showStatsOverlay ? 'Hide stats' : 'Show stats'}
@@ -328,6 +427,77 @@
 					<CampaignRouteNav campaignId={data.campaignId} active="arena" {loadoutTooltip} />
 				</div>
 			</div>
+
+			{#if showStageDrawer}
+				<aside class="overlay campaign-drawer" aria-label="Campaign menu">
+					<div class="campaign-drawer-header">
+						<div class="compact-heading">
+							<p class="eyebrow">Campaign {data.campaign.campaign}</p>
+							<p class="upgrade-note">Jump between unlocked stages without leaving the arena.</p>
+						</div>
+						<a class="back drawer-back-link" href={resolve('/campaigns')}>All campaigns</a>
+						<button
+							class="drawer-close"
+							type="button"
+							aria-label="Close campaign menu"
+							onclick={() => (showStageDrawer = false)}
+						>
+							Close
+						</button>
+					</div>
+
+					<div class="campaign-summary-grid">
+						<div class="summary-row">
+							<span>Current stage</span>
+							<strong>{currentStage}</strong>
+						</div>
+						<div class="summary-row">
+							<span>Current level</span>
+							<strong>{sketchCampaignLevel}</strong>
+						</div>
+						<div class="summary-row">
+							<span>Unlocked</span>
+							<strong>{highestUnlockedLevel}</strong>
+						</div>
+						<div class="summary-row">
+							<span>Cleared</span>
+							<strong>{highestClearedLevel}</strong>
+						</div>
+					</div>
+
+					{#if form?.stageError}
+						<p class="feedback error">{form.stageError}</p>
+					{:else if form?.stageSuccess}
+						<p class="feedback success">{form.stageSuccess}</p>
+					{/if}
+
+					{#if data.campaignState}
+						<div class="campaign-stage-list">
+							{#each unlockedStages as stage (stage.stage)}
+								<form method="post" action="?/selectStage" use:enhance={selectStage}>
+									<input type="hidden" name="stage" value={stage.stage} />
+									<button
+										class:active={stage.isCurrentStage}
+										class="stage-card drawer-stage-card"
+										type="submit"
+									>
+										<span>Stage {stage.stage}</span>
+										<strong
+											>{stage.unlockedLevelCount} / {data.campaign.levelsPerStage} levels</strong
+										>
+										<small>
+											Levels {stage.startLevel}-{stage.endLevel}
+											{stage.isCleared ? ' · cleared' : ''}
+										</small>
+									</button>
+								</form>
+							{/each}
+						</div>
+					{:else}
+						<p class="feedback">Sign in to persist stage progression.</p>
+					{/if}
+				</aside>
+			{/if}
 
 			{#if runMode === 'combat'}
 				{#if showStatsOverlay}
@@ -482,6 +652,16 @@
 		pointer-events: none;
 	}
 
+	.drawer-backdrop {
+		position: absolute;
+		inset: 0;
+		border: 0;
+		padding: 0;
+		background: rgba(0, 0, 0, 0.4);
+		pointer-events: auto;
+		cursor: pointer;
+	}
+
 	.overlay {
 		background: rgba(10, 10, 10, 0.92);
 		border: 1px solid rgba(255, 255, 255, 0.08);
@@ -521,6 +701,10 @@
 		font-size: 0.86rem;
 		font-weight: 600;
 		cursor: pointer;
+	}
+
+	.campaign-toggle {
+		justify-self: start;
 	}
 
 	.utility-bar {
@@ -587,6 +771,63 @@
 		border-color: rgba(255, 255, 255, 0.12);
 		color: #f5f5f5;
 		background: rgba(255, 255, 255, 0.05);
+	}
+
+	.campaign-drawer {
+		position: absolute;
+		top: 0;
+		left: 0;
+		bottom: 0;
+		z-index: 5;
+		width: min(24rem, 100vw);
+		padding: 1rem;
+		display: grid;
+		align-content: start;
+		gap: 0.85rem;
+		border-radius: 0;
+		border-right: 1px solid rgba(255, 255, 255, 0.08);
+		box-shadow: 24px 0 60px rgba(0, 0, 0, 0.42);
+	}
+
+	.campaign-drawer-header,
+	.campaign-summary-grid,
+	.campaign-stage-list {
+		display: grid;
+		gap: 0.65rem;
+	}
+
+	.campaign-drawer-header {
+		grid-template-columns: minmax(0, 1fr) auto auto;
+		align-items: start;
+		gap: 0.75rem;
+	}
+
+	.campaign-summary-grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	.drawer-close {
+		min-height: 2rem;
+		padding: 0 0.8rem;
+		border-radius: 999px;
+		border: 1px solid rgba(255, 255, 255, 0.14);
+		background: rgba(255, 255, 255, 0.06);
+		color: #f5f5f5;
+		font: inherit;
+		font-size: 0.82rem;
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.drawer-back-link {
+		min-height: 2rem;
+		padding: 0 0.8rem;
+		background: rgba(255, 255, 255, 0.06);
+		color: #f5f5f5;
+	}
+
+	.drawer-stage-card {
+		gap: 0.35rem;
 	}
 
 	.management-block,
@@ -973,6 +1214,15 @@
 			justify-self: center;
 			align-self: start;
 			margin-top: 0;
+		}
+
+		.campaign-drawer {
+			width: min(100vw, 26rem);
+			padding: 0.85rem;
+		}
+
+		.campaign-summary-grid {
+			grid-template-columns: 1fr;
 		}
 	}
 </style>

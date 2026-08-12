@@ -2,7 +2,7 @@
   "id": "baseline-v1",
   "pixl": {
     "health": 100,
-    "attackSpeed": 1
+    "attackSpeed": 0.5
   },
   "projectileSpeed": 360,
   "collision": {

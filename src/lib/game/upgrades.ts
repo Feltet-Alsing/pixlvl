@@ -38,7 +38,7 @@ const UPGRADE_RULES: Record<UpgradeKey, UpgradeRule> = {
 			defence: state.defence,
 			agility: state.agility + 1
 		}),
-		describe: (state) => `+10% sweep speed -> ${(state.attackSpeed * 1.1).toFixed(2)}/s`
+		describe: (state) => `+1% sweep speed -> ${(state.attackSpeed * 1.01).toFixed(2)}/s`
 	}
 };
 
@@ -91,7 +91,7 @@ export function createUpgradeablePixlState(
 	const perkPoints = totalPerkPoints - defence - agility;
 	const health = Math.ceil(baselineCombatProfile.pixl.health * Math.pow(1.1, defence));
 	const attackSpeed = Number(
-		(baselineCombatProfile.pixl.attackSpeed * Math.pow(1.1, agility)).toFixed(3)
+		(baselineCombatProfile.pixl.attackSpeed * Math.pow(1.01, agility)).toFixed(3)
 	);
 	const loadoutDimensions = getLoadoutDimensions(level);
 
@@ -143,7 +143,10 @@ export function applyUpgradePurchase(
 		throw new Error(`Not enough perk points for ${rule.label.toLowerCase()} upgrade`);
 	}
 
-	return createUpgradeablePixlState(rule.apply(state));
+	return createUpgradeablePixlState({
+		xp: state.xp,
+		...rule.apply(state)
+	});
 }
 
 export function applyXpGain(state: UpgradeablePixlState, gainedXp: number): UpgradeablePixlState {
