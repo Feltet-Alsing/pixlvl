@@ -13,7 +13,11 @@
 		getUpgradeOptions,
 		isUpgradeKey
 	} from '$lib/game/upgrades';
-	import type { OwnedWeaponInstance, WeaponDefinition } from '$lib/data/types';
+	import type {
+		LoadoutItemDefinition,
+		OwnedWeaponInstance,
+		WeaponDefinition
+	} from '$lib/data/types';
 	import type { PageProps } from './$types';
 
 	type LocalRunMode = 'management' | 'combat';
@@ -165,7 +169,7 @@
 	);
 	let overlayUpgradeOptions = $derived(getUpgradeOptions(upgradeState));
 	let weaponDefinitionById = $derived(
-		data.weaponDefinitionsById as Record<string, WeaponDefinition>
+		data.weaponDefinitionsById as Record<string, LoadoutItemDefinition>
 	);
 	let ownedWeapons = $derived(livePixlState?.ownedWeapons ?? []);
 	let loadoutPlacements = $derived(livePixlState?.loadoutPlacements ?? []);
@@ -305,10 +309,10 @@
 		const secondsRemaining = Math.max(0, Math.ceil(combatOverlay.statusTimerRemaining));
 		return `Auto-continue in ${secondsRemaining}s`;
 	});
-	let resultsEmptyLabel = $derived(`No weapon drops. +${combatOverlay.waveXp} XP earned.`);
+	let resultsEmptyLabel = $derived(`No item drops. +${combatOverlay.waveXp} XP earned.`);
 	let loadoutTooltip = $derived(
 		currentLoadoutRows.map((weapon) => `${weapon.name} (${weapon.x}, ${weapon.y})`).join('\n') ||
-			'No equipped weapons'
+			'No equipped items'
 	);
 	let notificationCounts = $derived(
 		getCampaignRouteNotificationCounts(livePixlState ?? data.gameState?.pixlState ?? null)

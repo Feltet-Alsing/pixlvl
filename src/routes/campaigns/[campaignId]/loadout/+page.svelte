@@ -109,11 +109,19 @@
 	let draggedWeaponAnchor = $state<{ x: number; y: number } | null>(null);
 	let hoveredGridOrigin = $state<{ x: number; y: number } | null>(null);
 	let isInventoryDropTargetActive = $state(false);
+	let inventorySearch = $state('');
 	let showSaveWarning = $state(false);
 	let saveLoadoutForm = $state<HTMLFormElement | null>(null);
 	let pixlStateOverride = $state.raw<PixlStateOverride | null>(null);
 	let campaignStateOverride = $state.raw<CampaignStateOverride | null>(null);
 	let liveCombatProgressOverride = $state<LiveCombatProgress | null>(null);
+	const rarityOrder = {
+		legendary: 0,
+		exotic: 1,
+		rare: 2,
+		magic: 3,
+		normal: 4
+	} as const satisfies Record<WeaponDefinition['rarity'], number>;
 
 	let livePixlState: LivePixlState | null = $derived.by(() => {
 		const basePixlState = data.gameState?.pixlState ?? null;
@@ -162,7 +170,6 @@
 	let savedLoadoutPlacements = $derived(data.gameState?.pixlState.loadoutPlacements ?? []);
 	let savedLoadoutPayload = $derived(JSON.stringify(savedLoadoutPlacements));
 	let draftLoadoutPlacements = $state.raw(getInitialLoadoutPlacements());
-	let lastSyncedSavedLoadoutPayload = $state(getInitialSavedLoadoutPayload());
 	let liveCampaignLevel = $derived(
 		liveCampaignState?.currentLevel ?? data.campaignState?.currentLevel ?? 1
 	);
@@ -397,6 +404,8 @@
 					projectileSpeed: weapon.projectileSpeed,
 					attack: weapon.attack,
 					projectileVisual: weapon.projectileVisual,
+					activationKind: weapon.activationKind,
+					effectSummary: weapon.effectSummary,
 					role: weapon.role,
 					totalCount: 1,
 					availableCount: weapon.isEquipped ? 0 : 1,
@@ -421,11 +430,27 @@
 
 		return Object.values(groups).sort(
 			(left, right) =>
+				rarityOrder[left.rarity] - rarityOrder[right.rarity] ||
 				Number(left.category === 'utility') - Number(right.category === 'utility') ||
 				right.availableCount - left.availableCount ||
 				right.totalCount - left.totalCount ||
 				left.name.localeCompare(right.name)
 		);
+	});
+	let filteredInventoryWeaponGroups = $derived.by(() => {
+		const query = inventorySearch.trim().toLowerCase();
+
+		if (!query) {
+			return inventoryWeaponGroups;
+		}
+
+		return inventoryWeaponGroups.filter((group) => {
+			const haystack = [group.name, group.role, group.effectSummary, group.category, group.rarity]
+				.join(' ')
+				.toLowerCase();
+
+			return haystack.includes(query);
+		});
 	});
 
 	function getGridCellKey(x: number, y: number) {
@@ -442,10 +467,6 @@
 
 	function getInitialLoadoutPlacements() {
 		return cloneLoadoutPlacements(data.gameState?.pixlState.loadoutPlacements ?? []);
-	}
-
-	function getInitialSavedLoadoutPayload() {
-		return JSON.stringify(data.gameState?.pixlState.loadoutPlacements ?? []);
 	}
 
 	function isShapeCellFilled(shape: WeaponShape, x: number, y: number) {
@@ -544,7 +565,6 @@
 
 		const cellIndex = anchor.y * shape.width + anchor.x;
 		const anchorCell = gridElement.children.item(cellIndex);
-
 		if (!(anchorCell instanceof HTMLElement)) {
 			return;
 		}
@@ -555,55 +575,6 @@
 		const hotspotY = cellRect.top - gridRect.top + cellRect.height / 2;
 
 		event.dataTransfer.setDragImage(gridElement, hotspotX, hotspotY);
-	}
-
-	$effect(() => {
-		const nextSavedLoadoutPayload = savedLoadoutPayload;
-
-		if (nextSavedLoadoutPayload === lastSyncedSavedLoadoutPayload) {
-			return;
-		}
-
-		draftLoadoutPlacements = cloneLoadoutPlacements(savedLoadoutPlacements);
-		lastSyncedSavedLoadoutPayload = nextSavedLoadoutPayload;
-		clearDragState();
-	});
-
-	$effect(() => {
-		void data.campaignId;
-		void data.gameState?.pixlState;
-		void data.campaignState;
-
-		pixlStateOverride = null;
-		campaignStateOverride = null;
-		liveCombatProgressOverride = null;
-		showSaveWarning = false;
-	});
-
-	function clearDragState() {
-		draggedWeaponInstanceId = null;
-		draggedWeaponAnchor = null;
-		hoveredGridOrigin = null;
-		isInventoryDropTargetActive = false;
-	}
-
-	function getGridCellFromPoint(event: DragEvent): GridCell | null {
-		for (const element of document.elementsFromPoint(event.clientX, event.clientY)) {
-			if (!(element instanceof HTMLElement) || !element.classList.contains('grid-cell')) {
-				continue;
-			}
-
-			const x = Number(element.dataset.gridX);
-			const y = Number(element.dataset.gridY);
-
-			if (!Number.isInteger(x) || !Number.isInteger(y)) {
-				continue;
-			}
-
-			return { x, y, key: getGridCellKey(x, y) };
-		}
-
-		return null;
 	}
 
 	function isPointWithinElementBounds(element: HTMLElement, x: number, y: number) {
@@ -840,6 +811,40 @@
 		removeDraftPlacement(draggedWeaponInstanceId);
 	}
 
+	function clearDragState() {
+		draggedWeaponInstanceId = null;
+		draggedWeaponAnchor = null;
+		hoveredGridOrigin = null;
+		isInventoryDropTargetActive = false;
+	}
+
+	function getGridCellFromPoint(event: DragEvent) {
+		const target = event.target;
+
+		if (!(target instanceof Element)) {
+			return null;
+		}
+
+		const cellElement = target.closest('[data-grid-x][data-grid-y]');
+
+		if (!(cellElement instanceof HTMLElement)) {
+			return null;
+		}
+
+		const x = Number(cellElement.dataset.gridX);
+		const y = Number(cellElement.dataset.gridY);
+
+		if (!Number.isInteger(x) || !Number.isInteger(y)) {
+			return null;
+		}
+
+		return {
+			x,
+			y,
+			key: getGridCellKey(x, y)
+		} satisfies GridCell;
+	}
+
 	function handleWeaponDragEnd(event: DragEvent) {
 		const loadoutGridShell = document.getElementById('loadout-grid-shell');
 
@@ -949,14 +954,16 @@
 		}
 	}
 
-	function formatActivationLabel(
-		weapon: Pick<InventoryWeaponGroup, 'category' | 'attack' | 'activationKind'>
-	) {
-		if (weapon.category === 'weapon') {
-			return weapon.attack ? formatCycleThreshold(weapon.attack) : '1';
+	function formatInventoryCardSummary(group: InventoryWeaponGroup) {
+		if (group.category === 'utility') {
+			return `${group.activationKind === 'passive' ? 'Passive' : 'Triggered'} utility: ${group.effectSummary}`;
 		}
 
-		return weapon.activationKind === 'passive' ? 'Passive' : 'Triggered';
+		if (!group.attack || !group.baseDamage) {
+			return group.effectSummary;
+		}
+
+		return `${group.baseDamage} dmg, ${group.attack.projectileCount} proj, ${formatAttackLabel(group.attack.kind)} every ${formatCycleThreshold(group.attack)} ${formatCycleThreshold(group.attack) === '1' ? 'cycle' : 'cycles'}`;
 	}
 
 	function formatCycleThreshold(attack: WeaponDefinition['attack']) {
@@ -976,10 +983,6 @@
 			default:
 				return kind;
 		}
-	}
-
-	function formatRarityLabel(rarity: WeaponDefinition['rarity']) {
-		return `${rarity.slice(0, 1).toUpperCase()}${rarity.slice(1)}`;
 	}
 
 	function formatCycleAverage(value: number) {
@@ -1217,132 +1220,89 @@
 				</div>
 			</div>
 
-			<div class="panel inventory-panel">
+			<aside class="panel inventory-panel" aria-label="Loadout toolbox">
 				<div class="section-head">
 					<h2>Loadout toolbox</h2>
 					<p>
-						Acquired weapons and utilities sit in a structured toolbox under the loadout. Drag any
-						ready copy into the grid to equip it, or drag equipped items back here to unequip.
+						Search or drag any ready item into the grid, and drag equipped items back here to
+						unequip.
 					</p>
 				</div>
+
+				<label class="inventory-search" for="inventory-search-input">
+					<span>Search items</span>
+					<input
+						id="inventory-search-input"
+						type="search"
+						placeholder="Search by name, role, effect, rarity..."
+						bind:value={inventorySearch}
+					/>
+				</label>
 
 				<div
 					class="inventory-drop-zone"
 					class:drop-target={isInventoryDropTargetActive}
 					role="button"
 					tabindex="0"
-					aria-label="Drag equipped weapons here to unequip them"
 					aria-label="Drag equipped items here to unequip them"
 					ondragover={handleInventoryDragOver}
 					ondragleave={handleInventoryDragLeave}
 					ondrop={handleInventoryDrop}
 				>
 					<div class="inventory-scroll">
-						<div class="inventory-toolbox-grid">
-							{#each inventoryWeaponGroups as group (group.definitionId)}
-								<button
-									class={`inventory-weapon inventory-toolbox-item rarity-${group.rarity}`}
-									type="button"
-									draggable={group.availableCount > 0}
-									disabled={group.availableCount < 1}
-									class:equipped={group.equippedCount > 0}
-									class:unavailable={group.availableCount < 1}
-									class:dragging={draggedWeaponInstanceId === group.representativeWeaponInstanceId}
-									ondragstart={(event) => beginInventoryWeaponGroupDrag(event, group)}
-									ondragend={handleWeaponDragEnd}
-								>
-									{#if group.totalCount > 1}
-										<span class="inventory-count-badge">{group.totalCount}</span>
-									{/if}
-
-									<div class="inventory-toolbox-head">
-										<div>
-											<strong>{group.name}</strong>
-											<p class="weapon-role">{group.role}</p>
-										</div>
-										<span class="inventory-status">{formatInventoryGroupStatus(group)}</span>
-									</div>
-
-									<div
-										class="shape-grid inventory-shape-grid"
-										style:grid-template-columns={`repeat(${group.shape.width}, 1fr)`}
+						{#if filteredInventoryWeaponGroups.length}
+							<div class="inventory-toolbox-grid">
+								{#each filteredInventoryWeaponGroups as group (group.definitionId)}
+									<button
+										class={`inventory-weapon inventory-toolbox-item rarity-${group.rarity}`}
+										type="button"
+										draggable={group.availableCount > 0}
+										disabled={group.availableCount < 1}
+										class:equipped={group.equippedCount > 0}
+										class:unavailable={group.availableCount < 1}
+										class:dragging={draggedWeaponInstanceId ===
+											group.representativeWeaponInstanceId}
+										ondragstart={(event) => beginInventoryWeaponGroupDrag(event, group)}
+										ondragend={handleWeaponDragEnd}
 									>
-										{#each createIndexArray(group.shape.height) as shapeY (`inventory:${group.definitionId}:${shapeY}`)}
-											{#each createIndexArray(group.shape.width) as shapeX (`inventory:${group.definitionId}:${shapeY}:${shapeX}`)}
-												<div
-													class="shape-cell"
-													class:filled={isShapeCellFilled(group.shape, shapeX, shapeY)}
-												></div>
-											{/each}
-										{/each}
-									</div>
+										{#if group.totalCount > 1}
+											<span class="inventory-count-badge">{group.totalCount}</span>
+										{/if}
 
-									<div class="inventory-tooltip" aria-hidden="true">
-										<div class="inventory-tooltip-header">
+										<div class="inventory-toolbox-head">
 											<div>
 												<strong>{group.name}</strong>
-												<p>{formatRarityLabel(group.rarity)}</p>
+												<p class="weapon-role">{group.role}</p>
 											</div>
-											<span>{group.shape.cells.length} cells</span>
+											<span class="inventory-status">{formatInventoryGroupStatus(group)}</span>
 										</div>
 
-										<div class="inventory-tooltip-stats">
-											<div>
-												<span>Category</span>
-												<strong>{group.category === 'weapon' ? 'Weapon' : 'Utility'}</strong>
+										<div class="inventory-toolbox-body">
+											<div
+												class="shape-grid inventory-shape-grid"
+												style:grid-template-columns={`repeat(${group.shape.width}, 1fr)`}
+											>
+												{#each createIndexArray(group.shape.height) as shapeY (`inventory:${group.definitionId}:${shapeY}`)}
+													{#each createIndexArray(group.shape.width) as shapeX (`inventory:${group.definitionId}:${shapeY}:${shapeX}`)}
+														<div
+															class="shape-cell"
+															class:filled={isShapeCellFilled(group.shape, shapeX, shapeY)}
+														></div>
+													{/each}
+												{/each}
 											</div>
-											<div>
-												<span>Activation</span>
-												<strong>{formatActivationLabel(group)}</strong>
-											</div>
-											<div>
-												<span>Effect</span>
-												<strong>{group.effectSummary}</strong>
-											</div>
-											<div>
-												<span>Shape</span>
-												<strong>{group.shape.width} x {group.shape.height}</strong>
-											</div>
-											{#if group.category === 'weapon' && group.baseDamage && group.attack}
-												<div>
-													<span>Damage</span>
-													<strong>{group.baseDamage}</strong>
-												</div>
-												<div>
-													<span>Pattern</span>
-													<strong>{formatAttackLabel(group.attack.kind)}</strong>
-												</div>
-												<div>
-													<span>Projectiles</span>
-													<strong>{group.attack.projectileCount}</strong>
-												</div>
-												{#if group.projectileSpeed}
-													<div>
-														<span>Projectile</span>
-														<strong>{group.projectileSpeed}</strong>
-													</div>
-												{/if}
-												{#if group.projectileVisual}
-													<div>
-														<span>Payload</span>
-														<strong>{group.projectileVisual.size}</strong>
-													</div>
-												{/if}
-											{/if}
-										</div>
 
-										{#if group.category === 'weapon' && group.attack?.spreadDegrees}
-											<p class="inventory-tooltip-note">
-												Spread: {group.attack.spreadDegrees} degrees
-											</p>
-										{/if}
-									</div>
-								</button>
-							{/each}
-						</div>
+											<p class="inventory-card-summary">{formatInventoryCardSummary(group)}</p>
+										</div>
+									</button>
+								{/each}
+							</div>
+						{:else}
+							<p class="inventory-empty-state">No items match that search.</p>
+						{/if}
 					</div>
 				</div>
-			</div>
+			</aside>
 		</section>
 	</div>
 </div>
@@ -1378,7 +1338,7 @@
 	}
 
 	.shell {
-		max-width: 1160px;
+		max-width: 1520px;
 		margin: 0 auto;
 		padding: 1rem;
 		display: grid;
@@ -1480,6 +1440,7 @@
 	.layout-stack {
 		display: grid;
 		gap: 1rem;
+		align-items: start;
 	}
 
 	.loadout-summary-strip {
@@ -1556,11 +1517,50 @@
 	}
 
 	.grid-panel {
-		justify-items: center;
+		justify-items: stretch;
+		align-content: start;
 	}
 
 	.inventory-panel {
+		position: sticky;
+		top: 1rem;
+		max-height: calc(100vh - 2rem);
+		overflow: hidden;
+		grid-template-rows: auto auto 1fr;
 		gap: 0.9rem;
+	}
+
+	.inventory-search {
+		display: grid;
+		gap: 0.45rem;
+	}
+
+	.inventory-search span {
+		font-size: 0.7rem;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: #bdbdc3;
+	}
+
+	.inventory-search input {
+		width: 100%;
+		min-height: 2.8rem;
+		padding: 0.8rem 0.95rem;
+		border-radius: 0.9rem;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		background: rgba(255, 255, 255, 0.04);
+		color: #f5f5f5;
+		font: inherit;
+	}
+
+	.inventory-search input::placeholder {
+		color: #8f8f96;
+	}
+
+	.inventory-search input:focus {
+		outline: none;
+		border-color: rgba(170, 206, 255, 0.58);
+		box-shadow: 0 0 0 3px rgba(84, 150, 255, 0.16);
 	}
 
 	.save,
@@ -1620,7 +1620,7 @@
 
 	.loadout-grid-shell {
 		position: relative;
-		width: min(100%, 58rem);
+		width: min(100%, 78rem);
 		margin: 0 auto;
 		--board-gap: 0.35rem;
 	}
@@ -1752,21 +1752,14 @@
 
 	.inventory-toolbox-grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+		grid-template-columns: 1fr;
 		gap: 0.85rem;
 	}
 
 	.inventory-toolbox-item {
-		min-height: 11rem;
+		min-height: 9.75rem;
 		align-content: start;
-		overflow: visible;
-		isolation: isolate;
-		z-index: 0;
-	}
-
-	.inventory-toolbox-item:hover,
-	.inventory-toolbox-item:focus-visible {
-		z-index: 6;
+		overflow: hidden;
 	}
 
 	.inventory-count-badge {
@@ -1790,6 +1783,7 @@
 	.inventory-shape-grid {
 		justify-self: start;
 		padding: 0.2rem;
+		flex: 0 0 auto;
 	}
 
 	.inventory-weapon .shape-cell.filled {
@@ -1802,81 +1796,24 @@
 		padding-right: 2.2rem;
 	}
 
-	.inventory-tooltip {
-		position: absolute;
-		top: 0.55rem;
-		left: 0.55rem;
-		right: 0.55rem;
-		border-radius: 0.9rem;
-		border: 1px solid rgba(255, 255, 255, 0.14);
-		background: rgba(12, 12, 14, 0.96);
-		backdrop-filter: blur(8px);
-		padding: 0.8rem;
-		display: grid;
-		gap: 0.65rem;
-		align-content: start;
-		opacity: 0;
-		transform: translateY(0.3rem);
-		transition:
-			opacity 140ms ease,
-			transform 140ms ease;
-		pointer-events: none;
-		z-index: 2;
-		box-shadow: 0 20px 44px rgba(0, 0, 0, 0.42);
+	.inventory-toolbox-body {
+		display: flex;
+		align-items: center;
+		gap: 0.8rem;
+		min-width: 0;
 	}
 
-	.inventory-weapon:hover .inventory-tooltip,
-	.inventory-weapon:focus-visible .inventory-tooltip {
-		opacity: 1;
-		transform: translateY(0);
-	}
-
-	.inventory-tooltip-header,
-	.inventory-tooltip-stats,
-	.inventory-tooltip-stats div {
-		display: grid;
-	}
-
-	.inventory-tooltip-header {
-		grid-template-columns: 1fr auto;
-		gap: 0.75rem;
-		align-items: start;
-	}
-
-	.inventory-tooltip-header strong,
-	.inventory-tooltip-stats strong {
-		color: #f5f5f5;
-	}
-
-	.inventory-tooltip-header p,
-	.inventory-tooltip-note,
-	.inventory-tooltip-stats span {
+	.inventory-card-summary {
 		margin: 0;
-		color: #c9c9cf;
-	}
-
-	.inventory-tooltip-header span,
-	.inventory-tooltip-stats span {
-		font-size: 0.68rem;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-	}
-
-	.inventory-tooltip-stats {
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 0.6rem;
-	}
-
-	.inventory-tooltip-stats div {
-		gap: 0.25rem;
-		padding: 0.45rem 0.5rem;
-		border-radius: 0.7rem;
-		background: rgba(255, 255, 255, 0.04);
-		border: 1px solid rgba(255, 255, 255, 0.08);
-	}
-
-	.inventory-tooltip-note {
-		font-size: 0.78rem;
+		min-width: 0;
+		font-size: 0.75rem;
+		line-height: 1.35;
+		color: #d9d9de;
+		line-clamp: 2;
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
 	}
 
 	.dragging {
@@ -1906,6 +1843,8 @@
 	}
 
 	.inventory-drop-zone {
+		display: grid;
+		min-height: 0;
 		border-radius: 1rem;
 		border: 1px dashed rgba(255, 255, 255, 0.12);
 		background: rgba(255, 255, 255, 0.02);
@@ -1921,10 +1860,21 @@
 	}
 
 	.inventory-scroll {
-		max-height: 20rem;
+		min-height: 0;
+		height: 100%;
 		overflow-y: auto;
-		padding-bottom: 10rem;
+		padding-bottom: 1rem;
 		padding-right: 0.25rem;
+	}
+
+	.inventory-empty-state {
+		margin: 0;
+		padding: 1rem;
+		border-radius: 0.9rem;
+		border: 1px dashed rgba(255, 255, 255, 0.12);
+		background: rgba(255, 255, 255, 0.03);
+		color: #c9c9cf;
+		text-align: center;
 	}
 
 	.placed-weapon.rarity-normal,
@@ -1997,7 +1947,40 @@
 		--inventory-border-color: rgba(224, 156, 92, 0.94);
 	}
 
+	@media (min-width: 980px) {
+		.layout-stack {
+			grid-template-columns: minmax(0, 1.85fr) minmax(19rem, 24rem);
+		}
+
+		.grid-panel,
+		.inventory-panel {
+			min-width: 0;
+		}
+
+		.loadout-summary-strip {
+			width: 100%;
+		}
+	}
+
 	@media (max-width: 860px) {
+		.inventory-panel {
+			position: static;
+			max-height: none;
+			overflow: visible;
+		}
+
+		.inventory-toolbox-grid {
+			grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+		}
+
+		.inventory-toolbox-body {
+			align-items: start;
+		}
+
+		.inventory-scroll {
+			height: auto;
+		}
+
 		.loadout-summary-strip {
 			grid-template-columns: 1fr;
 		}
