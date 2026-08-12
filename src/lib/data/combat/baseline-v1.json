@@ -2,7 +2,6 @@
   "id": "baseline-v1",
   "pixl": {
     "health": 100,
-  	// "damage": 10, // Commenting out damage for future reference
     "attackSpeed": 1
   },
   "projectileSpeed": 360,

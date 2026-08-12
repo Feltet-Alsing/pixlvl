@@ -80,6 +80,10 @@
 					<p class="feedback error">{form.purchaseError}</p>
 				{:else if form?.purchaseSuccess}
 					<p class="feedback success">{form.purchaseSuccess}</p>
+				{:else if form?.resetError}
+					<p class="feedback error">{form.resetError}</p>
+				{:else if form?.resetSuccess}
+					<p class="feedback success">{form.resetSuccess}</p>
 				{/if}
 
 				<div class="upgrade-grid">
@@ -102,6 +106,18 @@
 						<p class="feedback neutral">Sign in to save stats and purchase upgrades.</p>
 					{/if}
 				</div>
+
+				<form class="reset-panel" method="post" action="?/resetPixl">
+					<div class="section-head">
+						<h2>Complete reset</h2>
+						<p>
+							Reset gold, upgrades, owned weapons, loadout, and campaign progression to defaults.
+						</p>
+					</div>
+					<button class="reset-button" type="submit" disabled={!data.gameState}>
+						Reset pixl
+					</button>
+				</form>
 			</div>
 		</section>
 	</div>
@@ -242,7 +258,31 @@
 		cursor: pointer;
 	}
 
+	.reset-panel {
+		display: grid;
+		gap: 0.75rem;
+		padding-top: 0.25rem;
+		border-top: 1px solid rgba(255, 255, 255, 0.08);
+	}
+
+	.reset-button {
+		min-height: 2.4rem;
+		padding: 0.55rem 0.9rem;
+		border-radius: 999px;
+		border: 1px solid rgba(255, 96, 96, 0.28);
+		background: rgba(255, 96, 96, 0.08);
+		color: #ffd5d5;
+		font: inherit;
+		font-weight: 600;
+		cursor: pointer;
+	}
+
 	.purchase:disabled {
+		opacity: 0.45;
+		cursor: not-allowed;
+	}
+
+	.reset-button:disabled {
 		opacity: 0.45;
 		cursor: not-allowed;
 	}

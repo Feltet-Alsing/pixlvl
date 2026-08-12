@@ -5,10 +5,8 @@ export type UpgradeKey = 'health' | 'attackSpeed';
 export interface UpgradeablePixlState {
 	gold: number;
 	health: number;
-	// damage: number; // Commenting out damage for future reference
 	attackSpeed: number;
 	healthUpgrades: number;
-	// damageUpgrades: number; // Commenting out damageUpgrades for future reference
 	attackSpeedUpgrades: number;
 }
 
@@ -17,8 +15,7 @@ interface UpgradeRule {
 	baseCost: number;
 	costGrowth: number;
 	upgradeField: keyof Pick<UpgradeablePixlState, 'healthUpgrades' | 'attackSpeedUpgrades'>;
-	apply: (
-	apply: (state: UpgradeablePixlState) => Pick<UpgradeablePixlState, 'health' | 'attackSpeed'>; // Removing damage from apply
+	apply: (state: UpgradeablePixlState) => Pick<UpgradeablePixlState, 'health' | 'attackSpeed'>;
 	describe: (state: UpgradeablePixlState) => string;
 }
 
@@ -30,7 +27,6 @@ const UPGRADE_RULES: Record<UpgradeKey, UpgradeRule> = {
 		upgradeField: 'healthUpgrades',
 		apply: (state) => ({
 			health: Math.ceil(state.health * 1.15),
-			// damage: state.damage, // Commenting out damage for future reference
 			attackSpeed: state.attackSpeed
 		}),
 		describe: (state) => `+15% health -> ${Math.ceil(state.health * 1.15)}`
@@ -42,7 +38,6 @@ const UPGRADE_RULES: Record<UpgradeKey, UpgradeRule> = {
 		upgradeField: 'attackSpeedUpgrades',
 		apply: (state) => ({
 			health: state.health,
-			// damage: state.damage, // Commenting out damage for future reference
 			attackSpeed: Number((state.attackSpeed * 1.05).toFixed(3))
 		}),
 		describe: (state) => `+5% attack speed -> ${(state.attackSpeed * 1.05).toFixed(2)}/s`
@@ -62,10 +57,8 @@ export function createBaselineUpgradeablePixlState(): UpgradeablePixlState {
 	return {
 		gold: 0,
 		health: baselineCombatProfile.pixl.health,
-		// damage: baselineCombatProfile.pixl.damage, // Commenting out damage for future reference
 		attackSpeed: baselineCombatProfile.pixl.attackSpeed,
 		healthUpgrades: 0,
-		// damageUpgrades: 0, // Commenting out damageUpgrades for future reference
 		attackSpeedUpgrades: 0
 	};
 }

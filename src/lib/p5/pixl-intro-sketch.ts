@@ -155,7 +155,7 @@ export function createPixlIntroSketch(options: PixlIntroSketchOptions = {}) {
 				y: centerY,
 				vx: (dx / distance) * baselineCombatProfile.projectileSpeed,
 				vy: (dy / distance) * baselineCombatProfile.projectileSpeed,
-				damage: INTRO_PROJECTILE_DAMAGE // Using new constant for projectile damage
+				damage: INTRO_PROJECTILE_DAMAGE
 			});
 		};
 
@@ -334,16 +334,15 @@ export function createPixlIntroSketch(options: PixlIntroSketchOptions = {}) {
 			p.text('PIXL INTRO', 18, 16);
 			p.fill(160);
 			p.text(`HP ${Math.ceil(health)} / ${pixlStats.health}`, 18, 38);
-			p.text(`DMG ${pixlStats.damage}`, 18, 56);
-			p.text(`AS ${pixlStats.attackSpeed.toFixed(1)} /s`, 18, 74);
-			p.text(`GOLD ${bankedGold}`, 18, 92);
-			p.text(`WAVE ${waveId}`, 18, 110);
+			p.text(`AS ${pixlStats.attackSpeed.toFixed(1)} /s`, 18, 56);
+			p.text(`GOLD ${bankedGold}`, 18, 74);
+			p.text(`WAVE ${waveId}`, 18, 92);
 
 			p.fill(255, 52, 52);
-			p.rect(18, 138, 180 * healthRatio, 6, 999);
+			p.rect(18, 120, 180 * healthRatio, 6, 999);
 			p.noFill();
 			p.stroke(84);
-			p.rect(18, 138, 180, 6, 999);
+			p.rect(18, 120, 180, 6, 999);
 
 			p.noStroke();
 			p.fill(128);

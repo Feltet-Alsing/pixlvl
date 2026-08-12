@@ -10,6 +10,7 @@ import { applyUpgradePurchase, isUpgradeKey } from '$lib/game/upgrades';
 import {
 	getCampaignProgressForUser,
 	getOrCreateGameState,
+	resetGameStateForUser,
 	updateGameState
 } from '$lib/server/game-state';
 
@@ -402,10 +403,8 @@ export async function purchaseUpgradeForUser(
 			pixlState: {
 				gold: nextPixlState.gold,
 				health: nextPixlState.health,
-				// damage: nextPixlState.damage, // Commenting out damage for future reference
 				attackSpeed: nextPixlState.attackSpeed,
 				healthUpgrades: nextPixlState.healthUpgrades,
-				// damageUpgrades: nextPixlState.damageUpgrades, // Commenting out damageUpgrades for future reference
 				attackSpeedUpgrades: nextPixlState.attackSpeedUpgrades
 			}
 		});
@@ -420,6 +419,25 @@ export async function purchaseUpgradeForUser(
 			}
 		};
 	}
+}
+
+export async function resetPixlForUser(
+	userId: string | undefined,
+	campaignId: number
+): Promise<ActionResult<{ resetError?: string; resetSuccess?: string }>> {
+	if (!userId) {
+		return { ok: false, status: 401, data: { resetError: 'Sign in to reset your pixl.' } };
+	}
+
+	try {
+		getCampaign(campaignId);
+	} catch {
+		return { ok: false, status: 404, data: { resetError: 'Campaign not found.' } };
+	}
+
+	await resetGameStateForUser(userId);
+
+	return { ok: true, data: { resetSuccess: 'Pixl reset to defaults.' } };
 }
 
 export function toActionFailure<T>(result: ActionResult<T>) {

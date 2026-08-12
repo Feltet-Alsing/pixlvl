@@ -297,10 +297,8 @@ export const actions: Actions = {
 				pixlState: {
 					gold: nextPixlState.gold,
 					health: nextPixlState.health,
-					// damage: nextPixlState.damage, // Commenting out damage for future reference
 					attackSpeed: nextPixlState.attackSpeed,
 					healthUpgrades: nextPixlState.healthUpgrades,
-					// damageUpgrades: nextPixlState.damageUpgrades, // Commenting out damageUpgrades for future reference
 					attackSpeedUpgrades: nextPixlState.attackSpeedUpgrades
 				}
 			});

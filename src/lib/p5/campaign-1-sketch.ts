@@ -244,7 +244,6 @@ export function createCampaignSketch(
 		const runMode = options.runMode ?? 'combat';
 		const pixlStats = {
 			health: options.pixlState?.health ?? combatProfile.pixl.health,
-			// damage: options.pixlState?.damage ?? combatProfile.pixl.damage, // Commenting out damage for future reference
 			attackSpeed: options.pixlState?.attackSpeed ?? combatProfile.pixl.attackSpeed
 		};
 		const equippedWeapons = buildEquippedWeapons(
@@ -309,7 +308,6 @@ export function createCampaignSketch(
 					pixlState: {
 						gold: bankedGold,
 						health: pixlStats.health,
-						// damage: pixlStats.damage, // Commenting out damage for future reference
 						attackSpeed: pixlStats.attackSpeed,
 						ownedWeapons
 					},
