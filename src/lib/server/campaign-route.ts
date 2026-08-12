@@ -20,9 +20,6 @@ import { getCampaignRouteNotificationCounts } from '$lib/game/notifications';
 
 import type { LoadoutPlacement, OwnedWeaponInstance, WeaponDefinition } from '$lib/data/types';
 
-const LOADOUT_COLUMN_COUNT = 8;
-const LOADOUT_ROW_COUNT = 5;
-
 type ActionResult<T> = { ok: true; data: T } | { ok: false; status: number; data: T };
 
 export async function loadCampaignRouteData(
@@ -77,12 +74,18 @@ function buildOwnedWeaponById(ownedWeapons: OwnedWeaponInstance[]) {
 	>;
 }
 
-function isPlacementWithinBounds(definition: WeaponDefinition, x: number, y: number) {
+function isPlacementWithinBounds(
+	definition: WeaponDefinition,
+	x: number,
+	y: number,
+	columnCount: number,
+	rowCount: number
+) {
 	return definition.shape.cells.every(([cellX, cellY]) => {
 		const gridX = x + cellX;
 		const gridY = y + cellY;
 
-		return gridX >= 0 && gridX < LOADOUT_COLUMN_COUNT && gridY >= 0 && gridY < LOADOUT_ROW_COUNT;
+		return gridX >= 0 && gridX < columnCount && gridY >= 0 && gridY < rowCount;
 	});
 }
 
@@ -120,7 +123,9 @@ function placementsOverlap(
 
 function validateLoadoutPlacements(
 	ownedWeapons: OwnedWeaponInstance[],
-	placements: LoadoutPlacement[]
+	placements: LoadoutPlacement[],
+	columnCount: number,
+	rowCount: number
 ): { ok: true } | { ok: false; error: string } {
 	const ownedWeaponById = buildOwnedWeaponById(ownedWeapons);
 	const seenWeaponInstanceIds = new Set<string>();
@@ -144,8 +149,11 @@ function validateLoadoutPlacements(
 
 		const definition = getWeaponDefinition(ownedWeapon.definitionId);
 
-		if (!isPlacementWithinBounds(definition, placement.x, placement.y)) {
-			return { ok: false, error: 'A weapon does not fit inside the 5 x 8 grid.' };
+		if (!isPlacementWithinBounds(definition, placement.x, placement.y, columnCount, rowCount)) {
+			return {
+				ok: false,
+				error: `A weapon does not fit inside the ${rowCount} x ${columnCount} grid.`
+			};
 		}
 
 		if (
@@ -167,7 +175,12 @@ function validateLoadoutPlacements(
 
 async function persistLoadoutPlacementsForUser(userId: string, placements: LoadoutPlacement[]) {
 	const gameState = await getOrCreateGameState(userId);
-	const validation = validateLoadoutPlacements(gameState.pixlState.ownedWeapons, placements);
+	const validation = validateLoadoutPlacements(
+		gameState.pixlState.ownedWeapons,
+		placements,
+		gameState.pixlState.loadoutColumns,
+		gameState.pixlState.loadoutRows
+	);
 
 	if (!validation.ok) {
 		return {
@@ -240,15 +253,17 @@ export async function placeLoadoutWeaponForUser(
 		};
 	}
 
+	const gameState = await getOrCreateGameState(userId);
+	const columnCount = gameState.pixlState.loadoutColumns;
+	const rowCount = gameState.pixlState.loadoutRows;
 	const weaponInstanceId = formData.get('weaponInstanceId');
-	const x = parseGridCoordinate(formData.get('x'), LOADOUT_COLUMN_COUNT);
-	const y = parseGridCoordinate(formData.get('y'), LOADOUT_ROW_COUNT);
+	const x = parseGridCoordinate(formData.get('x'), columnCount);
+	const y = parseGridCoordinate(formData.get('y'), rowCount);
 
 	if (typeof weaponInstanceId !== 'string' || x === null || y === null) {
 		return { ok: false, status: 400, data: { loadoutError: 'Invalid loadout placement request.' } };
 	}
 
-	const gameState = await getOrCreateGameState(userId);
 	const ownedWeapon = gameState.pixlState.ownedWeapons.find(
 		(weapon) => weapon.instanceId === weaponInstanceId
 	);
