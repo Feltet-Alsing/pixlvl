@@ -1,16 +1,40 @@
 import type P5 from 'p5';
 
-import { campaign1, getCampaignCombatProfile } from '$lib/data';
-import type { CampaignDefinition, CampaignLevel, CombatProfile, GlitchKind } from '$lib/data/types';
+import { campaign1, getCampaignCombatProfile, getWeaponDefinition } from '$lib/data';
+import type {
+	CampaignDefinition,
+	CampaignLevel,
+	CombatProfile,
+	GlitchKind,
+	OwnedWeaponInstance,
+	WeaponDefinition,
+	WeaponRarity,
+	WeaponProjectileSize
+} from '$lib/data/types';
 import type { PersistedCampaignProgress, PersistedPixlState } from '$lib/server/game-state';
 
 const MAX_WIDTH = 760;
 const BASE_HEIGHT = 520;
 const FIXED_ARENA_RADIUS = BASE_HEIGHT * 0.42;
-const PROJECTILE_SIZE = 5;
+const LOADOUT_ROW_COUNT = 5;
+const LOADOUT_COLUMN_COUNT = 8;
 const LEVEL_CLEAR_DELAY = 1.1;
 const LEVEL_RESET_DELAY = 1.2;
 const CAMPAIGN_LOOP_DELAY = 2.2;
+
+const PROJECTILE_SIZE_BY_VISUAL: Record<WeaponProjectileSize, number> = {
+	small: 5,
+	medium: 8,
+	large: 12
+};
+
+const WEAPON_FILL_BY_RARITY: Record<WeaponRarity, [number, number, number]> = {
+	normal: [236, 236, 236],
+	magic: [84, 150, 255],
+	rare: [255, 210, 74],
+	exotic: [224, 74, 74],
+	legendary: [179, 132, 62]
+};
 
 const ENEMY_VISUALS: Record<
 	GlitchKind,
@@ -32,6 +56,7 @@ const ENEMY_VISUALS: Record<
 };
 
 type WaveStatus = 'running' | 'cleared' | 'defeated' | 'complete';
+type RunMode = 'management' | 'combat';
 
 interface EnemyState {
 	id: number;
@@ -50,11 +75,33 @@ interface ProjectileState {
 	vx: number;
 	vy: number;
 	damage: number;
+	color: string;
+	size: number;
+}
+
+interface EquippedWeaponState {
+	instanceId: string;
+	definition: WeaponDefinition;
+	triggerColumn: number;
+	placementX: number;
+	placementY: number;
+}
+
+interface LoadoutLayout {
+	cellSize: number;
+	gridWidth: number;
+	gridHeight: number;
+	left: number;
+	top: number;
 }
 
 interface CampaignSketchOptions {
 	persistPath?: string;
-	pixlState?: Pick<PersistedPixlState, 'gold' | 'health' | 'damage' | 'attackSpeed'> | null;
+	runMode?: RunMode;
+	pixlState?: Pick<
+		PersistedPixlState,
+		'gold' | 'health' | 'damage' | 'attackSpeed' | 'ownedWeapons' | 'loadoutPlacements'
+	> | null;
 	campaignState?: Pick<
 		PersistedCampaignProgress,
 		'currentLevel' | 'highestUnlockedLevel' | 'highestClearedLevel' | 'completed'
@@ -125,6 +172,52 @@ function shuffleInPlace<T>(items: T[], p: P5) {
 	return items;
 }
 
+function getWeaponTriggerColumn(weapon: WeaponDefinition, placementX: number) {
+	const leftmostShapeColumn = Math.min(...weapon.shape.cells.map(([cellX]) => cellX));
+
+	return placementX + leftmostShapeColumn;
+}
+
+function buildEquippedWeapons(
+	ownedWeapons: OwnedWeaponInstance[] | null | undefined,
+	loadoutPlacements: PersistedPixlState['loadoutPlacements'] | null | undefined
+) {
+	if (!Array.isArray(ownedWeapons) || !Array.isArray(loadoutPlacements)) {
+		return [];
+	}
+
+	const ownedWeaponMap = new Map(ownedWeapons.map((weapon) => [weapon.instanceId, weapon]));
+
+	return loadoutPlacements
+		.map((placement) => {
+			const ownedWeapon = ownedWeaponMap.get(placement.weaponInstanceId);
+
+			if (!ownedWeapon) {
+				return null;
+			}
+
+			const definition = getWeaponDefinition(ownedWeapon.definitionId);
+			const triggerColumn = getWeaponTriggerColumn(definition, placement.x);
+
+			if (triggerColumn < 0 || triggerColumn >= LOADOUT_COLUMN_COUNT) {
+				return null;
+			}
+
+			return {
+				instanceId: ownedWeapon.instanceId,
+				definition,
+				triggerColumn,
+				placementX: placement.x,
+				placementY: placement.y
+			} satisfies EquippedWeaponState;
+		})
+		.filter((weapon): weapon is EquippedWeaponState => weapon !== null)
+		.sort(
+			(left, right) =>
+				left.triggerColumn - right.triggerColumn || left.instanceId.localeCompare(right.instanceId)
+		);
+}
+
 export function createCampaignSketch(
 	campaign: CampaignDefinition,
 	combatProfile: CombatProfile,
@@ -132,11 +225,19 @@ export function createCampaignSketch(
 ) {
 	return (p: P5) => {
 		const levels = campaign.levels;
+		const runMode = options.runMode ?? 'combat';
 		const pixlStats = {
 			health: options.pixlState?.health ?? combatProfile.pixl.health,
 			damage: options.pixlState?.damage ?? combatProfile.pixl.damage,
 			attackSpeed: options.pixlState?.attackSpeed ?? combatProfile.pixl.attackSpeed
 		};
+		const equippedWeapons = buildEquippedWeapons(
+			options.pixlState?.ownedWeapons,
+			options.pixlState?.loadoutPlacements
+		);
+		const equippedWeaponColumns = [
+			...new Set(equippedWeapons.map((weapon) => weapon.triggerColumn))
+		];
 		const persistenceEnabled = Boolean(
 			options.persistPath && options.pixlState && options.campaignState
 		);
@@ -149,8 +250,8 @@ export function createCampaignSketch(
 		let currentLevel = levels[currentLevelIndex];
 		let status: WaveStatus = 'running';
 		let statusTimer = 0;
-		let shotAccumulator = 0;
 		let spawnAccumulator = 0;
+		let sweepProgress = 0;
 		let bankedGold = options.pixlState?.gold ?? 0;
 		let waveGold = 0;
 		let pixlHealth = pixlStats.health;
@@ -219,6 +320,25 @@ export function createCampaignSketch(
 				combatProfile.collision.pixlRadius + ENEMY_VISUALS[kind].radius
 			);
 
+		const getLoadoutLayout = (): LoadoutLayout => {
+			const maxGridWidth = Math.min(arenaRadius * 1.2, p.width * 0.28);
+			const maxGridHeight = Math.min(arenaRadius * 0.9, p.height * 0.22);
+			const cellSize = Math.max(
+				16,
+				Math.floor(Math.min(maxGridWidth / LOADOUT_COLUMN_COUNT, maxGridHeight / LOADOUT_ROW_COUNT))
+			);
+			const gridWidth = cellSize * LOADOUT_COLUMN_COUNT;
+			const gridHeight = cellSize * LOADOUT_ROW_COUNT;
+
+			return {
+				cellSize,
+				gridWidth,
+				gridHeight,
+				left: centerX - gridWidth / 2,
+				top: centerY - gridHeight / 2
+			};
+		};
+
 		const emitCombatState = () => {
 			const combatState = {
 				stage: currentLevel.stage,
@@ -283,8 +403,8 @@ export function createCampaignSketch(
 			currentLevel = levels[currentLevelIndex];
 			status = 'running';
 			statusTimer = 0;
-			shotAccumulator = 0;
 			spawnAccumulator = 0;
+			sweepProgress = 0;
 			waveGold = 0;
 			pixlHealth = pixlStats.health;
 			pixlFlash = 0;
@@ -334,18 +454,87 @@ export function createCampaignSketch(
 			return closestEnemy;
 		};
 
-		const fireProjectile = (target: EnemyState) => {
+		const fireProjectile = (
+			target: EnemyState,
+			weapon: WeaponDefinition,
+			angleOffsetRadians = 0
+		) => {
 			const dx = target.x - centerX;
 			const dy = target.y - centerY;
-			const distance = Math.hypot(dx, dy) || 1;
+			const baseAngle = Math.atan2(dy, dx) + angleOffsetRadians;
 
 			projectiles.push({
 				x: centerX,
 				y: centerY,
-				vx: (dx / distance) * combatProfile.projectileSpeed,
-				vy: (dy / distance) * combatProfile.projectileSpeed,
-				damage: pixlStats.damage
+				vx: Math.cos(baseAngle) * weapon.projectileSpeed,
+				vy: Math.sin(baseAngle) * weapon.projectileSpeed,
+				damage: Math.max(1, Math.round(pixlStats.damage + weapon.baseDamage - 1)),
+				color: weapon.projectileVisual.color,
+				size: PROJECTILE_SIZE_BY_VISUAL[weapon.projectileVisual.size]
 			});
+		};
+
+		const activateWeapon = (weapon: EquippedWeaponState, target: EnemyState) => {
+			const { projectileCount, spreadDegrees } = weapon.definition.attack;
+
+			if (projectileCount <= 1) {
+				fireProjectile(target, weapon.definition);
+				return;
+			}
+
+			const totalSpreadRadians = ((spreadDegrees ?? 0) * Math.PI) / 180;
+			const startOffset = -totalSpreadRadians / 2;
+			const step = projectileCount > 1 ? totalSpreadRadians / (projectileCount - 1) : 0;
+
+			for (let index = 0; index < projectileCount; index += 1) {
+				fireProjectile(target, weapon.definition, startOffset + step * index);
+			}
+		};
+
+		const activateWeaponsAtColumn = (column: number) => {
+			const target = getClosestEnemy();
+
+			if (!target) {
+				return;
+			}
+
+			for (const weapon of equippedWeapons) {
+				if (weapon.triggerColumn !== column) {
+					continue;
+				}
+
+				activateWeapon(weapon, target);
+			}
+		};
+
+		const triggerSweepColumns = (startColumn: number, endColumn: number) => {
+			for (const column of equippedWeaponColumns) {
+				if (column >= startColumn && column < endColumn) {
+					activateWeaponsAtColumn(column);
+				}
+			}
+		};
+
+		const advanceSweep = (dt: number) => {
+			if (equippedWeapons.length === 0) {
+				return;
+			}
+
+			let remainingColumns = dt * pixlStats.attackSpeed * LOADOUT_COLUMN_COUNT;
+
+			while (remainingColumns > 0) {
+				const distanceToEnd = LOADOUT_COLUMN_COUNT - sweepProgress;
+				const step = Math.min(distanceToEnd, remainingColumns);
+				const nextSweepProgress = sweepProgress + step;
+
+				triggerSweepColumns(sweepProgress, nextSweepProgress);
+				sweepProgress = nextSweepProgress;
+				remainingColumns -= step;
+
+				if (sweepProgress >= LOADOUT_COLUMN_COUNT) {
+					sweepProgress = 0;
+				}
+			}
 		};
 
 		const markCleared = () => {
@@ -366,18 +555,7 @@ export function createCampaignSketch(
 				spawnEnemy(spawnQueue.shift() as GlitchKind);
 			}
 
-			shotAccumulator += dt * pixlStats.attackSpeed;
-
-			while (shotAccumulator >= 1) {
-				shotAccumulator -= 1;
-				const target = getClosestEnemy();
-
-				if (!target) {
-					break;
-				}
-
-				fireProjectile(target);
-			}
+			advanceSweep(dt);
 		};
 
 		const updateEnemies = (dt: number) => {
@@ -422,7 +600,7 @@ export function createCampaignSketch(
 
 				for (let enemyIndex = 0; enemyIndex < enemies.length; enemyIndex += 1) {
 					const enemy = enemies[enemyIndex];
-					const hitRadius = ENEMY_VISUALS[enemy.kind].radius + PROJECTILE_SIZE;
+					const hitRadius = ENEMY_VISUALS[enemy.kind].radius + projectile.size;
 					const distance = Math.hypot(projectile.x - enemy.x, projectile.y - enemy.y);
 
 					if (distance <= hitRadius) {
@@ -468,6 +646,61 @@ export function createCampaignSketch(
 			p.circle(centerX, centerY, combatProfile.collision.contactRange * 2.8);
 		};
 
+		const drawLoadout = () => {
+			const layout = getLoadoutLayout();
+			const sweepX = layout.left + (sweepProgress / LOADOUT_COLUMN_COUNT) * layout.gridWidth;
+
+			p.push();
+			p.rectMode(p.CORNER);
+			p.strokeWeight(1);
+
+			p.noStroke();
+			p.fill(0, 0, 0, 188);
+			p.rect(layout.left - 8, layout.top - 8, layout.gridWidth + 16, layout.gridHeight + 16, 14);
+
+			for (let row = 0; row < LOADOUT_ROW_COUNT; row += 1) {
+				for (let column = 0; column < LOADOUT_COLUMN_COUNT; column += 1) {
+					const x = layout.left + column * layout.cellSize;
+					const y = layout.top + row * layout.cellSize;
+
+					p.stroke(48, 48, 48, 200);
+					p.fill(14, 14, 14, 220);
+					p.rect(x, y, layout.cellSize, layout.cellSize, 4);
+				}
+			}
+
+			for (const weapon of equippedWeapons) {
+				const fill = WEAPON_FILL_BY_RARITY[weapon.definition.rarity];
+
+				for (const [cellX, cellY] of weapon.definition.shape.cells) {
+					const gridX = weapon.placementX + cellX;
+					const gridY = weapon.placementY + cellY;
+
+					if (
+						gridX < 0 ||
+						gridX >= LOADOUT_COLUMN_COUNT ||
+						gridY < 0 ||
+						gridY >= LOADOUT_ROW_COUNT
+					) {
+						continue;
+					}
+
+					const x = layout.left + gridX * layout.cellSize;
+					const y = layout.top + gridY * layout.cellSize;
+
+					p.stroke(255, 255, 255, 42);
+					p.fill(fill[0], fill[1], fill[2], 214);
+					p.rect(x + 1, y + 1, layout.cellSize - 2, layout.cellSize - 2, 4);
+				}
+			}
+
+			p.stroke(110, 255, 150, 235);
+			p.strokeWeight(2);
+			p.line(sweepX, layout.top - 2, sweepX, layout.top + layout.gridHeight + 2);
+
+			p.pop();
+		};
+
 		const drawPixl = () => {
 			p.push();
 			p.noFill();
@@ -486,11 +719,11 @@ export function createCampaignSketch(
 		const drawProjectiles = () => {
 			p.push();
 			p.noStroke();
-			p.fill(255, 52, 52);
 			p.rectMode(p.CENTER);
 
 			for (const projectile of projectiles) {
-				p.square(projectile.x, projectile.y, PROJECTILE_SIZE);
+				p.fill(projectile.color);
+				p.square(projectile.x, projectile.y, projectile.size);
 			}
 
 			p.pop();
@@ -539,7 +772,7 @@ export function createCampaignSketch(
 			pixlFlash = Math.max(0, pixlFlash - dt);
 
 			syncCanvasSize();
-			if (status === 'running') {
+			if (runMode === 'combat' && status === 'running') {
 				updateWaveFlow(dt);
 				updateEnemies(dt);
 
@@ -552,7 +785,7 @@ export function createCampaignSketch(
 						markCleared();
 					}
 				}
-			} else {
+			} else if (runMode === 'combat') {
 				statusTimer -= dt;
 
 				if (statusTimer <= 0) {
@@ -579,6 +812,7 @@ export function createCampaignSketch(
 			emitCombatState();
 
 			drawArena();
+			drawLoadout();
 			drawProjectiles();
 			drawEnemies();
 			drawPixl();

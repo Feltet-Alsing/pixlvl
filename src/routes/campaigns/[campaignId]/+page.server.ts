@@ -1,6 +1,11 @@
 import { error, fail } from '@sveltejs/kit';
 
-import { getCampaign, getCampaignCombatProfile } from '$lib/data';
+import {
+	getCampaign,
+	getCampaignCombatProfile,
+	getWeaponDefinition,
+	getCampaignWeaponPool
+} from '$lib/data';
 import { applyUpgradePurchase, isUpgradeKey } from '$lib/game/upgrades';
 import {
 	getCampaignProgressForUser,
@@ -8,7 +13,74 @@ import {
 	updateGameState
 } from '$lib/server/game-state';
 
+import type { LoadoutPlacement, OwnedWeaponInstance, WeaponDefinition } from '$lib/data/types';
+
 import type { Actions, PageServerLoad } from './$types';
+
+const LOADOUT_COLUMN_COUNT = 8;
+const LOADOUT_ROW_COUNT = 5;
+
+function parseGridCoordinate(value: FormDataEntryValue | null, maxExclusive: number) {
+	if (typeof value !== 'string') {
+		return null;
+	}
+
+	const parsed = Number(value);
+
+	if (!Number.isInteger(parsed) || parsed < 0 || parsed >= maxExclusive) {
+		return null;
+	}
+
+	return parsed;
+}
+
+function buildOwnedWeaponById(ownedWeapons: OwnedWeaponInstance[]) {
+	return Object.fromEntries(ownedWeapons.map((weapon) => [weapon.instanceId, weapon])) as Record<
+		string,
+		OwnedWeaponInstance
+	>;
+}
+
+function isPlacementWithinBounds(definition: WeaponDefinition, x: number, y: number) {
+	return definition.shape.cells.every(([cellX, cellY]) => {
+		const gridX = x + cellX;
+		const gridY = y + cellY;
+
+		return gridX >= 0 && gridX < LOADOUT_COLUMN_COUNT && gridY >= 0 && gridY < LOADOUT_ROW_COUNT;
+	});
+}
+
+function placementsOverlap(
+	ownedWeapons: OwnedWeaponInstance[],
+	placements: LoadoutPlacement[],
+	currentInstanceId: string,
+	definition: WeaponDefinition,
+	x: number,
+	y: number
+) {
+	const ownedWeaponById = buildOwnedWeaponById(ownedWeapons);
+	const occupied = new Set<string>();
+
+	for (const placement of placements) {
+		if (placement.weaponInstanceId === currentInstanceId) {
+			continue;
+		}
+
+		const ownedWeapon = ownedWeaponById[placement.weaponInstanceId];
+
+		if (!ownedWeapon) {
+			continue;
+		}
+
+		const placedDefinition = getWeaponDefinition(ownedWeapon.definitionId);
+
+		for (const [cellX, cellY] of placedDefinition.shape.cells) {
+			occupied.add(`${placement.x + cellX}:${placement.y + cellY}`);
+		}
+	}
+
+	return definition.shape.cells.some(([cellX, cellY]) => occupied.has(`${x + cellX}:${y + cellY}`));
+}
 
 export const load: PageServerLoad = async ({ params, locals }) => {
 	const campaignId = Number(params.campaignId);
@@ -20,6 +92,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	try {
 		const campaign = getCampaign(campaignId);
 		const combatProfile = getCampaignCombatProfile(campaignId);
+		const weaponPool = getCampaignWeaponPool(campaignId);
 		const gameState = locals.user ? await getOrCreateGameState(locals.user.id) : null;
 		const campaignState = locals.user
 			? await getCampaignProgressForUser(locals.user.id, campaignId)
@@ -29,6 +102,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			campaignId,
 			campaign,
 			combatProfile,
+			weaponPool,
 			gameState,
 			campaignState
 		};
@@ -38,6 +112,164 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 };
 
 export const actions: Actions = {
+	placeLoadoutWeapon: async ({ request, locals, params }) => {
+		if (!locals.user) {
+			return fail(401, { loadoutError: 'Sign in to manage your loadout.' });
+		}
+
+		const campaignId = Number(params.campaignId);
+
+		if (!Number.isInteger(campaignId)) {
+			return fail(404, { loadoutError: 'Campaign not found.' });
+		}
+
+		const formData = await request.formData();
+		const weaponInstanceId = formData.get('weaponInstanceId');
+		const x = parseGridCoordinate(formData.get('x'), LOADOUT_COLUMN_COUNT);
+		const y = parseGridCoordinate(formData.get('y'), LOADOUT_ROW_COUNT);
+
+		if (typeof weaponInstanceId !== 'string' || x === null || y === null) {
+			return fail(400, { loadoutError: 'Invalid loadout placement request.' });
+		}
+
+		const gameState = await getOrCreateGameState(locals.user.id);
+		const ownedWeapon = gameState.pixlState.ownedWeapons.find(
+			(weapon) => weapon.instanceId === weaponInstanceId
+		);
+
+		if (!ownedWeapon) {
+			return fail(400, { loadoutError: 'Unknown owned weapon instance.' });
+		}
+
+		const alreadyPlaced = gameState.pixlState.loadoutPlacements.some(
+			(placement) => placement.weaponInstanceId === weaponInstanceId
+		);
+
+		if (alreadyPlaced) {
+			return fail(400, { loadoutError: 'That weapon is already equipped.' });
+		}
+
+		const definition = getWeaponDefinition(ownedWeapon.definitionId);
+
+		if (!isPlacementWithinBounds(definition, x, y)) {
+			return fail(400, { loadoutError: 'That placement does not fit inside the 5 x 8 grid.' });
+		}
+
+		if (
+			placementsOverlap(
+				gameState.pixlState.ownedWeapons,
+				gameState.pixlState.loadoutPlacements,
+				weaponInstanceId,
+				definition,
+				x,
+				y
+			)
+		) {
+			return fail(400, { loadoutError: 'That placement overlaps an equipped weapon.' });
+		}
+
+		await updateGameState(locals.user.id, {
+			pixlState: {
+				loadoutPlacements: [
+					...gameState.pixlState.loadoutPlacements,
+					{
+						weaponInstanceId,
+						x,
+						y
+					}
+				]
+			}
+		});
+
+		return {
+			loadoutSuccess: `${definition.name} placed at (${x}, ${y})`
+		};
+	},
+	removeLoadoutPlacement: async ({ request, locals, params }) => {
+		if (!locals.user) {
+			return fail(401, { loadoutError: 'Sign in to manage your loadout.' });
+		}
+
+		const campaignId = Number(params.campaignId);
+
+		if (!Number.isInteger(campaignId)) {
+			return fail(404, { loadoutError: 'Campaign not found.' });
+		}
+
+		const formData = await request.formData();
+		const weaponInstanceId = formData.get('weaponInstanceId');
+
+		if (typeof weaponInstanceId !== 'string') {
+			return fail(400, { loadoutError: 'Invalid loadout removal request.' });
+		}
+
+		const gameState = await getOrCreateGameState(locals.user.id);
+		const nextPlacements = gameState.pixlState.loadoutPlacements.filter(
+			(placement) => placement.weaponInstanceId !== weaponInstanceId
+		);
+
+		if (nextPlacements.length === gameState.pixlState.loadoutPlacements.length) {
+			return fail(400, { loadoutError: 'That weapon is not currently equipped.' });
+		}
+
+		const ownedWeapon = gameState.pixlState.ownedWeapons.find(
+			(weapon) => weapon.instanceId === weaponInstanceId
+		);
+		const definition = ownedWeapon ? getWeaponDefinition(ownedWeapon.definitionId) : null;
+
+		await updateGameState(locals.user.id, {
+			pixlState: {
+				loadoutPlacements: nextPlacements
+			}
+		});
+
+		return {
+			loadoutSuccess: `${definition?.name ?? 'Weapon'} removed from loadout`
+		};
+	},
+	selectStage: async ({ request, locals, params }) => {
+		if (!locals.user) {
+			return fail(401, { stageError: 'Sign in to manage stage selection.' });
+		}
+
+		const campaignId = Number(params.campaignId);
+
+		if (!Number.isInteger(campaignId)) {
+			return fail(404, { stageError: 'Campaign not found.' });
+		}
+
+		const campaign = getCampaign(campaignId);
+		const campaignState = await getCampaignProgressForUser(locals.user.id, campaignId);
+		const formData = await request.formData();
+		const rawStage = formData.get('stage');
+		const stage = typeof rawStage === 'string' ? Number(rawStage) : NaN;
+
+		if (!Number.isInteger(stage) || stage < 1 || stage > campaign.stages) {
+			return fail(400, { stageError: 'Unknown stage selection.' });
+		}
+
+		const targetLevel = (stage - 1) * campaign.levelsPerStage + 1;
+
+		if (targetLevel > campaignState.highestUnlockedLevel) {
+			return fail(400, { stageError: 'That stage is not unlocked yet.' });
+		}
+
+		await updateGameState(locals.user.id, {
+			campaignProgress: [
+				{
+					campaignId,
+					currentLevel: targetLevel,
+					highestUnlockedLevel: campaignState.highestUnlockedLevel,
+					highestClearedLevel: campaignState.highestClearedLevel,
+					completed: campaignState.completed
+				}
+			]
+		});
+
+		return {
+			stageSuccess: `Stage ${stage} selected`
+		};
+	},
 	purchaseUpgrade: async ({ request, locals, params }) => {
 		if (!locals.user) {
 			return fail(401, { purchaseError: 'Sign in to buy upgrades.' });

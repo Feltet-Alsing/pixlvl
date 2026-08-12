@@ -1088,3 +1088,60 @@ With this minimal stat model, the first balancing pass should answer:
 4. Should failure usually feel like missing survivability or missing damage output?
 
 This is the minimum complete combat foundation before introducing secondary stats or more advanced enemy behaviors.
+
+## Implementation progress overview
+
+This document is not only the design spec. It is also the implementation contract for incremental feature work.
+
+That means new gameplay systems should be added in small slices that stay aligned with the current rules in this note.
+
+## Current implemented foundation
+
+The following pieces already exist in the current repo:
+
+- session-aware SvelteKit app structure
+- persistent user game state in the database
+- campaign progress persistence
+- hardcoded `Campaign 1` runtime data
+- hardcoded baseline combat profile data
+- fullscreen combat route with HTML overlay rails
+- p5-driven arena rendering and combat simulation
+- stage selection for unlocked stages
+- persistent perk purchasing with `gold`
+- weapon definitions for the first `Campaign 1` pool
+- persisted owned weapon instances
+- persisted loadout placements
+- centered loadout rendering around the `pixl`
+- sweep-based weapon activation in the combat sketch
+
+## Partially implemented systems
+
+The following systems now exist in an early or incomplete form:
+
+- the loadout is rendered and persisted, but the editing flow is still only partially surfaced
+- stage management exists, but the full between-run workflow still needs refinement
+- sweep-based combat exists, but balancing against weapon placement and agility scaling is still early
+- weapon ownership exists, but actual enemy drop acquisition is not yet fully wired into the run reward loop
+- duplicate handling is stored safely, but salvage is still deferred
+
+## Next incremental milestones
+
+The intended implementation order from this point should be:
+
+1. finish the out-of-combat loadout editing flow
+2. make run state explicit so management and combat are clearly separated
+3. wire real weapon drops into enemy kill and wave reward flow
+4. reconcile player-facing naming so `agility` and sweep speed replace old `attack speed` language where appropriate
+5. rebalance combat values around real weapon placement and sweep timing
+6. add later economy systems such as duplicate salvage only after the core loop is stable
+
+## Process rule
+
+Before implementing a new gameplay feature, check whether this note already defines:
+
+- the player-facing rule
+- the persistence expectation
+- whether the system is combat-time or out-of-combat
+- whether the feature is part of the current milestone or intentionally deferred
+
+If implementation needs to diverge from the current spec, this note should be updated first or updated in the same task.

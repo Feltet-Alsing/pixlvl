@@ -1,5 +1,11 @@
 export type GlitchKind = 'biter' | 'swarmer' | 'tanker';
 
+export type WeaponRarity = 'normal' | 'magic' | 'rare' | 'exotic' | 'legendary';
+
+export type WeaponAttackKind = 'single' | 'dual' | 'spread';
+
+export type WeaponProjectileSize = 'small' | 'medium' | 'large';
+
 export interface PixlBaseStats {
 	health: number;
 	damage: number;
@@ -25,6 +31,61 @@ export interface CombatProfile {
 	projectileSpeed: number;
 	collision: CollisionConfig;
 	glitches: Record<GlitchKind, GlitchStats>;
+}
+
+export interface WeaponShape {
+	width: number;
+	height: number;
+	cells: Array<[number, number]>;
+}
+
+export interface WeaponProjectileVisual {
+	color: string;
+	size: WeaponProjectileSize;
+}
+
+export interface WeaponAttackBehavior {
+	kind: WeaponAttackKind;
+	projectileCount: number;
+	spreadDegrees?: number;
+	targeting: 'current-target';
+}
+
+export interface WeaponDropConfig {
+	mode: 'starter' | 'drop';
+	campaignId?: number;
+	stageStart?: number;
+	stageEnd?: number;
+	perEnemyDropChance?: number;
+}
+
+export interface WeaponDefinition {
+	id: string;
+	name: string;
+	rarity: WeaponRarity;
+	shape: WeaponShape;
+	baseDamage: number;
+	projectileSpeed: number;
+	attack: WeaponAttackBehavior;
+	projectileVisual: WeaponProjectileVisual;
+	drop: WeaponDropConfig;
+	role: string;
+}
+
+export interface OwnedWeaponInstance {
+	instanceId: string;
+	definitionId: string;
+	source: 'starter' | 'drop';
+	acquiredAt: string;
+	campaignId: number | null;
+	stage: number | null;
+	level: number | null;
+}
+
+export interface LoadoutPlacement {
+	weaponInstanceId: string;
+	x: number;
+	y: number;
 }
 
 export interface WaveComposition {

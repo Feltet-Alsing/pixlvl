@@ -1,14 +1,17 @@
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 import {
 	boolean,
 	index,
 	integer,
+	jsonb,
 	pgTable,
 	primaryKey,
 	real,
 	text,
 	timestamp
 } from 'drizzle-orm/pg-core';
+
+import type { LoadoutPlacement, OwnedWeaponInstance } from '$lib/data/types';
 
 import { user } from './auth.schema';
 
@@ -23,6 +26,14 @@ export const pixlState = pgTable('pixl_state', {
 	healthUpgrades: integer('health_upgrades').notNull().default(0),
 	damageUpgrades: integer('damage_upgrades').notNull().default(0),
 	attackSpeedUpgrades: integer('attack_speed_upgrades').notNull().default(0),
+	ownedWeapons: jsonb('owned_weapons')
+		.$type<OwnedWeaponInstance[]>()
+		.notNull()
+		.default(sql`'[]'::jsonb`),
+	loadoutPlacements: jsonb('loadout_placements')
+		.$type<LoadoutPlacement[]>()
+		.notNull()
+		.default(sql`'[]'::jsonb`),
 	createdAt: timestamp('created_at').defaultNow().notNull(),
 	updatedAt: timestamp('updated_at')
 		.defaultNow()

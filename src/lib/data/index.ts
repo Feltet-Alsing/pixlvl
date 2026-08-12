@@ -1,10 +1,12 @@
 import baselineCombatProfileJson from './combat/baseline-v1.json';
 import campaign1Json from './campaigns/campaign-1.json';
+import { campaign1Weapons } from './weapons';
 
-import type { CampaignDefinition, CombatProfile } from './types';
+import type { CampaignDefinition, CombatProfile, WeaponDefinition } from './types';
 
 export const baselineCombatProfile = baselineCombatProfileJson as CombatProfile;
 export const campaign1 = campaign1Json as CampaignDefinition;
+export const starterWeaponId = 'pea-shooter';
 
 export const combatProfiles = {
 	[baselineCombatProfile.id]: baselineCombatProfile
@@ -13,6 +15,16 @@ export const combatProfiles = {
 export const campaigns = {
 	[campaign1.campaign]: campaign1
 } as const;
+
+export const campaignWeaponPools = {
+	[campaign1.campaign]: campaign1Weapons
+} as const;
+
+export const weaponDefinitions = Object.fromEntries(
+	Object.values(campaignWeaponPools)
+		.flat()
+		.map((weapon) => [weapon.id, weapon])
+) as Record<string, WeaponDefinition>;
 
 export function getCombatProfile(profileId: string): CombatProfile {
 	const profile = combatProfiles[profileId as keyof typeof combatProfiles];
@@ -49,4 +61,24 @@ export function getCampaignCombatProfile(campaignId: number): CombatProfile {
 	const campaign = getCampaign(campaignId);
 
 	return getCombatProfile(campaign.combatProfile);
+}
+
+export function getCampaignWeaponPool(campaignId: number): WeaponDefinition[] {
+	const pool = campaignWeaponPools[campaignId as keyof typeof campaignWeaponPools];
+
+	if (!pool) {
+		throw new Error(`Unknown weapon pool for campaign ${campaignId}`);
+	}
+
+	return pool;
+}
+
+export function getWeaponDefinition(definitionId: string): WeaponDefinition {
+	const weapon = weaponDefinitions[definitionId];
+
+	if (!weapon) {
+		throw new Error(`Unknown weapon definition: ${definitionId}`);
+	}
+
+	return weapon;
 }
