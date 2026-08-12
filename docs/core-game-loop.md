@@ -103,16 +103,16 @@ The first combat version should keep the `pixl` stat model intentionally small.
 The `pixl` currently has three core combat attributes:
 
 - `defence`
-- `strength`
 - `agility`
+- `loadout size`
 
 These are the three core permanent perks the player levels outside of combat.
 
 Each perk maps directly to a first-pass combat output:
 
 - `defence` scales `health`
-- `strength` scales `damage`
 - `agility` scales loadout `sweep speed`
+- `loadout size` scales how much build space the player can unlock over time
 
 ### Health
 
@@ -124,9 +124,9 @@ This is the primary defensive stat in the first combat model.
 
 ### Damage
 
-`Damage` is how much the `pixl` deals per successful attack.
+`Damage` still matters, but it should come primarily from weapons and loadout composition rather than from a direct permanent `strength` perk.
 
-This is the core per-shot power stat.
+That keeps the build system centered on drops, shape efficiency, and sweep timing instead of letting a generic damage stat dominate progression.
 
 ### Agility
 
@@ -138,20 +138,21 @@ The faster the sweep moves, the more often placed weapons are activated over tim
 
 ### Offensive relationship
 
-`Strength` and `agility` combine into effective offensive output, but not through a simple global fire-rate formula.
+`Agility` and `loadout size` combine into effective offensive output, but not through a simple global fire-rate formula.
 
 Actual damage output depends on:
 
 - weapon damage values
 - where weapons are placed in the loadout
 - how many weapons are triggered during each sweep
+- how much total loadout space the player has unlocked
 - how quickly `agility` moves the sweep across the grid
 
 This creates a clean first division:
 
 - `health` controls how long the `pixl` survives under pressure
-- `damage` controls how hard each activation hits
 - `agility` controls how quickly the activation sequence progresses
+- `loadout size` controls how much total build surface the player can eventually fill
 
 This should remain the full first-pass `pixl` combat stat model.
 
@@ -441,19 +442,23 @@ The player should be able to:
 - step back down to easier stages when desired
 - return to harder stages later without penalty
 
-## Baseline linear growth
+## Harder baseline growth
 
-The first scaling model should be simple and predictable.
+The first scaling model should still be readable, but it needs to ramp harder than a flat `+1 enemy per level` rule.
 
-Each normal level begins from a baseline enemy count, for example `5`, and grows linearly from there.
+The recommended direction is a mixed scaling model:
 
-That means each successive non-boss level adds a fixed amount of pressure rather than using a complex curve immediately.
+- enemy count scales upward within each stage
+- stage transitions raise the baseline again
+- enemy stats also scale upward over time
 
-The main purpose of this model is clarity:
+That means pressure grows through both `more enemies` and `stronger enemies`, instead of relying on one axis alone.
 
-- players can feel steady progress
-- players can anticipate that later levels are harder in a readable way
-- balancing is easier because the baseline curve is understandable
+The main purpose of this model is:
+
+- fast early readability
+- a noticeably harsher midgame ramp
+- enough pressure that new weapon drops and perk choices feel necessary rather than optional
 
 ## Boss level spike
 
@@ -479,12 +484,13 @@ The key design rule is that the boss level should feel like a checkpoint rather 
 
 For the earliest version of `pixlvl`, the cleanest scaling approach is:
 
-1. enemy count scales linearly through normal levels
+1. enemy count scales harder than linear through normal levels
 2. enemy composition becomes more threatening over time
-3. stage transitions can adjust pacing
-4. boss levels intentionally spike above the normal linear expectation
+3. enemy stats scale upward across campaign progression
+4. stage transitions raise the baseline again
+5. boss levels intentionally spike above the normal expectation
 
-This keeps the system readable while still allowing dramatic progression moments.
+This keeps the system readable while making progression pressure strong enough to sustain the loot-and-build loop.
 
 ## Why this works
 
@@ -497,6 +503,7 @@ This structure is a good fit for the game because it supports both comfort and t
 This also gives strong room for later tuning, because the design can separately control:
 
 - baseline count growth
+- enemy stat growth
 - enemy composition growth
 - stage-to-stage escalation
 - boss-level spike strength
@@ -528,7 +535,7 @@ That makes progression more about buildcraft and spatial optimization than about
 
 ## Pixl loadout grid
 
-Each `pixl` has a `5 x 8` grid that acts as its loadout space.
+Each `pixl` starts with a `3 x 6` grid that acts as its initial loadout space.
 
 This loadout grid is the main build surface for the player.
 
@@ -536,11 +543,25 @@ Players should be able to drag `weapons` and `items` from their inventory into t
 
 Not every weapon or item uses the same amount of space.
 
-Different pieces can have different footprint sizes, meaning they occupy different shapes or amounts of cells inside the `5 x 8` grid.
+Different pieces can have different footprint sizes, meaning they occupy different shapes or amounts of cells inside the current loadout grid.
 
 Because the grid is limited, part of the skill of building a strong `pixl` is using the available space efficiently.
 
-That means a good build is not only about owning strong pieces, but also about arranging them so the loadout uses as much of the `5 x 8` space as possible.
+That means a good build is not only about owning strong pieces, but also about arranging them so the loadout uses as much of the currently unlocked space as possible.
+
+The starting baseline is:
+
+- `3` rows
+- `6` columns
+
+Every `10` player levels, the loadout grows by `+1` on both axes.
+
+That means the early growth path is:
+
+- levels `1-9`: `3 x 6`
+- levels `10-19`: `4 x 7`
+- levels `20-29`: `5 x 8`
+- levels `30-39`: `6 x 9`
 
 ## Out-of-combat build editing
 
@@ -580,61 +601,48 @@ Those details are not locked yet, but the core rule is now clear:
 
 > the `pixl`'s main progression comes from equipping dropped weapons and items into a limited `5 x 8` loadout grid.
 
-## Perk-driven pixl leveling
+## XP-driven pixl leveling
 
-The current supporting progression model is:
+The supporting progression model should now use `xp` instead of `gold`.
 
-- enemies drop `gold`
-- the player uses out-of-combat progression to invest into permanent perks
-- each level-up investment is directed into a chosen perk
+The current direction is:
 
-This still makes power growth an active decision rather than a passive background increase, but it should now be understood as secondary to the weapon-and-loadout system.
+- enemies drop `xp`
+- `xp` drives the player's level curve
+- level-ups unlock permanent perk investment
+- perk investment is directed into `defence`, `agility`, or milestone-based `loadout size`
 
-The resource flow for perk leveling is now locked:
+This still keeps power growth secondary to the weapon-and-loadout system, but it gives progression a cleaner structure than a separate spendable gold economy.
 
-- perks are upgraded out of combat
-- perk upgrades are permanent
-- perk upgrades support the equipment-driven build rather than replacing it
-- `gold` is the resource spent on those perk upgrades
-
-The exact drop rates can be tuned later, but the reward-scaling direction should already be defined.
-
-For now, the important system rule is that enemy drops fuel `pixl` growth in two layers:
+The important system rule is that enemy rewards should now fuel `pixl` growth in two layers:
 
 - equipment drops drive the main build
-- progression resources support smaller direct perk upgrades around that build
+- `xp` drives long-term perk growth around that build
 
-## Gold reward scaling
+### XP accounting rule
 
-`Glitches` drop `gold` when defeated.
+If the player-facing language says that `xp` is spent on perks, the implementation should still distinguish between:
 
-For the first economy model, `gold` rewards should scale linearly with the current `Stage`.
+- `lifetime xp earned`
+- `xp currently available`
 
-That means harder content is also directly more rewarding.
+Level thresholds should always be based on `lifetime xp earned`, not on the currently unspent amount.
 
-The design goal is simple:
+That prevents the player from losing levels when investing into perks and keeps progression monotonic.
 
-- later stages are more dangerous
-- later stages also generate more `gold`
-- stronger content should feel worth pushing into
+### XP reward scaling
 
-For now, the reward model should stay simple:
+`Glitches` should drop `xp` when defeated.
 
-- gold is dropped by defeated `Glitches`
-- the amount scales upward with stage progression
-- the scaling is linear for the first pass
+For the first reward model, `xp` rewards should still scale linearly with the current `Stage`.
 
-This keeps the economy readable while still creating a clear incentive to push harder content.
-
-## Provisional gold drop baseline
-
-For the first pass, the game should use a simple drop table that scales linearly with `Stage` and keeps stronger enemies slightly more rewarding.
+That means harder content remains directly more rewarding, while the level curve itself provides the long-term slowdown.
 
 Recommended starting values:
 
-- `Biter gold = stage + 1`
-- `Swarmer gold = stage + 2`
-- `Tanker gold = stage + 5`
+- `Biter xp = stage + 1`
+- `Swarmer xp = stage + 2`
+- `Tanker xp = stage + 5`
 
 That gives these first-pass values:
 
@@ -646,33 +654,74 @@ That gives these first-pass values:
 | 4     | 5     | 6       | 9      |
 | 5     | 6     | 7       | 10     |
 
-This is intentionally simple:
+This keeps rewards readable while making later stages naturally better for progression.
 
-- stage progression increases all rewards linearly
-- `Swarmers` are worth slightly more than `Biters`
-- `Tankers` are worth meaningfully more because they are rarer and more threatening
+## Level curve recommendation
 
-With the current `Stage 1` baseline of `5` starting enemies and `+1 enemy per level`, this produces early rewards that should feel active without flooding the player with too much gold too quickly.
+The desired pacing is:
+
+- very fast early levels
+- a noticeable slowdown over time
+- no hard wall too early
+
+The most appropriate first-pass algorithm is a mild exponential next-level requirement.
+
+Recommended formula:
+
+$$
+xpToNext(level) = \lfloor 8 \times 1.16^{(level - 1)} \rfloor
+$$
+
+Where:
+
+- `level` is the player's current level starting at `1`
+- `8` is the early-game base requirement
+- `1.16` is the growth factor per level
+
+If the implementation wants a cumulative threshold instead, use:
+
+$$
+totalXpForLevel(level) = \left\lfloor 8 \times \frac{1.16^{(level - 1)} - 1}{0.16} \right\rfloor
+$$
+
+This is the same curve expressed as total lifetime xp required to reach a given level.
+
+This recommendation is appropriate because:
+
+- `1.16` is steep enough to create clear slowdown
+- it is not so steep that `level 10` becomes unreachable too early
+- it leaves room for weapon drops to remain the main power spikes
+
+Useful reference points from this curve:
+
+- `level 2` requires about `8` xp
+- `level 5` requires about `14` xp for the next level
+- `level 10` requires about `30` xp for the next level
+- total xp to reach `level 10` is about `140`
+- total xp to reach `level 20` is about `790`
+- total xp to reach `level 30` is about `3900`
+
+That is a good first-pass shape for a game that wants the early progression loop to feel generous while still tapering into a longer-term grind.
 
 ## First pixl upgrade paths
 
 In the first progression version, the player can invest in only three upgrade paths:
 
 - `defence`
-- `strength`
 - `agility`
+- `loadout size`
 
 These map to combat effects like this:
 
 - `defence` increases `health`
-- `strength` increases `damage`
 - `agility` increases loadout `sweep speed`
+- `loadout size` increases both loadout dimensions at milestone levels
 
 For the first pass, these upgrades use simple percentage-based growth:
 
-- `defence`: `+15%` health per upgrade
-- `strength`: `+15%` damage per upgrade
-- `agility`: `+5%` sweep speed per upgrade
+- `defence`: `+10%` health per upgrade
+- `agility`: `+10%` sweep speed per upgrade
+- `loadout size`: `+1` row and `+1` column every `10` player levels, starting from `3 x 6`
 
 These numbers are not final balance targets. They are the initial design baseline and can be tuned later.
 
@@ -683,50 +732,36 @@ This mirrors the `pixl`'s core combat attributes and keeps the progression model
 This approach supports the intended fantasy of build experimentation:
 
 - a player can create a tankier `pixl` by prioritizing `defence`
-- a player can create a harder-hitting `pixl` by prioritizing `strength`
 - a player can create a faster-cycling loadout by prioritizing `agility`
+- a player can create larger and denser builds over time by reaching `loadout size` milestones
 
 Even with only three stats, this already creates meaningful directional builds.
 
-The weaker `agility` increase is intentional.
+The stronger `agility` increase is intentional because it is now one of only two regularly chosen perk tracks, while direct permanent damage scaling has been removed.
 
-Because faster sweep speed compounds offensive output very efficiently, its per-upgrade gain should start lower than `defence` and `strength`.
+Because faster sweep speed compounds offensive output very efficiently, it should still be monitored closely in balance passes even if it begins at `+10%`.
 
-## Provisional upgrade cost baseline
+## Perk spend structure
 
-For the first economy pass, upgrade prices should be easy to understand and spaced so the player can make regular choices without upgrading every few seconds.
+The progression layer no longer needs a separate gold-priced shop structure.
 
-Recommended starting costs:
+Instead, the cleanest first-pass rule is:
 
-- `defence`: starts at `20 gold`
-- `strength`: starts at `20 gold`
-- `agility`: starts at `35 gold`
+- each level-up grants `1` perk point
+- perk points can be assigned to `defence` or `agility`
+- every `10` player levels automatically unlocks one `loadout size` upgrade
+- milestone levels still also grant their normal `1` perk point
 
-This gives a useful early rhythm:
+That means `loadout size` is a milestone reward, not a point-buy stat on every level.
 
-- early `Stage 1` levels can usually fund a `defence` or `strength` upgrade after a small number of clears
-- `agility` feels more premium and requires more deliberate saving
+There is no loadout-size cap for now.
 
-## Cost growth principle
+This may need a cap later for UI, balance, or content reasons, but it should remain uncapped in the first iteration so long-term growth can be tested without prematurely constraining the system.
 
-Upgrade costs should rise smoothly over time rather than staying flat.
+This keeps the system legible:
 
-The current design direction is:
-
-- `defence` and `strength` should share the same cost curve
-- `agility` should either start more expensive or scale more harshly
-
-For the first implementation, a practical rule is:
-
-- after each purchase, increase the next cost by about `20%`
-
-That would produce an early cost flow like:
-
-- `defence`: `20`, `24`, `29`, `35`, `42`, `50`
-- `strength`: `20`, `24`, `29`, `35`, `42`, `50`
-- `agility`: `35`, `42`, `50`, `60`, `72`, `86`
-
-These are not final balance targets, but they are a coherent opening range that matches the current reward model and preserves the idea that `agility` is the more premium offensive investment.
+- routine levels support health or sweep specialization
+- milestone levels expand the player's spatial build complexity
 
 ## First progression principle
 
@@ -735,10 +770,11 @@ For the first version of the game, `pixl` power should primarily come from playe
 That means the main progression loop is:
 
 1. clear waves
-2. get `weapon` and `item` drops from defeated `Glitches`
-3. arrange those drops inside the `5 x 8` loadout grid
-4. use `gold` for supporting upgrades when useful
-5. test the updated build against harder levels
+2. earn `xp` and get `weapon` / `item` drops from defeated `Glitches`
+3. level up and invest into `defence` or `agility`
+4. unlock larger loadout dimensions every `10` levels
+5. arrange those drops inside the current loadout grid
+6. test the updated build against harder levels
 
 This creates a clean feedback loop between combat success, resource gain, and build refinement.
 
@@ -834,6 +870,26 @@ For the first implementation, player inventory should be treated as effectively 
 That keeps the first weapon rollout simple and avoids prematurely designing inventory pressure before the weapon system itself is proven.
 
 If large inventories later create performance or UI-management issues, inventory limits can be introduced as a follow-up system.
+
+The current inventory should not remain a dumb list long term.
+
+Weapons and items should be presented visually with a thumbnail of their exact shape.
+
+That thumbnail should be colored according to the piece's rarity so the player can scan inventory state quickly without opening a deeper detail view.
+
+For the main management surface, the acquired inventory should be framed as a structured toolbox underneath the loadout section.
+
+That toolbox should use a grid of acquired weapons rather than a plain vertical list.
+
+Each weapon entry in that toolbox should show:
+
+- the item's shape thumbnail
+- rarity-driven coloring
+- a compact duplicate count when more than one copy exists
+
+If the player owns duplicates of the same weapon, the toolbox entry should remain a single visible item with a small top-right count indicator such as `2` rather than repeating identical cards multiple times.
+
+This keeps the inventory readable while still preserving the idea that the player owns multiple copies of that weapon.
 
 ## Duplicate weapon handling
 
@@ -968,20 +1024,95 @@ This composition model does a few useful things:
 
 It also keeps the composition fully data-driven, because once a level's total enemy count is known, the full wave mix can be derived directly.
 
-### First-pass use with linear scaling
+### First-pass use with harder scaling
 
-If the current baseline is kept as:
+The old `+1 enemy per level` baseline is too soft.
 
-- `Campaign 1, Stage 1, Level 1 = 5 enemies`
-- `+1 enemy per level`
+The starting floor should stay the same, but the count should scale upward through each stage using a mild exponential bonus layered on top of the existing stage floors.
 
-then this composition rule can be applied immediately once the level is above the first three-level tutorial band.
+The recommended first-pass enemy-count formula for normal levels is:
+
+$$
+stageBaseEnemies(stage) = 5 + 10 \times (stage - 1)
+$$
+
+$$
+stageLevelBonus(stageLevel) = \operatorname{round}\left(4 \times (1.17^{(stageLevel - 1)} - 1)\right)
+$$
+
+$$
+totalEnemies(stage, stageLevel) = stageBaseEnemies(stage) + stageLevelBonus(stageLevel)
+$$
+
+Where:
+
+- `stage` is `1` through `5`
+- `stageLevel` is `1` through `10`
+
+This keeps the opening floor intact, preserves the existing stage floors, and still makes later levels ramp harder in a readable way.
+
+Useful reference points:
+
+- `Stage 1 Level 1`: about `5` enemies
+- `Stage 1 Level 5`: about `8` enemies
+- `Stage 1 Level 9`: about `15` enemies
+- `Stage 2 Level 1`: about `15` enemies
+- `Stage 3 Level 1`: about `25` enemies
+- `Stage 3 Level 9`: about `35` enemies
+- `Stage 5 Level 1`: about `45` enemies
+- `Stage 5 Level 9`: about `55` enemies
 
 This gives a clean progression from:
 
-- pure baseline enemies
+- pure baseline enemies in the tutorial band
 - into mixed waves with regular `Swarmers`
-- into mixed waves where `Tankers` begin to appear more occasionally
+- into denser waves where `Tankers` begin to matter more consistently
+
+### Enemy stat scaling
+
+Enemy count alone should not carry the full difficulty curve.
+
+Enemy stats should also scale across campaign progression.
+
+Recommended first-pass multipliers:
+
+$$
+enemyHealthMultiplier(campaignLevel) = 1.08^{(campaignLevel - 1)}
+$$
+
+$$
+enemyDamageMultiplier(campaignLevel) = 1.05^{(campaignLevel - 1)}
+$$
+
+$$
+enemyMoveSpeedMultiplier(stage) = 1 + 0.04 \times (stage - 1)
+$$
+
+This means:
+
+- enemies get denser over time
+- enemies survive longer over time
+- enemies hit harder over time
+- later stages also feel faster and more urgent
+
+That combination should create the harder scaling you asked for without raising the initial floor or making the curve unreadable too early.
+
+### Boss level spike rule
+
+Boss levels should apply an extra multiplier on top of the normal formulas.
+
+Recommended starting rule:
+
+- stage boss levels: `+25%` total enemies and `+15%` enemy health
+- campaign boss levels: `+40%` total enemies and `+25%` enemy health
+
+Using the first-pass count curve above, that means example boss counts land around:
+
+- `Stage 1 Level 10`: about `21` enemies
+- `Stage 2 Level 10`: about `34` enemies
+- `Stage 5 Level 10`: about `80` enemies
+
+That preserves the feeling that boss encounters are checkpoints rather than just one more normal wave.
 
 ## First campaign data artifact
 
@@ -993,8 +1124,8 @@ That file contains:
 - baseline scaling rules
 - per-level enemy counts
 - derived `Biter`/`Swarmer`/`Tanker` composition
-- per-enemy gold values by stage
-- total gold reward per level
+- per-enemy `xp` values by stage
+- total `xp` reward per level
 - stage boss and campaign boss markers
 
 ## Provisional combat stat sheet
@@ -1109,7 +1240,7 @@ The following pieces already exist in the current repo:
 - fullscreen combat route with HTML overlay rails
 - p5-driven arena rendering and combat simulation
 - stage selection for unlocked stages
-- persistent perk purchasing with `gold`
+- persistent progression rewards and perk-driven leveling
 - weapon definitions for the first `Campaign 1` pool
 - persisted owned weapon instances
 - persisted loadout placements
@@ -1123,7 +1254,7 @@ The following systems now exist in an early or incomplete form:
 - the loadout is rendered and persisted, and route-level editing now exists, but inventory presentation and tooltip quality still need polish
 - stage management exists, and a dedicated management surface now exists, but the full between-run workflow still needs refinement
 - sweep-based combat exists, but balancing against weapon placement and agility scaling is still early
-- weapon ownership exists and enemy drops are now wired into the run reward loop, but drop presentation and progression pacing still need tuning
+- weapon ownership exists and enemy drops are now wired into the run reward loop, but drop presentation, `xp` progression, and pacing still need tuning
 - duplicate handling is stored safely, but salvage is still deferred
 
 ## Next incremental milestones

@@ -1,26 +1,51 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
+	import type { SubmitFunction } from '@sveltejs/kit';
 	import CampaignRouteNav from '$lib/components/campaigns/CampaignRouteNav.svelte';
-	import { createBaselineUpgradeablePixlState, getUpgradeOptions } from '$lib/game/upgrades';
 	import P5Canvas from '$lib/components/P5Canvas.svelte';
 	import { createCampaignSketch } from '$lib/p5/campaign-1-sketch';
+	import {
+		applyUpgradePurchase,
+		createBaselineUpgradeablePixlState,
+		getUpgradeOptions,
+		isUpgradeKey
+	} from '$lib/game/upgrades';
 	import type { WeaponDefinition } from '$lib/data/types';
 	import type { PageProps } from './$types';
 
 	type LocalRunMode = 'management' | 'combat';
-	const LOADOUT_ROW_COUNT = 5;
-	const LOADOUT_COLUMN_COUNT = 8;
 
 	type LivePixlState = NonNullable<NonNullable<PageProps['data']['gameState']>['pixlState']>;
 	type LiveCampaignState = NonNullable<PageProps['data']['campaignState']>;
-	type PixlStateOverride = Pick<LivePixlState, 'gold' | 'ownedWeapons'>;
+	type PixlStateOverride = Pick<
+		LivePixlState,
+		| 'xp'
+		| 'level'
+		| 'perkPoints'
+		| 'defence'
+		| 'agility'
+		| 'health'
+		| 'attackSpeed'
+		| 'loadoutRows'
+		| 'loadoutColumns'
+		| 'ownedWeapons'
+	>;
 	type CampaignStateOverride = Pick<
 		LiveCampaignState,
 		'currentLevel' | 'highestUnlockedLevel' | 'highestClearedLevel' | 'completed'
 	>;
 
 	interface SketchStateUpdate {
-		gold: number;
+		xp: number;
+		level: number;
+		perkPoints: number;
+		defence: number;
+		agility: number;
+		health: number;
+		attackSpeed: number;
+		loadoutRows: number;
+		loadoutColumns: number;
 		ownedWeapons: LivePixlState['ownedWeapons'];
 		currentLevel: number;
 		highestUnlockedLevel: number;
@@ -34,8 +59,8 @@
 		campaignLevel: number;
 		pixlHealth: number;
 		maxPixlHealth: number;
-		bankedGold: number;
-		waveGold: number;
+		bankedXp: number;
+		waveXp: number;
 		waveDrops: number;
 		remainingEnemies: number;
 		composition: {
@@ -46,15 +71,6 @@
 		status: 'running' | 'cleared' | 'defeated' | 'complete';
 	}
 
-	interface ManagementStageSummary {
-		stage: number;
-		startLevel: number;
-		endLevel: number;
-		unlockedLevelCount: number;
-		isCurrentStage: boolean;
-		isCleared: boolean;
-	}
-
 	interface LoadoutRow {
 		weaponInstanceId: string;
 		definitionId: string;
@@ -62,29 +78,6 @@
 		rarity: WeaponDefinition['rarity'];
 		x: number;
 		y: number;
-	}
-
-	interface OwnedWeaponSummaryRow {
-		definitionId: string;
-		name: string;
-		rarity: WeaponDefinition['rarity'];
-		count: number;
-		equippedCount: number;
-	}
-
-	interface UnequippedOwnedWeaponRow {
-		weaponInstanceId: string;
-		definitionId: string;
-		name: string;
-		rarity: WeaponDefinition['rarity'];
-	}
-
-	interface LoadoutGridCell {
-		x: number;
-		y: number;
-		occupiedByName: string | null;
-		occupiedRarity: WeaponDefinition['rarity'] | null;
-		canPlaceSelectedWeapon: boolean;
 	}
 
 	function createInitialCombatOverlay(pageData: PageProps['data']): CombatOverlayState {
@@ -103,8 +96,8 @@
 			campaignLevel: pageData.campaignState?.currentLevel ?? 1,
 			pixlHealth: maxPixlHealth,
 			maxPixlHealth,
-			bankedGold: pageData.gameState?.pixlState.gold ?? 0,
-			waveGold: 0,
+			bankedXp: pageData.gameState?.pixlState.xp ?? 0,
+			waveXp: 0,
 			waveDrops: 0,
 			remainingEnemies: composition.biters + composition.swarmers + composition.tankers,
 			composition,
@@ -114,10 +107,9 @@
 
 	let { data, form }: PageProps = $props();
 	let runMode = $state<LocalRunMode>('combat');
-	let showStats = $state(true);
+	let showStatsOverlay = $state(false);
 	let pixlStateOverride = $state.raw<PixlStateOverride | null>(null);
 	let campaignStateOverride = $state.raw<CampaignStateOverride | null>(null);
-	let selectedPlacementWeaponInstanceId = $state<string | null>(null);
 	let livePixlState: LivePixlState | null = $derived.by(() => {
 		const basePixlState = data.gameState?.pixlState ?? null;
 
@@ -142,11 +134,12 @@
 			...(campaignStateOverride ?? {})
 		};
 	});
-	let selectedManagementStage = $state<number | null>(null);
 	let combatOverlayOverride = $state<CombatOverlayState | null>(null);
 	let combatOverlay = $derived(combatOverlayOverride ?? createInitialCombatOverlay(data));
-	let upgradeState = $derived(livePixlState ?? createBaselineUpgradeablePixlState());
-	let upgradeOptions = $derived(getUpgradeOptions(upgradeState));
+	let upgradeState = $derived(
+		livePixlState ?? data.gameState?.pixlState ?? createBaselineUpgradeablePixlState()
+	);
+	let overlayUpgradeOptions = $derived(getUpgradeOptions(upgradeState));
 	let weaponDefinitionById = $derived(
 		Object.fromEntries(
 			data.weaponPool.map((weapon) => [weapon.id, weapon] satisfies [string, WeaponDefinition])
@@ -154,42 +147,8 @@
 	);
 	let ownedWeapons = $derived(livePixlState?.ownedWeapons ?? []);
 	let loadoutPlacements = $derived(livePixlState?.loadoutPlacements ?? []);
-	let highestUnlockedLevel = $derived(liveCampaignState?.highestUnlockedLevel ?? 1);
-	let highestClearedLevel = $derived(liveCampaignState?.highestClearedLevel ?? 0);
 	let sketchCampaignLevel = $derived(
 		liveCampaignState?.currentLevel ?? data.campaignState?.currentLevel ?? 1
-	);
-	let equippedWeaponInstanceIds = $derived(
-		Object.fromEntries(
-			loadoutPlacements.map((placement) => [placement.weaponInstanceId, true])
-		) as Record<string, true>
-	);
-	let activeManagementStage = $derived(selectedManagementStage ?? combatOverlay.stage);
-	let unlockedStages = $derived.by(() => {
-		return Array.from({ length: data.campaign.stages }, (_, index) => index + 1)
-			.map((stage) => {
-				const startLevel = (stage - 1) * data.campaign.levelsPerStage + 1;
-				const endLevel = startLevel + data.campaign.levelsPerStage - 1;
-				const unlockedLevelCount = Math.max(
-					0,
-					Math.min(highestUnlockedLevel - startLevel + 1, data.campaign.levelsPerStage)
-				);
-
-				return {
-					stage,
-					startLevel,
-					endLevel,
-					unlockedLevelCount,
-					isCurrentStage: combatOverlay.stage === stage,
-					isCleared: highestClearedLevel >= endLevel
-				} satisfies ManagementStageSummary;
-			})
-			.filter((stage) => stage.unlockedLevelCount > 0);
-	});
-	let selectedStageSummary = $derived(
-		unlockedStages.find((stage) => stage.stage === activeManagementStage) ??
-			unlockedStages[0] ??
-			null
 	);
 	let currentLoadoutRows = $derived.by(() => {
 		const ownedWeaponById = Object.fromEntries(
@@ -219,138 +178,6 @@
 				(left, right) => left.y - right.y || left.x - right.x || left.name.localeCompare(right.name)
 			);
 	});
-	let ownedWeaponSummaryRows = $derived.by(() => {
-		const equippedCounts: Record<string, number> = {};
-
-		for (const placement of loadoutPlacements) {
-			equippedCounts[placement.weaponInstanceId] =
-				(equippedCounts[placement.weaponInstanceId] ?? 0) + 1;
-		}
-
-		const grouped: Record<string, OwnedWeaponSummaryRow> = {};
-
-		for (const weapon of ownedWeapons) {
-			const definition = weaponDefinitionById[weapon.definitionId];
-
-			if (!definition) {
-				continue;
-			}
-
-			const current = grouped[definition.id];
-			const equippedCount = equippedCounts[weapon.instanceId] ? 1 : 0;
-
-			if (!current) {
-				grouped[definition.id] = {
-					definitionId: definition.id,
-					name: definition.name,
-					rarity: definition.rarity,
-					count: 1,
-					equippedCount
-				};
-				continue;
-			}
-
-			current.count += 1;
-			current.equippedCount += equippedCount;
-		}
-
-		return Object.values(grouped).sort(
-			(left, right) =>
-				right.equippedCount - left.equippedCount ||
-				right.count - left.count ||
-				left.name.localeCompare(right.name)
-		);
-	});
-	let unequippedOwnedWeaponRows = $derived.by(() => {
-		return ownedWeapons
-			.map((weapon) => {
-				if (equippedWeaponInstanceIds[weapon.instanceId]) {
-					return null;
-				}
-
-				const definition = weaponDefinitionById[weapon.definitionId];
-
-				if (!definition) {
-					return null;
-				}
-
-				return {
-					weaponInstanceId: weapon.instanceId,
-					definitionId: definition.id,
-					name: definition.name,
-					rarity: definition.rarity
-				} satisfies UnequippedOwnedWeaponRow;
-			})
-			.filter((entry): entry is UnequippedOwnedWeaponRow => entry !== null)
-			.sort(
-				(left, right) =>
-					left.name.localeCompare(right.name) ||
-					left.weaponInstanceId.localeCompare(right.weaponInstanceId)
-			);
-	});
-	let selectedPlacementWeapon = $derived(
-		unequippedOwnedWeaponRows.find(
-			(weapon) => weapon.weaponInstanceId === selectedPlacementWeaponInstanceId
-		) ?? null
-	);
-	let selectedPlacementDefinition = $derived(
-		selectedPlacementWeapon ? weaponDefinitionById[selectedPlacementWeapon.definitionId] : null
-	);
-	let occupiedLoadoutCells = $derived.by(() => {
-		const occupied: Record<
-			string,
-			{ occupiedByName: string; occupiedRarity: WeaponDefinition['rarity'] }
-		> = {};
-
-		for (const weapon of currentLoadoutRows) {
-			const definition = weaponDefinitionById[weapon.definitionId];
-
-			if (!definition) {
-				continue;
-			}
-
-			for (const [cellX, cellY] of definition.shape.cells) {
-				occupied[`${weapon.x + cellX}:${weapon.y + cellY}`] = {
-					occupiedByName: weapon.name,
-					occupiedRarity: weapon.rarity
-				};
-			}
-		}
-
-		return occupied;
-	});
-	let loadoutGridRows = $derived.by(() => {
-		const selectedDefinition = selectedPlacementDefinition;
-
-		return Array.from({ length: LOADOUT_ROW_COUNT }, (_, y) => {
-			return Array.from({ length: LOADOUT_COLUMN_COUNT }, (_, x) => {
-				const occupiedCell = occupiedLoadoutCells[`${x}:${y}`];
-				const canPlaceSelectedWeapon =
-					!occupiedCell && selectedDefinition
-						? selectedDefinition.shape.cells.every(([cellX, cellY]) => {
-								const gridX = x + cellX;
-								const gridY = y + cellY;
-
-								return (
-									gridX >= 0 &&
-									gridX < LOADOUT_COLUMN_COUNT &&
-									gridY >= 0 &&
-									gridY < LOADOUT_ROW_COUNT &&
-									!occupiedLoadoutCells[`${gridX}:${gridY}`]
-								);
-							})
-						: false;
-
-				return {
-					x,
-					y,
-					occupiedByName: occupiedCell?.occupiedByName ?? null,
-					occupiedRarity: occupiedCell?.occupiedRarity ?? null,
-					canPlaceSelectedWeapon
-				} satisfies LoadoutGridCell;
-			});
-		});
-	});
 	let loadoutSignature = $derived(
 		currentLoadoutRows
 			.map((weapon) => `${weapon.weaponInstanceId}:${weapon.x}:${weapon.y}`)
@@ -375,21 +202,32 @@
 	);
 
 	$effect(() => {
-		data.campaignId;
-		data.gameState?.pixlState;
-		data.campaignState;
+		void data.campaignId;
 
 		pixlStateOverride = null;
 		campaignStateOverride = null;
 		combatOverlayOverride = null;
-		selectedManagementStage = null;
-		selectedPlacementWeaponInstanceId = null;
+		showStatsOverlay = false;
+	});
+
+	$effect(() => {
+		if (form?.purchaseError || form?.purchaseSuccess) {
+			showStatsOverlay = true;
+		}
 	});
 
 	function handleSketchStateChange(update: SketchStateUpdate) {
 		if (livePixlState) {
 			pixlStateOverride = {
-				gold: update.gold,
+				xp: update.xp,
+				level: update.level,
+				perkPoints: update.perkPoints,
+				defence: update.defence,
+				agility: update.agility,
+				health: update.health,
+				attackSpeed: update.attackSpeed,
+				loadoutRows: update.loadoutRows,
+				loadoutColumns: update.loadoutColumns,
 				ownedWeapons: update.ownedWeapons
 			};
 		}
@@ -405,7 +243,7 @@
 
 		combatOverlayOverride = {
 			...combatOverlay,
-			bankedGold: update.gold,
+			bankedXp: update.xp,
 			campaignLevel: update.currentLevel
 		};
 	}
@@ -413,6 +251,41 @@
 	function handleCombatStateChange(update: CombatOverlayState) {
 		combatOverlayOverride = update;
 	}
+
+	const purchaseUpgrade: SubmitFunction = ({ formData }) => {
+		const selectedUpgrade = formData.get('upgrade');
+
+		return async ({ result }) => {
+			showStatsOverlay = true;
+
+			if (result.type === 'success' || result.type === 'failure') {
+				form = result.data as PageProps['form'];
+			}
+
+			if (
+				result.type === 'success' &&
+				typeof selectedUpgrade === 'string' &&
+				isUpgradeKey(selectedUpgrade)
+			) {
+				const nextUpgradeState = applyUpgradePurchase(selectedUpgrade, upgradeState);
+				const ownedWeapons =
+					livePixlState?.ownedWeapons ?? data.gameState?.pixlState?.ownedWeapons ?? [];
+
+				pixlStateOverride = {
+					xp: nextUpgradeState.xp,
+					level: nextUpgradeState.level,
+					perkPoints: nextUpgradeState.perkPoints,
+					defence: nextUpgradeState.defence,
+					agility: nextUpgradeState.agility,
+					health: nextUpgradeState.health,
+					attackSpeed: nextUpgradeState.attackSpeed,
+					loadoutRows: nextUpgradeState.loadoutRows,
+					loadoutColumns: nextUpgradeState.loadoutColumns,
+					ownedWeapons
+				};
+			}
+		};
+	};
 
 	let campaignSketch = $derived.by(() => {
 		return (p: import('p5').default) =>
@@ -442,75 +315,89 @@
 			<div class="utility-bar">
 				<a class="back" href={resolve('/campaigns')}>All campaigns</a>
 				<div class="utility-actions">
+					{#if runMode === 'combat'}
+						<button
+							class="toggle slim-toggle"
+							type="button"
+							onclick={() => (showStatsOverlay = !showStatsOverlay)}
+							aria-pressed={showStatsOverlay}
+						>
+							{showStatsOverlay ? 'Hide stats' : 'Show stats'}
+						</button>
+					{/if}
 					<CampaignRouteNav campaignId={data.campaignId} active="arena" {loadoutTooltip} />
-					<button class="toggle" type="button" onclick={() => (showStats = !showStats)}>
-						{showStats ? 'Hide stats' : 'Show stats'}
-					</button>
 				</div>
 			</div>
 
-			{#if showStats}
-				<aside class="overlay panel stats-panel">
-					<div class="meta-pill stats-meta">
-						<p class="eyebrow">Campaign {data.campaign.campaign}</p>
-						<p>
-							{data.campaign.stages} stages · {data.campaign.totalLevels} levels · {data.campaign
-								.combatProfile}
-						</p>
-					</div>
-
-					<div class="panel-heading">
-						<h2>Command deck</h2>
-						<p class="lede">
-							Move management, stats, and loadout to dedicated routes while the arena stays
-							readable.
-						</p>
-					</div>
-
-					<div class="route-card-grid">
-						<a class="route-card" href={resolve(`/campaigns/${data.campaignId}/management`)}>
-							<span>Management</span>
-							<strong>Stage {combatOverlay.stage}</strong>
-							<p>Pick replay targets and review campaign progression.</p>
-						</a>
-						<a class="route-card" href={resolve(`/campaigns/${data.campaignId}/stats`)}>
-							<span>Stats</span>
-							<strong>{livePixlState?.gold ?? 0} gold banked</strong>
-							<p>Health, attack speed, and upgrades without combat clutter.</p>
-						</a>
-						<a
-							class="route-card"
-							href={resolve(`/campaigns/${data.campaignId}/loadout`)}
-							title={loadoutTooltip}
-						>
-							<span>Loadout</span>
-							<strong>{currentLoadoutRows.length} equipped · {ownedWeapons.length} owned</strong>
-							<p>Hover this route for equipped weapons, or open the full placement grid.</p>
-						</a>
-					</div>
-
-					<div class="stats">
-						<div>
-							<span>Health</span>
-							<strong>{livePixlState?.health ?? data.combatProfile.pixl.health}</strong>
-						</div>
-						<div>
-							<span>Attack speed</span>
-							<strong
-								>{(livePixlState?.attackSpeed ?? data.combatProfile.pixl.attackSpeed).toFixed(
-									1
-								)}/s</strong
-							>
-						</div>
-						<div>
-							<span>Equipped</span>
-							<strong>{currentLoadoutRows.length}</strong>
-						</div>
-					</div>
-				</aside>
-			{/if}
-
 			{#if runMode === 'combat'}
+				{#if showStatsOverlay}
+					<div class="overlay stats-overlay">
+						<div class="stats-overlay-header compact-heading">
+							<p class="eyebrow">Arena stats</p>
+							<p class="upgrade-note">Spend perk points without leaving the arena.</p>
+						</div>
+
+						{#if form?.purchaseError}
+							<p class="feedback error">{form.purchaseError}</p>
+						{:else if form?.purchaseSuccess}
+							<p class="feedback success">{form.purchaseSuccess}</p>
+						{/if}
+
+						<div class="stats-overlay-grid compact-stats">
+							<div class="summary-row">
+								<span>Level</span>
+								<strong>{upgradeState.level}</strong>
+							</div>
+							<div class="summary-row">
+								<span>Perk points</span>
+								<strong>{upgradeState.perkPoints}</strong>
+							</div>
+							<div class="summary-row">
+								<span>XP</span>
+								<strong>{upgradeState.xp}</strong>
+							</div>
+							<div class="summary-row">
+								<span>Health</span>
+								<strong>{upgradeState.health}</strong>
+							</div>
+							<div class="summary-row">
+								<span>Attack speed</span>
+								<strong>{upgradeState.attackSpeed.toFixed(1)}/s</strong>
+							</div>
+							<div class="summary-row">
+								<span>Loadout size</span>
+								<strong>{upgradeState.loadoutRows} x {upgradeState.loadoutColumns}</strong>
+							</div>
+						</div>
+
+						<div class="upgrade-grid overlay-upgrade-grid">
+							{#if data.gameState}
+								{#each overlayUpgradeOptions as option (option.key)}
+									<form
+										class="upgrade-card overlay-upgrade-card"
+										method="post"
+										action="?/purchaseUpgrade"
+										use:enhance={purchaseUpgrade}
+									>
+										<input type="hidden" name="upgrade" value={option.key} />
+										<div class="upgrade-head">
+											<span>{option.label}</span>
+											<strong>Rank {option.level}</strong>
+										</div>
+										<p>{option.description}</p>
+										<small>Allocated {option.level} point{option.level === 1 ? '' : 's'}</small>
+										<button class="purchase" type="submit" disabled={!option.canSpend}>
+											{option.canSpend ? 'Spend perk point' : 'No perk points'}
+										</button>
+									</form>
+								{/each}
+							{:else}
+								<p class="feedback">Sign in to save stats and assign perk points.</p>
+							{/if}
+						</div>
+					</div>
+				{/if}
+
 				<div class="overlay combat-panel">
 					<p class="combat-title">
 						Campaign {data.campaign.campaign} · Stage {combatOverlay.stage} · Level {combatOverlay.stageLevel}
@@ -521,12 +408,12 @@
 							<strong>{combatOverlay.pixlHealth} / {combatOverlay.maxPixlHealth}</strong>
 						</div>
 						<div>
-							<span>Banked gold</span>
-							<strong>{combatOverlay.bankedGold}</strong>
+							<span>Banked xp</span>
+							<strong>{combatOverlay.bankedXp}</strong>
 						</div>
 						<div>
-							<span>Wave gold</span>
-							<strong>{combatOverlay.waveGold}</strong>
+							<span>Wave xp</span>
+							<strong>{combatOverlay.waveXp}</strong>
 						</div>
 						<div>
 							<span>Wave drops</span>
@@ -588,17 +475,14 @@
 		inset: 0;
 		z-index: 3;
 		display: grid;
-		grid-template-columns: minmax(16rem, 24rem) minmax(0, 1fr) minmax(18rem, 26rem);
+		grid-template-columns: minmax(0, 1fr);
 		grid-template-rows: auto minmax(0, 1fr) auto;
 		gap: 1rem;
 		padding: 1rem;
 		pointer-events: none;
 	}
 
-	.panel,
-	.overlay,
-	.meta-pill,
-	.toggle {
+	.overlay {
 		background: rgba(10, 10, 10, 0.92);
 		border: 1px solid rgba(255, 255, 255, 0.08);
 		border-radius: 1.25rem;
@@ -626,6 +510,19 @@
 		gap: 0.75rem;
 	}
 
+	.toggle {
+		min-height: 2.15rem;
+		padding: 0 0.8rem;
+		border-radius: 999px;
+		border: 1px solid rgba(255, 255, 255, 0.14);
+		background: rgba(10, 10, 10, 0.84);
+		color: #f5f5f5;
+		font: inherit;
+		font-size: 0.86rem;
+		font-weight: 600;
+		cursor: pointer;
+	}
+
 	.utility-bar {
 		grid-column: 1 / -1;
 		grid-row: 1;
@@ -633,25 +530,8 @@
 		pointer-events: auto;
 	}
 
-	.toggle,
 	.meta-pill {
 		padding: 0.55rem 0.75rem;
-	}
-
-	.toggle {
-		color: #f5f5f5;
-		font: inherit;
-		font-size: 0.82rem;
-		font-weight: 500;
-		line-height: 1;
-		cursor: pointer;
-	}
-
-	.meta-pill {
-		display: grid;
-		gap: 0.2rem;
-		padding-inline: 0.9rem;
-		text-align: left;
 	}
 
 	.eyebrow,
@@ -662,7 +542,6 @@
 	}
 
 	.eyebrow,
-	.stats span,
 	.combat-grid span {
 		font-size: 0.74rem;
 		font-weight: 700;
@@ -671,26 +550,9 @@
 		color: #9d9d9d;
 	}
 
-	.lede,
 	.upgrade-note,
 	.upgrade-level {
 		color: #c4c4c4;
-	}
-
-	h2 {
-		margin: 0;
-		font-size: 1rem;
-	}
-
-	.panel {
-		display: grid;
-		padding: 0.9rem;
-		gap: 0.9rem;
-	}
-
-	.panel-heading {
-		display: grid;
-		gap: 0.35rem;
 	}
 
 	.overlay {
@@ -701,40 +563,11 @@
 		pointer-events: auto;
 	}
 
-	.stats-panel {
-		grid-column: 1;
-		grid-row: 2 / span 2;
-		align-self: start;
-		width: 100%;
-	}
-
-	.stats-meta {
-		margin-bottom: 0.15rem;
-	}
-
 	.shop-panel {
 		grid-column: 3;
 		grid-row: 2 / span 2;
 		align-self: start;
 		width: 100%;
-	}
-
-	.stats {
-		display: grid;
-		gap: 0.85rem;
-	}
-
-	.stats div {
-		padding: 0.9rem 1rem;
-		border-radius: 1rem;
-		border: 1px solid rgba(255, 255, 255, 0.08);
-		background: rgba(255, 255, 255, 0.03);
-		display: grid;
-		gap: 0.35rem;
-	}
-
-	.stats strong {
-		font-size: 1.15rem;
 	}
 
 	.feedback {
@@ -773,30 +606,6 @@
 		gap: 0.65rem;
 	}
 
-	.route-card-grid {
-		display: grid;
-		gap: 0.65rem;
-	}
-
-	.side-route-grid {
-		grid-template-columns: 1fr;
-	}
-
-	.route-card {
-		padding: 0.85rem 0.9rem;
-		border-radius: 1rem;
-		border: 1px solid rgba(255, 255, 255, 0.08);
-		background: rgba(255, 255, 255, 0.03);
-		display: grid;
-		gap: 0.3rem;
-		text-decoration: none;
-		color: #f5f5f5;
-	}
-
-	.route-card p {
-		color: #c4c4c4;
-	}
-
 	.stage-card,
 	.summary-row,
 	.stage-detail {
@@ -819,11 +628,6 @@
 	.stage-card.active {
 		border-color: rgba(103, 217, 111, 0.42);
 		background: rgba(103, 217, 111, 0.08);
-	}
-
-	.toggle.active {
-		border-color: rgba(103, 217, 111, 0.42);
-		background: rgba(103, 217, 111, 0.12);
 	}
 
 	.summary-list {
@@ -904,8 +708,39 @@
 		cursor: not-allowed;
 	}
 
+	.stats-overlay {
+		grid-column: 1;
+		grid-row: 2;
+		justify-self: end;
+		align-self: start;
+		width: min(22rem, 100%);
+		padding: 0.9rem;
+		display: grid;
+		gap: 0.75rem;
+	}
+
+	.stats-overlay-header {
+		display: grid;
+		gap: 0.2rem;
+	}
+
+	.stats-overlay-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.55rem;
+	}
+
+	.overlay-upgrade-grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	.overlay-upgrade-card {
+		gap: 0.4rem;
+		padding: 0.8rem;
+	}
+
 	.combat-panel {
-		grid-column: 2;
+		grid-column: 1;
 		grid-row: 3;
 		justify-self: center;
 		align-self: end;
@@ -955,18 +790,19 @@
 	}
 
 	.status-overlay {
-		grid-column: 2;
+		grid-column: 1;
 		grid-row: 2;
 		justify-self: center;
 		align-self: start;
 		margin-top: 0.25rem;
 		padding: 0.5rem 0.95rem;
 		border-radius: 999px;
-		width: 100%;
+		width: fit-content;
+		max-width: min(42rem, 100%);
 		cursor: pointer;
 		font: inherit;
 		color: #f5f5f5;
-		text-align: left;
+		text-align: center;
 		background: rgba(0, 0, 0, 0.78);
 		font-size: 0.82rem;
 		font-weight: 700;
@@ -1096,14 +932,17 @@
 
 		.stats-panel,
 		.shop-panel,
+		.stats-overlay,
 		.combat-panel {
 			grid-column: 1;
 			width: 100%;
 			max-height: none;
 		}
 
-		.stats-panel {
+		.stats-panel,
+		.stats-overlay {
 			grid-row: 2;
+			justify-self: stretch;
 		}
 
 		.combat-panel {
@@ -1117,6 +956,11 @@
 
 		.combat-grid {
 			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+
+		.stats-overlay-grid,
+		.overlay-upgrade-grid {
+			grid-template-columns: 1fr;
 		}
 
 		.stage-grid {

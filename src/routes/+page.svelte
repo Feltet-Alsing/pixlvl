@@ -47,8 +47,8 @@
 					<strong>{persistedPixlState?.loadoutPlacements.length ?? 1}</strong>
 				</div>
 				<div class="stat-tile">
-					<span>{persistedPixlState ? 'Gold' : 'Campaigns'}</span>
-					<strong>{persistedPixlState ? persistedPixlState.gold : campaignCount}</strong>
+					<span>{persistedPixlState ? 'Level' : 'Campaigns'}</span>
+					<strong>{persistedPixlState ? persistedPixlState.level : campaignCount}</strong>
 				</div>
 			</div>
 

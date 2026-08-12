@@ -59,7 +59,7 @@ function getCanvasSize(canvas: HTMLCanvasElement | null) {
 }
 
 interface PixlIntroSketchOptions {
-	pixlState?: Pick<PersistedPixlState, 'gold' | 'health' | 'attackSpeed'> | null; // Removing damage from pixlState
+	pixlState?: Pick<PersistedPixlState, 'xp' | 'health' | 'attackSpeed'> | null;
 }
 
 export function createPixlIntroSketch(options: PixlIntroSketchOptions = {}) {
@@ -67,7 +67,7 @@ export function createPixlIntroSketch(options: PixlIntroSketchOptions = {}) {
 		const pixlStats = {
 			health: options.pixlState?.health ?? baselineCombatProfile.pixl.health,
 			attackSpeed: options.pixlState?.attackSpeed ?? baselineCombatProfile.pixl.attackSpeed,
-			gold: options.pixlState?.gold ?? 0
+			xp: options.pixlState?.xp ?? 0
 		};
 
 		let canvas: HTMLCanvasElement | null = null;
@@ -75,7 +75,7 @@ export function createPixlIntroSketch(options: PixlIntroSketchOptions = {}) {
 		let centerY = 0;
 		let arenaRadius = 0;
 		let health = pixlStats.health;
-		let bankedGold = pixlStats.gold;
+		let bankedXp = pixlStats.xp;
 		let flashTimer = 0;
 		let shotAccumulator = 0;
 		let spawnAccumulator = 0;
@@ -242,7 +242,7 @@ export function createPixlIntroSketch(options: PixlIntroSketchOptions = {}) {
 					projectiles.splice(index, 1);
 
 					if (enemy.health <= 0) {
-						bankedGold += enemy.kind === 'biter' ? 2 : enemy.kind === 'swarmer' ? 3 : 6;
+						bankedXp += enemy.kind === 'biter' ? 2 : enemy.kind === 'swarmer' ? 3 : 6;
 						enemies.splice(hitEnemyIndex, 1);
 					}
 
@@ -335,7 +335,7 @@ export function createPixlIntroSketch(options: PixlIntroSketchOptions = {}) {
 			p.fill(160);
 			p.text(`HP ${Math.ceil(health)} / ${pixlStats.health}`, 18, 38);
 			p.text(`AS ${pixlStats.attackSpeed.toFixed(1)} /s`, 18, 56);
-			p.text(`GOLD ${bankedGold}`, 18, 74);
+			p.text(`XP ${bankedXp}`, 18, 74);
 			p.text(`WAVE ${waveId}`, 18, 92);
 
 			p.fill(255, 52, 52);

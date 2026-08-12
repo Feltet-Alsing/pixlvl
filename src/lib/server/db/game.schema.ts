@@ -19,11 +19,15 @@ export const pixlState = pgTable('pixl_state', {
 	userId: text('user_id')
 		.primaryKey()
 		.references(() => user.id, { onDelete: 'cascade' }),
-	gold: integer('gold').notNull().default(0),
+	xp: integer('xp').notNull().default(0),
+	level: integer('level').notNull().default(1),
+	perkPoints: integer('perk_points').notNull().default(0),
+	defence: integer('defence').notNull().default(0),
+	agility: integer('agility').notNull().default(0),
 	health: integer('health').notNull(),
 	attackSpeed: real('attack_speed').notNull(),
-	healthUpgrades: integer('health_upgrades').notNull().default(0),
-	attackSpeedUpgrades: integer('attack_speed_upgrades').notNull().default(0),
+	loadoutRows: integer('loadout_rows').notNull().default(3),
+	loadoutColumns: integer('loadout_columns').notNull().default(6),
 	ownedWeapons: jsonb('owned_weapons')
 		.$type<OwnedWeaponInstance[]>()
 		.notNull()

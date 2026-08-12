@@ -1,6 +1,7 @@
 import { and, eq, type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
 
 import { baselineCombatProfile, campaigns, getCampaign, starterWeaponId } from '$lib/data';
+import { createBaselineUpgradeablePixlState, createUpgradeablePixlState } from '$lib/game/upgrades';
 import { db } from '$lib/server/db';
 import { campaignProgress, pixlState } from '$lib/server/db/schema';
 
@@ -16,16 +17,7 @@ export interface GameState {
 
 export interface GameStatePatch {
 	pixlState?: Partial<
-		Pick<
-			PersistedPixlState,
-			| 'gold'
-			| 'health'
-			| 'attackSpeed'
-			| 'healthUpgrades'
-			| 'attackSpeedUpgrades'
-			| 'ownedWeapons'
-			| 'loadoutPlacements'
-		>
+		Pick<PersistedPixlState, 'xp' | 'defence' | 'agility' | 'ownedWeapons' | 'loadoutPlacements'>
 	>;
 	campaignProgress?: Array<
 		Partial<
@@ -107,13 +99,19 @@ function normalizeLoadoutPlacements(
 }
 
 function createDefaultPixlState(userId: string): InferInsertModel<typeof pixlState> {
+	const baselineState = createBaselineUpgradeablePixlState();
+
 	return {
 		userId,
-		gold: 0,
-		health: baselineCombatProfile.pixl.health,
-		attackSpeed: baselineCombatProfile.pixl.attackSpeed,
-		healthUpgrades: 0,
-		attackSpeedUpgrades: 0,
+		xp: baselineState.xp,
+		level: baselineState.level,
+		perkPoints: baselineState.perkPoints,
+		defence: baselineState.defence,
+		agility: baselineState.agility,
+		health: baselineState.health,
+		attackSpeed: baselineState.attackSpeed,
+		loadoutRows: baselineState.loadoutRows,
+		loadoutColumns: baselineState.loadoutColumns,
 		ownedWeapons: createStarterOwnedWeapons(),
 		loadoutPlacements: createStarterLoadoutPlacements()
 	};
@@ -192,13 +190,37 @@ async function ensureGameState(userId: string) {
 		normalizedOwnedWeapons
 	);
 
+	const normalizedProgression = createUpgradeablePixlState({
+		xp: storedPixlState.xp,
+		defence: storedPixlState.defence,
+		agility: storedPixlState.agility
+	});
+
 	if (
+		normalizedProgression.xp !== storedPixlState.xp ||
+		normalizedProgression.level !== storedPixlState.level ||
+		normalizedProgression.perkPoints !== storedPixlState.perkPoints ||
+		normalizedProgression.defence !== storedPixlState.defence ||
+		normalizedProgression.agility !== storedPixlState.agility ||
+		normalizedProgression.health !== storedPixlState.health ||
+		normalizedProgression.attackSpeed !== storedPixlState.attackSpeed ||
+		normalizedProgression.loadoutRows !== storedPixlState.loadoutRows ||
+		normalizedProgression.loadoutColumns !== storedPixlState.loadoutColumns ||
 		normalizedOwnedWeapons !== storedPixlState.ownedWeapons ||
 		normalizedLoadoutPlacements !== storedPixlState.loadoutPlacements
 	) {
 		await db
 			.update(pixlState)
 			.set({
+				xp: normalizedProgression.xp,
+				level: normalizedProgression.level,
+				perkPoints: normalizedProgression.perkPoints,
+				defence: normalizedProgression.defence,
+				agility: normalizedProgression.agility,
+				health: normalizedProgression.health,
+				attackSpeed: normalizedProgression.attackSpeed,
+				loadoutRows: normalizedProgression.loadoutRows,
+				loadoutColumns: normalizedProgression.loadoutColumns,
 				ownedWeapons: normalizedOwnedWeapons,
 				loadoutPlacements: normalizedLoadoutPlacements,
 				updatedAt: new Date()
@@ -240,11 +262,10 @@ export async function updateGameState(userId: string, patch: GameStatePatch): Pr
 	if (patch.pixlState) {
 		const nextPixlState: Partial<InferInsertModel<typeof pixlState>> = {};
 
-		const gold = toNonNegativeInteger(patch.pixlState.gold);
-		const health = toPositiveInteger(patch.pixlState.health);
-		const attackSpeed = toFiniteNumber(patch.pixlState.attackSpeed);
-		const healthUpgrades = toNonNegativeInteger(patch.pixlState.healthUpgrades);
-		const attackSpeedUpgrades = toNonNegativeInteger(patch.pixlState.attackSpeedUpgrades);
+		const xp = toNonNegativeInteger(patch.pixlState.xp) ?? storedPixlState.xp;
+		const defence = toNonNegativeInteger(patch.pixlState.defence) ?? storedPixlState.defence;
+		const agility = toNonNegativeInteger(patch.pixlState.agility) ?? storedPixlState.agility;
+		const normalizedProgression = createUpgradeablePixlState({ xp, defence, agility });
 		const ownedWeapons = Array.isArray(patch.pixlState.ownedWeapons)
 			? normalizeOwnedWeapons(patch.pixlState.ownedWeapons)
 			: undefined;
@@ -255,11 +276,15 @@ export async function updateGameState(userId: string, patch: GameStatePatch): Pr
 				)
 			: undefined;
 
-		if (gold !== undefined) nextPixlState.gold = gold;
-		if (health !== undefined) nextPixlState.health = health;
-		if (attackSpeed !== undefined && attackSpeed > 0) nextPixlState.attackSpeed = attackSpeed;
-		if (healthUpgrades !== undefined) nextPixlState.healthUpgrades = healthUpgrades;
-		if (attackSpeedUpgrades !== undefined) nextPixlState.attackSpeedUpgrades = attackSpeedUpgrades;
+		nextPixlState.xp = normalizedProgression.xp;
+		nextPixlState.level = normalizedProgression.level;
+		nextPixlState.perkPoints = normalizedProgression.perkPoints;
+		nextPixlState.defence = normalizedProgression.defence;
+		nextPixlState.agility = normalizedProgression.agility;
+		nextPixlState.health = normalizedProgression.health;
+		nextPixlState.attackSpeed = normalizedProgression.attackSpeed;
+		nextPixlState.loadoutRows = normalizedProgression.loadoutRows;
+		nextPixlState.loadoutColumns = normalizedProgression.loadoutColumns;
 		if (ownedWeapons !== undefined) nextPixlState.ownedWeapons = ownedWeapons;
 		if (loadoutPlacements !== undefined) nextPixlState.loadoutPlacements = loadoutPlacements;
 
@@ -326,11 +351,15 @@ export async function resetGameStateForUser(userId: string): Promise<GameState> 
 	await db
 		.update(pixlState)
 		.set({
-			gold: defaultPixlState.gold,
+			xp: defaultPixlState.xp,
+			level: defaultPixlState.level,
+			perkPoints: defaultPixlState.perkPoints,
+			defence: defaultPixlState.defence,
+			agility: defaultPixlState.agility,
 			health: defaultPixlState.health,
 			attackSpeed: defaultPixlState.attackSpeed,
-			healthUpgrades: defaultPixlState.healthUpgrades,
-			attackSpeedUpgrades: defaultPixlState.attackSpeedUpgrades,
+			loadoutRows: defaultPixlState.loadoutRows,
+			loadoutColumns: defaultPixlState.loadoutColumns,
 			ownedWeapons: defaultPixlState.ownedWeapons,
 			loadoutPlacements: defaultPixlState.loadoutPlacements,
 			updatedAt: new Date()

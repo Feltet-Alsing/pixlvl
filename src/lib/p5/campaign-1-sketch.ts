@@ -6,6 +6,7 @@ import {
 	getCampaignWeaponPool,
 	getWeaponDefinition
 } from '$lib/data';
+import { applyXpGain, createUpgradeablePixlState } from '$lib/game/upgrades';
 import type {
 	CampaignDefinition,
 	CampaignLevel,
@@ -106,7 +107,7 @@ interface CampaignSketchOptions {
 	showLoadoutSketch?: boolean;
 	pixlState?: Pick<
 		PersistedPixlState,
-		'gold' | 'health' | 'attackSpeed' | 'ownedWeapons' | 'loadoutPlacements' // Removing damage from pixlState
+		'xp' | 'defence' | 'agility' | 'ownedWeapons' | 'loadoutPlacements'
 	> | null;
 	campaignState?: Pick<
 		PersistedCampaignProgress,
@@ -118,8 +119,8 @@ interface CampaignSketchOptions {
 		campaignLevel: number;
 		pixlHealth: number;
 		maxPixlHealth: number;
-		bankedGold: number;
-		waveGold: number;
+		bankedXp: number;
+		waveXp: number;
 		waveDrops: number;
 		remainingEnemies: number;
 		composition: {
@@ -130,7 +131,15 @@ interface CampaignSketchOptions {
 		status: WaveStatus;
 	}) => void;
 	onStateChange?: (state: {
-		gold: number;
+		xp: number;
+		level: number;
+		perkPoints: number;
+		defence: number;
+		agility: number;
+		health: number;
+		attackSpeed: number;
+		loadoutRows: number;
+		loadoutColumns: number;
 		ownedWeapons: OwnedWeaponInstance[];
 		currentLevel: number;
 		highestUnlockedLevel: number;
@@ -244,10 +253,11 @@ export function createCampaignSketch(
 		const weaponPool = getCampaignWeaponPool(campaign.campaign);
 		const runMode = options.runMode ?? 'combat';
 		const showLoadoutSketch = options.showLoadoutSketch ?? true;
-		const pixlStats = {
-			health: options.pixlState?.health ?? combatProfile.pixl.health,
-			attackSpeed: options.pixlState?.attackSpeed ?? combatProfile.pixl.attackSpeed
-		};
+		let pixlProgression = createUpgradeablePixlState({
+			xp: options.pixlState?.xp ?? 0,
+			defence: options.pixlState?.defence ?? 0,
+			agility: options.pixlState?.agility ?? 0
+		});
 		const equippedWeapons = buildEquippedWeapons(
 			options.pixlState?.ownedWeapons,
 			options.pixlState?.loadoutPlacements
@@ -269,11 +279,11 @@ export function createCampaignSketch(
 		let statusTimer = 0;
 		let spawnAccumulator = 0;
 		let sweepProgress = 0;
-		let bankedGold = options.pixlState?.gold ?? 0;
+		let bankedXp = pixlProgression.xp;
 		let ownedWeapons = [...(options.pixlState?.ownedWeapons ?? [])];
-		let waveGold = 0;
+		let waveXp = 0;
 		let waveDrops: OwnedWeaponInstance[] = [];
-		let pixlHealth = pixlStats.health;
+		let pixlHealth = pixlProgression.health;
 		let pixlFlash = 0;
 		let enemyId = 0;
 		let spawnQueue: GlitchKind[] = [];
@@ -289,7 +299,15 @@ export function createCampaignSketch(
 
 		const persistProgress = (nextCurrentLevel: number) => {
 			options.onStateChange?.({
-				gold: bankedGold,
+				xp: pixlProgression.xp,
+				level: pixlProgression.level,
+				perkPoints: pixlProgression.perkPoints,
+				defence: pixlProgression.defence,
+				agility: pixlProgression.agility,
+				health: pixlProgression.health,
+				attackSpeed: pixlProgression.attackSpeed,
+				loadoutRows: pixlProgression.loadoutRows,
+				loadoutColumns: pixlProgression.loadoutColumns,
 				ownedWeapons,
 				currentLevel: nextCurrentLevel,
 				highestUnlockedLevel,
@@ -308,9 +326,9 @@ export function createCampaignSketch(
 				},
 				body: JSON.stringify({
 					pixlState: {
-						gold: bankedGold,
-						health: pixlStats.health,
-						attackSpeed: pixlStats.attackSpeed,
+						xp: pixlProgression.xp,
+						defence: pixlProgression.defence,
+						agility: pixlProgression.agility,
 						ownedWeapons
 					},
 					campaignProgress: [
@@ -366,9 +384,9 @@ export function createCampaignSketch(
 				stageLevel: currentLevel.stageLevel,
 				campaignLevel: currentLevel.campaignLevel,
 				pixlHealth: Math.ceil(pixlHealth),
-				maxPixlHealth: pixlStats.health,
-				bankedGold,
-				waveGold,
+				maxPixlHealth: pixlProgression.health,
+				bankedXp,
+				waveXp,
 				waveDrops: waveDrops.length,
 				remainingEnemies: enemies.length + spawnQueue.length,
 				composition: {
@@ -427,9 +445,9 @@ export function createCampaignSketch(
 			statusTimer = 0;
 			spawnAccumulator = 0;
 			sweepProgress = 0;
-			waveGold = 0;
+			waveXp = 0;
 			waveDrops = [];
-			pixlHealth = pixlStats.health;
+			pixlHealth = pixlProgression.health;
 			pixlFlash = 0;
 			enemyId = 0;
 			enemies = [];
@@ -589,7 +607,7 @@ export function createCampaignSketch(
 				return;
 			}
 
-			let remainingColumns = dt * pixlStats.attackSpeed * LOADOUT_COLUMN_COUNT;
+			let remainingColumns = dt * pixlProgression.attackSpeed * LOADOUT_COLUMN_COUNT;
 
 			while (remainingColumns > 0) {
 				const distanceToEnd = LOADOUT_COLUMN_COUNT - sweepProgress;
@@ -685,7 +703,7 @@ export function createCampaignSketch(
 					projectiles.splice(index, 1);
 
 					if (enemy.health <= 0) {
-						waveGold += currentLevel.goldPerEnemy[enemy.kind];
+						waveXp += currentLevel.xpPerEnemy[enemy.kind];
 						const droppedWeapon = rollWeaponDrop();
 
 						if (droppedWeapon) {
@@ -867,7 +885,8 @@ export function createCampaignSketch(
 					if (status === 'defeated') {
 						startLevel(currentLevelIndex);
 					} else {
-						bankedGold += waveGold;
+						pixlProgression = applyXpGain(pixlProgression, waveXp);
+						bankedXp = pixlProgression.xp;
 						if (waveDrops.length > 0) {
 							ownedWeapons = [...ownedWeapons, ...waveDrops];
 						}

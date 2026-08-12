@@ -6,7 +6,9 @@
   "combatProfile": "baseline-v1",
   "baseline": {
     "startingEnemies": 5,
-    "enemyIncreasePerLevel": 1,
+    "stageEnemyIncrease": 10,
+    "stageLevelBonusScale": 4,
+    "stageLevelGrowthFactor": 1.17,
     "spawnRatePerSecond": 1,
     "tutorialLevels": [
       1,
@@ -21,7 +23,11 @@
         "biters": "totalEnemies - swarmers - tankers"
       }
     },
-    "goldDropRules": {
+    "bossEnemyMultipliers": {
+      "stage": 1.25,
+      "campaign": 1.4
+    },
+    "xpDropRules": {
       "biter": "stage + 1",
       "swarmer": "stage + 2",
       "tanker": "stage + 5"
@@ -41,13 +47,13 @@
         "swarmers": 0,
         "tankers": 0
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 2,
         "swarmer": 3,
         "tanker": 6
       },
-      "totalGoldReward": 10,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 10
     },
     {
       "campaign": 1,
@@ -62,13 +68,13 @@
         "swarmers": 0,
         "tankers": 0
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 2,
         "swarmer": 3,
         "tanker": 6
       },
-      "totalGoldReward": 12,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 12
     },
     {
       "campaign": 1,
@@ -77,19 +83,19 @@
       "campaignLevel": 3,
       "isStageBoss": false,
       "isCampaignBoss": false,
-      "totalEnemies": 7,
+      "totalEnemies": 6,
       "composition": {
-        "biters": 7,
+        "biters": 6,
         "swarmers": 0,
         "tankers": 0
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 2,
         "swarmer": 3,
         "tanker": 6
       },
-      "totalGoldReward": 14,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 12
     },
     {
       "campaign": 1,
@@ -98,19 +104,19 @@
       "campaignLevel": 4,
       "isStageBoss": false,
       "isCampaignBoss": false,
-      "totalEnemies": 8,
+      "totalEnemies": 7,
       "composition": {
         "biters": 5,
         "swarmers": 2,
-        "tankers": 1
+        "tankers": 0
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 2,
         "swarmer": 3,
         "tanker": 6
       },
-      "totalGoldReward": 22,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 16
     },
     {
       "campaign": 1,
@@ -119,19 +125,19 @@
       "campaignLevel": 5,
       "isStageBoss": false,
       "isCampaignBoss": false,
-      "totalEnemies": 9,
+      "totalEnemies": 8,
       "composition": {
         "biters": 5,
-        "swarmers": 3,
+        "swarmers": 2,
         "tankers": 1
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 2,
         "swarmer": 3,
         "tanker": 6
       },
-      "totalGoldReward": 25,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 22
     },
     {
       "campaign": 1,
@@ -146,13 +152,13 @@
         "swarmers": 3,
         "tankers": 1
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 2,
         "swarmer": 3,
         "tanker": 6
       },
-      "totalGoldReward": 27,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 27
     },
     {
       "campaign": 1,
@@ -167,13 +173,13 @@
         "swarmers": 3,
         "tankers": 1
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 2,
         "swarmer": 3,
         "tanker": 6
       },
-      "totalGoldReward": 29,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 29
     },
     {
       "campaign": 1,
@@ -182,19 +188,19 @@
       "campaignLevel": 8,
       "isStageBoss": false,
       "isCampaignBoss": false,
-      "totalEnemies": 12,
+      "totalEnemies": 13,
       "composition": {
-        "biters": 7,
+        "biters": 8,
         "swarmers": 4,
         "tankers": 1
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 2,
         "swarmer": 3,
         "tanker": 6
       },
-      "totalGoldReward": 32,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 34
     },
     {
       "campaign": 1,
@@ -203,19 +209,19 @@
       "campaignLevel": 9,
       "isStageBoss": false,
       "isCampaignBoss": false,
-      "totalEnemies": 13,
+      "totalEnemies": 15,
       "composition": {
-        "biters": 8,
-        "swarmers": 4,
+        "biters": 9,
+        "swarmers": 5,
         "tankers": 1
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 2,
         "swarmer": 3,
         "tanker": 6
       },
-      "totalGoldReward": 34,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 39
     },
     {
       "campaign": 1,
@@ -224,19 +230,19 @@
       "campaignLevel": 10,
       "isStageBoss": true,
       "isCampaignBoss": false,
-      "totalEnemies": 14,
+      "totalEnemies": 21,
       "composition": {
-        "biters": 9,
-        "swarmers": 4,
-        "tankers": 1
+        "biters": 12,
+        "swarmers": 7,
+        "tankers": 2
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 2,
         "swarmer": 3,
         "tanker": 6
       },
-      "totalGoldReward": 36,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 57
     },
     {
       "campaign": 1,
@@ -251,13 +257,13 @@
         "swarmers": 5,
         "tankers": 1
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 3,
         "swarmer": 4,
         "tanker": 7
       },
-      "totalGoldReward": 54,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 54
     },
     {
       "campaign": 1,
@@ -272,13 +278,13 @@
         "swarmers": 5,
         "tankers": 2
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 3,
         "swarmer": 4,
         "tanker": 7
       },
-      "totalGoldReward": 61,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 61
     },
     {
       "campaign": 1,
@@ -287,19 +293,19 @@
       "campaignLevel": 13,
       "isStageBoss": false,
       "isCampaignBoss": false,
-      "totalEnemies": 17,
+      "totalEnemies": 16,
       "composition": {
-        "biters": 10,
+        "biters": 9,
         "swarmers": 5,
         "tankers": 2
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 3,
         "swarmer": 4,
         "tanker": 7
       },
-      "totalGoldReward": 64,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 61
     },
     {
       "campaign": 1,
@@ -308,19 +314,19 @@
       "campaignLevel": 14,
       "isStageBoss": false,
       "isCampaignBoss": false,
-      "totalEnemies": 18,
+      "totalEnemies": 17,
       "composition": {
         "biters": 10,
-        "swarmers": 6,
+        "swarmers": 5,
         "tankers": 2
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 3,
         "swarmer": 4,
         "tanker": 7
       },
-      "totalGoldReward": 68,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 64
     },
     {
       "campaign": 1,
@@ -329,19 +335,19 @@
       "campaignLevel": 15,
       "isStageBoss": false,
       "isCampaignBoss": false,
-      "totalEnemies": 19,
+      "totalEnemies": 18,
       "composition": {
-        "biters": 11,
+        "biters": 10,
         "swarmers": 6,
         "tankers": 2
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 3,
         "swarmer": 4,
         "tanker": 7
       },
-      "totalGoldReward": 71,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 68
     },
     {
       "campaign": 1,
@@ -356,13 +362,13 @@
         "swarmers": 6,
         "tankers": 2
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 3,
         "swarmer": 4,
         "tanker": 7
       },
-      "totalGoldReward": 74,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 74
     },
     {
       "campaign": 1,
@@ -377,13 +383,13 @@
         "swarmers": 7,
         "tankers": 2
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 3,
         "swarmer": 4,
         "tanker": 7
       },
-      "totalGoldReward": 78,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 78
     },
     {
       "campaign": 1,
@@ -392,19 +398,19 @@
       "campaignLevel": 18,
       "isStageBoss": false,
       "isCampaignBoss": false,
-      "totalEnemies": 22,
+      "totalEnemies": 23,
       "composition": {
-        "biters": 13,
+        "biters": 14,
         "swarmers": 7,
         "tankers": 2
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 3,
         "swarmer": 4,
         "tanker": 7
       },
-      "totalGoldReward": 81,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 84
     },
     {
       "campaign": 1,
@@ -413,19 +419,19 @@
       "campaignLevel": 19,
       "isStageBoss": false,
       "isCampaignBoss": false,
-      "totalEnemies": 23,
+      "totalEnemies": 25,
       "composition": {
         "biters": 14,
-        "swarmers": 7,
-        "tankers": 2
+        "swarmers": 8,
+        "tankers": 3
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 3,
         "swarmer": 4,
         "tanker": 7
       },
-      "totalGoldReward": 84,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 95
     },
     {
       "campaign": 1,
@@ -434,19 +440,19 @@
       "campaignLevel": 20,
       "isStageBoss": true,
       "isCampaignBoss": false,
-      "totalEnemies": 24,
+      "totalEnemies": 34,
       "composition": {
-        "biters": 13,
-        "swarmers": 8,
-        "tankers": 3
+        "biters": 19,
+        "swarmers": 11,
+        "tankers": 4
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 3,
         "swarmer": 4,
         "tanker": 7
       },
-      "totalGoldReward": 92,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 129
     },
     {
       "campaign": 1,
@@ -461,13 +467,13 @@
         "swarmers": 8,
         "tankers": 3
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 4,
         "swarmer": 5,
         "tanker": 8
       },
-      "totalGoldReward": 120,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 120
     },
     {
       "campaign": 1,
@@ -482,13 +488,13 @@
         "swarmers": 8,
         "tankers": 3
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 4,
         "swarmer": 5,
         "tanker": 8
       },
-      "totalGoldReward": 124,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 124
     },
     {
       "campaign": 1,
@@ -497,19 +503,19 @@
       "campaignLevel": 23,
       "isStageBoss": false,
       "isCampaignBoss": false,
-      "totalEnemies": 27,
+      "totalEnemies": 26,
       "composition": {
         "biters": 15,
-        "swarmers": 9,
+        "swarmers": 8,
         "tankers": 3
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 4,
         "swarmer": 5,
         "tanker": 8
       },
-      "totalGoldReward": 129,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 124
     },
     {
       "campaign": 1,
@@ -518,19 +524,19 @@
       "campaignLevel": 24,
       "isStageBoss": false,
       "isCampaignBoss": false,
-      "totalEnemies": 28,
+      "totalEnemies": 27,
       "composition": {
-        "biters": 16,
+        "biters": 15,
         "swarmers": 9,
         "tankers": 3
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 4,
         "swarmer": 5,
         "tanker": 8
       },
-      "totalGoldReward": 133,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 129
     },
     {
       "campaign": 1,
@@ -539,19 +545,19 @@
       "campaignLevel": 25,
       "isStageBoss": false,
       "isCampaignBoss": false,
-      "totalEnemies": 29,
+      "totalEnemies": 28,
       "composition": {
-        "biters": 17,
+        "biters": 16,
         "swarmers": 9,
         "tankers": 3
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 4,
         "swarmer": 5,
         "tanker": 8
       },
-      "totalGoldReward": 137,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 133
     },
     {
       "campaign": 1,
@@ -566,13 +572,13 @@
         "swarmers": 10,
         "tankers": 3
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 4,
         "swarmer": 5,
         "tanker": 8
       },
-      "totalGoldReward": 142,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 142
     },
     {
       "campaign": 1,
@@ -587,13 +593,13 @@
         "swarmers": 10,
         "tankers": 3
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 4,
         "swarmer": 5,
         "tanker": 8
       },
-      "totalGoldReward": 146,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 146
     },
     {
       "campaign": 1,
@@ -602,19 +608,19 @@
       "campaignLevel": 28,
       "isStageBoss": false,
       "isCampaignBoss": false,
-      "totalEnemies": 32,
+      "totalEnemies": 33,
       "composition": {
         "biters": 18,
-        "swarmers": 10,
+        "swarmers": 11,
         "tankers": 4
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 4,
         "swarmer": 5,
         "tanker": 8
       },
-      "totalGoldReward": 154,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 159
     },
     {
       "campaign": 1,
@@ -623,19 +629,19 @@
       "campaignLevel": 29,
       "isStageBoss": false,
       "isCampaignBoss": false,
-      "totalEnemies": 33,
+      "totalEnemies": 35,
       "composition": {
-        "biters": 18,
+        "biters": 20,
         "swarmers": 11,
         "tankers": 4
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 4,
         "swarmer": 5,
         "tanker": 8
       },
-      "totalGoldReward": 159,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 167
     },
     {
       "campaign": 1,
@@ -644,19 +650,19 @@
       "campaignLevel": 30,
       "isStageBoss": true,
       "isCampaignBoss": false,
-      "totalEnemies": 34,
+      "totalEnemies": 46,
       "composition": {
-        "biters": 19,
-        "swarmers": 11,
-        "tankers": 4
+        "biters": 26,
+        "swarmers": 15,
+        "tankers": 5
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 4,
         "swarmer": 5,
         "tanker": 8
       },
-      "totalGoldReward": 163,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 219
     },
     {
       "campaign": 1,
@@ -671,13 +677,13 @@
         "swarmers": 11,
         "tankers": 4
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 5,
         "swarmer": 6,
         "tanker": 9
       },
-      "totalGoldReward": 202,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 202
     },
     {
       "campaign": 1,
@@ -692,13 +698,13 @@
         "swarmers": 12,
         "tankers": 4
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 5,
         "swarmer": 6,
         "tanker": 9
       },
-      "totalGoldReward": 208,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 208
     },
     {
       "campaign": 1,
@@ -707,19 +713,19 @@
       "campaignLevel": 33,
       "isStageBoss": false,
       "isCampaignBoss": false,
-      "totalEnemies": 37,
+      "totalEnemies": 36,
       "composition": {
-        "biters": 21,
+        "biters": 20,
         "swarmers": 12,
         "tankers": 4
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 5,
         "swarmer": 6,
         "tanker": 9
       },
-      "totalGoldReward": 213,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 208
     },
     {
       "campaign": 1,
@@ -728,19 +734,19 @@
       "campaignLevel": 34,
       "isStageBoss": false,
       "isCampaignBoss": false,
-      "totalEnemies": 38,
+      "totalEnemies": 37,
       "composition": {
-        "biters": 22,
+        "biters": 21,
         "swarmers": 12,
         "tankers": 4
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 5,
         "swarmer": 6,
         "tanker": 9
       },
-      "totalGoldReward": 218,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 213
     },
     {
       "campaign": 1,
@@ -749,19 +755,19 @@
       "campaignLevel": 35,
       "isStageBoss": false,
       "isCampaignBoss": false,
-      "totalEnemies": 39,
+      "totalEnemies": 38,
       "composition": {
         "biters": 22,
-        "swarmers": 13,
+        "swarmers": 12,
         "tankers": 4
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 5,
         "swarmer": 6,
         "tanker": 9
       },
-      "totalGoldReward": 224,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 218
     },
     {
       "campaign": 1,
@@ -776,13 +782,13 @@
         "swarmers": 13,
         "tankers": 5
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 5,
         "swarmer": 6,
         "tanker": 9
       },
-      "totalGoldReward": 233,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 233
     },
     {
       "campaign": 1,
@@ -797,13 +803,13 @@
         "swarmers": 13,
         "tankers": 5
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 5,
         "swarmer": 6,
         "tanker": 9
       },
-      "totalGoldReward": 238,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 238
     },
     {
       "campaign": 1,
@@ -812,19 +818,19 @@
       "campaignLevel": 38,
       "isStageBoss": false,
       "isCampaignBoss": false,
-      "totalEnemies": 42,
+      "totalEnemies": 43,
       "composition": {
-        "biters": 23,
+        "biters": 24,
         "swarmers": 14,
         "tankers": 5
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 5,
         "swarmer": 6,
         "tanker": 9
       },
-      "totalGoldReward": 244,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 249
     },
     {
       "campaign": 1,
@@ -833,19 +839,19 @@
       "campaignLevel": 39,
       "isStageBoss": false,
       "isCampaignBoss": false,
-      "totalEnemies": 43,
+      "totalEnemies": 45,
       "composition": {
-        "biters": 24,
-        "swarmers": 14,
+        "biters": 25,
+        "swarmers": 15,
         "tankers": 5
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 5,
         "swarmer": 6,
         "tanker": 9
       },
-      "totalGoldReward": 249,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 260
     },
     {
       "campaign": 1,
@@ -854,19 +860,19 @@
       "campaignLevel": 40,
       "isStageBoss": true,
       "isCampaignBoss": false,
-      "totalEnemies": 44,
+      "totalEnemies": 59,
       "composition": {
-        "biters": 25,
-        "swarmers": 14,
-        "tankers": 5
+        "biters": 33,
+        "swarmers": 19,
+        "tankers": 7
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 5,
         "swarmer": 6,
         "tanker": 9
       },
-      "totalGoldReward": 254,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 342
     },
     {
       "campaign": 1,
@@ -881,13 +887,13 @@
         "swarmers": 15,
         "tankers": 5
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 6,
         "swarmer": 7,
         "tanker": 10
       },
-      "totalGoldReward": 305,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 305
     },
     {
       "campaign": 1,
@@ -902,13 +908,13 @@
         "swarmers": 15,
         "tankers": 5
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 6,
         "swarmer": 7,
         "tanker": 10
       },
-      "totalGoldReward": 311,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 311
     },
     {
       "campaign": 1,
@@ -917,19 +923,19 @@
       "campaignLevel": 43,
       "isStageBoss": false,
       "isCampaignBoss": false,
-      "totalEnemies": 47,
+      "totalEnemies": 46,
       "composition": {
-        "biters": 27,
+        "biters": 26,
         "swarmers": 15,
         "tankers": 5
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 6,
         "swarmer": 7,
         "tanker": 10
       },
-      "totalGoldReward": 317,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 311
     },
     {
       "campaign": 1,
@@ -938,19 +944,19 @@
       "campaignLevel": 44,
       "isStageBoss": false,
       "isCampaignBoss": false,
-      "totalEnemies": 48,
+      "totalEnemies": 47,
       "composition": {
-        "biters": 26,
-        "swarmers": 16,
-        "tankers": 6
+        "biters": 27,
+        "swarmers": 15,
+        "tankers": 5
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 6,
         "swarmer": 7,
         "tanker": 10
       },
-      "totalGoldReward": 328,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 317
     },
     {
       "campaign": 1,
@@ -959,19 +965,19 @@
       "campaignLevel": 45,
       "isStageBoss": false,
       "isCampaignBoss": false,
-      "totalEnemies": 49,
+      "totalEnemies": 48,
       "composition": {
-        "biters": 27,
+        "biters": 26,
         "swarmers": 16,
         "tankers": 6
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 6,
         "swarmer": 7,
         "tanker": 10
       },
-      "totalGoldReward": 334,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 328
     },
     {
       "campaign": 1,
@@ -986,13 +992,13 @@
         "swarmers": 16,
         "tankers": 6
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 6,
         "swarmer": 7,
         "tanker": 10
       },
-      "totalGoldReward": 340,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 340
     },
     {
       "campaign": 1,
@@ -1007,13 +1013,13 @@
         "swarmers": 17,
         "tankers": 6
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 6,
         "swarmer": 7,
         "tanker": 10
       },
-      "totalGoldReward": 347,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 347
     },
     {
       "campaign": 1,
@@ -1022,19 +1028,19 @@
       "campaignLevel": 48,
       "isStageBoss": false,
       "isCampaignBoss": false,
-      "totalEnemies": 52,
+      "totalEnemies": 53,
       "composition": {
-        "biters": 29,
+        "biters": 30,
         "swarmers": 17,
         "tankers": 6
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 6,
         "swarmer": 7,
         "tanker": 10
       },
-      "totalGoldReward": 353,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 359
     },
     {
       "campaign": 1,
@@ -1043,19 +1049,19 @@
       "campaignLevel": 49,
       "isStageBoss": false,
       "isCampaignBoss": false,
-      "totalEnemies": 53,
+      "totalEnemies": 55,
       "composition": {
-        "biters": 30,
-        "swarmers": 17,
+        "biters": 31,
+        "swarmers": 18,
         "tankers": 6
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 6,
         "swarmer": 7,
         "tanker": 10
       },
-      "totalGoldReward": 359,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 372
     },
     {
       "campaign": 1,
@@ -1064,19 +1070,19 @@
       "campaignLevel": 50,
       "isStageBoss": true,
       "isCampaignBoss": true,
-      "totalEnemies": 54,
+      "totalEnemies": 80,
       "composition": {
-        "biters": 30,
-        "swarmers": 18,
-        "tankers": 6
+        "biters": 44,
+        "swarmers": 26,
+        "tankers": 10
       },
-      "goldPerEnemy": {
+      "spawnRatePerSecond": 1,
+      "xpPerEnemy": {
         "biter": 6,
         "swarmer": 7,
         "tanker": 10
       },
-      "totalGoldReward": 366,
-      "spawnRatePerSecond": 1
+      "totalXpReward": 546
     }
   ]
 }

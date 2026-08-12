@@ -1,77 +1,136 @@
 import { baselineCombatProfile } from '$lib/data';
 
-export type UpgradeKey = 'health' | 'attackSpeed';
+export type UpgradeKey = 'defence' | 'agility';
 
 export interface UpgradeablePixlState {
-	gold: number;
+	xp: number;
+	level: number;
+	perkPoints: number;
+	defence: number;
+	agility: number;
 	health: number;
 	attackSpeed: number;
-	healthUpgrades: number;
-	attackSpeedUpgrades: number;
+	loadoutRows: number;
+	loadoutColumns: number;
 }
 
 interface UpgradeRule {
 	label: string;
-	baseCost: number;
-	costGrowth: number;
-	upgradeField: keyof Pick<UpgradeablePixlState, 'healthUpgrades' | 'attackSpeedUpgrades'>;
-	apply: (state: UpgradeablePixlState) => Pick<UpgradeablePixlState, 'health' | 'attackSpeed'>;
+	upgradeField: keyof Pick<UpgradeablePixlState, 'defence' | 'agility'>;
+	apply: (state: UpgradeablePixlState) => Pick<UpgradeablePixlState, 'defence' | 'agility'>;
 	describe: (state: UpgradeablePixlState) => string;
 }
 
 const UPGRADE_RULES: Record<UpgradeKey, UpgradeRule> = {
-	health: {
-		label: 'Health',
-		baseCost: 20,
-		costGrowth: 1.2,
-		upgradeField: 'healthUpgrades',
+	defence: {
+		label: 'Defence',
+		upgradeField: 'defence',
 		apply: (state) => ({
-			health: Math.ceil(state.health * 1.15),
-			attackSpeed: state.attackSpeed
+			defence: state.defence + 1,
+			agility: state.agility
 		}),
-		describe: (state) => `+15% health -> ${Math.ceil(state.health * 1.15)}`
+		describe: (state) => `+10% health -> ${Math.ceil(state.health * 1.1)}`
 	},
-	attackSpeed: {
-		label: 'Attack speed',
-		baseCost: 35,
-		costGrowth: 1.2,
-		upgradeField: 'attackSpeedUpgrades',
+	agility: {
+		label: 'Agility',
+		upgradeField: 'agility',
 		apply: (state) => ({
-			health: state.health,
-			attackSpeed: Number((state.attackSpeed * 1.05).toFixed(3))
+			defence: state.defence,
+			agility: state.agility + 1
 		}),
-		describe: (state) => `+5% attack speed -> ${(state.attackSpeed * 1.05).toFixed(2)}/s`
+		describe: (state) => `+10% sweep speed -> ${(state.attackSpeed * 1.1).toFixed(2)}/s`
 	}
 };
 
 export interface UpgradeOption {
 	key: UpgradeKey;
 	label: string;
-	cost: number;
-	canAfford: boolean;
+	canSpend: boolean;
 	level: number;
 	description: string;
 }
 
-export function createBaselineUpgradeablePixlState(): UpgradeablePixlState {
+function xpToNext(level: number) {
+	return Math.max(1, Math.floor(8 * Math.pow(1.16, level - 1)));
+}
+
+function getLevelFromXp(xp: number) {
+	let level = 1;
+	let remainingXp = Math.max(0, Math.floor(xp));
+
+	while (remainingXp >= xpToNext(level)) {
+		remainingXp -= xpToNext(level);
+		level += 1;
+	}
+
+	return level;
+}
+
+function getPerkPointsForLevel(level: number) {
+	return Math.max(0, level - 1);
+}
+
+export function getLoadoutDimensions(level: number) {
+	const milestoneCount = Math.max(0, Math.floor((level - 1) / 10));
+
 	return {
-		gold: 0,
-		health: baselineCombatProfile.pixl.health,
-		attackSpeed: baselineCombatProfile.pixl.attackSpeed,
-		healthUpgrades: 0,
-		attackSpeedUpgrades: 0
+		rows: 3 + milestoneCount,
+		columns: 6 + milestoneCount
 	};
 }
 
-export function isUpgradeKey(value: string): value is UpgradeKey {
-	return value === 'health' || value === 'attackSpeed';
+export function createUpgradeablePixlState(
+	input?: Partial<Pick<UpgradeablePixlState, 'xp' | 'defence' | 'agility'>>
+) {
+	const xp = Math.max(0, Math.floor(input?.xp ?? 0));
+	const level = getLevelFromXp(xp);
+	const totalPerkPoints = getPerkPointsForLevel(level);
+	const defence = Math.max(0, Math.min(Math.floor(input?.defence ?? 0), totalPerkPoints));
+	const maxAgility = Math.max(0, totalPerkPoints - defence);
+	const agility = Math.max(0, Math.min(Math.floor(input?.agility ?? 0), maxAgility));
+	const perkPoints = totalPerkPoints - defence - agility;
+	const health = Math.ceil(baselineCombatProfile.pixl.health * Math.pow(1.1, defence));
+	const attackSpeed = Number(
+		(baselineCombatProfile.pixl.attackSpeed * Math.pow(1.1, agility)).toFixed(3)
+	);
+	const loadoutDimensions = getLoadoutDimensions(level);
+
+	return {
+		xp,
+		level,
+		perkPoints,
+		defence,
+		agility,
+		health,
+		attackSpeed,
+		loadoutRows: loadoutDimensions.rows,
+		loadoutColumns: loadoutDimensions.columns
+	} satisfies UpgradeablePixlState;
 }
 
-export function getUpgradeCost(key: UpgradeKey, state: UpgradeablePixlState): number {
-	const rule = UPGRADE_RULES[key];
-	const purchaseCount = state[rule.upgradeField];
+export function getXpProgress(state: UpgradeablePixlState) {
+	let xpSpentOnPastLevels = 0;
 
-	return Math.ceil(rule.baseCost * Math.pow(rule.costGrowth, purchaseCount));
+	for (let level = 1; level < state.level; level += 1) {
+		xpSpentOnPastLevels += xpToNext(level);
+	}
+
+	const xpIntoLevel = state.xp - xpSpentOnPastLevels;
+	const xpNeeded = xpToNext(state.level);
+
+	return {
+		xpIntoLevel,
+		xpNeeded,
+		nextLevel: state.level + 1
+	};
+}
+
+export function createBaselineUpgradeablePixlState(): UpgradeablePixlState {
+	return createUpgradeablePixlState();
+}
+
+export function isUpgradeKey(value: string): value is UpgradeKey {
+	return value === 'defence' || value === 'agility';
 }
 
 export function applyUpgradePurchase(
@@ -79,32 +138,36 @@ export function applyUpgradePurchase(
 	state: UpgradeablePixlState
 ): UpgradeablePixlState {
 	const rule = UPGRADE_RULES[key];
-	const cost = getUpgradeCost(key, state);
 
-	if (state.gold < cost) {
-		throw new Error(`Not enough gold for ${rule.label.toLowerCase()} upgrade`);
+	if (state.perkPoints < 1) {
+		throw new Error(`Not enough perk points for ${rule.label.toLowerCase()} upgrade`);
 	}
 
-	const nextStats = rule.apply(state);
+	return createUpgradeablePixlState(rule.apply(state));
+}
 
-	return {
-		...state,
-		...nextStats,
-		gold: state.gold - cost,
-		[rule.upgradeField]: state[rule.upgradeField] + 1
-	};
+export function applyXpGain(state: UpgradeablePixlState, gainedXp: number): UpgradeablePixlState {
+	const normalizedGain = Math.max(0, Math.floor(gainedXp));
+
+	if (normalizedGain === 0) {
+		return state;
+	}
+
+	return createUpgradeablePixlState({
+		xp: state.xp + normalizedGain,
+		defence: state.defence,
+		agility: state.agility
+	});
 }
 
 export function getUpgradeOptions(state: UpgradeablePixlState): UpgradeOption[] {
 	return (Object.keys(UPGRADE_RULES) as UpgradeKey[]).map((key) => {
 		const rule = UPGRADE_RULES[key];
-		const cost = getUpgradeCost(key, state);
 
 		return {
 			key,
 			label: rule.label,
-			cost,
-			canAfford: state.gold >= cost,
+			canSpend: state.perkPoints > 0,
 			level: state[rule.upgradeField],
 			description: rule.describe(state)
 		};

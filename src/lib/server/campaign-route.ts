@@ -385,7 +385,7 @@ export async function purchaseUpgradeForUser(
 	formData: FormData
 ): Promise<ActionResult<{ purchaseError?: string; purchaseSuccess?: string }>> {
 	if (!userId) {
-		return { ok: false, status: 401, data: { purchaseError: 'Sign in to buy upgrades.' } };
+		return { ok: false, status: 401, data: { purchaseError: 'Sign in to assign perk points.' } };
 	}
 
 	const rawUpgrade = formData.get('upgrade');
@@ -401,11 +401,9 @@ export async function purchaseUpgradeForUser(
 
 		await updateGameState(userId, {
 			pixlState: {
-				gold: nextPixlState.gold,
-				health: nextPixlState.health,
-				attackSpeed: nextPixlState.attackSpeed,
-				healthUpgrades: nextPixlState.healthUpgrades,
-				attackSpeedUpgrades: nextPixlState.attackSpeedUpgrades
+				xp: nextPixlState.xp,
+				defence: nextPixlState.defence,
+				agility: nextPixlState.agility
 			}
 		});
 

@@ -272,7 +272,7 @@ export const actions: Actions = {
 	},
 	purchaseUpgrade: async ({ request, locals, params }) => {
 		if (!locals.user) {
-			return fail(401, { purchaseError: 'Sign in to buy upgrades.' });
+			return fail(401, { purchaseError: 'Sign in to assign perk points.' });
 		}
 
 		const campaignId = Number(params.campaignId);
@@ -295,11 +295,9 @@ export const actions: Actions = {
 
 			await updateGameState(locals.user.id, {
 				pixlState: {
-					gold: nextPixlState.gold,
-					health: nextPixlState.health,
-					attackSpeed: nextPixlState.attackSpeed,
-					healthUpgrades: nextPixlState.healthUpgrades,
-					attackSpeedUpgrades: nextPixlState.attackSpeedUpgrades
+					xp: nextPixlState.xp,
+					defence: nextPixlState.defence,
+					agility: nextPixlState.agility
 				}
 			});
 

@@ -49,6 +49,18 @@
 		<section class="grid">
 			<div class="panel stat-grid">
 				<div class="stat-card">
+					<span>Level</span>
+					<strong>{upgradeState.level}</strong>
+				</div>
+				<div class="stat-card">
+					<span>Perk points</span>
+					<strong>{upgradeState.perkPoints}</strong>
+				</div>
+				<div class="stat-card">
+					<span>XP</span>
+					<strong>{upgradeState.xp}</strong>
+				</div>
+				<div class="stat-card">
 					<span>Health</span>
 					<strong>{upgradeState.health}</strong>
 				</div>
@@ -65,15 +77,15 @@
 					<strong>{ownedWeaponCount}</strong>
 				</div>
 				<div class="stat-card">
-					<span>Gold</span>
-					<strong>{upgradeState.gold}</strong>
+					<span>Loadout size</span>
+					<strong>{upgradeState.loadoutRows} x {upgradeState.loadoutColumns}</strong>
 				</div>
 			</div>
 
 			<div class="panel">
 				<div class="section-head">
 					<h2>Persistent upgrades</h2>
-					<p>Spend banked gold between runs.</p>
+					<p>Spend perk points earned from XP between runs.</p>
 				</div>
 
 				{#if form?.purchaseError}
@@ -93,12 +105,12 @@
 								<input type="hidden" name="upgrade" value={option.key} />
 								<div class="upgrade-head">
 									<span>{option.label}</span>
-									<strong>Cost {option.cost}</strong>
+									<strong>Rank {option.level}</strong>
 								</div>
 								<p>{option.description}</p>
-								<small>Bought {option.level} times</small>
-								<button class="purchase" type="submit" disabled={!option.canAfford}>
-									{option.canAfford ? `Buy ${option.label}` : 'Not enough gold'}
+								<small>Allocated {option.level} point{option.level === 1 ? '' : 's'}</small>
+								<button class="purchase" type="submit" disabled={!option.canSpend}>
+									{option.canSpend ? `Spend point on ${option.label}` : 'No perk points'}
 								</button>
 							</form>
 						{/each}
@@ -111,7 +123,8 @@
 					<div class="section-head">
 						<h2>Complete reset</h2>
 						<p>
-							Reset gold, upgrades, owned weapons, loadout, and campaign progression to defaults.
+							Reset XP, perk allocation, owned weapons, loadout, and campaign progression to
+							defaults.
 						</p>
 					</div>
 					<button class="reset-button" type="submit" disabled={!data.gameState}>

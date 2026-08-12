@@ -93,7 +93,7 @@ export interface WaveComposition {
 	tankers: number;
 }
 
-export interface GoldPerEnemy {
+export interface XpPerEnemy {
 	biter: number;
 	swarmer: number;
 	tanker: number;
@@ -108,14 +108,16 @@ export interface CampaignLevel {
 	isCampaignBoss: boolean;
 	totalEnemies: number;
 	composition: WaveComposition;
-	goldPerEnemy: GoldPerEnemy;
-	totalGoldReward: number;
+	xpPerEnemy: XpPerEnemy;
+	totalXpReward: number;
 	spawnRatePerSecond: number;
 }
 
 export interface CampaignBaseline {
 	startingEnemies: number;
-	enemyIncreasePerLevel: number;
+	stageEnemyIncrease: number;
+	stageLevelBonusScale: number;
+	stageLevelGrowthFactor: number;
 	spawnRatePerSecond: number;
 	tutorialLevels: number[];
 	compositionRules: {
@@ -126,7 +128,11 @@ export interface CampaignBaseline {
 			biters: string;
 		};
 	};
-	goldDropRules: {
+	bossEnemyMultipliers: {
+		stage: number;
+		campaign: number;
+	};
+	xpDropRules: {
 		biter: string;
 		swarmer: string;
 		tanker: string;
