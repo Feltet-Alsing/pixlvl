@@ -86,8 +86,12 @@ function normalizeLoadoutPlacements(
 	loadoutPlacements: LoadoutPlacement[] | null | undefined,
 	ownedWeapons: OwnedWeaponInstance[]
 ) {
-	if (!Array.isArray(loadoutPlacements) || loadoutPlacements.length === 0) {
+	if (!Array.isArray(loadoutPlacements)) {
 		return createStarterLoadoutPlacements();
+	}
+
+	if (loadoutPlacements.length === 0) {
+		return [];
 	}
 
 	const ownedWeaponIds = new Set(ownedWeapons.map((weapon) => weapon.instanceId));
@@ -96,7 +100,7 @@ function normalizeLoadoutPlacements(
 	);
 
 	if (validPlacements.length === 0) {
-		return createStarterLoadoutPlacements();
+		return [];
 	}
 
 	return validPlacements;

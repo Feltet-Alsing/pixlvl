@@ -12,19 +12,19 @@
   },
   "glitches": {
     "biter": {
-      "health": 20,
+      "health": 6,
       "contactDamage": 6,
       "attackSpeed": 0.8,
       "moveSpeed": 55
     },
     "swarmer": {
-      "health": 12,
+      "health": 4,
       "contactDamage": 4,
       "attackSpeed": 1.2,
       "moveSpeed": 85
     },
     "tanker": {
-      "health": 45,
+      "health": 18,
       "contactDamage": 12,
       "attackSpeed": 0.5,
       "moveSpeed": 35

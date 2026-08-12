@@ -103,6 +103,7 @@ interface LoadoutLayout {
 interface CampaignSketchOptions {
 	persistPath?: string;
 	runMode?: RunMode;
+	showLoadoutSketch?: boolean;
 	pixlState?: Pick<
 		PersistedPixlState,
 		'gold' | 'health' | 'attackSpeed' | 'ownedWeapons' | 'loadoutPlacements' // Removing damage from pixlState
@@ -242,6 +243,7 @@ export function createCampaignSketch(
 		const levels = campaign.levels;
 		const weaponPool = getCampaignWeaponPool(campaign.campaign);
 		const runMode = options.runMode ?? 'combat';
+		const showLoadoutSketch = options.showLoadoutSketch ?? true;
 		const pixlStats = {
 			health: options.pixlState?.health ?? combatProfile.pixl.health,
 			attackSpeed: options.pixlState?.attackSpeed ?? combatProfile.pixl.attackSpeed
@@ -341,6 +343,7 @@ export function createCampaignSketch(
 		const getLoadoutLayout = (): LoadoutLayout => {
 			const maxGridWidth = Math.min(arenaRadius * 1.2, p.width * 0.28);
 			const maxGridHeight = Math.min(arenaRadius * 0.9, p.height * 0.22);
+			const rightInset = 28;
 			const cellSize = Math.max(
 				16,
 				Math.floor(Math.min(maxGridWidth / LOADOUT_COLUMN_COUNT, maxGridHeight / LOADOUT_ROW_COUNT))
@@ -352,7 +355,7 @@ export function createCampaignSketch(
 				cellSize,
 				gridWidth,
 				gridHeight,
-				left: centerX - gridWidth / 2,
+				left: centerX + arenaRadius - gridWidth - rightInset,
 				top: centerY - gridHeight / 2
 			};
 		};
@@ -887,7 +890,9 @@ export function createCampaignSketch(
 			emitCombatState();
 
 			drawArena();
-			drawLoadout();
+			if (showLoadoutSketch) {
+				drawLoadout();
+			}
 			drawProjectiles();
 			drawEnemies();
 			drawPixl();

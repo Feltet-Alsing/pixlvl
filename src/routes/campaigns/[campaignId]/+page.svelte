@@ -115,7 +115,6 @@
 	let { data, form }: PageProps = $props();
 	let runMode = $state<LocalRunMode>('combat');
 	let showStats = $state(true);
-	let showShop = $state(true);
 	let pixlStateOverride = $state.raw<PixlStateOverride | null>(null);
 	let campaignStateOverride = $state.raw<CampaignStateOverride | null>(null);
 	let selectedPlacementWeaponInstanceId = $state<string | null>(null);
@@ -148,8 +147,6 @@
 	let combatOverlay = $derived(combatOverlayOverride ?? createInitialCombatOverlay(data));
 	let upgradeState = $derived(livePixlState ?? createBaselineUpgradeablePixlState());
 	let upgradeOptions = $derived(getUpgradeOptions(upgradeState));
-	let highestUnlockedLevel = $derived(liveCampaignState?.highestUnlockedLevel ?? 1);
-	let highestClearedLevel = $derived(liveCampaignState?.highestClearedLevel ?? 0);
 	let weaponDefinitionById = $derived(
 		Object.fromEntries(
 			data.weaponPool.map((weapon) => [weapon.id, weapon] satisfies [string, WeaponDefinition])
@@ -157,6 +154,8 @@
 	);
 	let ownedWeapons = $derived(livePixlState?.ownedWeapons ?? []);
 	let loadoutPlacements = $derived(livePixlState?.loadoutPlacements ?? []);
+	let highestUnlockedLevel = $derived(liveCampaignState?.highestUnlockedLevel ?? 1);
+	let highestClearedLevel = $derived(liveCampaignState?.highestClearedLevel ?? 0);
 	let sketchCampaignLevel = $derived(
 		liveCampaignState?.currentLevel ?? data.campaignState?.currentLevel ?? 1
 	);
@@ -420,6 +419,7 @@
 			createCampaignSketch(data.campaign, data.combatProfile, {
 				persistPath: '/api/game/state',
 				runMode,
+				showLoadoutSketch: false,
 				pixlState: livePixlState ?? data.gameState?.pixlState ?? null,
 				campaignState: liveCampaignState ?? data.campaignState ?? null,
 				onCombatStateChange: handleCombatStateChange,
@@ -445,9 +445,6 @@
 					<CampaignRouteNav campaignId={data.campaignId} active="arena" {loadoutTooltip} />
 					<button class="toggle" type="button" onclick={() => (showStats = !showStats)}>
 						{showStats ? 'Hide stats' : 'Show stats'}
-					</button>
-					<button class="toggle" type="button" onclick={() => (showShop = !showShop)}>
-						{showShop ? 'Hide shop' : 'Show shop'}
 					</button>
 				</div>
 			</div>
@@ -509,71 +506,6 @@
 							<span>Equipped</span>
 							<strong>{currentLoadoutRows.length}</strong>
 						</div>
-					</div>
-				</aside>
-			{/if}
-
-			{#if showShop}
-				<aside class="overlay panel shop-panel">
-					<div class="panel-heading compact-heading">
-						<h2>Loadout snapshot</h2>
-						<p class="lede">Arena stays compact while loadout details move to their own route.</p>
-					</div>
-
-					<div class="summary-section">
-						<p class="eyebrow">Equipped now</p>
-						{#if currentLoadoutRows.length > 0}
-							<div class="summary-list snapshot-list">
-								{#each currentLoadoutRows.slice(0, 3) as weapon (weapon.weaponInstanceId)}
-									<div
-										class={`summary-row rarity-${weapon.rarity}`}
-										title={`${weapon.name} at ${weapon.x}, ${weapon.y}`}
-									>
-										<span>{weapon.name}</span>
-										<strong>({weapon.x}, {weapon.y})</strong>
-									</div>
-								{/each}
-							</div>
-							{#if currentLoadoutRows.length > 3}
-								<p class="upgrade-note">
-									+{currentLoadoutRows.length - 3} more equipped on the loadout route.
-								</p>
-							{/if}
-						{:else}
-							<p class="upgrade-note">No equipped weapons yet.</p>
-						{/if}
-					</div>
-
-					<div class="stats compact-stats">
-						<div>
-							<span>Owned weapons</span>
-							<strong>{ownedWeapons.length}</strong>
-						</div>
-						<div>
-							<span>Unlocked level</span>
-							<strong>{highestUnlockedLevel}</strong>
-						</div>
-						<div>
-							<span>Cleared level</span>
-							<strong>{highestClearedLevel}</strong>
-						</div>
-					</div>
-
-					<div class="route-card-grid side-route-grid">
-						<a
-							class="route-card"
-							href={resolve(`/campaigns/${data.campaignId}/loadout`)}
-							title={loadoutTooltip}
-						>
-							<span>Open loadout</span>
-							<strong>Hover for equipped</strong>
-							<p>Inspect placements and inventory in a dedicated editor.</p>
-						</a>
-						<a class="route-card" href={resolve(`/campaigns/${data.campaignId}/stats`)}>
-							<span>Open stats</span>
-							<strong>Upgrade between waves</strong>
-							<p>Persistent perks no longer compete with live combat telemetry.</p>
-						</a>
 					</div>
 				</aside>
 			{/if}
@@ -1118,11 +1050,6 @@
 		border-color: rgba(103, 217, 111, 0.42);
 		font: inherit;
 		color: #c9f8cc;
-	}
-
-	.grid-anchor span {
-		font-size: 1.1rem;
-		line-height: 1;
 	}
 
 	.compact-stats {

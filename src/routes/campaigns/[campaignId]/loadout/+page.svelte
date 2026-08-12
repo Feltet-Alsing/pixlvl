@@ -28,11 +28,13 @@
 		y: number;
 		occupiedByName: string | null;
 		occupiedRarity: WeaponDefinition['rarity'] | null;
-		canPlaceSelectedWeapon: boolean;
+		canPlaceActiveWeapon: boolean;
 	}
 
 	let { data, form }: PageProps = $props();
 	let selectedPlacementWeaponInstanceId = $state<string | null>(null);
+	let draggedPlacementWeaponInstanceId = $state<string | null>(null);
+	let dragOverGridCellKey = $state<string | null>(null);
 
 	let weaponDefinitionById = $derived(
 		Object.fromEntries(
@@ -40,6 +42,12 @@
 		) as Record<string, WeaponDefinition>
 	);
 	let ownedWeapons = $derived(data.gameState?.pixlState.ownedWeapons ?? []);
+	let ownedWeaponByInstanceId = $derived(
+		Object.fromEntries(ownedWeapons.map((weapon) => [weapon.instanceId, weapon])) as Record<
+			string,
+			(typeof ownedWeapons)[number]
+		>
+	);
 	let savedLoadoutPlacements = $derived(data.gameState?.pixlState.loadoutPlacements ?? []);
 	let draftLoadoutPlacements = $derived(savedLoadoutPlacements);
 	let draftLoadoutPayload = $derived(JSON.stringify(draftLoadoutPlacements));
@@ -105,13 +113,18 @@
 					left.weaponInstanceId.localeCompare(right.weaponInstanceId)
 			);
 	});
-	let selectedPlacementWeapon = $derived(
-		unequippedOwnedWeaponRows.find(
-			(weapon) => weapon.weaponInstanceId === selectedPlacementWeaponInstanceId
-		) ?? null
+	let activePlacementWeaponInstanceId = $derived(
+		draggedPlacementWeaponInstanceId ?? selectedPlacementWeaponInstanceId
 	);
-	let selectedPlacementDefinition = $derived(
-		selectedPlacementWeapon ? weaponDefinitionById[selectedPlacementWeapon.definitionId] : null
+	let activePlacementOwnedWeapon = $derived(
+		activePlacementWeaponInstanceId
+			? ownedWeaponByInstanceId[activePlacementWeaponInstanceId]
+			: null
+	);
+	let activePlacementDefinition = $derived(
+		activePlacementOwnedWeapon
+			? weaponDefinitionById[activePlacementOwnedWeapon.definitionId]
+			: null
 	);
 	let occupiedLoadoutCells = $derived.by(() => {
 		const occupied: Record<
@@ -120,6 +133,10 @@
 		> = {};
 
 		for (const weapon of currentLoadoutRows) {
+			if (weapon.weaponInstanceId === draggedPlacementWeaponInstanceId) {
+				continue;
+			}
+
 			const definition = weaponDefinitionById[weapon.definitionId];
 
 			if (!definition) {
@@ -137,14 +154,14 @@
 		return occupied;
 	});
 	let loadoutGridRows = $derived.by(() => {
-		const selectedDefinition = selectedPlacementDefinition;
+		const activeDefinition = activePlacementDefinition;
 
 		return Array.from({ length: LOADOUT_ROW_COUNT }, (_, y) => {
 			return Array.from({ length: LOADOUT_COLUMN_COUNT }, (_, x) => {
 				const occupiedCell = occupiedLoadoutCells[`${x}:${y}`];
-				const canPlaceSelectedWeapon =
-					!occupiedCell && selectedDefinition
-						? selectedDefinition.shape.cells.every(([cellX, cellY]) => {
+				const canPlaceActiveWeapon =
+					!occupiedCell && activeDefinition
+						? activeDefinition.shape.cells.every(([cellX, cellY]) => {
 								const gridX = x + cellX;
 								const gridY = y + cellY;
 
@@ -163,7 +180,7 @@
 					y,
 					occupiedByName: occupiedCell?.occupiedByName ?? null,
 					occupiedRarity: occupiedCell?.occupiedRarity ?? null,
-					canPlaceSelectedWeapon
+					canPlaceActiveWeapon
 				} satisfies LoadoutGridCell;
 			});
 		});
@@ -177,27 +194,115 @@
 		draftLoadoutPlacements = draftLoadoutPlacements.filter(
 			(placement) => placement.weaponInstanceId !== weaponInstanceId
 		);
+
+		if (selectedPlacementWeaponInstanceId === weaponInstanceId) {
+			selectedPlacementWeaponInstanceId = null;
+		}
+
+		if (draggedPlacementWeaponInstanceId === weaponInstanceId) {
+			clearDragState();
+		}
 	}
 
-	function placeSelectedWeaponAt(x: number, y: number) {
-		if (!selectedPlacementWeapon) {
+	function getGridCellKey(x: number, y: number) {
+		return `${x}:${y}`;
+	}
+
+	function canPlaceWeaponAt(weaponInstanceId: string, x: number, y: number) {
+		const ownedWeapon = ownedWeaponByInstanceId[weaponInstanceId];
+		const definition = ownedWeapon ? weaponDefinitionById[ownedWeapon.definitionId] : null;
+
+		if (!definition) {
+			return false;
+		}
+
+		return definition.shape.cells.every(([cellX, cellY]) => {
+			const gridX = x + cellX;
+			const gridY = y + cellY;
+
+			return (
+				gridX >= 0 &&
+				gridX < LOADOUT_COLUMN_COUNT &&
+				gridY >= 0 &&
+				gridY < LOADOUT_ROW_COUNT &&
+				!occupiedLoadoutCells[getGridCellKey(gridX, gridY)]
+			);
+		});
+	}
+
+	function clearDragState() {
+		draggedPlacementWeaponInstanceId = null;
+		dragOverGridCellKey = null;
+	}
+
+	function placeWeaponAt(weaponInstanceId: string, x: number, y: number) {
+		if (!canPlaceWeaponAt(weaponInstanceId, x, y)) {
 			return;
 		}
 
 		draftLoadoutPlacements = [
-			...draftLoadoutPlacements,
+			...draftLoadoutPlacements.filter(
+				(placement) => placement.weaponInstanceId !== weaponInstanceId
+			),
 			{
-				weaponInstanceId: selectedPlacementWeapon.weaponInstanceId,
+				weaponInstanceId,
 				x,
 				y
 			} satisfies LoadoutPlacement
 		];
 		selectedPlacementWeaponInstanceId = null;
+		clearDragState();
+	}
+
+	function placeSelectedWeaponAt(x: number, y: number) {
+		if (!selectedPlacementWeaponInstanceId) {
+			return;
+		}
+
+		placeWeaponAt(selectedPlacementWeaponInstanceId, x, y);
+	}
+
+	function beginWeaponDrag(event: DragEvent, weaponInstanceId: string) {
+		draggedPlacementWeaponInstanceId = weaponInstanceId;
+		selectedPlacementWeaponInstanceId = null;
+		dragOverGridCellKey = null;
+		event.dataTransfer?.setData('text/plain', weaponInstanceId);
+		if (event.dataTransfer) {
+			event.dataTransfer.effectAllowed = 'move';
+		}
+	}
+
+	function handleGridDragOver(event: DragEvent, cell: LoadoutGridCell) {
+		if (!activePlacementWeaponInstanceId || !cell.canPlaceActiveWeapon) {
+			return;
+		}
+
+		event.preventDefault();
+		dragOverGridCellKey = getGridCellKey(cell.x, cell.y);
+		if (event.dataTransfer) {
+			event.dataTransfer.dropEffect = 'move';
+		}
+	}
+
+	function handleGridDragLeave(cell: LoadoutGridCell) {
+		if (dragOverGridCellKey === getGridCellKey(cell.x, cell.y)) {
+			dragOverGridCellKey = null;
+		}
+	}
+
+	function handleGridDrop(event: DragEvent, cell: LoadoutGridCell) {
+		if (!activePlacementWeaponInstanceId || !cell.canPlaceActiveWeapon) {
+			return;
+		}
+
+		event.preventDefault();
+		placeWeaponAt(activePlacementWeaponInstanceId, cell.x, cell.y);
 	}
 
 	function resetDraftLoadout() {
 		draftLoadoutPlacements = savedLoadoutPlacements;
 		selectedPlacementWeaponInstanceId = null;
+		clearDragState();
 	}
 </script>
 
@@ -260,7 +365,15 @@
 								class={`summary-row rarity-${weapon.rarity}`}
 								title={`${weapon.name} at ${weapon.x}, ${weapon.y}`}
 							>
-								<div class="summary-row-copy">
+								<div
+									class:dragging={draggedPlacementWeaponInstanceId === weapon.weaponInstanceId}
+									class="summary-row-copy drag-copy"
+									draggable="true"
+									role="button"
+									tabindex="0"
+									ondragstart={(event) => beginWeaponDrag(event, weapon.weaponInstanceId)}
+									ondragend={clearDragState}
+								>
 									<span>{weapon.name}</span>
 									<strong>({weapon.x}, {weapon.y})</strong>
 								</div>
@@ -282,17 +395,21 @@
 			<div class="panel">
 				<div class="section-head">
 					<h2>Placement grid</h2>
-					<p>Select an unequipped weapon, then use a highlighted anchor cell.</p>
+					<p>Select or drag a weapon, then place it on a highlighted anchor cell.</p>
 				</div>
 
 				{#if unequippedOwnedWeaponRows.length > 0}
 					<div class="summary-list">
 						{#each unequippedOwnedWeaponRows as weapon (weapon.weaponInstanceId)}
 							<button
+								draggable="true"
 								class:active={selectedPlacementWeaponInstanceId === weapon.weaponInstanceId}
+								class:dragging={draggedPlacementWeaponInstanceId === weapon.weaponInstanceId}
 								class={`summary-row picker-row rarity-${weapon.rarity}`}
 								type="button"
 								onclick={() => (selectedPlacementWeaponInstanceId = weapon.weaponInstanceId)}
+								ondragstart={(event) => beginWeaponDrag(event, weapon.weaponInstanceId)}
+								ondragend={clearDragState}
 							>
 								<span>{weapon.name}</span>
 								<strong>{weapon.weaponInstanceId.slice(-6)}</strong>
@@ -303,16 +420,16 @@
 					<p class="feedback neutral">All owned weapons are already equipped.</p>
 				{/if}
 
-				{#if selectedPlacementDefinition}
+				{#if activePlacementDefinition}
 					<div class="weapon-shape-preview">
 						<div
 							class="shape-grid"
-							style:grid-template-columns={`repeat(${selectedPlacementDefinition.shape.width}, 1fr)`}
+							style:grid-template-columns={`repeat(${activePlacementDefinition.shape.width}, 1fr)`}
 						>
-							{#each Array.from( { length: selectedPlacementDefinition.shape.height } ) as _, shapeY (shapeY)}
-								{#each Array.from( { length: selectedPlacementDefinition.shape.width } ) as _, shapeX (shapeX)}
+							{#each Array.from( { length: activePlacementDefinition.shape.height } ) as _, shapeY (shapeY)}
+								{#each Array.from( { length: activePlacementDefinition.shape.width } ) as _, shapeX (shapeX)}
 									<div
-										class:filled={selectedPlacementDefinition.shape.cells.some(
+										class:filled={activePlacementDefinition.shape.cells.some(
 											([cellX, cellY]) => cellX === shapeX && cellY === shapeY
 										)}
 										class="shape-cell"
@@ -320,7 +437,7 @@
 								{/each}
 							{/each}
 						</div>
-						<p class="weapon-role">{selectedPlacementDefinition.role}</p>
+						<p class="weapon-role">{activePlacementDefinition.role}</p>
 					</div>
 				{/if}
 
@@ -337,10 +454,14 @@
 								>
 									<span>{cell.occupiedByName.slice(0, 2).toUpperCase()}</span>
 								</div>
-							{:else if selectedPlacementWeapon && cell.canPlaceSelectedWeapon}
+							{:else if cell.canPlaceActiveWeapon}
 								<button
+									class:drop-target={dragOverGridCellKey === getGridCellKey(cell.x, cell.y)}
 									class="grid-cell anchor"
 									type="button"
+									ondragover={(event) => handleGridDragOver(event, cell)}
+									ondragleave={() => handleGridDragLeave(cell)}
+									ondrop={(event) => handleGridDrop(event, cell)}
 									onclick={() => placeSelectedWeaponAt(cell.x, cell.y)}
 									aria-label={`Place at ${cell.x}, ${cell.y}`}
 								>
@@ -500,6 +621,15 @@
 		text-align: left;
 	}
 
+	.drag-copy,
+	.picker-row[draggable='true'] {
+		cursor: grab;
+	}
+
+	.dragging {
+		opacity: 0.55;
+	}
+
 	.picker-row.active {
 		border-color: rgba(103, 217, 111, 0.42);
 		background: rgba(103, 217, 111, 0.12);
@@ -586,6 +716,12 @@
 		background: rgba(103, 217, 111, 0.12);
 		border-color: rgba(103, 217, 111, 0.42);
 		color: #c9f8cc;
+	}
+
+	.anchor.drop-target {
+		background: rgba(103, 217, 111, 0.22);
+		border-color: rgba(103, 217, 111, 0.82);
+		box-shadow: inset 0 0 0 1px rgba(103, 217, 111, 0.35);
 	}
 
 	.feedback {
