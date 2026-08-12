@@ -1,6 +1,11 @@
 import type P5 from 'p5';
 
-import { campaign1, getCampaignCombatProfile, getWeaponDefinition } from '$lib/data';
+import {
+	campaign1,
+	getCampaignCombatProfile,
+	getCampaignWeaponPool,
+	getWeaponDefinition
+} from '$lib/data';
 import type {
 	CampaignDefinition,
 	CampaignLevel,
@@ -114,6 +119,7 @@ interface CampaignSketchOptions {
 		maxPixlHealth: number;
 		bankedGold: number;
 		waveGold: number;
+		waveDrops: number;
 		remainingEnemies: number;
 		composition: {
 			biters: number;
@@ -124,11 +130,20 @@ interface CampaignSketchOptions {
 	}) => void;
 	onStateChange?: (state: {
 		gold: number;
+		ownedWeapons: OwnedWeaponInstance[];
 		currentLevel: number;
 		highestUnlockedLevel: number;
 		highestClearedLevel: number;
 		completed: boolean;
 	}) => void;
+}
+
+function createWeaponInstanceId(randomInt: number) {
+	if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+		return crypto.randomUUID();
+	}
+
+	return `drop-${Date.now()}-${randomInt}`;
 }
 
 function getCanvasSize(canvas: HTMLCanvasElement | null) {
@@ -225,6 +240,7 @@ export function createCampaignSketch(
 ) {
 	return (p: P5) => {
 		const levels = campaign.levels;
+		const weaponPool = getCampaignWeaponPool(campaign.campaign);
 		const runMode = options.runMode ?? 'combat';
 		const pixlStats = {
 			health: options.pixlState?.health ?? combatProfile.pixl.health,
@@ -253,7 +269,9 @@ export function createCampaignSketch(
 		let spawnAccumulator = 0;
 		let sweepProgress = 0;
 		let bankedGold = options.pixlState?.gold ?? 0;
+		let ownedWeapons = [...(options.pixlState?.ownedWeapons ?? [])];
 		let waveGold = 0;
+		let waveDrops: OwnedWeaponInstance[] = [];
 		let pixlHealth = pixlStats.health;
 		let pixlFlash = 0;
 		let enemyId = 0;
@@ -271,6 +289,7 @@ export function createCampaignSketch(
 		const persistProgress = (nextCurrentLevel: number) => {
 			options.onStateChange?.({
 				gold: bankedGold,
+				ownedWeapons,
 				currentLevel: nextCurrentLevel,
 				highestUnlockedLevel,
 				highestClearedLevel,
@@ -291,7 +310,8 @@ export function createCampaignSketch(
 						gold: bankedGold,
 						health: pixlStats.health,
 						damage: pixlStats.damage,
-						attackSpeed: pixlStats.attackSpeed
+						attackSpeed: pixlStats.attackSpeed,
+						ownedWeapons
 					},
 					campaignProgress: [
 						{
@@ -348,6 +368,7 @@ export function createCampaignSketch(
 				maxPixlHealth: pixlStats.health,
 				bankedGold,
 				waveGold,
+				waveDrops: waveDrops.length,
 				remainingEnemies: enemies.length + spawnQueue.length,
 				composition: {
 					biters: currentLevel.composition.biters,
@@ -406,6 +427,7 @@ export function createCampaignSketch(
 			spawnAccumulator = 0;
 			sweepProgress = 0;
 			waveGold = 0;
+			waveDrops = [];
 			pixlHealth = pixlStats.health;
 			pixlFlash = 0;
 			enemyId = 0;
@@ -416,6 +438,52 @@ export function createCampaignSketch(
 			if (spawnQueue.length > 0) {
 				spawnEnemy(spawnQueue.shift() as GlitchKind);
 			}
+		};
+
+		const rollWeaponDrop = () => {
+			const eligibleDrops = weaponPool.filter((weapon) => {
+				if (weapon.drop.mode !== 'drop') {
+					return false;
+				}
+
+				if (weapon.drop.campaignId && weapon.drop.campaignId !== campaign.campaign) {
+					return false;
+				}
+
+				if (weapon.drop.stageStart && currentLevel.stage < weapon.drop.stageStart) {
+					return false;
+				}
+
+				if (weapon.drop.stageEnd && currentLevel.stage > weapon.drop.stageEnd) {
+					return false;
+				}
+
+				if (weapon.drop.perEnemyDropChance === undefined || weapon.drop.perEnemyDropChance <= 0) {
+					return false;
+				}
+
+				return true;
+			});
+
+			const successfulDrops = eligibleDrops.filter(
+				(weapon) => p.random() < (weapon.drop.perEnemyDropChance ?? 0)
+			);
+
+			if (successfulDrops.length === 0) {
+				return null;
+			}
+
+			const droppedWeapon = successfulDrops[Math.floor(p.random(successfulDrops.length))];
+
+			return {
+				instanceId: createWeaponInstanceId(Math.floor(p.random(1_000_000_000))),
+				definitionId: droppedWeapon.id,
+				source: 'drop',
+				acquiredAt: new Date().toISOString(),
+				campaignId: campaign.campaign,
+				stage: currentLevel.stage,
+				level: currentLevel.campaignLevel
+			} satisfies OwnedWeaponInstance;
 		};
 
 		const spawnEnemy = (kind: GlitchKind) => {
@@ -617,6 +685,12 @@ export function createCampaignSketch(
 
 					if (enemy.health <= 0) {
 						waveGold += currentLevel.goldPerEnemy[enemy.kind];
+						const droppedWeapon = rollWeaponDrop();
+
+						if (droppedWeapon) {
+							waveDrops = [...waveDrops, droppedWeapon];
+						}
+
 						enemies.splice(hitEnemyIndex, 1);
 					}
 
@@ -793,6 +867,9 @@ export function createCampaignSketch(
 						startLevel(currentLevelIndex);
 					} else {
 						bankedGold += waveGold;
+						if (waveDrops.length > 0) {
+							ownedWeapons = [...ownedWeapons, ...waveDrops];
+						}
 						highestClearedLevel = Math.max(highestClearedLevel, currentLevel.campaignLevel);
 
 						if (status === 'complete') {

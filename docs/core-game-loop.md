@@ -89,7 +89,9 @@ Reusable UI rules for this surface:
 
 - The `pixl` remains visually centered in the viewport-driven arena
 - Combat HUD text such as banked gold, wave gold, and remaining enemies should anchor relative to the arena ring, not the screen edge
-- Shop and stats are overlay panels that can be hidden without changing the combat layout
+- The arena route should stay combat-first; deeper management should move to dedicated routes instead of growing long in-place lists
+- Management, stats, and loadout should each have their own route-level surface so the player only sees one dense system at a time
+- Loadout surfaces should expose lightweight hover tooltips for equipped weapons so the player can inspect what is currently slotted without opening the full editor every time
 - Utility controls such as `hide/show stats` and `hide/show shop` should stay compact and visually quiet
 - Purchase buttons inside overlay panels should be smaller and more discreet than primary navigation actions
 - Larger screens may reveal more empty space, but they must not increase enemy spawn distance or reduce pressure
@@ -1118,10 +1120,10 @@ The following pieces already exist in the current repo:
 
 The following systems now exist in an early or incomplete form:
 
-- the loadout is rendered and persisted, but the editing flow is still only partially surfaced
-- stage management exists, but the full between-run workflow still needs refinement
+- the loadout is rendered and persisted, and route-level editing now exists, but inventory presentation and tooltip quality still need polish
+- stage management exists, and a dedicated management surface now exists, but the full between-run workflow still needs refinement
 - sweep-based combat exists, but balancing against weapon placement and agility scaling is still early
-- weapon ownership exists, but actual enemy drop acquisition is not yet fully wired into the run reward loop
+- weapon ownership exists and enemy drops are now wired into the run reward loop, but drop presentation and progression pacing still need tuning
 - duplicate handling is stored safely, but salvage is still deferred
 
 ## Next incremental milestones
@@ -1130,10 +1132,11 @@ The intended implementation order from this point should be:
 
 1. finish the out-of-combat loadout editing flow
 2. make run state explicit so management and combat are clearly separated
-3. wire real weapon drops into enemy kill and wave reward flow
-4. reconcile player-facing naming so `agility` and sweep speed replace old `attack speed` language where appropriate
-5. rebalance combat values around real weapon placement and sweep timing
-6. add later economy systems such as duplicate salvage only after the core loop is stable
+3. finish route-level UI separation so arena, management, stats, and loadout each stay focused
+4. improve equipped-weapon inspection with clearer tooltips and compact summaries
+5. reconcile player-facing naming so `agility` and sweep speed replace old `attack speed` language where appropriate
+6. rebalance combat values around real weapon placement, drop pacing, and sweep timing
+7. add later economy systems such as duplicate salvage only after the core loop is stable
 
 ## Process rule
 

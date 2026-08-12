@@ -6,6 +6,8 @@
 		class?: string;
 	}
 
+	const p5ModulePromise = import('p5');
+
 	let { sketch, class: className }: Props = $props();
 
 	function attachP5(currentSketch: Props['sketch']): Attachment<HTMLDivElement> {
@@ -13,7 +15,7 @@
 			let instance: import('p5').default | null = null;
 			let destroyed = false;
 
-			void import('p5').then(({ default: P5 }) => {
+			void p5ModulePromise.then(({ default: P5 }) => {
 				if (destroyed) return;
 
 				instance = new P5((p) => {

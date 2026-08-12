@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import CampaignRouteNav from '$lib/components/campaigns/CampaignRouteNav.svelte';
 	import { createBaselineUpgradeablePixlState, getUpgradeOptions } from '$lib/game/upgrades';
 	import P5Canvas from '$lib/components/P5Canvas.svelte';
 	import { createCampaignSketch } from '$lib/p5/campaign-1-sketch';
@@ -12,7 +13,7 @@
 
 	type LivePixlState = NonNullable<NonNullable<PageProps['data']['gameState']>['pixlState']>;
 	type LiveCampaignState = NonNullable<PageProps['data']['campaignState']>;
-	type PixlStateOverride = Pick<LivePixlState, 'gold'>;
+	type PixlStateOverride = Pick<LivePixlState, 'gold' | 'ownedWeapons'>;
 	type CampaignStateOverride = Pick<
 		LiveCampaignState,
 		'currentLevel' | 'highestUnlockedLevel' | 'highestClearedLevel' | 'completed'
@@ -20,6 +21,7 @@
 
 	interface SketchStateUpdate {
 		gold: number;
+		ownedWeapons: LivePixlState['ownedWeapons'];
 		currentLevel: number;
 		highestUnlockedLevel: number;
 		highestClearedLevel: number;
@@ -34,6 +36,7 @@
 		maxPixlHealth: number;
 		bankedGold: number;
 		waveGold: number;
+		waveDrops: number;
 		remainingEnemies: number;
 		composition: {
 			biters: number;
@@ -102,6 +105,7 @@
 			maxPixlHealth,
 			bankedGold: pageData.gameState?.pixlState.gold ?? 0,
 			waveGold: 0,
+			waveDrops: 0,
 			remainingEnemies: composition.biters + composition.swarmers + composition.tankers,
 			composition,
 			status: 'running'
@@ -109,7 +113,7 @@
 	}
 
 	let { data, form }: PageProps = $props();
-	let runMode = $state<LocalRunMode>('management');
+	let runMode = $state<LocalRunMode>('combat');
 	let showStats = $state(true);
 	let showShop = $state(true);
 	let pixlStateOverride = $state.raw<PixlStateOverride | null>(null);
@@ -366,6 +370,10 @@
 		return 'LEVEL CLEAR';
 	});
 	let combatStatusTone = $derived(combatOverlay.status === 'defeated' ? 'danger' : 'neutral');
+	let loadoutTooltip = $derived(
+		currentLoadoutRows.map((weapon) => `${weapon.name} (${weapon.x}, ${weapon.y})`).join('\n') ||
+			'No equipped weapons'
+	);
 
 	$effect(() => {
 		data.campaignId;
@@ -382,7 +390,8 @@
 	function handleSketchStateChange(update: SketchStateUpdate) {
 		if (livePixlState) {
 			pixlStateOverride = {
-				gold: update.gold
+				gold: update.gold,
+				ownedWeapons: update.ownedWeapons
 			};
 		}
 
@@ -433,26 +442,7 @@
 			<div class="utility-bar">
 				<a class="back" href={resolve('/campaigns')}>All campaigns</a>
 				<div class="utility-actions">
-					<div class="mode-toggle" role="group" aria-label="Run mode">
-						<button
-							class:active={runMode === 'management'}
-							class="toggle"
-							type="button"
-							aria-pressed={runMode === 'management'}
-							onclick={() => (runMode = 'management')}
-						>
-							Management
-						</button>
-						<button
-							class:active={runMode === 'combat'}
-							class="toggle"
-							type="button"
-							aria-pressed={runMode === 'combat'}
-							onclick={() => (runMode = 'combat')}
-						>
-							Combat
-						</button>
-					</div>
+					<CampaignRouteNav campaignId={data.campaignId} active="arena" {loadoutTooltip} />
 					<button class="toggle" type="button" onclick={() => (showStats = !showStats)}>
 						{showStats ? 'Hide stats' : 'Show stats'}
 					</button>
@@ -473,273 +463,117 @@
 					</div>
 
 					<div class="panel-heading">
-						<h2>Pixl stats</h2>
-						<p class="lede">Persistent combat values and saved campaign progress.</p>
+						<h2>Command deck</h2>
+						<p class="lede">
+							Move management, stats, and loadout to dedicated routes while the arena stays
+							readable.
+						</p>
+					</div>
+
+					<div class="route-card-grid">
+						<a class="route-card" href={resolve(`/campaigns/${data.campaignId}/management`)}>
+							<span>Management</span>
+							<strong>Stage {combatOverlay.stage}</strong>
+							<p>Pick replay targets and review campaign progression.</p>
+						</a>
+						<a class="route-card" href={resolve(`/campaigns/${data.campaignId}/stats`)}>
+							<span>Stats</span>
+							<strong>{livePixlState?.gold ?? 0} gold banked</strong>
+							<p>Health, damage, attack speed, and upgrades without combat clutter.</p>
+						</a>
+						<a
+							class="route-card"
+							href={resolve(`/campaigns/${data.campaignId}/loadout`)}
+							title={loadoutTooltip}
+						>
+							<span>Loadout</span>
+							<strong>{currentLoadoutRows.length} equipped · {ownedWeapons.length} owned</strong>
+							<p>Hover this route for equipped weapons, or open the full placement grid.</p>
+						</a>
 					</div>
 
 					<div class="stats">
 						<div>
-							<span>Pixl health</span>
+							<span>Health</span>
 							<strong>{livePixlState?.health ?? data.combatProfile.pixl.health}</strong>
 						</div>
 						<div>
-							<span>Pixl damage</span>
+							<span>Damage</span>
 							<strong>{livePixlState?.damage ?? data.combatProfile.pixl.damage}</strong>
 						</div>
 						<div>
 							<span>Attack speed</span>
-							<strong>
-								{(livePixlState?.attackSpeed ?? data.combatProfile.pixl.attackSpeed).toFixed(1)}/s
-							</strong>
-						</div>
-						<div>
-							<span>{livePixlState ? 'Gold' : 'Projectile speed'}</span>
 							<strong
-								>{livePixlState ? livePixlState.gold : data.combatProfile.projectileSpeed}</strong
+								>{(livePixlState?.attackSpeed ?? data.combatProfile.pixl.attackSpeed).toFixed(
+									1
+								)}/s</strong
 							>
 						</div>
-						{#if liveCampaignState}
-							<div>
-								<span>Saved progression</span>
-								<strong>
-									Level {liveCampaignState.currentLevel} · cleared {liveCampaignState.highestClearedLevel}
-								</strong>
-							</div>
-						{/if}
 					</div>
-
-					{#if runMode === 'management'}
-						<div class="management-block stage-block">
-							<div class="panel-heading compact-heading">
-								<h2>Stage selection</h2>
-								<p class="lede">Pick any unlocked stage between runs.</p>
-							</div>
-
-							{#if form?.stageError}
-								<p class="feedback error">{form.stageError}</p>
-							{:else if form?.stageSuccess}
-								<p class="feedback success">{form.stageSuccess}</p>
-							{/if}
-
-							{#if liveCampaignState}
-								<div class="stage-grid">
-									{#each unlockedStages as stage (stage.stage)}
-										<form method="post" action="?/selectStage">
-											<input type="hidden" name="stage" value={stage.stage} />
-											<button
-												class:active={activeManagementStage === stage.stage}
-												class="stage-card"
-												type="submit"
-												onclick={() => (selectedManagementStage = stage.stage)}
-											>
-												<span>Stage {stage.stage}</span>
-												<strong
-													>{stage.unlockedLevelCount} / {data.campaign.levelsPerStage} levels</strong
-												>
-											</button>
-										</form>
-									{/each}
-								</div>
-
-								{#if selectedStageSummary}
-									<div class="stage-detail">
-										<p class="eyebrow">Selected stage</p>
-										<strong>Stage {selectedStageSummary.stage}</strong>
-										<p>
-											Levels {selectedStageSummary.startLevel}-{selectedStageSummary.endLevel} ·
-											{selectedStageSummary.isCurrentStage ? 'current' : 'available'}
-											{selectedStageSummary.isCleared ? ' · cleared' : ''}
-										</p>
-									</div>
-								{/if}
-							{:else}
-								<p class="upgrade-note">Sign in to save progress and choose unlocked stages.</p>
-							{/if}
-						</div>
-					{/if}
 				</aside>
 			{/if}
 
-			{#if showShop && runMode === 'management'}
+			{#if showShop}
 				<aside class="overlay panel shop-panel">
-					<div class="management-block loadout-block">
-						<div class="panel-heading compact-heading">
-							<h2>Loadout editor</h2>
-							<p class="lede">Place or remove weapons between runs.</p>
-						</div>
-
-						{#if form?.loadoutError}
-							<p class="feedback error">{form.loadoutError}</p>
-						{:else if form?.loadoutSuccess}
-							<p class="feedback success">{form.loadoutSuccess}</p>
-						{/if}
-
-						<div class="summary-section">
-							<p class="eyebrow">Current loadout</p>
-							{#if currentLoadoutRows.length > 0}
-								<div class="summary-list">
-									{#each currentLoadoutRows as weapon (weapon.weaponInstanceId)}
-										<form
-											class={`summary-row loadout-editor-row rarity-${weapon.rarity}`}
-											method="post"
-											action="?/removeLoadoutPlacement"
-										>
-											<input
-												type="hidden"
-												name="weaponInstanceId"
-												value={weapon.weaponInstanceId}
-											/>
-											<span>{weapon.name}</span>
-											<strong>({weapon.x}, {weapon.y})</strong>
-											<button class="toggle slim-toggle" type="submit">Remove</button>
-										</form>
-									{/each}
-								</div>
-							{:else}
-								<p class="upgrade-note">No equipped weapons yet.</p>
-							{/if}
-						</div>
-
-						<div class="summary-section">
-							<p class="eyebrow">Unequipped owned weapons</p>
-							{#if unequippedOwnedWeaponRows.length > 0}
-								<div class="summary-list">
-									{#each unequippedOwnedWeaponRows as weapon (weapon.weaponInstanceId)}
-										<button
-											class:active={selectedPlacementWeaponInstanceId === weapon.weaponInstanceId}
-											class={`summary-row placement-row rarity-${weapon.rarity}`}
-											type="button"
-											onclick={() => (selectedPlacementWeaponInstanceId = weapon.weaponInstanceId)}
-										>
-											<span>{weapon.name}</span>
-											<strong>{weapon.weaponInstanceId.slice(-6)}</strong>
-										</button>
-									{/each}
-								</div>
-
-								<div class="grid-placement-panel">
-									<div class="panel-heading compact-heading">
-										<h2>Placement grid</h2>
-										<p class="lede">
-											{#if selectedPlacementDefinition && selectedPlacementWeapon}
-												Place {selectedPlacementWeapon.name} on a highlighted anchor.
-											{:else}
-												Select an unequipped weapon to show valid anchors.
-											{/if}
-										</p>
-									</div>
-
-									{#if selectedPlacementDefinition}
-										<div class="weapon-shape-preview">
-											<div
-												class="shape-grid"
-												style:grid-template-columns={`repeat(${selectedPlacementDefinition.shape.width}, 1fr)`}
-											>
-												{#each Array.from( { length: selectedPlacementDefinition.shape.height } ) as _, shapeY (shapeY)}
-													{#each Array.from( { length: selectedPlacementDefinition.shape.width } ) as _, shapeX (shapeX)}
-														<div
-															class:filled={selectedPlacementDefinition.shape.cells.some(
-																([cellX, cellY]) => cellX === shapeX && cellY === shapeY
-															)}
-															class="shape-cell"
-														></div>
-													{/each}
-												{/each}
-											</div>
-											<p class="upgrade-note">{selectedPlacementDefinition.role}</p>
-										</div>
-									{/if}
-
-									<div class="loadout-grid-wrapper">
-										<div
-											class="loadout-grid"
-											style:grid-template-columns={`repeat(${LOADOUT_COLUMN_COUNT}, minmax(0, 1fr))`}
-										>
-											{#each loadoutGridRows as row, rowIndex (rowIndex)}
-												{#each row as cell (`${rowIndex}:${cell.x}:${cell.y}`)}
-													{#if cell.occupiedByName}
-														<div
-															class={`grid-cell occupied rarity-${cell.occupiedRarity ?? 'normal'}`}
-														>
-															<span>{cell.occupiedByName.slice(0, 2).toUpperCase()}</span>
-														</div>
-													{:else if selectedPlacementWeapon && cell.canPlaceSelectedWeapon}
-														<form method="post" action="?/placeLoadoutWeapon">
-															<input
-																type="hidden"
-																name="weaponInstanceId"
-																value={selectedPlacementWeapon.weaponInstanceId}
-															/>
-															<input type="hidden" name="x" value={cell.x} />
-															<input type="hidden" name="y" value={cell.y} />
-															<button
-																class="grid-cell grid-anchor"
-																type="submit"
-																aria-label={`Place at ${cell.x}, ${cell.y}`}
-															>
-																<span>+</span>
-															</button>
-														</form>
-													{:else}
-														<div class="grid-cell empty"></div>
-													{/if}
-												{/each}
-											{/each}
-										</div>
-									</div>
-								</div>
-							{:else}
-								<p class="upgrade-note">All owned weapons are currently equipped.</p>
-							{/if}
-						</div>
-
-						<div class="summary-section">
-							<p class="eyebrow">Owned weapons</p>
-							{#if ownedWeaponSummaryRows.length > 0}
-								<div class="summary-list">
-									{#each ownedWeaponSummaryRows as weapon (weapon.definitionId)}
-										<div class={`summary-row rarity-${weapon.rarity}`}>
-											<span>{weapon.name}</span>
-											<strong>{weapon.count} total · {weapon.equippedCount} equipped</strong>
-										</div>
-									{/each}
-								</div>
-							{:else}
-								<p class="upgrade-note">No owned weapons recorded yet.</p>
-							{/if}
-						</div>
+					<div class="panel-heading compact-heading">
+						<h2>Loadout snapshot</h2>
+						<p class="lede">Arena stays compact while loadout details move to their own route.</p>
 					</div>
 
-					<div class="panel-heading upgrade-header">
-						<h2>Shop</h2>
-						<p>Spend saved gold on persistent pixl growth.</p>
-					</div>
-
-					{#if form?.purchaseError}
-						<p class="feedback error">{form.purchaseError}</p>
-					{:else if form?.purchaseSuccess}
-						<p class="feedback success">{form.purchaseSuccess}</p>
-					{/if}
-
-					<div class="upgrade-panel">
-						{#if livePixlState}
-							{#each upgradeOptions as option (option.key)}
-								<form class="upgrade-card" method="post" action="?/purchaseUpgrade">
-									<input type="hidden" name="upgrade" value={option.key} />
-									<div>
-										<span>{option.label}</span>
-										<strong>Cost {option.cost}</strong>
+					<div class="summary-section">
+						<p class="eyebrow">Equipped now</p>
+						{#if currentLoadoutRows.length > 0}
+							<div class="summary-list snapshot-list">
+								{#each currentLoadoutRows.slice(0, 3) as weapon (weapon.weaponInstanceId)}
+									<div
+										class={`summary-row rarity-${weapon.rarity}`}
+										title={`${weapon.name} at ${weapon.x}, ${weapon.y}`}
+									>
+										<span>{weapon.name}</span>
+										<strong>({weapon.x}, {weapon.y})</strong>
 									</div>
-									<p>{option.description}</p>
-									<p class="upgrade-level">Bought {option.level} times</p>
-									<button class="purchase" type="submit" disabled={!option.canAfford}>
-										{option.canAfford ? `Buy ${option.label}` : 'Not enough gold'}
-									</button>
-								</form>
-							{/each}
+								{/each}
+							</div>
+							{#if currentLoadoutRows.length > 3}
+								<p class="upgrade-note">
+									+{currentLoadoutRows.length - 3} more equipped on the loadout route.
+								</p>
+							{/if}
 						{:else}
-							<p class="upgrade-note">Sign in to save gold and buy persistent upgrades.</p>
+							<p class="upgrade-note">No equipped weapons yet.</p>
 						{/if}
+					</div>
+
+					<div class="stats compact-stats">
+						<div>
+							<span>Owned weapons</span>
+							<strong>{ownedWeapons.length}</strong>
+						</div>
+						<div>
+							<span>Unlocked level</span>
+							<strong>{highestUnlockedLevel}</strong>
+						</div>
+						<div>
+							<span>Cleared level</span>
+							<strong>{highestClearedLevel}</strong>
+						</div>
+					</div>
+
+					<div class="route-card-grid side-route-grid">
+						<a
+							class="route-card"
+							href={resolve(`/campaigns/${data.campaignId}/loadout`)}
+							title={loadoutTooltip}
+						>
+							<span>Open loadout</span>
+							<strong>Hover for equipped</strong>
+							<p>Inspect placements and inventory in a dedicated editor.</p>
+						</a>
+						<a class="route-card" href={resolve(`/campaigns/${data.campaignId}/stats`)}>
+							<span>Open stats</span>
+							<strong>Upgrade between waves</strong>
+							<p>Persistent perks no longer compete with live combat telemetry.</p>
+						</a>
 					</div>
 				</aside>
 			{/if}
@@ -761,6 +595,10 @@
 						<div>
 							<span>Wave gold</span>
 							<strong>{combatOverlay.waveGold}</strong>
+						</div>
+						<div>
+							<span>Wave drops</span>
+							<strong>{combatOverlay.waveDrops}</strong>
 						</div>
 						<div>
 							<span>Remaining</span>
@@ -902,8 +740,6 @@
 	}
 
 	.lede,
-	.upgrade-header p,
-	.upgrade-card p,
 	.upgrade-note,
 	.upgrade-level {
 		color: #c4c4c4;
@@ -920,8 +756,7 @@
 		gap: 0.9rem;
 	}
 
-	.panel-heading,
-	.upgrade-header {
+	.panel-heading {
 		display: grid;
 		gap: 0.35rem;
 	}
@@ -989,11 +824,6 @@
 		background: rgba(255, 255, 255, 0.05);
 	}
 
-	.upgrade-panel {
-		display: grid;
-		gap: 0.85rem;
-	}
-
 	.management-block,
 	.stage-detail,
 	.summary-section {
@@ -1009,6 +839,30 @@
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 0.65rem;
+	}
+
+	.route-card-grid {
+		display: grid;
+		gap: 0.65rem;
+	}
+
+	.side-route-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.route-card {
+		padding: 0.85rem 0.9rem;
+		border-radius: 1rem;
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		background: rgba(255, 255, 255, 0.03);
+		display: grid;
+		gap: 0.3rem;
+		text-decoration: none;
+		color: #f5f5f5;
+	}
+
+	.route-card p {
+		color: #c4c4c4;
 	}
 
 	.stage-card,
@@ -1045,6 +899,10 @@
 		gap: 0.55rem;
 	}
 
+	.snapshot-list {
+		gap: 0.45rem;
+	}
+
 	.summary-row {
 		display: flex;
 		justify-content: space-between;
@@ -1061,25 +919,6 @@
 		flex-wrap: wrap;
 	}
 
-	.placement-field {
-		display: grid;
-		gap: 0.2rem;
-		font-size: 0.75rem;
-		color: #c4c4c4;
-	}
-
-	.placement-field input {
-		width: 4rem;
-		min-height: 2rem;
-		padding: 0.2rem 0.45rem;
-		border: 1px solid rgba(255, 255, 255, 0.14);
-		border-radius: 0.7rem;
-		background: rgba(255, 255, 255, 0.05);
-		color: #f5f5f5;
-		font: inherit;
-	}
-
-	.placement-submit,
 	.slim-toggle {
 		width: auto;
 		min-height: 2rem;
@@ -1108,22 +947,6 @@
 
 	.summary-row.rarity-legendary {
 		border-color: rgba(179, 132, 62, 0.28);
-	}
-
-	.upgrade-card {
-		padding: 0.85rem;
-		border-radius: 1rem;
-		border: 1px solid rgba(255, 255, 255, 0.08);
-		background: rgba(255, 255, 255, 0.03);
-		display: grid;
-		gap: 0.45rem;
-	}
-
-	.upgrade-card div {
-		display: flex;
-		justify-content: space-between;
-		gap: 0.75rem;
-		align-items: baseline;
 	}
 
 	.upgrade-level {
@@ -1169,7 +992,7 @@
 
 	.combat-grid {
 		display: grid;
-		grid-template-columns: repeat(5, minmax(0, 1fr));
+		grid-template-columns: repeat(6, minmax(0, 1fr));
 		gap: 0.75rem;
 	}
 
@@ -1300,6 +1123,10 @@
 	.grid-anchor span {
 		font-size: 1.1rem;
 		line-height: 1;
+	}
+
+	.compact-stats {
+		gap: 0.55rem;
 	}
 
 	:global(.canvas-frame) {
