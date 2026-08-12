@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import P5Canvas from '$lib/components/P5Canvas.svelte';
 	import CampaignRouteNav from '$lib/components/campaigns/CampaignRouteNav.svelte';
+	import { getCampaignRouteNotificationCounts } from '$lib/game/notifications';
 	import { createBaselineUpgradeablePixlState } from '$lib/game/upgrades';
 	import { createCampaignSketch } from '$lib/p5/campaign-1-sketch';
 	import type { LoadoutPlacement, WeaponDefinition, WeaponShape } from '$lib/data/types';
@@ -300,6 +301,9 @@
 	let loadoutTooltip = $derived(
 		loadoutWeapons.map((weapon) => `${weapon.name} (${weapon.x}, ${weapon.y})`).join('\n') ||
 			'No equipped weapons'
+	);
+	let notificationCounts = $derived(
+		getCampaignRouteNotificationCounts(livePixlState ?? data.gameState?.pixlState ?? null)
 	);
 	let equippedDamagePerCycle = $derived(
 		loadoutWeapons.reduce(
@@ -824,7 +828,12 @@
 	<div class="shell">
 		<div class="topbar">
 			<a class="back" href={resolve('/campaigns')}>All campaigns</a>
-			<CampaignRouteNav campaignId={data.campaignId} active="loadout" {loadoutTooltip} />
+			<CampaignRouteNav
+				campaignId={data.campaignId}
+				active="loadout"
+				{loadoutTooltip}
+				{notificationCounts}
+			/>
 		</div>
 
 		<section class="hero panel">

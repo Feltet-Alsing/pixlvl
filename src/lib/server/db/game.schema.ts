@@ -28,6 +28,11 @@ export const pixlState = pgTable('pixl_state', {
 	attackSpeed: real('attack_speed').notNull(),
 	loadoutRows: integer('loadout_rows').notNull().default(3),
 	loadoutColumns: integer('loadout_columns').notNull().default(6),
+	acknowledgedPerkPoints: integer('acknowledged_perk_points').notNull().default(0),
+	acknowledgedWeaponDefinitionIds: jsonb('acknowledged_weapon_definition_ids')
+		.$type<string[]>()
+		.notNull()
+		.default(sql`'[]'::jsonb`),
 	ownedWeapons: jsonb('owned_weapons')
 		.$type<OwnedWeaponInstance[]>()
 		.notNull()

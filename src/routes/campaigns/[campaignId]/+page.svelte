@@ -4,6 +4,7 @@
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import CampaignRouteNav from '$lib/components/campaigns/CampaignRouteNav.svelte';
 	import P5Canvas from '$lib/components/P5Canvas.svelte';
+	import { getCampaignRouteNotificationCounts } from '$lib/game/notifications';
 	import { createCampaignSketch } from '$lib/p5/campaign-1-sketch';
 	import {
 		applyUpgradePurchase,
@@ -238,6 +239,9 @@
 		currentLoadoutRows.map((weapon) => `${weapon.name} (${weapon.x}, ${weapon.y})`).join('\n') ||
 			'No equipped weapons'
 	);
+	let notificationCounts = $derived(
+		getCampaignRouteNotificationCounts(livePixlState ?? data.gameState?.pixlState ?? null)
+	);
 
 	$effect(() => {
 		void data.campaignId;
@@ -424,7 +428,12 @@
 							{showStatsOverlay ? 'Hide stats' : 'Show stats'}
 						</button>
 					{/if}
-					<CampaignRouteNav campaignId={data.campaignId} active="arena" {loadoutTooltip} />
+					<CampaignRouteNav
+						campaignId={data.campaignId}
+						active="arena"
+						{loadoutTooltip}
+						{notificationCounts}
+					/>
 				</div>
 			</div>
 

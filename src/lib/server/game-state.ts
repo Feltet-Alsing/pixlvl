@@ -1,6 +1,7 @@
 import { and, eq, type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
 
 import { baselineCombatProfile, campaigns, getCampaign, starterWeaponId } from '$lib/data';
+import { getOwnedWeaponDefinitionIds } from '$lib/game/notifications';
 import { createBaselineUpgradeablePixlState, createUpgradeablePixlState } from '$lib/game/upgrades';
 import { db } from '$lib/server/db';
 import { campaignProgress, pixlState } from '$lib/server/db/schema';
@@ -74,6 +75,35 @@ function normalizeOwnedWeapons(ownedWeapons?: OwnedWeaponInstance[] | null) {
 	return [...createStarterOwnedWeapons(), ...ownedWeapons];
 }
 
+function normalizeAcknowledgedWeaponDefinitionIds(
+	acknowledgedWeaponDefinitionIds: string[] | null | undefined,
+	ownedWeapons: OwnedWeaponInstance[]
+) {
+	const ownedDefinitionIds = getOwnedWeaponDefinitionIds(ownedWeapons);
+
+	if (!Array.isArray(acknowledgedWeaponDefinitionIds)) {
+		return ownedDefinitionIds;
+	}
+
+	if (acknowledgedWeaponDefinitionIds.length === 0 && ownedDefinitionIds.length === 1) {
+		return ownedDefinitionIds;
+	}
+
+	const ownedDefinitionIdSet = new Set(ownedDefinitionIds);
+
+	return [...new Set(acknowledgedWeaponDefinitionIds)].filter((definitionId) =>
+		ownedDefinitionIdSet.has(definitionId)
+	);
+}
+
+function normalizeAcknowledgedPerkPoints(value: unknown) {
+	if (typeof value !== 'number' || !Number.isFinite(value)) {
+		return 0;
+	}
+
+	return Math.max(0, Math.floor(value));
+}
+
 function normalizeLoadoutPlacements(
 	loadoutPlacements: LoadoutPlacement[] | null | undefined,
 	ownedWeapons: OwnedWeaponInstance[]
@@ -112,6 +142,8 @@ function createDefaultPixlState(userId: string): InferInsertModel<typeof pixlSta
 		attackSpeed: baselineState.attackSpeed,
 		loadoutRows: baselineState.loadoutRows,
 		loadoutColumns: baselineState.loadoutColumns,
+		acknowledgedPerkPoints: baselineState.perkPoints,
+		acknowledgedWeaponDefinitionIds: [starterWeaponId],
 		ownedWeapons: createStarterOwnedWeapons(),
 		loadoutPlacements: createStarterLoadoutPlacements()
 	};
@@ -189,6 +221,13 @@ async function ensureGameState(userId: string) {
 		storedPixlState.loadoutPlacements,
 		normalizedOwnedWeapons
 	);
+	const normalizedAcknowledgedPerkPoints = normalizeAcknowledgedPerkPoints(
+		storedPixlState.acknowledgedPerkPoints
+	);
+	const normalizedAcknowledgedWeaponDefinitionIds = normalizeAcknowledgedWeaponDefinitionIds(
+		storedPixlState.acknowledgedWeaponDefinitionIds,
+		normalizedOwnedWeapons
+	);
 
 	const normalizedProgression = createUpgradeablePixlState({
 		xp: storedPixlState.xp,
@@ -206,6 +245,8 @@ async function ensureGameState(userId: string) {
 		normalizedProgression.attackSpeed !== storedPixlState.attackSpeed ||
 		normalizedProgression.loadoutRows !== storedPixlState.loadoutRows ||
 		normalizedProgression.loadoutColumns !== storedPixlState.loadoutColumns ||
+		normalizedAcknowledgedPerkPoints !== storedPixlState.acknowledgedPerkPoints ||
+		normalizedAcknowledgedWeaponDefinitionIds !== storedPixlState.acknowledgedWeaponDefinitionIds ||
 		normalizedOwnedWeapons !== storedPixlState.ownedWeapons ||
 		normalizedLoadoutPlacements !== storedPixlState.loadoutPlacements
 	) {
@@ -221,6 +262,8 @@ async function ensureGameState(userId: string) {
 				attackSpeed: normalizedProgression.attackSpeed,
 				loadoutRows: normalizedProgression.loadoutRows,
 				loadoutColumns: normalizedProgression.loadoutColumns,
+				acknowledgedPerkPoints: normalizedAcknowledgedPerkPoints,
+				acknowledgedWeaponDefinitionIds: normalizedAcknowledgedWeaponDefinitionIds,
 				ownedWeapons: normalizedOwnedWeapons,
 				loadoutPlacements: normalizedLoadoutPlacements,
 				updatedAt: new Date()
@@ -360,6 +403,8 @@ export async function resetGameStateForUser(userId: string): Promise<GameState> 
 			attackSpeed: defaultPixlState.attackSpeed,
 			loadoutRows: defaultPixlState.loadoutRows,
 			loadoutColumns: defaultPixlState.loadoutColumns,
+			acknowledgedPerkPoints: defaultPixlState.acknowledgedPerkPoints,
+			acknowledgedWeaponDefinitionIds: defaultPixlState.acknowledgedWeaponDefinitionIds,
 			ownedWeapons: defaultPixlState.ownedWeapons,
 			loadoutPlacements: defaultPixlState.loadoutPlacements,
 			updatedAt: new Date()
@@ -392,4 +437,55 @@ export async function getCampaignProgressForUser(userId: string, campaignId: num
 	}
 
 	return progress;
+}
+
+export async function acknowledgePerkNotificationsForUser(userId: string) {
+	await ensureGameState(userId);
+
+	const [storedPixlState] = await db.select().from(pixlState).where(eq(pixlState.userId, userId));
+
+	if (!storedPixlState || storedPixlState.acknowledgedPerkPoints >= storedPixlState.perkPoints) {
+		return;
+	}
+
+	await db
+		.update(pixlState)
+		.set({
+			acknowledgedPerkPoints: storedPixlState.perkPoints,
+			updatedAt: new Date()
+		})
+		.where(eq(pixlState.userId, userId));
+}
+
+export async function acknowledgeWeaponNotificationsForUser(userId: string) {
+	await ensureGameState(userId);
+
+	const [storedPixlState] = await db.select().from(pixlState).where(eq(pixlState.userId, userId));
+
+	if (!storedPixlState) {
+		return;
+	}
+
+	const ownedDefinitionIds = getOwnedWeaponDefinitionIds(storedPixlState.ownedWeapons);
+	const acknowledgedWeaponDefinitionIds = normalizeAcknowledgedWeaponDefinitionIds(
+		storedPixlState.acknowledgedWeaponDefinitionIds,
+		storedPixlState.ownedWeapons
+	);
+
+	if (
+		acknowledgedWeaponDefinitionIds.length === ownedDefinitionIds.length &&
+		acknowledgedWeaponDefinitionIds.every(
+			(definitionId, index) => definitionId === ownedDefinitionIds[index]
+		)
+	) {
+		return;
+	}
+
+	await db
+		.update(pixlState)
+		.set({
+			acknowledgedWeaponDefinitionIds: ownedDefinitionIds,
+			updatedAt: new Date()
+		})
+		.where(eq(pixlState.userId, userId));
 }

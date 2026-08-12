@@ -1,13 +1,15 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import type { CampaignRouteNotificationCounts } from '$lib/game/notifications';
 
 	interface Props {
 		campaignId: number;
 		active: 'arena' | 'management' | 'stats' | 'loadout';
 		loadoutTooltip?: string;
+		notificationCounts?: CampaignRouteNotificationCounts;
 	}
 
-	let { campaignId, active, loadoutTooltip = '' }: Props = $props();
+	let { campaignId, active, loadoutTooltip = '', notificationCounts }: Props = $props();
 
 	let routeLinks = $derived([
 		{
@@ -31,6 +33,18 @@
 			path: `/campaigns/${campaignId}/loadout`
 		}
 	] as const);
+
+	function getBadgeCount(key: 'arena' | 'management' | 'stats' | 'loadout') {
+		if (key === 'stats') {
+			return notificationCounts?.stats ?? 0;
+		}
+
+		if (key === 'loadout') {
+			return notificationCounts?.loadout ?? 0;
+		}
+
+		return 0;
+	}
 </script>
 
 <nav class="route-nav" aria-label="Campaign sections">
@@ -42,6 +56,11 @@
 			title={route.key === 'loadout' ? loadoutTooltip : undefined}
 		>
 			{route.label}
+			{#if getBadgeCount(route.key) > 0}
+				<span class="route-badge" aria-label={`${getBadgeCount(route.key)} unread`}>
+					{getBadgeCount(route.key)}
+				</span>
+			{/if}
 		</a>
 	{/each}
 </nav>
@@ -54,6 +73,7 @@
 	}
 
 	.route-link {
+		position: relative;
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
@@ -66,6 +86,25 @@
 		text-decoration: none;
 		font-size: 0.84rem;
 		font-weight: 600;
+	}
+
+	.route-badge {
+		position: absolute;
+		top: -0.35rem;
+		right: -0.2rem;
+		min-width: 1.1rem;
+		height: 1.1rem;
+		padding: 0 0.28rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 999px;
+		background: #ff5b5b;
+		color: #ffffff;
+		font-size: 0.68rem;
+		font-weight: 700;
+		line-height: 1;
+		box-shadow: 0 0 0 2px rgba(10, 10, 10, 0.92);
 	}
 
 	.route-link.active {

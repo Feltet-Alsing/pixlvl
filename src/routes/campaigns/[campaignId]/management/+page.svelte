@@ -64,7 +64,12 @@
 	<div class="shell">
 		<div class="topbar">
 			<a class="back" href={resolve('/campaigns')}>All campaigns</a>
-			<CampaignRouteNav campaignId={data.campaignId} active="management" {loadoutTooltip} />
+			<CampaignRouteNav
+				campaignId={data.campaignId}
+				active="management"
+				{loadoutTooltip}
+				notificationCounts={data.notificationCounts}
+			/>
 		</div>
 
 		<section class="hero panel">

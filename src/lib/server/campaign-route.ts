@@ -8,11 +8,15 @@ import {
 } from '$lib/data';
 import { applyUpgradePurchase, isUpgradeKey } from '$lib/game/upgrades';
 import {
+	acknowledgePerkNotificationsForUser,
+	acknowledgeWeaponNotificationsForUser,
 	getCampaignProgressForUser,
 	getOrCreateGameState,
 	resetGameStateForUser,
 	updateGameState
 } from '$lib/server/game-state';
+
+import { getCampaignRouteNotificationCounts } from '$lib/game/notifications';
 
 import type { LoadoutPlacement, OwnedWeaponInstance, WeaponDefinition } from '$lib/data/types';
 
@@ -21,10 +25,23 @@ const LOADOUT_ROW_COUNT = 5;
 
 type ActionResult<T> = { ok: true; data: T } | { ok: false; status: number; data: T };
 
-export async function loadCampaignRouteData(campaignId: number, userId?: string) {
+export async function loadCampaignRouteData(
+	campaignId: number,
+	userId?: string,
+	acknowledgeRoute?: 'stats' | 'loadout' | null
+) {
 	const campaign = getCampaign(campaignId);
 	const combatProfile = getCampaignCombatProfile(campaignId);
 	const weaponPool = getCampaignWeaponPool(campaignId);
+
+	if (userId && acknowledgeRoute === 'stats') {
+		await acknowledgePerkNotificationsForUser(userId);
+	}
+
+	if (userId && acknowledgeRoute === 'loadout') {
+		await acknowledgeWeaponNotificationsForUser(userId);
+	}
+
 	const gameState = userId ? await getOrCreateGameState(userId) : null;
 	const campaignState = userId ? await getCampaignProgressForUser(userId, campaignId) : null;
 
@@ -34,7 +51,8 @@ export async function loadCampaignRouteData(campaignId: number, userId?: string)
 		combatProfile,
 		weaponPool,
 		gameState,
-		campaignState
+		campaignState,
+		notificationCounts: getCampaignRouteNotificationCounts(gameState?.pixlState)
 	};
 }
 
