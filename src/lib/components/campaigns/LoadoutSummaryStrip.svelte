@@ -14,61 +14,66 @@
 
 <div class="loadout-summary-strip" aria-label="Equipped loadout cycle summary">
 	<div class="loadout-summary-card">
-		<span>Run state</span>
+		<span>Run</span>
 		<strong>Stage {stage} · {stageLevel}</strong>
-		<small>{status === 'running' ? 'Live run active' : `Run ${status}`}</small>
+		<small>{status === 'running' ? 'Live' : status}</small>
 	</div>
 	<div class="loadout-summary-card">
-		<span>Damage / cycle</span>
+		<span>Damage</span>
 		<strong>{damagePerCycle}</strong>
 	</div>
 	<div class="loadout-summary-card">
-		<span>Projectiles / cycle</span>
+		<span>Projectiles</span>
 		<strong>{projectilesPerCycle}</strong>
 	</div>
 	<div class="loadout-summary-card">
-		<span>Items equipped</span>
+		<span>Equipped</span>
 		<strong>{equippedCount}</strong>
 	</div>
 </div>
 
 <style>
 	.loadout-summary-strip {
-		width: min(100%, 37rem);
+		width: 100%;
 		display: grid;
-		grid-template-columns: repeat(4, minmax(0, 1fr));
-		gap: 0.5rem;
+		grid-template-columns: repeat(4, minmax(0, max-content));
+		justify-content: start;
+		gap: 0.4rem;
 	}
 
 	.loadout-summary-card {
-		padding: 0.65rem 0.72rem;
-		border-radius: 0.78rem;
+		padding: 0.45rem 0.6rem;
+		border-radius: 0.68rem;
 		border: 1px solid rgba(255, 255, 255, 0.08);
 		background: rgba(255, 255, 255, 0.04);
 		display: grid;
-		gap: 0.22rem;
+		gap: 0.14rem;
+		min-width: 0;
 	}
 
 	.loadout-summary-card span {
-		font-size: 0.62rem;
+		font-size: 0.56rem;
 		letter-spacing: 0.1em;
 		text-transform: uppercase;
 		color: #bdbdc3;
+		line-height: 1;
 	}
 
 	.loadout-summary-card strong {
-		font-size: 1.05rem;
+		font-size: 0.96rem;
 		line-height: 1;
 	}
 
 	.loadout-summary-card small {
-		font-size: 0.68rem;
+		font-size: 0.58rem;
 		color: #c4c4ca;
+		line-height: 1.1;
 	}
 
 	@media (max-width: 860px) {
 		.loadout-summary-strip {
-			grid-template-columns: 1fr;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 0.35rem;
 		}
 	}
 </style>

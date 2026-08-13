@@ -31,6 +31,7 @@
 		previewCellStateByKey: Record<string, 'valid' | 'invalid'>;
 		weapons: LoadoutWeapon[];
 		draggedWeaponInstanceId: string | null;
+		onSelectWeapon: (weapon: LoadoutWeapon) => void;
 		onGridDragOver: (event: DragEvent, cell: GridCell) => void;
 		onGridDrop: (event: DragEvent, cell: GridCell) => void;
 		onPlacedWeaponDragOver: (event: DragEvent) => void;
@@ -51,6 +52,7 @@
 		previewCellStateByKey,
 		weapons,
 		draggedWeaponInstanceId,
+		onSelectWeapon,
 		onGridDragOver,
 		onGridDrop,
 		onPlacedWeaponDragOver,
@@ -103,6 +105,7 @@
 				draggable="true"
 				class:dragging={draggedWeaponInstanceId === weapon.weaponInstanceId}
 				style={getWeaponGridArea(weapon)}
+				onclick={() => onSelectWeapon(weapon)}
 				ondragover={onPlacedWeaponDragOver}
 				ondrop={onPlacedWeaponDrop}
 				ondragstart={(event) => onPlacedWeaponDragStart(event, weapon)}

@@ -1,12 +1,41 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
+	import type { SubmitFunction } from '@sveltejs/kit';
 	import CampaignStatCard from '$lib/components/campaigns/CampaignStatCard.svelte';
 	import UpgradeOptionCard from '$lib/components/campaigns/UpgradeOptionCard.svelte';
-	import { createBaselineUpgradeablePixlState, getUpgradeOptions } from '$lib/game/upgrades';
+	import {
+		applyUpgradePurchase,
+		createBaselineUpgradeablePixlState,
+		getUpgradeOptions,
+		isUpgradeKey
+	} from '$lib/game/upgrades';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
 
-	let upgradeState = $derived(data.gameState?.pixlState ?? createBaselineUpgradeablePixlState());
+	type LivePixlState = NonNullable<NonNullable<PageProps['data']['gameState']>['pixlState']>;
+	type PixlStateOverride = Pick<
+		LivePixlState,
+		| 'xp'
+		| 'level'
+		| 'perkPoints'
+		| 'defence'
+		| 'agility'
+		| 'health'
+		| 'attackSpeed'
+		| 'loadoutRows'
+		| 'loadoutColumns'
+	>;
+
+	let pixlStateOverride = $state.raw<PixlStateOverride | null>(null);
+	let upgradeState = $derived(
+		(data.gameState?.pixlState
+			? {
+					...data.gameState.pixlState,
+					...(pixlStateOverride ?? {})
+				}
+			: null) ?? createBaselineUpgradeablePixlState()
+	);
 	let upgradeOptions = $derived(getUpgradeOptions(upgradeState));
 	let equippedWeaponCount = $derived(data.gameState?.pixlState.loadoutPlacements.length ?? 0);
 	let ownedWeaponCount = $derived(data.gameState?.pixlState.ownedWeapons.length ?? 0);
@@ -20,6 +49,36 @@
 		{ label: 'Owned weapons', value: ownedWeaponCount },
 		{ label: 'Loadout size', value: `${upgradeState.loadoutRows} x ${upgradeState.loadoutColumns}` }
 	]);
+
+	const purchaseUpgrade: SubmitFunction = ({ formData }) => {
+		const selectedUpgrade = formData.get('upgrade');
+
+		return async ({ result }) => {
+			if (result.type === 'success' || result.type === 'failure') {
+				form = result.data as PageProps['form'];
+			}
+
+			if (
+				result.type === 'success' &&
+				typeof selectedUpgrade === 'string' &&
+				isUpgradeKey(selectedUpgrade)
+			) {
+				const nextUpgradeState = applyUpgradePurchase(selectedUpgrade, upgradeState);
+
+				pixlStateOverride = {
+					xp: nextUpgradeState.xp,
+					level: nextUpgradeState.level,
+					perkPoints: nextUpgradeState.perkPoints,
+					defence: nextUpgradeState.defence,
+					agility: nextUpgradeState.agility,
+					health: nextUpgradeState.health,
+					attackSpeed: nextUpgradeState.attackSpeed,
+					loadoutRows: nextUpgradeState.loadoutRows,
+					loadoutColumns: nextUpgradeState.loadoutColumns
+				};
+			}
+		};
+	};
 </script>
 
 <svelte:head>
@@ -51,34 +110,17 @@
 					<p class="feedback error">{form.purchaseError}</p>
 				{:else if form?.purchaseSuccess}
 					<p class="feedback success">{form.purchaseSuccess}</p>
-				{:else if form?.resetError}
-					<p class="feedback error">{form.resetError}</p>
-				{:else if form?.resetSuccess}
-					<p class="feedback success">{form.resetSuccess}</p>
 				{/if}
 
 				<div class="upgrade-grid">
 					{#if data.gameState}
 						{#each upgradeOptions as option (option.key)}
-							<UpgradeOptionCard {option} />
+							<UpgradeOptionCard {option} submit={purchaseUpgrade} />
 						{/each}
 					{:else}
 						<p class="feedback neutral">Sign in to save stats and buy upgrades.</p>
 					{/if}
 				</div>
-
-				<form class="reset-panel" method="post" action="?/resetPixl">
-					<div class="section-head">
-						<h2>Complete reset</h2>
-						<p>
-							Reset XP, perk allocation, owned weapons, loadout, and campaign progression to
-							defaults.
-						</p>
-					</div>
-					<button class="reset-button" type="submit" disabled={!data.gameState}>
-						Reset pixl
-					</button>
-				</form>
 			</div>
 		</section>
 	</div>
@@ -154,30 +196,6 @@
 	.upgrade-grid {
 		display: grid;
 		gap: 0.75rem;
-	}
-
-	.reset-panel {
-		display: grid;
-		gap: 0.75rem;
-		padding-top: 0.25rem;
-		border-top: 1px solid rgba(255, 255, 255, 0.08);
-	}
-
-	.reset-button {
-		min-height: 2.4rem;
-		padding: 0.55rem 0.9rem;
-		border-radius: 999px;
-		border: 1px solid rgba(255, 96, 96, 0.28);
-		background: rgba(255, 96, 96, 0.08);
-		color: #ffd5d5;
-		font: inherit;
-		font-weight: 600;
-		cursor: pointer;
-	}
-
-	.reset-button:disabled {
-		opacity: 0.45;
-		cursor: not-allowed;
 	}
 
 	.feedback {

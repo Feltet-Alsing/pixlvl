@@ -139,8 +139,11 @@
 			.join('|')
 	);
 	let previewPixlState = $derived(livePixlState ?? data.gameState?.pixlState ?? null);
+	let progressionSignature = $derived(
+		`${upgradeState.xp}:${upgradeState.defence}:${upgradeState.agility}:${upgradeState.health}:${upgradeState.attackSpeed}:${upgradeState.loadoutRows}:${upgradeState.loadoutColumns}`
+	);
 	let sketchRemountKey = $derived(
-		`${data.campaignId}:${runMode}:${sketchCampaignLevel}:${loadoutSignature}`
+		`${data.campaignId}:${runMode}:${sketchCampaignLevel}:${loadoutSignature}:${progressionSignature}`
 	);
 	let loadoutPreviewRemountKey = $derived(
 		`${data.campaignId}:${loadoutSignature}:${previewPixlState?.attackSpeed ?? 0}:${upgradeState.loadoutRows}:${upgradeState.loadoutColumns}`

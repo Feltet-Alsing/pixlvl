@@ -5,6 +5,7 @@
 	import LoadoutInventoryToolbox from '$lib/components/campaigns/LoadoutInventoryToolbox.svelte';
 	import LoadoutSaveDialog from '$lib/components/campaigns/LoadoutSaveDialog.svelte';
 	import LoadoutSummaryStrip from '$lib/components/campaigns/LoadoutSummaryStrip.svelte';
+	import LoadoutWeaponDetailsPane from '$lib/components/campaigns/LoadoutWeaponDetailsPane.svelte';
 	import P5Canvas from '$lib/components/P5Canvas.svelte';
 	import { createBaselineUpgradeablePixlState } from '$lib/game/upgrades';
 	import { createCampaignSketch } from '$lib/p5/campaign-1-sketch';
@@ -16,6 +17,8 @@
 		cloneLoadoutPlacements,
 		filterInventoryWeaponGroups,
 		formatCycleAverage,
+		formatCycleThreshold,
+		formatAttackLabel,
 		formatInventoryGroupStatus,
 		getDefaultDragAnchor,
 		getDragAnchorFromGrid,
@@ -59,6 +62,16 @@
 		'currentLevel' | 'highestUnlockedLevel' | 'highestClearedLevel' | 'completed'
 	>;
 
+	interface SelectedWeaponDetails {
+		name: string;
+		rarity: string;
+		category: 'weapon' | 'utility';
+		role: string;
+		shapeLabel: string;
+		summary: string;
+		stats: Array<{ label: string; value: string }>;
+	}
+
 	let { data, form }: PageProps = $props();
 	let draggedWeaponInstanceId = $state<string | null>(null);
 	let draggedWeaponAnchor = $state<{ x: number; y: number } | null>(null);
@@ -67,6 +80,7 @@
 	let inventorySearch = $state('');
 	let showSaveWarning = $state(false);
 	let showUnsavedToast = $state(false);
+	let selectedWeaponDetails = $state<SelectedWeaponDetails | null>(null);
 	let saveLoadoutForm = $state<HTMLFormElement | null>(null);
 	let pixlStateOverride = $state.raw<PixlStateOverride | null>(null);
 	let campaignStateOverride = $state.raw<CampaignStateOverride | null>(null);
@@ -220,6 +234,9 @@
 			0
 		)
 	);
+	let progressionSignature = $derived(
+		`${progressionState.xp}:${progressionState.defence}:${progressionState.agility}:${progressionState.health}:${progressionState.attackSpeed}:${progressionState.loadoutRows}:${progressionState.loadoutColumns}`
+	);
 	let hiddenSketchPixlState = $derived.by(() => {
 		const source = livePixlState ?? data.gameState?.pixlState ?? null;
 
@@ -236,7 +253,7 @@
 		};
 	});
 	let backgroundSketchRemountKey = $derived(
-		`${data.campaignId}:${savedLoadoutPayload}:${data.campaignState?.currentLevel ?? 1}`
+		`${data.campaignId}:${savedLoadoutPayload}:${data.campaignState?.currentLevel ?? 1}:${progressionSignature}`
 	);
 	let backgroundCampaignSketch = $derived.by(() => {
 		return (p: import('p5').default) =>
@@ -638,6 +655,90 @@
 
 		beginInventoryWeaponDrag(event, weapon);
 	}
+
+	function getShapeLabel(shape: { width: number; height: number; cells: Array<[number, number]> }) {
+		return `${shape.width}x${shape.height} · ${shape.cells.length} tiles`;
+	}
+
+	function selectPlacedWeapon(weapon: LoadoutWeapon) {
+		selectedWeaponDetails = {
+			name: weapon.name,
+			rarity: weapon.rarity,
+			category: weapon.category,
+			role: weapon.role,
+			shapeLabel: getShapeLabel(weapon.shape),
+			summary:
+				weapon.category === 'weapon'
+					? weapon.effectSummary
+					: `${weapon.activationKind === 'passive' ? 'Passive' : 'Triggered'} utility · ${weapon.effectSummary}`,
+			stats: [
+				...(weapon.category === 'weapon' && weapon.baseDamage
+					? [{ label: 'Damage', value: `${weapon.baseDamage}` }]
+					: []),
+				...(weapon.category === 'weapon' && weapon.attack
+					? [
+							{ label: 'Projectiles', value: `${weapon.attack.projectileCount}` },
+							{
+								label: 'Cadence',
+								value: `Every ${formatCycleThreshold(weapon.attack)} cycle${formatCycleThreshold(weapon.attack) === '1' ? '' : 's'}`
+							},
+							{ label: 'Attack', value: formatAttackLabel(weapon.attack.kind) }
+						]
+					: []),
+				...(weapon.category === 'utility'
+					? [
+							{
+								label: 'Activation',
+								value: weapon.activationKind === 'passive' ? 'Passive' : 'Triggered'
+							}
+						]
+					: []),
+				{ label: 'Placement', value: `${weapon.x}, ${weapon.y}` }
+			]
+		};
+	}
+
+	function selectInventoryGroup(group: InventoryWeaponGroup) {
+		selectedWeaponDetails = {
+			name: group.name,
+			rarity: group.rarity,
+			category: group.category,
+			role: group.role,
+			shapeLabel: getShapeLabel(group.shape),
+			summary:
+				group.category === 'weapon'
+					? group.effectSummary
+					: `${group.activationKind === 'passive' ? 'Passive' : 'Triggered'} utility · ${group.effectSummary}`,
+			stats: [
+				...(group.category === 'weapon' && group.baseDamage
+					? [{ label: 'Damage', value: `${group.baseDamage}` }]
+					: []),
+				...(group.category === 'weapon' && group.attack
+					? [
+							{ label: 'Projectiles', value: `${group.attack.projectileCount}` },
+							{
+								label: 'Cadence',
+								value: `Every ${formatCycleThreshold(group.attack)} cycle${formatCycleThreshold(group.attack) === '1' ? '' : 's'}`
+							},
+							{ label: 'Attack', value: formatAttackLabel(group.attack.kind) }
+						]
+					: []),
+				...(group.projectileSpeed
+					? [{ label: 'Projectile speed', value: `${group.projectileSpeed}` }]
+					: []),
+				...(group.category === 'utility'
+					? [
+							{
+								label: 'Activation',
+								value: group.activationKind === 'passive' ? 'Passive' : 'Triggered'
+							}
+						]
+					: []),
+				{ label: 'Ready', value: `${group.availableCount}` },
+				{ label: 'Equipped', value: `${group.equippedCount}` }
+			]
+		};
+	}
 </script>
 
 <svelte:head>
@@ -738,6 +839,7 @@
 					{previewCellStateByKey}
 					weapons={visiblePlacedWeapons}
 					{draggedWeaponInstanceId}
+					onSelectWeapon={selectPlacedWeapon}
 					onGridDragOver={handleGridDragOver}
 					onGridDrop={handleGridDrop}
 					onPlacedWeaponDragOver={handlePlacedWeaponDragOver}
@@ -758,6 +860,7 @@
 					isDropTargetActive={isInventoryDropTargetActive}
 					groups={filteredInventoryWeaponGroups}
 					{draggedWeaponInstanceId}
+					onSelectGroup={selectInventoryGroup}
 					onInventoryDragOver={handleInventoryDragOver}
 					onInventoryDragLeave={handleInventoryDragLeave}
 					onInventoryDrop={handleInventoryDrop}
@@ -767,6 +870,8 @@
 					{isShapeCellFilled}
 				/>
 			</aside>
+
+			<LoadoutWeaponDetailsPane detail={selectedWeaponDetails} />
 		</section>
 	</div>
 </div>
@@ -925,6 +1030,10 @@
 	@media (min-width: 980px) {
 		.layout-stack {
 			grid-template-columns: minmax(0, 1.65fr) minmax(18rem, 21rem);
+		}
+
+		:global(.details-pane) {
+			grid-column: 1 / -1;
 		}
 
 		.grid-panel,

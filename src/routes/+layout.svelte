@@ -6,7 +6,6 @@
 	import type { LayoutServerData } from './$types';
 
 	let { data, children }: { data: LayoutServerData; children: Snippet } = $props();
-	let currentPath = $derived(`${page.url.pathname}${page.url.search}`);
 	let isAuthRoute = $derived(page.url.pathname.startsWith('/auth'));
 </script>
 
@@ -32,13 +31,9 @@
 			<div class="app-session">
 				{#if data.user && data.session}
 					<p class="app-user">{data.user.name || data.user.email}</p>
-					<form method="post" action={resolve('/auth/logout')}>
-						<input type="hidden" name="next" value={currentPath} />
-						<button class="app-session-button" type="submit">Log out</button>
-					</form>
 				{:else if !isAuthRoute}
 					<form method="get" action={resolve('/auth/login')}>
-						<input type="hidden" name="next" value={currentPath} />
+						<input type="hidden" name="next" value={`${page.url.pathname}${page.url.search}`} />
 						<button class="app-session-button" type="submit">Sign in</button>
 					</form>
 				{/if}

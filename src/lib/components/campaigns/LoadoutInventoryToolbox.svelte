@@ -26,6 +26,7 @@
 		isDropTargetActive: boolean;
 		groups: InventoryWeaponGroup[];
 		draggedWeaponInstanceId: string | null;
+		onSelectGroup: (group: InventoryWeaponGroup) => void;
 		onInventoryDragOver: (event: DragEvent) => void;
 		onInventoryDragLeave: () => void;
 		onInventoryDrop: (event: DragEvent) => void;
@@ -41,6 +42,7 @@
 		isDropTargetActive,
 		groups,
 		draggedWeaponInstanceId,
+		onSelectGroup,
 		onInventoryDragOver,
 		onInventoryDragLeave,
 		onInventoryDrop,
@@ -106,6 +108,7 @@
 							class:equipped={group.equippedCount > 0}
 							class:unavailable={group.availableCount < 1}
 							class:dragging={draggedWeaponInstanceId === group.representativeWeaponInstanceId}
+							onclick={() => onSelectGroup(group)}
 							ondragstart={(event) => onGroupDragStart(event, group)}
 							ondragend={onWeaponDragEnd}
 						>
