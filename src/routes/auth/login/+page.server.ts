@@ -58,6 +58,8 @@ export const actions: Actions = {
 				});
 			}
 
+			console.error('Unexpected sign-in error', error);
+
 			return fail(500, {
 				mode: 'sign-in',
 				message: 'Unexpected error during sign in.',
@@ -95,6 +97,8 @@ export const actions: Actions = {
 					values: { name, email }
 				});
 			}
+
+			console.error('Unexpected sign-up error', error);
 
 			return fail(500, {
 				mode: 'sign-up',
