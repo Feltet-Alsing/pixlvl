@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import ArenaStatsOverlay from '$lib/components/campaigns/ArenaStatsOverlay.svelte';
 	import CampaignStageDrawer from '$lib/components/campaigns/CampaignStageDrawer.svelte';
@@ -203,7 +205,7 @@
 		campaignStateOverride = null;
 		combatOverlayOverride = null;
 		showStatsOverlay = false;
-		showStageDrawer = false;
+		showStageDrawer = page.url.searchParams.get('menu') === 'campaign';
 		showLoadoutPreview = true;
 		skipResultsSignal = 0;
 	});
@@ -248,6 +250,24 @@
 
 	function handleCombatStateChange(update: CombatOverlayState) {
 		combatOverlayOverride = update;
+	}
+
+	function setCampaignMenuOpen(nextOpen: boolean) {
+		showStageDrawer = nextOpen;
+
+		const nextUrl = new URL(page.url);
+
+		if (nextOpen) {
+			nextUrl.searchParams.set('menu', 'campaign');
+		} else {
+			nextUrl.searchParams.delete('menu');
+		}
+
+		void goto(`${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`, {
+			replaceState: true,
+			noScroll: true,
+			keepFocus: true
+		});
 	}
 
 	const purchaseUpgrade: SubmitFunction = ({ formData }) => {
@@ -358,7 +378,7 @@
 						class="drawer-backdrop"
 						type="button"
 						aria-label="Close campaign menu"
-						onclick={() => (showStageDrawer = false)}
+						onclick={() => setCampaignMenuOpen(false)}
 					></button>
 				{/if}
 
@@ -386,10 +406,11 @@
 							class="toggle campaign-toggle"
 							type="button"
 							onclick={() => {
-								showStageDrawer = !showStageDrawer;
-								if (showStageDrawer) {
+								const nextOpen = !showStageDrawer;
+								if (nextOpen) {
 									showStatsOverlay = false;
 								}
+								setCampaignMenuOpen(nextOpen);
 							}}
 							aria-pressed={showStageDrawer}
 						>
@@ -413,7 +434,7 @@
 						stageError={form?.stageError}
 						stageSuccess={form?.stageSuccess}
 						submit={selectStage}
-						onClose={() => (showStageDrawer = false)}
+						onClose={() => setCampaignMenuOpen(false)}
 					/>
 				{/if}
 

@@ -72,7 +72,7 @@
 				<a
 					class:active={campaignRoute.campaignId === campaignId}
 					class="drawer-campaign-link"
-					href={resolve(`/campaigns/${campaignRoute.campaignId}`)}
+						href={`${resolve(`/campaigns/${campaignRoute.campaignId}`)}?menu=campaign`}
 				>
 					Campaign {campaignRoute.campaignId}
 				</a>
