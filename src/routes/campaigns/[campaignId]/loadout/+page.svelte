@@ -1,81 +1,43 @@
 <script lang="ts">
 	import LoadoutDraggedShapePreview from '$lib/components/campaigns/LoadoutDraggedShapePreview.svelte';
+	import LoadoutGridBoard from '$lib/components/campaigns/LoadoutGridBoard.svelte';
+	import LoadoutInventoryToolbox from '$lib/components/campaigns/LoadoutInventoryToolbox.svelte';
 	import LoadoutSaveDialog from '$lib/components/campaigns/LoadoutSaveDialog.svelte';
 	import LoadoutSummaryStrip from '$lib/components/campaigns/LoadoutSummaryStrip.svelte';
 	import P5Canvas from '$lib/components/P5Canvas.svelte';
-	import { isUtilityDefinition, isWeaponDefinition } from '$lib/data';
 	import { createBaselineUpgradeablePixlState } from '$lib/game/upgrades';
 	import { createCampaignSketch } from '$lib/p5/campaign-1-sketch';
-	import type {
-		LoadoutItemDefinition,
-		LoadoutPlacement,
-		UtilityDefinition,
-		WeaponDefinition,
-		WeaponShape
-	} from '$lib/data/types';
+	import {
+		buildGridCells,
+		buildInventoryWeaponGroups,
+		buildInventoryWeapons,
+		buildLoadoutWeapons,
+		cloneLoadoutPlacements,
+		filterInventoryWeaponGroups,
+		formatCycleAverage,
+		formatInventoryCardSummary,
+		formatInventoryGroupStatus,
+		getDefaultDragAnchor,
+		getDragAnchorFromGrid,
+		getGridCellKey,
+		getPlacedWeaponDragAnchor,
+		getShapeGridTemplate,
+		getWeaponCycleRate,
+		getWeaponGridArea,
+		isLabelCell,
+		isPointWithinElementBounds,
+		isShapeCellFilled,
+		setShapeGridDragImage,
+		type GridCell,
+		type InventoryWeapon,
+		type InventoryWeaponGroup,
+		type LiveCombatProgress,
+		type LoadoutWeapon
+	} from './loadout-helpers';
+	import type { LoadoutItemDefinition, LoadoutPlacement } from '$lib/data/types';
 	import type { PageProps } from './$types';
 
 	const baselinePixlProgression = createBaselineUpgradeablePixlState();
-
-	interface LoadoutWeapon {
-		weaponInstanceId: string;
-		definitionId: string;
-		category: 'weapon' | 'utility';
-		name: string;
-		rarity: WeaponDefinition['rarity'];
-		shape: WeaponShape;
-		baseDamage?: number;
-		attack?: WeaponDefinition['attack'];
-		activationKind?: UtilityDefinition['activationKind'];
-		effectSummary: string;
-		role: string;
-		x: number;
-		y: number;
-	}
-
-	interface InventoryWeapon {
-		weaponInstanceId: string;
-		definitionId: string;
-		category: 'weapon' | 'utility';
-		name: string;
-		rarity: WeaponDefinition['rarity'];
-		shape: WeaponShape;
-		baseDamage?: number;
-		projectileSpeed?: number;
-		attack?: WeaponDefinition['attack'];
-		projectileVisual?: WeaponDefinition['projectileVisual'];
-		activationKind?: UtilityDefinition['activationKind'];
-		effectSummary: string;
-		role: string;
-		x: number | null;
-		y: number | null;
-		isEquipped: boolean;
-	}
-
-	interface InventoryWeaponGroup {
-		definitionId: string;
-		category: 'weapon' | 'utility';
-		name: string;
-		rarity: WeaponDefinition['rarity'];
-		shape: WeaponShape;
-		baseDamage?: number;
-		projectileSpeed?: number;
-		attack?: WeaponDefinition['attack'];
-		projectileVisual?: WeaponDefinition['projectileVisual'];
-		activationKind?: UtilityDefinition['activationKind'];
-		effectSummary: string;
-		role: string;
-		totalCount: number;
-		availableCount: number;
-		equippedCount: number;
-		representativeWeaponInstanceId: string | null;
-	}
-
-	interface GridCell {
-		x: number;
-		y: number;
-		key: string;
-	}
 
 	type LivePixlState = NonNullable<NonNullable<PageProps['data']['gameState']>['pixlState']>;
 	type LiveCampaignState = NonNullable<PageProps['data']['campaignState']>;
@@ -97,13 +59,6 @@
 		'currentLevel' | 'highestUnlockedLevel' | 'highestClearedLevel' | 'completed'
 	>;
 
-	interface LiveCombatProgress {
-		stage: number;
-		stageLevel: number;
-		campaignLevel: number;
-		status: 'running' | 'cleared' | 'defeated' | 'complete';
-	}
-
 	let { data, form }: PageProps = $props();
 	let draggedWeaponInstanceId = $state<string | null>(null);
 	let draggedWeaponAnchor = $state<{ x: number; y: number } | null>(null);
@@ -115,14 +70,6 @@
 	let pixlStateOverride = $state.raw<PixlStateOverride | null>(null);
 	let campaignStateOverride = $state.raw<CampaignStateOverride | null>(null);
 	let liveCombatProgressOverride = $state<LiveCombatProgress | null>(null);
-	const rarityOrder = {
-		legendary: 0,
-		exotic: 1,
-		rare: 2,
-		magic: 3,
-		normal: 4
-	} as const satisfies Record<WeaponDefinition['rarity'], number>;
-
 	let livePixlState: LivePixlState | null = $derived.by(() => {
 		const basePixlState = data.gameState?.pixlState ?? null;
 
@@ -198,76 +145,12 @@
 	let draftLoadoutPayload = $derived(JSON.stringify(draftLoadoutPlacements));
 	let hasUnsavedChanges = $derived(savedLoadoutPayload !== draftLoadoutPayload);
 	let canSaveLoadout = $derived(Boolean(data.gameState) && hasUnsavedChanges);
-	let loadoutWeapons = $derived.by(() => {
-		const rows: LoadoutWeapon[] = [];
-
-		for (const placement of draftLoadoutPlacements) {
-			const ownedWeapon = ownedWeaponByInstanceId[placement.weaponInstanceId];
-			const definition = ownedWeapon ? weaponDefinitionById[ownedWeapon.definitionId] : null;
-
-			if (!ownedWeapon || !definition) {
-				continue;
-			}
-
-			rows.push({
-				weaponInstanceId: placement.weaponInstanceId,
-				definitionId: ownedWeapon.definitionId,
-				category: isWeaponDefinition(definition) ? 'weapon' : 'utility',
-				name: definition.name,
-				rarity: definition.rarity,
-				shape: definition.shape,
-				baseDamage: isWeaponDefinition(definition) ? definition.baseDamage : undefined,
-				attack: isWeaponDefinition(definition) ? definition.attack : undefined,
-				activationKind: isUtilityDefinition(definition) ? definition.activationKind : undefined,
-				effectSummary: getLoadoutItemEffectSummary(definition),
-				role: definition.role,
-				x: placement.x,
-				y: placement.y
-			});
-		}
-
-		return rows.sort(
-			(left, right) => left.y - right.y || left.x - right.x || left.name.localeCompare(right.name)
-		);
-	});
-	let inventoryWeapons = $derived.by(() => {
-		const rows: InventoryWeapon[] = [];
-
-		for (const weapon of ownedWeapons) {
-			const definition = weaponDefinitionById[weapon.definitionId];
-			const placement = placementByWeaponInstanceId[weapon.instanceId] ?? null;
-
-			if (!definition) {
-				continue;
-			}
-
-			rows.push({
-				weaponInstanceId: weapon.instanceId,
-				definitionId: weapon.definitionId,
-				category: isWeaponDefinition(definition) ? 'weapon' : 'utility',
-				name: definition.name,
-				rarity: definition.rarity,
-				shape: definition.shape,
-				baseDamage: isWeaponDefinition(definition) ? definition.baseDamage : undefined,
-				projectileSpeed: isWeaponDefinition(definition) ? definition.projectileSpeed : undefined,
-				attack: isWeaponDefinition(definition) ? definition.attack : undefined,
-				projectileVisual: isWeaponDefinition(definition) ? definition.projectileVisual : undefined,
-				activationKind: isUtilityDefinition(definition) ? definition.activationKind : undefined,
-				effectSummary: getLoadoutItemEffectSummary(definition),
-				role: definition.role,
-				x: placement?.x ?? null,
-				y: placement?.y ?? null,
-				isEquipped: Boolean(placement)
-			});
-		}
-
-		return rows.sort(
-			(left, right) =>
-				Number(right.isEquipped) - Number(left.isEquipped) ||
-				left.name.localeCompare(right.name) ||
-				left.weaponInstanceId.localeCompare(right.weaponInstanceId)
-		);
-	});
+	let loadoutWeapons = $derived.by(() =>
+		buildLoadoutWeapons(draftLoadoutPlacements, ownedWeaponByInstanceId, weaponDefinitionById)
+	);
+	let inventoryWeapons = $derived.by(() =>
+		buildInventoryWeapons(ownedWeapons, weaponDefinitionById, placementByWeaponInstanceId)
+	);
 	let draggedWeaponDefinition = $derived(
 		draggedWeaponInstanceId
 			? weaponDefinitionById[ownedWeaponByInstanceId[draggedWeaponInstanceId]?.definitionId]
@@ -288,17 +171,7 @@
 
 		return occupied;
 	});
-	let gridCells = $derived.by(() => {
-		const cells: GridCell[] = [];
-
-		for (let y = 0; y < loadoutRowCount; y += 1) {
-			for (let x = 0; x < loadoutColumnCount; x += 1) {
-				cells.push({ x, y, key: getGridCellKey(x, y) });
-			}
-		}
-
-		return cells;
-	});
+	let gridCells = $derived.by(() => buildGridCells(loadoutRowCount, loadoutColumnCount));
 	let visiblePlacedWeapons = $derived(loadoutWeapons);
 	let previewCellStateByKey = $derived.by(() => {
 		const preview: Record<string, 'valid' | 'invalid'> = {};
@@ -380,200 +253,13 @@
 					null)
 			: null
 	);
-	let inventoryWeaponGroups = $derived.by(() => {
-		const groups: Record<string, InventoryWeaponGroup> = {};
-
-		for (const weapon of inventoryWeapons) {
-			const existing = groups[weapon.definitionId];
-
-			if (!existing) {
-				groups[weapon.definitionId] = {
-					definitionId: weapon.definitionId,
-					category: weapon.category,
-					name: weapon.name,
-					rarity: weapon.rarity,
-					shape: weapon.shape,
-					baseDamage: weapon.baseDamage,
-					projectileSpeed: weapon.projectileSpeed,
-					attack: weapon.attack,
-					projectileVisual: weapon.projectileVisual,
-					activationKind: weapon.activationKind,
-					effectSummary: weapon.effectSummary,
-					role: weapon.role,
-					totalCount: 1,
-					availableCount: weapon.isEquipped ? 0 : 1,
-					equippedCount: weapon.isEquipped ? 1 : 0,
-					representativeWeaponInstanceId: weapon.isEquipped ? null : weapon.weaponInstanceId
-				};
-				continue;
-			}
-
-			existing.totalCount += 1;
-
-			if (weapon.isEquipped) {
-				existing.equippedCount += 1;
-			} else {
-				existing.availableCount += 1;
-
-				if (!existing.representativeWeaponInstanceId) {
-					existing.representativeWeaponInstanceId = weapon.weaponInstanceId;
-				}
-			}
-		}
-
-		return Object.values(groups).sort(
-			(left, right) =>
-				rarityOrder[left.rarity] - rarityOrder[right.rarity] ||
-				Number(left.category === 'utility') - Number(right.category === 'utility') ||
-				right.availableCount - left.availableCount ||
-				right.totalCount - left.totalCount ||
-				left.name.localeCompare(right.name)
-		);
-	});
-	let filteredInventoryWeaponGroups = $derived.by(() => {
-		const query = inventorySearch.trim().toLowerCase();
-
-		if (!query) {
-			return inventoryWeaponGroups;
-		}
-
-		return inventoryWeaponGroups.filter((group) => {
-			const haystack = [group.name, group.role, group.effectSummary, group.category, group.rarity]
-				.join(' ')
-				.toLowerCase();
-
-			return haystack.includes(query);
-		});
-	});
-
-	function getGridCellKey(x: number, y: number) {
-		return `${x}:${y}`;
-	}
-
-	function createIndexArray(length: number) {
-		return Array.from({ length }, (_, index) => index);
-	}
-
-	function cloneLoadoutPlacements(placements: LoadoutPlacement[]) {
-		return placements.map((placement) => ({ ...placement }));
-	}
+	let inventoryWeaponGroups = $derived.by(() => buildInventoryWeaponGroups(inventoryWeapons));
+	let filteredInventoryWeaponGroups = $derived.by(() =>
+		filterInventoryWeaponGroups(inventoryWeaponGroups, inventorySearch)
+	);
 
 	function getInitialLoadoutPlacements() {
 		return cloneLoadoutPlacements(data.gameState?.pixlState.loadoutPlacements ?? []);
-	}
-
-	function isShapeCellFilled(shape: WeaponShape, x: number, y: number) {
-		return shape.cells.some(([cellX, cellY]) => cellX === x && cellY === y);
-	}
-
-	function isLabelCell(shape: WeaponShape, x: number, y: number) {
-		const [labelX, labelY] = shape.cells[0] ?? [0, 0];
-		return labelX === x && labelY === y;
-	}
-
-	function getWeaponGridArea(weapon: { x: number; y: number; shape: WeaponShape }) {
-		return `grid-column: ${weapon.x + 1} / span ${weapon.shape.width}; grid-row: ${weapon.y + 1} / span ${weapon.shape.height};`;
-	}
-
-	function getShapeGridTemplate(shape: WeaponShape) {
-		return `grid-template-columns: repeat(${shape.width}, minmax(0, 1fr)); grid-template-rows: repeat(${shape.height}, minmax(0, 1fr));`;
-	}
-
-	function getDefaultDragAnchor(shape: WeaponShape) {
-		let topLeftCell = shape.cells[0] ?? [0, 0];
-
-		for (const cell of shape.cells) {
-			if (cell[1] < topLeftCell[1] || (cell[1] === topLeftCell[1] && cell[0] < topLeftCell[0])) {
-				topLeftCell = cell;
-			}
-		}
-
-		return { x: topLeftCell[0], y: topLeftCell[1] };
-	}
-
-	function clamp(value: number, min: number, max: number) {
-		return Math.min(Math.max(value, min), max);
-	}
-
-	function getPlacedWeaponDragAnchor(event: DragEvent, shape: WeaponShape) {
-		const target = event.currentTarget;
-
-		if (!(target instanceof HTMLElement)) {
-			return getDefaultDragAnchor(shape);
-		}
-
-		const rect = target.getBoundingClientRect();
-
-		if (!rect.width || !rect.height) {
-			return getDefaultDragAnchor(shape);
-		}
-
-		const localX = clamp(event.clientX - rect.left, 0, rect.width - 1);
-		const localY = clamp(event.clientY - rect.top, 0, rect.height - 1);
-		const anchorX = clamp(Math.floor((localX / rect.width) * shape.width), 0, shape.width - 1);
-		const anchorY = clamp(Math.floor((localY / rect.height) * shape.height), 0, shape.height - 1);
-
-		return { x: anchorX, y: anchorY };
-	}
-
-	function getDragAnchorFromGrid(
-		event: DragEvent,
-		shape: WeaponShape,
-		gridElement: HTMLElement,
-		fallback: { x: number; y: number }
-	) {
-		const rect = gridElement.getBoundingClientRect();
-
-		if (!rect.width || !rect.height) {
-			return fallback;
-		}
-
-		const isInsideGrid =
-			event.clientX >= rect.left &&
-			event.clientX <= rect.right &&
-			event.clientY >= rect.top &&
-			event.clientY <= rect.bottom;
-
-		if (!isInsideGrid) {
-			return fallback;
-		}
-
-		const localX = clamp(event.clientX - rect.left, 0, rect.width - 1);
-		const localY = clamp(event.clientY - rect.top, 0, rect.height - 1);
-		const anchorX = clamp(Math.floor((localX / rect.width) * shape.width), 0, shape.width - 1);
-		const anchorY = clamp(Math.floor((localY / rect.height) * shape.height), 0, shape.height - 1);
-
-		return { x: anchorX, y: anchorY };
-	}
-
-	function setShapeGridDragImage(
-		event: DragEvent,
-		shape: WeaponShape,
-		gridElement: HTMLElement,
-		anchor: { x: number; y: number }
-	) {
-		if (!event.dataTransfer) {
-			return;
-		}
-
-		const cellIndex = anchor.y * shape.width + anchor.x;
-		const anchorCell = gridElement.children.item(cellIndex);
-		if (!(anchorCell instanceof HTMLElement)) {
-			return;
-		}
-
-		const gridRect = gridElement.getBoundingClientRect();
-		const cellRect = anchorCell.getBoundingClientRect();
-		const hotspotX = cellRect.left - gridRect.left + cellRect.width / 2;
-		const hotspotY = cellRect.top - gridRect.top + cellRect.height / 2;
-
-		event.dataTransfer.setDragImage(gridElement, hotspotX, hotspotY);
-	}
-
-	function isPointWithinElementBounds(element: HTMLElement, x: number, y: number) {
-		const rect = element.getBoundingClientRect();
-
-		return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
 	}
 
 	function handleBackgroundStateChange(update: {
@@ -911,81 +597,6 @@
 
 		beginInventoryWeaponDrag(event, weapon);
 	}
-
-	function formatInventoryGroupStatus(group: InventoryWeaponGroup) {
-		if (!group.availableCount) {
-			return group.equippedCount ? `All ${group.totalCount} equipped` : `${group.totalCount} owned`;
-		}
-
-		if (!group.equippedCount) {
-			return `${group.availableCount} ready`;
-		}
-
-		return `${group.availableCount} ready, ${group.equippedCount} equipped`;
-	}
-
-	function getWeaponCycleRate(weapon: Pick<LoadoutWeapon, 'attack'>) {
-		if (!weapon.attack) {
-			return 0;
-		}
-
-		return 1 / Math.max(1, weapon.attack.cycleInterval ?? 1);
-	}
-
-	function getLoadoutItemEffectSummary(definition: LoadoutItemDefinition) {
-		if (isWeaponDefinition(definition)) {
-			return formatAttackLabel(definition.attack.kind);
-		}
-
-		switch (definition.effect.type) {
-			case 'shield-pool':
-				return `Shield ${definition.effect.shieldAmount} for ${definition.effect.durationCycles} cycles`;
-			case 'cycle-adjacency-reduction':
-				return `Adjacent weapons activate ${definition.effect.reduction} cycle faster`;
-			case 'cycle-damage-boost':
-				return `${definition.effect.damageMultiplier}x damage next cycle`;
-		}
-	}
-
-	function formatInventoryCardSummary(group: InventoryWeaponGroup) {
-		if (group.category === 'utility') {
-			return `${group.activationKind === 'passive' ? 'Passive' : 'Triggered'} utility: ${group.effectSummary}`;
-		}
-
-		if (!group.attack || !group.baseDamage) {
-			return group.effectSummary;
-		}
-
-		return `${group.baseDamage} dmg, ${group.attack.projectileCount} proj, ${formatAttackLabel(group.attack.kind)} every ${formatCycleThreshold(group.attack)} ${formatCycleThreshold(group.attack) === '1' ? 'cycle' : 'cycles'}`;
-	}
-
-	function formatCycleThreshold(attack: WeaponDefinition['attack']) {
-		const cycleInterval = Math.max(1, attack.cycleInterval ?? 1);
-
-		return cycleInterval.toString();
-	}
-
-	function formatAttackLabel(kind: WeaponDefinition['attack']['kind']) {
-		switch (kind) {
-			case 'single':
-				return 'Single shot';
-			case 'dual':
-				return 'Dual shot';
-			case 'spread':
-				return 'Spread shot';
-			default:
-				return kind;
-		}
-	}
-
-	function formatCycleAverage(value: number) {
-		return Number.isInteger(value)
-			? value.toString()
-			: value.toLocaleString(undefined, {
-					minimumFractionDigits: 0,
-					maximumFractionDigits: 2
-				});
-	}
 </script>
 
 <svelte:head>
@@ -1002,17 +613,6 @@
 	{/if}
 
 	<div class="shell">
-		<!-- <div class="topbar">
-			<a class="back" href={resolve('/campaigns')}>All campaigns</a>
-			<CampaignRouteNav
-				campaignId={data.campaignId}
-				active="loadout"
-				campaignRoutes={data.campaignRoutes}
-				{loadoutTooltip}
-				{notificationCounts}
-			/>
-		</div> -->
-
 		<section class="hero panel">
 			<p class="eyebrow">Campaign {data.campaign.campaign}</p>
 			<h1>Loadout</h1>
@@ -1104,151 +704,43 @@
 					/>
 				{/if}
 
-				<div class="loadout-grid-shell" id="loadout-grid-shell">
-					<div
-						class="loadout-grid main-loadout-grid"
-						style:grid-template-columns={loadoutGridTemplateColumns}
-						style:grid-template-rows={loadoutGridTemplateRows}
-					>
-						{#each gridCells as cell (cell.key)}
-							<div
-								class="grid-cell"
-								data-grid-x={cell.x}
-								data-grid-y={cell.y}
-								role="gridcell"
-								tabindex="-1"
-								aria-label={`Loadout cell ${cell.x}, ${cell.y}`}
-								class:occupied={occupiedCellKeys[cell.key] && !previewCellStateByKey[cell.key]}
-								class:preview-valid={previewCellStateByKey[cell.key] === 'valid'}
-								class:preview-invalid={previewCellStateByKey[cell.key] === 'invalid'}
-								ondragover={(event) => handleGridDragOver(event, cell)}
-								ondrop={(event) => handleGridDrop(event, cell)}
-							></div>
-						{/each}
-					</div>
-
-					<div
-						class="placed-weapons-layer"
-						style:grid-template-columns={loadoutGridTemplateColumns}
-						style:grid-template-rows={loadoutGridTemplateRows}
-					>
-						{#each visiblePlacedWeapons as weapon (weapon.weaponInstanceId)}
-							<button
-								class={`placed-weapon rarity-${weapon.rarity}`}
-								type="button"
-								draggable="true"
-								class:dragging={draggedWeaponInstanceId === weapon.weaponInstanceId}
-								style={getWeaponGridArea(weapon)}
-								ondragover={handlePlacedWeaponDragOver}
-								ondrop={handlePlacedWeaponDrop}
-								ondragstart={(event) => beginPlacedWeaponDrag(event, weapon)}
-								ondragend={handleWeaponDragEnd}
-								title={`${weapon.name} at ${weapon.x}, ${weapon.y}`}
-							>
-								<div class="placed-weapon-shape" style={getShapeGridTemplate(weapon.shape)}>
-									{#each createIndexArray(weapon.shape.height) as shapeY (`${weapon.weaponInstanceId}:${shapeY}`)}
-										{#each createIndexArray(weapon.shape.width) as shapeX (`${weapon.weaponInstanceId}:${shapeY}:${shapeX}`)}
-											{@const isFilled = isShapeCellFilled(weapon.shape, shapeX, shapeY)}
-											<div
-												class="placed-weapon-cell"
-												class:filled={isFilled}
-												aria-hidden={!isFilled}
-											>
-												{#if isLabelCell(weapon.shape, shapeX, shapeY)}
-													<span>{weapon.name.slice(0, 2).toUpperCase()}</span>
-												{/if}
-											</div>
-										{/each}
-									{/each}
-								</div>
-							</button>
-						{/each}
-					</div>
-				</div>
+				<LoadoutGridBoard
+					gridTemplateColumns={loadoutGridTemplateColumns}
+					gridTemplateRows={loadoutGridTemplateRows}
+					{gridCells}
+					{occupiedCellKeys}
+					{previewCellStateByKey}
+					weapons={visiblePlacedWeapons}
+					{draggedWeaponInstanceId}
+					onGridDragOver={handleGridDragOver}
+					onGridDrop={handleGridDrop}
+					onPlacedWeaponDragOver={handlePlacedWeaponDragOver}
+					onPlacedWeaponDrop={handlePlacedWeaponDrop}
+					onPlacedWeaponDragStart={beginPlacedWeaponDrag}
+					onWeaponDragEnd={handleWeaponDragEnd}
+					{getWeaponGridArea}
+					{getShapeGridTemplate}
+					{isShapeCellFilled}
+					{isLabelCell}
+				/>
 			</div>
 
 			<aside class="panel inventory-panel" aria-label="Loadout toolbox">
-				<div class="section-head">
-					<h2>Loadout toolbox</h2>
-					<p>
-						Search or drag any ready item into the grid, and drag equipped items back here to
-						unequip.
-					</p>
-				</div>
-
-				<label class="inventory-search" for="inventory-search-input">
-					<span>Search items</span>
-					<input
-						id="inventory-search-input"
-						type="search"
-						placeholder="Search by name, role, effect, rarity..."
-						bind:value={inventorySearch}
-					/>
-				</label>
-
-				<div
-					class="inventory-drop-zone"
-					class:drop-target={isInventoryDropTargetActive}
-					role="button"
-					tabindex="0"
-					aria-label="Drag equipped items here to unequip them"
-					ondragover={handleInventoryDragOver}
-					ondragleave={handleInventoryDragLeave}
-					ondrop={handleInventoryDrop}
-				>
-					<div class="inventory-scroll">
-						{#if filteredInventoryWeaponGroups.length}
-							<div class="inventory-toolbox-grid">
-								{#each filteredInventoryWeaponGroups as group (group.definitionId)}
-									<button
-										class={`inventory-weapon inventory-toolbox-item rarity-${group.rarity}`}
-										type="button"
-										draggable={group.availableCount > 0}
-										disabled={group.availableCount < 1}
-										class:equipped={group.equippedCount > 0}
-										class:unavailable={group.availableCount < 1}
-										class:dragging={draggedWeaponInstanceId ===
-											group.representativeWeaponInstanceId}
-										ondragstart={(event) => beginInventoryWeaponGroupDrag(event, group)}
-										ondragend={handleWeaponDragEnd}
-									>
-										{#if group.totalCount > 1}
-											<span class="inventory-count-badge">{group.totalCount}</span>
-										{/if}
-
-										<div class="inventory-toolbox-head">
-											<div>
-												<strong>{group.name}</strong>
-												<p class="weapon-role">{group.role}</p>
-											</div>
-											<span class="inventory-status">{formatInventoryGroupStatus(group)}</span>
-										</div>
-
-										<div class="inventory-toolbox-body">
-											<div
-												class="shape-grid inventory-shape-grid"
-												style:grid-template-columns={`repeat(${group.shape.width}, 1fr)`}
-											>
-												{#each createIndexArray(group.shape.height) as shapeY (`inventory:${group.definitionId}:${shapeY}`)}
-													{#each createIndexArray(group.shape.width) as shapeX (`inventory:${group.definitionId}:${shapeY}:${shapeX}`)}
-														<div
-															class="shape-cell"
-															class:filled={isShapeCellFilled(group.shape, shapeX, shapeY)}
-														></div>
-													{/each}
-												{/each}
-											</div>
-
-											<p class="inventory-card-summary">{formatInventoryCardSummary(group)}</p>
-										</div>
-									</button>
-								{/each}
-							</div>
-						{:else}
-							<p class="inventory-empty-state">No items match that search.</p>
-						{/if}
-					</div>
-				</div>
+				<LoadoutInventoryToolbox
+					searchValue={inventorySearch}
+					onSearchInput={(value) => (inventorySearch = value)}
+					isDropTargetActive={isInventoryDropTargetActive}
+					groups={filteredInventoryWeaponGroups}
+					{draggedWeaponInstanceId}
+					onInventoryDragOver={handleInventoryDragOver}
+					onInventoryDragLeave={handleInventoryDragLeave}
+					onInventoryDrop={handleInventoryDrop}
+					onGroupDragStart={beginInventoryWeaponGroupDrag}
+					onWeaponDragEnd={handleWeaponDragEnd}
+					formatGroupStatus={formatInventoryGroupStatus}
+					formatCardSummary={formatInventoryCardSummary}
+					{isShapeCellFilled}
+				/>
 			</aside>
 		</section>
 	</div>
@@ -1279,7 +771,7 @@
 		pointer-events: none;
 	}
 
-	.loadout-live-sketch {
+	:global(.loadout-live-sketch) {
 		width: 1px;
 		height: 1px;
 	}
@@ -1292,36 +784,14 @@
 		gap: 1rem;
 	}
 
-	.topbar {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		gap: 0.75rem;
-		flex-wrap: wrap;
-	}
-
 	.panel,
-	.back,
 	.feedback,
 	.save,
-	.ghost,
-	.inventory-weapon {
+	.ghost {
 		border-radius: 1.1rem;
 		border: 1px solid rgba(255, 255, 255, 0.08);
 		background: rgba(10, 10, 10, 0.92);
 		box-shadow: 0 24px 60px rgba(0, 0, 0, 0.32);
-	}
-
-	.back {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		min-height: 2.2rem;
-		padding: 0 0.9rem;
-		text-decoration: none;
-		color: #f5f5f5;
-		font-size: 0.9rem;
-		font-weight: 600;
 	}
 
 	.panel {
@@ -1331,8 +801,7 @@
 	}
 
 	.section-head-split,
-	.draft-actions,
-	.inventory-toolbox-head {
+	.draft-actions {
 		display: flex;
 		justify-content: space-between;
 		gap: 0.75rem;
@@ -1358,8 +827,7 @@
 	}
 
 	.eyebrow,
-	.section-head p,
-	.inventory-status {
+	.section-head p {
 		letter-spacing: 0.12em;
 	}
 
@@ -1371,8 +839,7 @@
 	}
 
 	.lede,
-	.section-head p,
-	.weapon-role {
+	.section-head p {
 		margin: 0;
 		color: #c4c4c4;
 	}
@@ -1390,34 +857,6 @@
 		align-items: start;
 	}
 
-	.loadout-summary-strip {
-		width: min(100%, 58rem);
-		display: grid;
-		grid-template-columns: repeat(4, minmax(0, 1fr));
-		gap: 0.75rem;
-	}
-
-	.loadout-summary-card {
-		padding: 0.85rem 0.95rem;
-		border-radius: 0.95rem;
-		border: 1px solid rgba(255, 255, 255, 0.08);
-		background: rgba(255, 255, 255, 0.04);
-		display: grid;
-		gap: 0.3rem;
-	}
-
-	.loadout-summary-card span {
-		font-size: 0.72rem;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: #bdbdc3;
-	}
-
-	.loadout-summary-card strong {
-		font-size: 1.45rem;
-		line-height: 1;
-	}
-
 	.grid-panel {
 		justify-items: stretch;
 		align-content: start;
@@ -1430,39 +869,6 @@
 		overflow: hidden;
 		grid-template-rows: auto auto 1fr;
 		gap: 0.9rem;
-	}
-
-	.inventory-search {
-		display: grid;
-		gap: 0.45rem;
-	}
-
-	.inventory-search span {
-		font-size: 0.7rem;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: #bdbdc3;
-	}
-
-	.inventory-search input {
-		width: 100%;
-		min-height: 2.8rem;
-		padding: 0.8rem 0.95rem;
-		border-radius: 0.9rem;
-		border: 1px solid rgba(255, 255, 255, 0.12);
-		background: rgba(255, 255, 255, 0.04);
-		color: #f5f5f5;
-		font: inherit;
-	}
-
-	.inventory-search input::placeholder {
-		color: #8f8f96;
-	}
-
-	.inventory-search input:focus {
-		outline: none;
-		border-color: rgba(170, 206, 255, 0.58);
-		box-shadow: 0 0 0 3px rgba(84, 150, 255, 0.16);
 	}
 
 	.save,
@@ -1489,239 +895,6 @@
 		cursor: not-allowed;
 	}
 
-	.shape-grid,
-	.loadout-grid,
-	.placed-weapons-layer,
-	.placed-weapon-shape {
-		display: grid;
-		gap: 0.35rem;
-	}
-
-	.shape-grid {
-		width: fit-content;
-	}
-
-	.shape-cell,
-	.grid-cell,
-	.placed-weapon-cell {
-		border-radius: 0.6rem;
-		border: 1px solid rgba(255, 255, 255, 0.12);
-		background: rgba(255, 255, 255, 0.05);
-		box-sizing: border-box;
-	}
-
-	.shape-cell,
-	.grid-cell {
-		aspect-ratio: 1;
-	}
-
-	.shape-cell.filled,
-	.placed-weapon-cell.filled {
-		background: rgba(255, 255, 255, 0.14);
-	}
-
-	.loadout-grid-shell {
-		position: relative;
-		width: min(100%, 78rem);
-		margin: 0 auto;
-		--board-gap: 0.35rem;
-	}
-
-	.main-loadout-grid,
-	.placed-weapons-layer {
-		gap: var(--board-gap);
-		grid-auto-rows: minmax(4.9rem, 1fr);
-	}
-
-	.placed-weapons-layer {
-		position: absolute;
-		inset: 0;
-		pointer-events: none;
-	}
-
-	.grid-cell,
-	.placed-weapon-cell {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		color: #f5f5f5;
-		font-size: 0.68rem;
-		font-weight: 700;
-		letter-spacing: 0.08em;
-	}
-
-	.grid-cell {
-		background: rgba(255, 255, 255, 0.03);
-		transition:
-			background-color 120ms ease,
-			border-color 120ms ease,
-			box-shadow 120ms ease;
-	}
-
-	.grid-cell.occupied {
-		background: transparent;
-		border-color: transparent;
-		box-shadow: none;
-	}
-
-	.grid-cell.preview-valid {
-		background: rgba(103, 217, 111, 0.18);
-		border-color: rgba(103, 217, 111, 0.7);
-		box-shadow: inset 0 0 0 1px rgba(103, 217, 111, 0.25);
-	}
-
-	.grid-cell.preview-invalid {
-		background: rgba(255, 96, 96, 0.15);
-		border-color: rgba(255, 96, 96, 0.52);
-		box-shadow: inset 0 0 0 1px rgba(255, 96, 96, 0.15);
-	}
-
-	.placed-weapon,
-	.inventory-weapon {
-		color: #f5f5f5;
-		cursor: grab;
-	}
-
-	.placed-weapon {
-		position: relative;
-		display: block;
-		pointer-events: auto;
-		width: 100%;
-		height: 100%;
-		padding: 0;
-		border: 0;
-		border-radius: 0;
-		background: transparent;
-		box-shadow: none;
-		appearance: none;
-		-webkit-appearance: none;
-	}
-
-	.placed-weapon::after {
-		content: '';
-		position: absolute;
-		inset: -0.42rem;
-		border: 4px solid var(--weapon-outline-stroke, rgba(245, 245, 245, 0.9));
-		border-radius: 1.2rem;
-		pointer-events: none;
-	}
-
-	.placed-weapon-shape {
-		width: 100%;
-		height: 100%;
-	}
-
-	.placed-weapon-cell {
-		border-radius: 0.6rem;
-		border-color: transparent;
-		background: transparent;
-		pointer-events: none;
-	}
-
-	.placed-weapon-cell.filled {
-		background: var(--weapon-fill-color, rgba(64, 64, 64, 0.94));
-		border: 2px solid var(--weapon-border-color, rgba(255, 255, 255, 0.96));
-		box-shadow:
-			inset 0 0 0 1px rgba(255, 255, 255, 0.16),
-			0 0 0 1px rgba(0, 0, 0, 0.82);
-	}
-
-	.inventory-weapon {
-		width: 100%;
-		padding: 0.9rem;
-		display: grid;
-		gap: 0.85rem;
-		text-align: left;
-		font: inherit;
-		position: relative;
-	}
-
-	.inventory-weapon.equipped {
-		border-color: rgba(103, 217, 111, 0.3);
-		background: rgba(103, 217, 111, 0.08);
-	}
-
-	.inventory-weapon.unavailable {
-		opacity: 0.72;
-		cursor: default;
-	}
-
-	.inventory-status {
-		font-size: 0.72rem;
-		text-transform: uppercase;
-		color: #d6d6d6;
-	}
-
-	.inventory-toolbox-grid {
-		display: grid;
-		grid-template-columns: 1fr;
-		gap: 0.85rem;
-	}
-
-	.inventory-toolbox-item {
-		min-height: 9.75rem;
-		align-content: start;
-		overflow: hidden;
-	}
-
-	.inventory-count-badge {
-		position: absolute;
-		top: 0.7rem;
-		right: 0.7rem;
-		min-width: 1.7rem;
-		height: 1.7rem;
-		padding: 0 0.45rem;
-		border-radius: 999px;
-		background: rgba(255, 255, 255, 0.14);
-		border: 1px solid rgba(255, 255, 255, 0.22);
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 0.78rem;
-		font-weight: 700;
-		line-height: 1;
-	}
-
-	.inventory-shape-grid {
-		justify-self: start;
-		padding: 0.2rem;
-		flex: 0 0 auto;
-	}
-
-	.inventory-weapon .shape-cell.filled {
-		background: var(--inventory-fill-color, rgba(255, 255, 255, 0.18));
-		border-color: var(--inventory-border-color, rgba(255, 255, 255, 0.52));
-	}
-
-	.inventory-toolbox-head strong {
-		display: block;
-		padding-right: 2.2rem;
-	}
-
-	.inventory-toolbox-body {
-		display: flex;
-		align-items: center;
-		gap: 0.8rem;
-		min-width: 0;
-	}
-
-	.inventory-card-summary {
-		margin: 0;
-		min-width: 0;
-		font-size: 0.75rem;
-		line-height: 1.35;
-		color: #d9d9de;
-		line-clamp: 2;
-		display: -webkit-box;
-		-webkit-line-clamp: 2;
-		-webkit-box-orient: vertical;
-		overflow: hidden;
-	}
-
-	.dragging {
-		opacity: 0.5;
-	}
-
 	.feedback {
 		padding: 0.8rem 0.9rem;
 	}
@@ -1739,116 +912,6 @@
 		background: rgba(255, 255, 255, 0.05);
 	}
 
-	.centered-preview {
-		justify-items: center;
-		text-align: center;
-	}
-
-	.inventory-drop-zone {
-		display: grid;
-		min-height: 0;
-		border-radius: 1rem;
-		border: 1px dashed rgba(255, 255, 255, 0.12);
-		background: rgba(255, 255, 255, 0.02);
-		padding: 0.5rem;
-		transition:
-			border-color 120ms ease,
-			background-color 120ms ease;
-	}
-
-	.inventory-drop-zone.drop-target {
-		border-color: rgba(255, 96, 96, 0.78);
-		background: rgba(255, 96, 96, 0.08);
-	}
-
-	.inventory-scroll {
-		min-height: 0;
-		height: 100%;
-		overflow-y: auto;
-		padding-bottom: 1rem;
-		padding-right: 0.25rem;
-	}
-
-	.inventory-empty-state {
-		margin: 0;
-		padding: 1rem;
-		border-radius: 0.9rem;
-		border: 1px dashed rgba(255, 255, 255, 0.12);
-		background: rgba(255, 255, 255, 0.03);
-		color: #c9c9cf;
-		text-align: center;
-	}
-
-	.placed-weapon.rarity-normal,
-	.inventory-weapon.rarity-normal {
-		border-color: rgba(236, 236, 236, 0.14);
-	}
-
-	.placed-weapon.rarity-normal,
-	.inventory-weapon.rarity-normal {
-		--weapon-fill-color: rgba(122, 128, 138, 0.94);
-		--weapon-border-color: rgba(240, 244, 248, 0.98);
-		--weapon-outline-stroke: rgba(240, 244, 248, 0.98);
-		--inventory-fill-color: rgba(122, 128, 138, 0.86);
-		--inventory-border-color: rgba(240, 244, 248, 0.9);
-	}
-
-	.placed-weapon.rarity-magic,
-	.inventory-weapon.rarity-magic {
-		border-color: rgba(84, 150, 255, 0.28);
-	}
-
-	.placed-weapon.rarity-magic,
-	.inventory-weapon.rarity-magic {
-		--weapon-fill-color: rgba(54, 101, 196, 0.95);
-		--weapon-border-color: rgba(170, 206, 255, 0.98);
-		--weapon-outline-stroke: rgba(170, 206, 255, 0.98);
-		--inventory-fill-color: rgba(54, 101, 196, 0.86);
-		--inventory-border-color: rgba(170, 206, 255, 0.92);
-	}
-
-	.placed-weapon.rarity-rare,
-	.inventory-weapon.rarity-rare {
-		border-color: rgba(255, 210, 74, 0.28);
-	}
-
-	.placed-weapon.rarity-rare,
-	.inventory-weapon.rarity-rare {
-		--weapon-fill-color: rgba(191, 139, 30, 0.96);
-		--weapon-border-color: rgba(255, 232, 153, 0.98);
-		--weapon-outline-stroke: rgba(255, 232, 153, 0.98);
-		--inventory-fill-color: rgba(191, 139, 30, 0.88);
-		--inventory-border-color: rgba(255, 232, 153, 0.92);
-	}
-
-	.placed-weapon.rarity-exotic,
-	.inventory-weapon.rarity-exotic {
-		border-color: rgba(224, 74, 74, 0.28);
-	}
-
-	.placed-weapon.rarity-exotic,
-	.inventory-weapon.rarity-exotic {
-		--weapon-fill-color: rgba(177, 49, 49, 0.96);
-		--weapon-border-color: rgba(255, 170, 170, 0.98);
-		--weapon-outline-stroke: rgba(255, 170, 170, 0.98);
-		--inventory-fill-color: rgba(177, 49, 49, 0.88);
-		--inventory-border-color: rgba(255, 170, 170, 0.92);
-	}
-
-	.placed-weapon.rarity-legendary,
-	.inventory-weapon.rarity-legendary {
-		border-color: rgba(170, 104, 48, 0.34);
-	}
-
-	.placed-weapon.rarity-legendary,
-	.inventory-weapon.rarity-legendary {
-		--weapon-fill-color: rgba(123, 72, 28, 0.97);
-		--weapon-border-color: rgba(224, 156, 92, 0.98);
-		--weapon-outline-stroke: rgba(224, 156, 92, 0.98);
-		--inventory-fill-color: rgba(123, 72, 28, 0.9);
-		--inventory-border-color: rgba(224, 156, 92, 0.94);
-	}
-
 	@media (min-width: 980px) {
 		.layout-stack {
 			grid-template-columns: minmax(0, 1.85fr) minmax(19rem, 24rem);
@@ -1857,10 +920,6 @@
 		.grid-panel,
 		.inventory-panel {
 			min-width: 0;
-		}
-
-		.loadout-summary-strip {
-			width: 100%;
 		}
 	}
 
@@ -1871,36 +930,14 @@
 			overflow: visible;
 		}
 
-		.inventory-toolbox-grid {
-			grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-		}
-
-		.inventory-toolbox-body {
-			align-items: start;
-		}
-
-		.inventory-scroll {
-			height: auto;
-		}
-
-		.loadout-summary-strip {
-			grid-template-columns: 1fr;
-		}
-
 		.save,
 		.ghost {
 			width: 100%;
 		}
 
-		.inventory-toolbox-head,
 		.section-head-split {
 			align-items: start;
 			flex-direction: column;
-		}
-
-		.main-loadout-grid,
-		.placed-weapons-layer {
-			grid-auto-rows: minmax(3.5rem, 1fr);
 		}
 	}
 </style>

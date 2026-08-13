@@ -1,7 +1,5 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import CampaignStatCard from '$lib/components/campaigns/CampaignStatCard.svelte';
-	import CampaignRouteNav from '$lib/components/campaigns/CampaignRouteNav.svelte';
 	import UpgradeOptionCard from '$lib/components/campaigns/UpgradeOptionCard.svelte';
 	import { createBaselineUpgradeablePixlState, getUpgradeOptions } from '$lib/game/upgrades';
 	import type { PageProps } from './$types';
@@ -22,20 +20,6 @@
 		{ label: 'Owned weapons', value: ownedWeaponCount },
 		{ label: 'Loadout size', value: `${upgradeState.loadoutRows} x ${upgradeState.loadoutColumns}` }
 	]);
-	let loadoutTooltip = $derived(
-		(data.gameState?.pixlState.loadoutPlacements ?? [])
-			.map((placement) => {
-				const ownedWeapon = data.gameState?.pixlState.ownedWeapons.find(
-					(weapon) => weapon.instanceId === placement.weaponInstanceId
-				);
-				const definition = ownedWeapon
-					? data.weaponDefinitionsById[ownedWeapon.definitionId]
-					: null;
-				return definition ? `${definition.name} (${placement.x}, ${placement.y})` : null;
-			})
-			.filter((entry): entry is string => entry !== null)
-			.join('\n') || 'No equipped weapons'
-	);
 </script>
 
 <svelte:head>
@@ -44,16 +28,6 @@
 
 <div class="route-page">
 	<div class="shell">
-		<div class="topbar">
-			<a class="back" href={resolve('/campaigns')}>All campaigns</a>
-			<CampaignRouteNav
-				campaignId={data.campaignId}
-				active="stats"
-				{loadoutTooltip}
-				notificationCounts={data.notificationCounts}
-			/>
-		</div>
-
 		<section class="hero panel">
 			<p class="eyebrow">Campaign {data.campaign.campaign}</p>
 			<h1>Stats</h1>
@@ -133,33 +107,12 @@
 		gap: 1rem;
 	}
 
-	.topbar {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		gap: 0.75rem;
-		flex-wrap: wrap;
-	}
-
 	.panel,
-	.back,
 	.feedback {
 		border-radius: 1.1rem;
 		border: 1px solid rgba(255, 255, 255, 0.08);
 		background: rgba(10, 10, 10, 0.92);
 		box-shadow: 0 24px 60px rgba(0, 0, 0, 0.32);
-	}
-
-	.back {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		min-height: 2.2rem;
-		padding: 0 0.9rem;
-		text-decoration: none;
-		color: #f5f5f5;
-		font-size: 0.9rem;
-		font-weight: 600;
 	}
 
 	.panel {

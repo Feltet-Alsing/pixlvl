@@ -7,6 +7,19 @@
 	import CampaignRouteNav from '$lib/components/campaigns/CampaignRouteNav.svelte';
 	import LevelResultsPopup from '$lib/components/campaigns/LevelResultsPopup.svelte';
 	import P5Canvas from '$lib/components/P5Canvas.svelte';
+	import {
+		buildCurrentLoadoutRows,
+		buildLoadoutTooltip,
+		buildOverlayStatCards,
+		buildPreviewLoadoutRows,
+		buildRewardDropRows,
+		buildUnlockedStages,
+		createInitialCombatOverlay,
+		type CampaignStageSummary,
+		type CombatOverlayState,
+		type LoadoutRow,
+		type RewardDropRow
+	} from './arena-helpers';
 	import { getCampaignRouteNotificationCounts } from '$lib/game/notifications';
 	import { createCampaignSketch, createLoadoutSweepPreviewSketch } from '$lib/p5/campaign-1-sketch';
 	import {
@@ -62,77 +75,6 @@
 		completed: boolean;
 	}
 
-	interface CombatOverlayState {
-		stage: number;
-		stageLevel: number;
-		campaignLevel: number;
-		pixlHealth: number;
-		maxPixlHealth: number;
-		bankedXp: number;
-		waveXp: number;
-		waveDrops: OwnedWeaponInstance[];
-		statusTimerRemaining: number;
-		remainingEnemies: number;
-		composition: {
-			biters: number;
-			swarmers: number;
-			tankers: number;
-		};
-		status: 'running' | 'cleared' | 'defeated' | 'complete';
-	}
-
-	interface RewardDropRow {
-		instanceId: string;
-		definitionId: string;
-		name: string;
-		rarity: WeaponDefinition['rarity'];
-		isNew: boolean;
-	}
-
-	interface LoadoutRow {
-		weaponInstanceId: string;
-		definitionId: string;
-		name: string;
-		rarity: WeaponDefinition['rarity'];
-		x: number;
-		y: number;
-	}
-
-	interface CampaignStageSummary {
-		stage: number;
-		startLevel: number;
-		endLevel: number;
-		unlockedLevelCount: number;
-		isCurrentStage: boolean;
-		isCleared: boolean;
-	}
-
-	function createInitialCombatOverlay(pageData: PageProps['data']): CombatOverlayState {
-		const firstLevel = pageData.campaign.levels[0];
-		const maxPixlHealth =
-			pageData.gameState?.pixlState.health ?? pageData.combatProfile.pixl.health;
-		const composition = {
-			biters: firstLevel?.composition.biters ?? 0,
-			swarmers: firstLevel?.composition.swarmers ?? 0,
-			tankers: firstLevel?.composition.tankers ?? 0
-		};
-
-		return {
-			stage: firstLevel?.stage ?? 1,
-			stageLevel: firstLevel?.stageLevel ?? 1,
-			campaignLevel: pageData.campaignState?.currentLevel ?? 1,
-			pixlHealth: maxPixlHealth,
-			maxPixlHealth,
-			bankedXp: pageData.gameState?.pixlState.xp ?? 0,
-			waveXp: 0,
-			waveDrops: [],
-			statusTimerRemaining: 0,
-			remainingEnemies: composition.biters + composition.swarmers + composition.tankers,
-			composition,
-			status: 'running'
-		};
-	}
-
 	let { data, form }: PageProps = $props();
 	let runMode = $state<LocalRunMode>('combat');
 	let showStatsOverlay = $state(false);
@@ -171,14 +113,7 @@
 		livePixlState ?? data.gameState?.pixlState ?? createBaselineUpgradeablePixlState()
 	);
 	let overlayUpgradeOptions = $derived(getUpgradeOptions(upgradeState));
-	let overlayStatCards = $derived([
-		{ label: 'Level', value: upgradeState.level },
-		{ label: 'Perk points', value: upgradeState.perkPoints },
-		{ label: 'XP', value: upgradeState.xp },
-		{ label: 'Health', value: upgradeState.health },
-		{ label: 'Attack speed', value: `${upgradeState.attackSpeed.toFixed(1)}/s` },
-		{ label: 'Loadout size', value: `${upgradeState.loadoutRows} x ${upgradeState.loadoutColumns}` }
-	]);
+	let overlayStatCards = $derived(buildOverlayStatCards(upgradeState));
 	let weaponDefinitionById = $derived(
 		data.weaponDefinitionsById as Record<string, LoadoutItemDefinition>
 	);
@@ -194,72 +129,19 @@
 		liveCampaignState?.highestClearedLevel ?? data.campaignState?.highestClearedLevel ?? 0
 	);
 	let currentStage = $derived(Math.ceil(sketchCampaignLevel / data.campaign.levelsPerStage));
-	const rarityOrder = {
-		legendary: 0,
-		exotic: 1,
-		rare: 2,
-		magic: 3,
-		normal: 4
-	} as const satisfies Record<WeaponDefinition['rarity'], number>;
-	let unlockedStages = $derived.by(() => {
-		return Array.from({ length: data.campaign.stages }, (_, index) => index + 1)
-			.map((stage) => {
-				const startLevel = (stage - 1) * data.campaign.levelsPerStage + 1;
-				const endLevel = startLevel + data.campaign.levelsPerStage - 1;
-				const unlockedLevelCount = Math.max(
-					0,
-					Math.min(highestUnlockedLevel - startLevel + 1, data.campaign.levelsPerStage)
-				);
-
-				return {
-					stage,
-					startLevel,
-					endLevel,
-					unlockedLevelCount,
-					isCurrentStage: currentStage === stage,
-					isCleared: highestClearedLevel >= endLevel
-				} satisfies CampaignStageSummary;
-			})
-			.filter((stage) => stage.unlockedLevelCount > 0);
-	});
-	let currentLoadoutRows = $derived.by(() => {
-		const ownedWeaponById = Object.fromEntries(
-			ownedWeapons.map((weapon) => [weapon.instanceId, weapon])
-		) as Record<string, (typeof ownedWeapons)[number]>;
-
-		return loadoutPlacements
-			.map((placement) => {
-				const ownedWeapon = ownedWeaponById[placement.weaponInstanceId];
-				const definition = ownedWeapon ? weaponDefinitionById[ownedWeapon.definitionId] : null;
-
-				if (!ownedWeapon || !definition) {
-					return null;
-				}
-
-				return {
-					weaponInstanceId: placement.weaponInstanceId,
-					definitionId: definition.id,
-					name: definition.name,
-					rarity: definition.rarity,
-					x: placement.x,
-					y: placement.y
-				} satisfies LoadoutRow;
-			})
-			.filter((entry): entry is LoadoutRow => entry !== null)
-			.sort(
-				(left, right) => left.y - right.y || left.x - right.x || left.name.localeCompare(right.name)
-			);
-	});
-	let previewLoadoutRows = $derived.by(() => {
-		return [...currentLoadoutRows].sort((left, right) => {
-			return (
-				rarityOrder[left.rarity] - rarityOrder[right.rarity] ||
-				left.name.localeCompare(right.name) ||
-				left.y - right.y ||
-				left.x - right.x
-			);
-		});
-	});
+	let unlockedStages = $derived.by(() =>
+		buildUnlockedStages(
+			data.campaign.stages,
+			data.campaign.levelsPerStage,
+			highestUnlockedLevel,
+			highestClearedLevel,
+			currentStage
+		)
+	);
+	let currentLoadoutRows = $derived.by(() =>
+		buildCurrentLoadoutRows(ownedWeapons, loadoutPlacements, weaponDefinitionById)
+	);
+	let previewLoadoutRows = $derived.by(() => buildPreviewLoadoutRows(currentLoadoutRows));
 	let loadoutSignature = $derived(
 		currentLoadoutRows
 			.map((weapon) => `${weapon.weaponInstanceId}:${weapon.x}:${weapon.y}`)
@@ -294,25 +176,13 @@
 	let ownedDefinitionIdsBeforeDrops = $derived.by(() => {
 		return new Set(ownedWeapons.map((weapon) => weapon.definitionId));
 	});
-	let rewardDropRows = $derived.by(() => {
-		return combatOverlay.waveDrops
-			.map((weapon) => {
-				const definition = weaponDefinitionById[weapon.definitionId];
-
-				if (!definition) {
-					return null;
-				}
-
-				return {
-					instanceId: weapon.instanceId,
-					definitionId: definition.id,
-					name: definition.name,
-					rarity: definition.rarity,
-					isNew: !ownedDefinitionIdsBeforeDrops.has(definition.id)
-				} satisfies RewardDropRow;
-			})
-			.filter((entry): entry is RewardDropRow => entry !== null);
-	});
+	let rewardDropRows = $derived.by(() =>
+		buildRewardDropRows(
+			combatOverlay.waveDrops,
+			weaponDefinitionById,
+			ownedDefinitionIdsBeforeDrops
+		)
+	);
 	let showResultsPopup = $derived(
 		combatOverlay.status === 'cleared' || combatOverlay.status === 'complete'
 	);
@@ -321,10 +191,7 @@
 		return `Auto-continue in ${secondsRemaining}s`;
 	});
 	let resultsEmptyLabel = $derived(`No item drops. +${combatOverlay.waveXp} XP earned.`);
-	let loadoutTooltip = $derived(
-		currentLoadoutRows.map((weapon) => `${weapon.name} (${weapon.x}, ${weapon.y})`).join('\n') ||
-			'No equipped items'
-	);
+	let loadoutTooltip = $derived(buildLoadoutTooltip(currentLoadoutRows));
 	let notificationCounts = $derived(
 		getCampaignRouteNotificationCounts(livePixlState ?? data.gameState?.pixlState ?? null)
 	);

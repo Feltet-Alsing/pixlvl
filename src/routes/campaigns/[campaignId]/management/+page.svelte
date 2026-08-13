@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import CampaignRouteNav from '$lib/components/campaigns/CampaignRouteNav.svelte';
 	import type { PageProps } from './$types';
 
 	interface ManagementStageSummary {
@@ -39,21 +38,6 @@
 			})
 			.filter((stage) => stage.unlockedLevelCount > 0);
 	});
-
-	let loadoutTooltip = $derived(
-		(data.gameState?.pixlState.loadoutPlacements ?? [])
-			.map((placement) => {
-				const ownedWeapon = data.gameState?.pixlState.ownedWeapons.find(
-					(weapon) => weapon.instanceId === placement.weaponInstanceId
-				);
-				const definition = ownedWeapon
-					? data.weaponDefinitionsById[ownedWeapon.definitionId]
-					: null;
-				return definition ? `${definition.name} (${placement.x}, ${placement.y})` : null;
-			})
-			.filter((entry): entry is string => entry !== null)
-			.join('\n') || 'No equipped weapons'
-	);
 </script>
 
 <svelte:head>
@@ -62,16 +46,6 @@
 
 <div class="route-page">
 	<div class="shell">
-		<div class="topbar">
-			<a class="back" href={resolve('/campaigns')}>All campaigns</a>
-			<CampaignRouteNav
-				campaignId={data.campaignId}
-				active="management"
-				{loadoutTooltip}
-				notificationCounts={data.notificationCounts}
-			/>
-		</div>
-
 		<section class="hero panel">
 			<p class="eyebrow">Campaign {data.campaign.campaign}</p>
 			<h1>Management</h1>
@@ -163,7 +137,6 @@
 		gap: 1rem;
 	}
 
-	.topbar,
 	.route-links,
 	.stage-grid {
 		display: flex;
@@ -171,15 +144,9 @@
 		flex-wrap: wrap;
 	}
 
-	.topbar {
-		justify-content: space-between;
-		align-items: center;
-	}
-
 	.panel,
 	.stage-card,
 	.jump,
-	.back,
 	.feedback {
 		border-radius: 1.1rem;
 		border: 1px solid rgba(255, 255, 255, 0.08);
@@ -187,7 +154,6 @@
 		box-shadow: 0 24px 60px rgba(0, 0, 0, 0.32);
 	}
 
-	.back,
 	.jump {
 		display: inline-flex;
 		align-items: center;
@@ -290,11 +256,6 @@
 	@media (max-width: 860px) {
 		.grid {
 			grid-template-columns: 1fr;
-		}
-
-		.topbar {
-			align-items: flex-start;
-			flex-direction: column;
 		}
 	}
 </style>
