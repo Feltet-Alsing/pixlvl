@@ -4,9 +4,11 @@
 </script>
 
 <script lang="ts">
+	import { page } from '$app/state';
 	import type { ActionData } from './$types';
 
 	let { form }: { form: ActionData | null } = $props();
+	let nextPath = $derived(page.url.searchParams.get('next') ?? '/campaigns');
 
 	function getFormValue(key: 'name' | 'email') {
 		const values = form?.values;
@@ -36,6 +38,7 @@
 			<section class="pane">
 				<h2>Sign in</h2>
 				<form method="post" action="?/signIn">
+					<input type="hidden" name="next" value={nextPath} />
 					<label>
 						<span>Email</span>
 						<input
@@ -59,6 +62,7 @@
 			<section class="pane">
 				<h2>Sign up</h2>
 				<form method="post" action="?/signUp">
+					<input type="hidden" name="next" value={nextPath} />
 					<label>
 						<span>Name</span>
 						<input

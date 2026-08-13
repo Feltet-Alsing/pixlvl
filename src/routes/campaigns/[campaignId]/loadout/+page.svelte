@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
+	import LoadoutDraggedShapePreview from '$lib/components/campaigns/LoadoutDraggedShapePreview.svelte';
+	import LoadoutSaveDialog from '$lib/components/campaigns/LoadoutSaveDialog.svelte';
+	import LoadoutSummaryStrip from '$lib/components/campaigns/LoadoutSummaryStrip.svelte';
 	import P5Canvas from '$lib/components/P5Canvas.svelte';
-	import CampaignRouteNav from '$lib/components/campaigns/CampaignRouteNav.svelte';
 	import { isUtilityDefinition, isWeaponDefinition } from '$lib/data';
-	import { getCampaignRouteNotificationCounts } from '$lib/game/notifications';
 	import { createBaselineUpgradeablePixlState } from '$lib/game/upgrades';
 	import { createCampaignSketch } from '$lib/p5/campaign-1-sketch';
 	import type {
@@ -324,13 +324,6 @@
 
 		return preview;
 	});
-	let loadoutTooltip = $derived(
-		loadoutWeapons.map((weapon) => `${weapon.name} (${weapon.x}, ${weapon.y})`).join('\n') ||
-			'No equipped items'
-	);
-	let notificationCounts = $derived(
-		getCampaignRouteNotificationCounts(livePixlState ?? data.gameState?.pixlState ?? null)
-	);
 	let equippedDamagePerCycle = $derived(
 		loadoutWeapons.reduce(
 			(total, weapon) =>
@@ -1009,23 +1002,21 @@
 	{/if}
 
 	<div class="shell">
-		<div class="topbar">
+		<!-- <div class="topbar">
 			<a class="back" href={resolve('/campaigns')}>All campaigns</a>
 			<CampaignRouteNav
 				campaignId={data.campaignId}
 				active="loadout"
+				campaignRoutes={data.campaignRoutes}
 				{loadoutTooltip}
 				{notificationCounts}
 			/>
-		</div>
+		</div> -->
 
 		<section class="hero panel">
 			<p class="eyebrow">Campaign {data.campaign.campaign}</p>
 			<h1>Loadout</h1>
-			<p class="lede">
-				Every item keeps its exact shape. If the shape fits inside the {loadoutRowCount} x {loadoutColumnCount}
-				grid without overlapping another item, it can be equipped.
-			</p>
+			<p class="lede">Fit item shapes inside the {loadoutRowCount} x {loadoutColumnCount} grid.</p>
 			<p class="live-run-label">
 				Pixl level {progressionState.level} · {progressionState.perkPoints} perk {progressionState.perkPoints ===
 				1
@@ -1087,74 +1078,30 @@
 					</button>
 				</div>
 
-				<div class="loadout-summary-strip" aria-label="Equipped loadout cycle summary">
-					<div class="loadout-summary-card">
-						<span>Run state</span>
-						<strong>Stage {liveRunStage} · {liveRunStageLevel}</strong>
-						<small>{liveRunStatus === 'running' ? 'Live run active' : `Run ${liveRunStatus}`}</small
-						>
-					</div>
-					<div class="loadout-summary-card">
-						<span>Damage / cycle</span>
-						<strong>{formatCycleAverage(equippedDamagePerCycle)}</strong>
-					</div>
-					<div class="loadout-summary-card">
-						<span>Projectiles / cycle</span>
-						<strong>{formatCycleAverage(equippedProjectilesPerCycle)}</strong>
-					</div>
-					<div class="loadout-summary-card">
-						<span>Items equipped</span>
-						<strong>{loadoutWeapons.length}</strong>
-					</div>
-				</div>
+				<LoadoutSummaryStrip
+					stage={liveRunStage}
+					stageLevel={liveRunStageLevel}
+					status={liveRunStatus}
+					damagePerCycle={formatCycleAverage(equippedDamagePerCycle)}
+					projectilesPerCycle={formatCycleAverage(equippedProjectilesPerCycle)}
+					equippedCount={loadoutWeapons.length}
+				/>
 
 				{#if showSaveWarning}
-					<button
-						class="save-warning-backdrop"
-						type="button"
-						aria-label="Cancel loadout save"
-						onclick={cancelLoadoutSave}
-					></button>
-					<div
-						class="save-warning-modal"
-						role="dialog"
-						aria-modal="true"
-						aria-labelledby="save-warning-title"
-					>
-						<h3 id="save-warning-title">Apply new loadout?</h3>
-						<p>
-							The campaign keeps running while you are on this screen. Saving a new loadout will
-							apply the changes and restart the current level from the beginning.
-						</p>
-						<p class="save-warning-meta">
-							Current run: Stage {liveRunStage} · Level {liveRunStageLevel} · Campaign level {liveRunCampaignLevel}
-						</p>
-						<div class="save-warning-actions">
-							<button class="ghost" type="button" onclick={cancelLoadoutSave}>Cancel</button>
-							<button class="save" type="button" onclick={confirmLoadoutSave}
-								>Save and restart level</button
-							>
-						</div>
-					</div>
+					<LoadoutSaveDialog
+						stage={liveRunStage}
+						stageLevel={liveRunStageLevel}
+						campaignLevel={liveRunCampaignLevel}
+						onCancel={cancelLoadoutSave}
+						onConfirm={confirmLoadoutSave}
+					/>
 				{/if}
 
 				{#if draggedWeaponDefinition}
-					<div class="weapon-shape-preview centered-preview">
-						<div
-							class="shape-grid"
-							style:grid-template-columns={`repeat(${draggedWeaponDefinition.shape.width}, 1fr)`}
-						>
-							{#each createIndexArray(draggedWeaponDefinition.shape.height) as shapeY (shapeY)}
-								{#each createIndexArray(draggedWeaponDefinition.shape.width) as shapeX (shapeX)}
-									<div
-										class="shape-cell"
-										class:filled={isShapeCellFilled(draggedWeaponDefinition.shape, shapeX, shapeY)}
-									></div>
-								{/each}
-							{/each}
-						</div>
-						<p class="weapon-role">{draggedWeaponDefinition.role}</p>
-					</div>
+					<LoadoutDraggedShapePreview
+						shape={draggedWeaponDefinition.shape}
+						role={draggedWeaponDefinition.role}
+					/>
 				{/if}
 
 				<div class="loadout-grid-shell" id="loadout-grid-shell">
@@ -1469,51 +1416,6 @@
 	.loadout-summary-card strong {
 		font-size: 1.45rem;
 		line-height: 1;
-	}
-
-	.loadout-summary-card small {
-		font-size: 0.78rem;
-		color: #c4c4ca;
-	}
-
-	.save-warning-backdrop {
-		position: fixed;
-		inset: 0;
-		background: rgba(0, 0, 0, 0.62);
-		z-index: 19;
-	}
-
-	.save-warning-modal {
-		position: fixed;
-		top: 50%;
-		left: 50%;
-		transform: translate(-50%, -50%);
-		width: min(32rem, calc(100vw - 2rem));
-		padding: 1.1rem;
-		border-radius: 1rem;
-		border: 1px solid rgba(255, 255, 255, 0.1);
-		background: rgba(10, 10, 12, 0.98);
-		box-shadow: 0 28px 72px rgba(0, 0, 0, 0.5);
-		display: grid;
-		gap: 0.8rem;
-		z-index: 20;
-	}
-
-	.save-warning-modal h3,
-	.save-warning-modal p {
-		margin: 0;
-	}
-
-	.save-warning-meta {
-		font-size: 0.84rem;
-		color: #d3d3d8;
-	}
-
-	.save-warning-actions {
-		display: flex;
-		justify-content: flex-end;
-		gap: 0.75rem;
-		flex-wrap: wrap;
 	}
 
 	.grid-panel {

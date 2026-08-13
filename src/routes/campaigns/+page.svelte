@@ -7,13 +7,16 @@
 	const campaignList = Object.values(campaigns);
 	const campaignCardContent: Record<number, { title: string; description: string }> = {
 		1: {
-			title: 'Stage-based survival draft',
-			description: 'Baseline progression, steady density ramp, and the original weapon set.'
+			title: 'Baseline run',
+			description: 'Steady ramp and the original weapon pool.'
 		},
 		2: {
-			title: 'Weapons lab escalation',
-			description:
-				'A harsher ramp with faster enemy growth and a flashier projectile-focused drop pool.'
+			title: 'Weapons lab',
+			description: 'Faster scaling with projectile-heavy drops.'
+		},
+		3: {
+			title: 'Endurance push',
+			description: 'Longer pressure and the broadest drop mix.'
 		}
 	};
 </script>
@@ -27,9 +30,7 @@
 		<header class="header">
 			<p class="eyebrow">pixlvl</p>
 			<h1>Choose a campaign</h1>
-			<p class="lede">
-				Select a campaign run. The combat preview lives here without the intro surface.
-			</p>
+			<p class="lede">Pick a run and jump straight in.</p>
 		</header>
 
 		<div class="grid">
@@ -48,7 +49,7 @@
 							Saved at level {progress.currentLevel} · cleared {progress.highestClearedLevel}
 						</p>
 					{/if}
-					<span>Run campaign</span>
+					<span>Open</span>
 				</a>
 			{/each}
 		</div>

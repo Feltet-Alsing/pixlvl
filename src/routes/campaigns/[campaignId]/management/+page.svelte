@@ -75,10 +75,7 @@
 		<section class="hero panel">
 			<p class="eyebrow">Campaign {data.campaign.campaign}</p>
 			<h1>Management</h1>
-			<p class="lede">
-				Handle progression between runs: select stages, review unlock state, then jump back into the
-				arena.
-			</p>
+			<p class="lede">Pick stages, review unlocks, and head back into the arena.</p>
 		</section>
 
 		<section class="grid">
@@ -112,7 +109,7 @@
 						{/each}
 					</div>
 				{:else}
-					<p class="feedback neutral">Sign in to persist stage progression.</p>
+					<p class="feedback neutral">Sign in to save stage progress.</p>
 				{/if}
 			</div>
 

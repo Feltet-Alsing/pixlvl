@@ -6,6 +6,7 @@ import {
 	getCampaignWeaponPool,
 	getLoadoutItemDefinition,
 	getWeaponDefinition,
+	campaigns,
 	weaponDefinitions
 } from '$lib/data';
 import { applyUpgradePurchase, isUpgradeKey } from '$lib/game/upgrades';
@@ -47,6 +48,11 @@ export async function loadCampaignRouteData(
 	return {
 		campaignId,
 		campaign,
+		campaignRoutes: Object.values(campaigns).map((entry) => ({
+			campaignId: entry.campaign,
+			stages: entry.stages,
+			totalLevels: entry.totalLevels
+		})),
 		combatProfile,
 		weaponPool,
 		weaponDefinitionsById: weaponDefinitions,

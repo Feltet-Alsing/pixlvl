@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import CampaignStatCard from '$lib/components/campaigns/CampaignStatCard.svelte';
 	import CampaignRouteNav from '$lib/components/campaigns/CampaignRouteNav.svelte';
+	import UpgradeOptionCard from '$lib/components/campaigns/UpgradeOptionCard.svelte';
 	import { createBaselineUpgradeablePixlState, getUpgradeOptions } from '$lib/game/upgrades';
 	import type { PageProps } from './$types';
 
@@ -10,6 +12,16 @@
 	let upgradeOptions = $derived(getUpgradeOptions(upgradeState));
 	let equippedWeaponCount = $derived(data.gameState?.pixlState.loadoutPlacements.length ?? 0);
 	let ownedWeaponCount = $derived(data.gameState?.pixlState.ownedWeapons.length ?? 0);
+	let statCards = $derived([
+		{ label: 'Level', value: upgradeState.level },
+		{ label: 'Perk points', value: upgradeState.perkPoints },
+		{ label: 'XP', value: upgradeState.xp },
+		{ label: 'Health', value: upgradeState.health },
+		{ label: 'Attack speed', value: `${upgradeState.attackSpeed.toFixed(1)}/s` },
+		{ label: 'Equipped', value: equippedWeaponCount },
+		{ label: 'Owned weapons', value: ownedWeaponCount },
+		{ label: 'Loadout size', value: `${upgradeState.loadoutRows} x ${upgradeState.loadoutColumns}` }
+	]);
 	let loadoutTooltip = $derived(
 		(data.gameState?.pixlState.loadoutPlacements ?? [])
 			.map((placement) => {
@@ -45,46 +57,14 @@
 		<section class="hero panel">
 			<p class="eyebrow">Campaign {data.campaign.campaign}</p>
 			<h1>Stats</h1>
-			<p class="lede">
-				Persistent pixl power now lives on its own route so upgrades and progression are readable
-				without competing with combat HUD.
-			</p>
+			<p class="lede">View your persistent build and spend perk points between runs.</p>
 		</section>
 
 		<section class="grid">
 			<div class="panel stat-grid">
-				<div class="stat-card">
-					<span>Level</span>
-					<strong>{upgradeState.level}</strong>
-				</div>
-				<div class="stat-card">
-					<span>Perk points</span>
-					<strong>{upgradeState.perkPoints}</strong>
-				</div>
-				<div class="stat-card">
-					<span>XP</span>
-					<strong>{upgradeState.xp}</strong>
-				</div>
-				<div class="stat-card">
-					<span>Health</span>
-					<strong>{upgradeState.health}</strong>
-				</div>
-				<div class="stat-card">
-					<span>Attack speed</span>
-					<strong>{upgradeState.attackSpeed.toFixed(1)}/s</strong>
-				</div>
-				<div class="stat-card">
-					<span>Equipped</span>
-					<strong>{equippedWeaponCount}</strong>
-				</div>
-				<div class="stat-card">
-					<span>Owned weapons</span>
-					<strong>{ownedWeaponCount}</strong>
-				</div>
-				<div class="stat-card">
-					<span>Loadout size</span>
-					<strong>{upgradeState.loadoutRows} x {upgradeState.loadoutColumns}</strong>
-				</div>
+				{#each statCards as stat (stat.label)}
+					<CampaignStatCard label={stat.label} value={stat.value} />
+				{/each}
 			</div>
 
 			<div class="panel">
@@ -106,21 +86,10 @@
 				<div class="upgrade-grid">
 					{#if data.gameState}
 						{#each upgradeOptions as option (option.key)}
-							<form class="upgrade-card" method="post" action="?/purchaseUpgrade">
-								<input type="hidden" name="upgrade" value={option.key} />
-								<div class="upgrade-head">
-									<span>{option.label}</span>
-									<strong>Rank {option.level}</strong>
-								</div>
-								<p>{option.description}</p>
-								<small>Allocated {option.level} point{option.level === 1 ? '' : 's'}</small>
-								<button class="purchase" type="submit" disabled={!option.canSpend}>
-									{option.canSpend ? `Spend point on ${option.label}` : 'No perk points'}
-								</button>
-							</form>
+							<UpgradeOptionCard {option} />
 						{/each}
 					{:else}
-						<p class="feedback neutral">Sign in to save stats and purchase upgrades.</p>
+						<p class="feedback neutral">Sign in to save stats and buy upgrades.</p>
 					{/if}
 				</div>
 
@@ -174,8 +143,7 @@
 
 	.panel,
 	.back,
-	.feedback,
-	.upgrade-card {
+	.feedback {
 		border-radius: 1.1rem;
 		border: 1px solid rgba(255, 255, 255, 0.08);
 		background: rgba(10, 10, 10, 0.92);
@@ -209,9 +177,7 @@
 		font-size: 2rem;
 	}
 
-	.eyebrow,
-	.stat-card span,
-	.upgrade-head span {
+	.eyebrow {
 		text-transform: uppercase;
 		letter-spacing: 0.12em;
 		font-size: 0.72rem;
@@ -220,9 +186,7 @@
 	}
 
 	.lede,
-	.section-head p,
-	.upgrade-card p,
-	.upgrade-card small {
+	.section-head p {
 		margin: 0;
 		color: #c4c4c4;
 	}
@@ -237,43 +201,6 @@
 	.upgrade-grid {
 		display: grid;
 		gap: 0.75rem;
-	}
-
-	.stat-card {
-		padding: 0.85rem;
-		border-radius: 0.9rem;
-		background: rgba(255, 255, 255, 0.04);
-		display: grid;
-		gap: 0.25rem;
-	}
-
-	.stat-card strong {
-		font-size: 1.2rem;
-	}
-
-	.upgrade-card {
-		padding: 0.9rem;
-		display: grid;
-		gap: 0.45rem;
-	}
-
-	.upgrade-head {
-		display: flex;
-		justify-content: space-between;
-		gap: 0.75rem;
-		align-items: baseline;
-	}
-
-	.purchase {
-		min-height: 2rem;
-		padding: 0.45rem 0.75rem;
-		border-radius: 999px;
-		border: 1px solid rgba(255, 255, 255, 0.14);
-		background: rgba(255, 255, 255, 0.08);
-		color: #f5f5f5;
-		font: inherit;
-		font-weight: 600;
-		cursor: pointer;
 	}
 
 	.reset-panel {
@@ -293,11 +220,6 @@
 		font: inherit;
 		font-weight: 600;
 		cursor: pointer;
-	}
-
-	.purchase:disabled {
-		opacity: 0.45;
-		cursor: not-allowed;
 	}
 
 	.reset-button:disabled {

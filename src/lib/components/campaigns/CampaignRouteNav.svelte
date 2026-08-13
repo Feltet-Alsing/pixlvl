@@ -2,9 +2,11 @@
 	import { resolve } from '$app/paths';
 	import type { CampaignRouteNotificationCounts } from '$lib/game/notifications';
 
+	type CampaignSection = 'arena' | 'management' | 'stats' | 'loadout';
+
 	interface Props {
 		campaignId: number;
-		active: 'arena' | 'management' | 'stats' | 'loadout';
+		active: CampaignSection;
 		loadoutTooltip?: string;
 		notificationCounts?: CampaignRouteNotificationCounts;
 	}
@@ -14,23 +16,19 @@
 	let routeLinks = $derived([
 		{
 			key: 'arena',
-			label: 'Arena',
-			path: `/campaigns/${campaignId}`
+			label: 'Arena'
 		},
 		{
 			key: 'management',
-			label: 'Management',
-			path: `/campaigns/${campaignId}/management`
+			label: 'Management'
 		},
 		{
 			key: 'stats',
-			label: 'Stats',
-			path: `/campaigns/${campaignId}/stats`
+			label: 'Stats'
 		},
 		{
 			key: 'loadout',
-			label: 'Loadout',
-			path: `/campaigns/${campaignId}/loadout`
+			label: 'Loadout'
 		}
 	] as const);
 
@@ -47,26 +45,65 @@
 	}
 </script>
 
-<nav class="route-nav" aria-label="Campaign sections">
-	{#each routeLinks as route (route.key)}
-		<a
-			class:active={active === route.key}
-			class="route-link"
-			href={resolve(route.path)}
-			title={route.key === 'loadout' ? loadoutTooltip : undefined}
-		>
-			{route.label}
-			{#if getBadgeCount(route.key) > 0}
-				<span class="route-badge" aria-label={`${getBadgeCount(route.key)} unread`}>
-					{getBadgeCount(route.key)}
-				</span>
-			{/if}
-		</a>
-	{/each}
+<nav class="route-nav" aria-label="Campaign navigation">
+	<div class="nav-group">
+		<p class="nav-label">Section</p>
+		<div class="nav-links">
+			{#each routeLinks as route (route.key)}
+				{#if route.key === 'arena'}
+					<a
+						class:active={active === route.key}
+						class="route-link"
+						href={resolve(`/campaigns/${campaignId}`)}
+					>
+						{route.label}
+						{#if getBadgeCount(route.key) > 0}
+							<span class="route-badge" aria-label={`${getBadgeCount(route.key)} unread`}>
+								{getBadgeCount(route.key)}
+							</span>
+						{/if}
+					</a>
+				{:else}
+					<a
+						class:active={active === route.key}
+						class="route-link"
+						href={resolve(`/campaigns/${campaignId}/${route.key}`)}
+						title={route.key === 'loadout' ? loadoutTooltip : undefined}
+					>
+						{route.label}
+						{#if getBadgeCount(route.key) > 0}
+							<span class="route-badge" aria-label={`${getBadgeCount(route.key)} unread`}>
+								{getBadgeCount(route.key)}
+							</span>
+						{/if}
+					</a>
+				{/if}
+			{/each}
+		</div>
+	</div>
 </nav>
 
 <style>
 	.route-nav {
+		display: grid;
+		gap: 0.6rem;
+	}
+
+	.nav-group {
+		display: grid;
+		gap: 0.35rem;
+	}
+
+	.nav-label {
+		margin: 0;
+		font-size: 0.68rem;
+		font-weight: 700;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: #9d9d9d;
+	}
+
+	.nav-links {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.6rem;

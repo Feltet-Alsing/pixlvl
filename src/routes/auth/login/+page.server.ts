@@ -7,15 +7,32 @@ function readRequiredString(formData: FormData, key: string) {
 	return formData.get(key)?.toString().trim() ?? '';
 }
 
+function sanitizeNext(value: string | null | undefined) {
+	if (!value || !value.startsWith('/') || value.startsWith('//') || value.startsWith('/auth')) {
+		return '/campaigns';
+	}
+
+	return value;
+}
+
+function getNextPath(event: Parameters<NonNullable<Actions['signIn']>>[0], formData?: FormData) {
+	const submittedValue = formData?.get('next');
+	const nextValue =
+		typeof submittedValue === 'string' ? submittedValue : event.url.searchParams.get('next');
+
+	return sanitizeNext(nextValue);
+}
+
 export const load: PageServerLoad = async (event) => {
 	if (event.locals.user) {
-		throw redirect(302, '/dashboard');
+		throw redirect(302, sanitizeNext(event.url.searchParams.get('next')));
 	}
 };
 
 export const actions: Actions = {
 	signIn: async (event) => {
 		const formData = await event.request.formData();
+		const nextPath = getNextPath(event, formData);
 		const email = readRequiredString(formData, 'email');
 		const password = readRequiredString(formData, 'password');
 
@@ -48,10 +65,11 @@ export const actions: Actions = {
 			});
 		}
 
-		throw redirect(302, '/dashboard');
+		throw redirect(302, nextPath);
 	},
 	signUp: async (event) => {
 		const formData = await event.request.formData();
+		const nextPath = getNextPath(event, formData);
 		const name = readRequiredString(formData, 'name');
 		const email = readRequiredString(formData, 'email');
 		const password = readRequiredString(formData, 'password');
@@ -85,6 +103,6 @@ export const actions: Actions = {
 			});
 		}
 
-		throw redirect(302, '/dashboard');
+		throw redirect(302, nextPath);
 	}
 };
