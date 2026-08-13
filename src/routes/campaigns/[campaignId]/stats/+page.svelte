@@ -127,15 +127,6 @@
 </div>
 
 <style>
-	:global(html),
-	:global(body) {
-		margin: 0;
-		min-height: 100%;
-		background: #050505;
-		color: #f5f5f5;
-		font-family: 'IBM Plex Sans', 'Avenir Next', sans-serif;
-	}
-
 	.route-page {
 		min-height: 100vh;
 		background: radial-gradient(circle at top, rgba(255, 255, 255, 0.05), transparent 24%), #050505;

@@ -4,6 +4,7 @@ import { campaign3CombatProfile } from './combat/campaign-3-v1';
 import { campaign1 } from './campaigns/campaign-1';
 import { campaign2 } from './campaigns/campaign-2';
 import { campaign3 } from './campaigns/campaign-3';
+import { shopWeaponDefinitions, shopWeaponPools } from './shop';
 import { campaign1Weapons, campaign2Weapons, campaign3Weapons } from './weapons';
 
 import type {
@@ -35,11 +36,15 @@ export const campaignWeaponPools = {
 	[campaign3.campaign]: campaign3Weapons
 } as const;
 
+export const campaignShopWeaponPools = shopWeaponPools;
+
 export const weaponDefinitions = Object.fromEntries(
-	Object.values(campaignWeaponPools)
+	[...Object.values(campaignWeaponPools), ...Object.values(shopWeaponPools)]
 		.flat()
 		.map((item) => [item.id, item])
 ) as Record<string, LoadoutItemDefinition>;
+
+export const shopItemDefinitions = shopWeaponDefinitions as Record<string, LoadoutItemDefinition>;
 
 export function isUtilityDefinition(item: LoadoutItemDefinition): item is UtilityDefinition {
 	return 'category' in item && item.category === 'utility';

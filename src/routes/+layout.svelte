@@ -47,6 +47,24 @@
 </div>
 
 <style>
+	:global(html),
+	:global(body) {
+		margin: 0;
+		min-height: 100%;
+	}
+
+	:global(html) {
+		height: 100%;
+		background: #020202;
+	}
+
+	:global(body) {
+		height: 100%;
+		background: #020202;
+		color: #f5f5f5;
+		font-family: 'IBM Plex Sans', 'Avenir Next', sans-serif;
+	}
+
 	.app-shell {
 		height: 100dvh;
 		min-height: 100dvh;

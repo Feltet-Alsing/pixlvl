@@ -131,12 +131,17 @@ export interface WeaponAttackBehavior {
 }
 
 export interface WeaponDropConfig {
-	mode: 'starter' | 'drop';
+	mode: 'starter' | 'drop' | 'shop';
 	campaignId?: number;
 	stageStart?: number;
 	stageEnd?: number;
 	perLevelDropChance?: number;
 	perEnemyDropChance?: number;
+}
+
+export interface ShopItemConfig {
+	campaignId: number;
+	price: number;
 }
 
 export type UtilityActivationKind = 'triggered' | 'passive';
@@ -174,6 +179,7 @@ export interface UtilityDefinition {
 	utilityVisual?: UtilityVisual;
 	drop: WeaponDropConfig;
 	role: string;
+	shop?: ShopItemConfig;
 }
 
 export interface WeaponDefinition {
@@ -187,6 +193,7 @@ export interface WeaponDefinition {
 	projectileVisual: WeaponProjectileVisual;
 	drop: WeaponDropConfig;
 	role: string;
+	shop?: ShopItemConfig;
 }
 
 export type LoadoutItemDefinition = WeaponDefinition | UtilityDefinition;
@@ -194,11 +201,22 @@ export type LoadoutItemDefinition = WeaponDefinition | UtilityDefinition;
 export interface OwnedWeaponInstance {
 	instanceId: string;
 	definitionId: string;
-	source: 'starter' | 'drop';
+	source: 'starter' | 'drop' | 'shop';
 	acquiredAt: string;
 	campaignId: number | null;
 	stage: number | null;
 	level: number | null;
+}
+
+export interface ShopOffer {
+	definitionId: string;
+	name: string;
+	rarity: WeaponRarity;
+	role: string;
+	price: number;
+	campaignId: number;
+	weight: number;
+	category: 'weapon' | 'utility';
 }
 
 export type OwnedLoadoutItemInstance = OwnedWeaponInstance;

@@ -86,13 +86,6 @@
 </div>
 
 <style>
-	:global(body) {
-		margin: 0;
-		background: #020202;
-		color: #f5f5f5;
-		font-family: 'IBM Plex Sans', 'Avenir Next', sans-serif;
-	}
-
 	.page {
 		min-height: 100vh;
 		padding: 2rem;

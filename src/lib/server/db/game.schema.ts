@@ -22,6 +22,7 @@ export const pixlState = pgTable('pixl_state', {
 	xp: integer('xp').notNull().default(0),
 	level: integer('level').notNull().default(1),
 	perkPoints: integer('perk_points').notNull().default(0),
+	scrap: integer('scrap').notNull().default(0),
 	defence: integer('defence').notNull().default(0),
 	agility: integer('agility').notNull().default(0),
 	health: integer('health').notNull(),

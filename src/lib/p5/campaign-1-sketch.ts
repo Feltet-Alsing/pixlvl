@@ -595,6 +595,7 @@ export function createCampaignSketch(
 
 			void fetch(options.persistPath, {
 				method: 'PATCH',
+				keepalive: true,
 				headers: {
 					'content-type': 'application/json'
 				},

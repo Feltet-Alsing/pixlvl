@@ -96,18 +96,13 @@
 </div>
 
 <style>
-	:global(body) {
-		margin: 0;
-		background: #f6f7fb;
-		color: #1f2937;
-		font-family: 'IBM Plex Sans', 'Avenir Next', sans-serif;
-	}
-
 	.page {
 		min-height: 100vh;
 		display: grid;
 		place-items: center;
 		padding: 2rem;
+		background: #f6f7fb;
+		color: #1f2937;
 	}
 
 	.card {

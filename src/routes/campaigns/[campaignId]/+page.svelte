@@ -387,7 +387,7 @@
 			{/if}
 		</div>
 
-		<section class="canvas-stage">
+		<section class:drawer-open={showStageDrawer} class="canvas-stage">
 			{#key sketchRemountKey}
 				<P5Canvas class="canvas-frame" sketch={campaignSketch} />
 			{/key}
@@ -539,16 +539,6 @@
 </div>
 
 <style>
-	:global(html),
-	:global(body) {
-		margin: 0;
-		width: 100%;
-		height: 100%;
-		background: #020202;
-		color: #f5f5f5;
-		font-family: 'IBM Plex Sans', 'Avenir Next', sans-serif;
-	}
-
 	.page {
 		flex: 1;
 		width: 100%;
@@ -971,10 +961,10 @@
 		grid-row: 3;
 		justify-self: center;
 		align-self: end;
-		width: min(42rem, 100%);
-		padding: 0.7rem 0.9rem;
+		width: min(37.5rem, 100%);
+		padding: 0.62rem 0.82rem;
 		display: grid;
-		gap: 0.55rem;
+		gap: 0.48rem;
 	}
 
 	.combat-title {
@@ -986,8 +976,9 @@
 
 	.combat-grid {
 		display: grid;
-		grid-template-columns: repeat(6, minmax(0, 1fr));
-		gap: 0.55rem 0.7rem;
+		grid-template-columns: repeat(6, minmax(0, max-content));
+		justify-content: space-between;
+		gap: 0.48rem 0.42rem;
 	}
 
 	.combat-grid div {
@@ -1004,12 +995,12 @@
 
 	.combat-bars {
 		display: grid;
-		gap: 0.4rem;
+		gap: 0.34rem;
 	}
 
 	.combat-bar-group {
 		display: grid;
-		gap: 0.18rem;
+		gap: 0.14rem;
 	}
 
 	.combat-bar-meta {
@@ -1324,6 +1315,19 @@
 		width: 100%;
 		height: 100%;
 		pointer-events: none;
+	}
+
+	@media (min-width: 861px) {
+		.canvas-stage.drawer-open :global(.canvas-frame) {
+			width: calc(100% - min(24rem, 100vw));
+			margin-left: min(24rem, 100vw);
+		}
+
+		.canvas-stage.drawer-open .combat-panel,
+		.canvas-stage.drawer-open .status-overlay,
+		.canvas-stage.drawer-open :global(.results-popup) {
+			transform: translateX(calc(min(24rem, 100vw) / 2));
+		}
 	}
 
 	@media (max-width: 860px) {

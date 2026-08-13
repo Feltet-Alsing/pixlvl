@@ -72,6 +72,24 @@
 		stats: Array<{ label: string; value: string }>;
 	}
 
+	interface ScrapDialogState {
+		definitionId: string;
+		name: string;
+		rarity: InventoryWeaponGroup['rarity'];
+		totalCount: number;
+		availableCount: number;
+		equippedCount: number;
+		scrapableCount: number;
+	}
+
+	const scrapValueByRarity = {
+		normal: 5,
+		magic: 25,
+		rare: 100,
+		exotic: 500,
+		legendary: 5000
+	} as const;
+
 	let { data, form }: PageProps = $props();
 	let draggedWeaponInstanceId = $state<string | null>(null);
 	let draggedWeaponAnchor = $state<{ x: number; y: number } | null>(null);
@@ -81,6 +99,9 @@
 	let showSaveWarning = $state(false);
 	let showUnsavedToast = $state(false);
 	let selectedWeaponDetails = $state<SelectedWeaponDetails | null>(null);
+	let scrapDialog = $state<ScrapDialogState | null>(null);
+	let scrapQuantity = $state(1);
+	let confirmHighRarityScrap = $state(false);
 	let saveLoadoutForm = $state<HTMLFormElement | null>(null);
 	let pixlStateOverride = $state.raw<PixlStateOverride | null>(null);
 	let campaignStateOverride = $state.raw<CampaignStateOverride | null>(null);
@@ -277,6 +298,11 @@
 	let filteredInventoryWeaponGroups = $derived.by(() =>
 		filterInventoryWeaponGroups(inventoryWeaponGroups, inventorySearch)
 	);
+	let scrapValuePerItem = $derived(scrapDialog ? scrapValueByRarity[scrapDialog.rarity] : 0);
+	let isHighRarityScrap = $derived(
+		scrapDialog ? scrapDialog.rarity === 'exotic' || scrapDialog.rarity === 'legendary' : false
+	);
+	let totalScrapYield = $derived(scrapQuantity * scrapValuePerItem);
 
 	$effect(() => {
 		const shouldShowToast =
@@ -310,8 +336,85 @@
 		previousHasUnsavedChanges = hasUnsavedChanges;
 	});
 
+	$effect(() => {
+		if (!scrapDialog) {
+			return;
+		}
+
+		scrapQuantity = Math.max(1, Math.min(scrapQuantity, scrapDialog.scrapableCount));
+	});
+
 	function getInitialLoadoutPlacements() {
 		return cloneLoadoutPlacements(data.gameState?.pixlState.loadoutPlacements ?? []);
+	}
+
+	function getScrapableCount(group: InventoryWeaponGroup) {
+		return Math.max(0, Math.min(group.availableCount, group.totalCount - 1));
+	}
+
+	function clampScrapQuantity(value: number) {
+		if (!scrapDialog) {
+			return 1;
+		}
+
+		if (!Number.isFinite(value)) {
+			return 1;
+		}
+
+		return Math.max(1, Math.min(Math.floor(value), scrapDialog.scrapableCount));
+	}
+
+	function openScrapDialog(group: InventoryWeaponGroup) {
+		const scrapableCount = getScrapableCount(group);
+
+		if (scrapableCount < 1) {
+			return;
+		}
+
+		scrapDialog = {
+			definitionId: group.definitionId,
+			name: group.name,
+			rarity: group.rarity,
+			totalCount: group.totalCount,
+			availableCount: group.availableCount,
+			equippedCount: group.equippedCount,
+			scrapableCount
+		};
+		scrapQuantity = 1;
+		confirmHighRarityScrap = false;
+	}
+
+	function closeScrapDialog() {
+		scrapDialog = null;
+		scrapQuantity = 1;
+		confirmHighRarityScrap = false;
+	}
+
+	function adjustScrapQuantity(delta: number) {
+		scrapQuantity = clampScrapQuantity(scrapQuantity + delta);
+	}
+
+	function handleScrapQuantityInput(event: Event) {
+		const target = event.currentTarget;
+
+		if (!(target instanceof HTMLInputElement)) {
+			return;
+		}
+
+		scrapQuantity = clampScrapQuantity(Number(target.value));
+	}
+
+	function formatRarityLabel(value: InventoryWeaponGroup['rarity']) {
+		return value[0].toUpperCase() + value.slice(1);
+	}
+
+	function handleScrapBackdropKeydown(event: KeyboardEvent) {
+		if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'Escape') {
+			return;
+		}
+
+		event.preventDefault();
+		closeScrapDialog();
 	}
 
 	function handleBackgroundStateChange(update: {
@@ -862,6 +965,7 @@
 					groups={filteredInventoryWeaponGroups}
 					{draggedWeaponInstanceId}
 					onSelectGroup={selectInventoryGroup}
+					onRequestScrap={openScrapDialog}
 					onInventoryDragOver={handleInventoryDragOver}
 					onInventoryDragLeave={handleInventoryDragLeave}
 					onInventoryDrop={handleInventoryDrop}
@@ -873,18 +977,132 @@
 			</aside>
 		</section>
 	</div>
+
+	{#if scrapDialog}
+		<div
+			class="scrap-modal-backdrop"
+			role="button"
+			tabindex="0"
+			aria-label="Close scrap dialog"
+			onclick={closeScrapDialog}
+			onkeydown={handleScrapBackdropKeydown}
+		>
+			<div
+				class="scrap-modal panel"
+				role="dialog"
+				tabindex="-1"
+				aria-modal="true"
+				aria-labelledby="scrap-modal-title"
+				onclick={(event) => event.stopPropagation()}
+				onkeydown={(event) => event.stopPropagation()}
+			>
+				<div class="scrap-modal-head">
+					<div>
+						<p class="scrap-modal-eyebrow">Scrap duplicates</p>
+						<h2 id="scrap-modal-title">{scrapDialog.name}</h2>
+					</div>
+					<button class="modal-close" type="button" onclick={closeScrapDialog}>Close</button>
+				</div>
+
+				<div class="scrap-stats-grid">
+					<div class="stat-card">
+						<span>Duplicates</span>
+						<strong>{Math.max(0, scrapDialog.totalCount - 1)}</strong>
+					</div>
+					<div class="stat-card">
+						<span>Scrapable now</span>
+						<strong>{scrapDialog.scrapableCount}</strong>
+					</div>
+					<div class="stat-card">
+						<span>Equipped</span>
+						<strong>{scrapDialog.equippedCount}</strong>
+					</div>
+					<div class="stat-card">
+						<span>Value per item</span>
+						<strong>{scrapValuePerItem} Scrap</strong>
+					</div>
+				</div>
+
+				<p class="scrap-copy">
+					{formatRarityLabel(scrapDialog.rarity)} rarity copies can be scrapped from the available pool
+					only.
+				</p>
+
+				{#if isHighRarityScrap}
+					<p class="feedback error">
+						High-rarity scrapping is permanent. Double-check equipped coverage before continuing.
+					</p>
+				{/if}
+
+				<form method="post" action="?/scrapItems" class="scrap-form">
+					<input type="hidden" name="definitionId" value={scrapDialog.definitionId} />
+
+					<label class="scrap-quantity-field" for="scrap-quantity-input">
+						<span>Quantity</span>
+						<div class="scrap-quantity-controls">
+							<button
+								class="ghost quantity-button"
+								type="button"
+								onclick={() => adjustScrapQuantity(-1)}
+								disabled={scrapQuantity <= 1}
+							>
+								-
+							</button>
+							<input
+								id="scrap-quantity-input"
+								name="quantity"
+								type="number"
+								min="1"
+								max={scrapDialog.scrapableCount}
+								step="1"
+								value={scrapQuantity}
+								oninput={handleScrapQuantityInput}
+							/>
+							<button
+								class="ghost quantity-button"
+								type="button"
+								onclick={() => adjustScrapQuantity(1)}
+								disabled={scrapQuantity >= scrapDialog.scrapableCount}
+							>
+								+
+							</button>
+						</div>
+					</label>
+
+					<div class="scrap-total-card stat-card">
+						<span>Total yield</span>
+						<strong>{totalScrapYield} Scrap</strong>
+					</div>
+
+					{#if isHighRarityScrap}
+						<label class="scrap-confirmation">
+							<input
+								type="checkbox"
+								name="confirmHighRarity"
+								value="yes"
+								bind:checked={confirmHighRarityScrap}
+							/>
+							<span>Confirm scrapping this {scrapDialog.rarity} item.</span>
+						</label>
+					{/if}
+
+					<div class="scrap-actions">
+						<button class="ghost" type="button" onclick={closeScrapDialog}>Cancel</button>
+						<button
+							class="save"
+							type="submit"
+							disabled={isHighRarityScrap && !confirmHighRarityScrap}
+						>
+							Scrap for {totalScrapYield}
+						</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	{/if}
 </div>
 
 <style>
-	:global(html),
-	:global(body) {
-		margin: 0;
-		min-height: 100%;
-		background: #050505;
-		color: #f5f5f5;
-		font-family: 'IBM Plex Sans', 'Avenir Next', sans-serif;
-	}
-
 	.route-page {
 		min-height: 100%;
 		width: 100%;
@@ -1024,6 +1242,28 @@
 		background: rgba(255, 255, 255, 0.05);
 	}
 
+	.stat-card {
+		padding: 0.85rem;
+		border-radius: 0.9rem;
+		background: rgba(255, 255, 255, 0.04);
+		display: grid;
+		gap: 0.25rem;
+	}
+
+	.stat-card span,
+	.scrap-modal-eyebrow,
+	.scrap-quantity-field span {
+		text-transform: uppercase;
+		letter-spacing: 0.12em;
+		font-size: 0.72rem;
+		color: #9d9d9d;
+		font-weight: 700;
+	}
+
+	.stat-card strong {
+		font-size: 1.1rem;
+	}
+
 	.toast-anchor {
 		position: fixed;
 		inset: 0;
@@ -1039,6 +1279,106 @@
 		text-align: center;
 		backdrop-filter: blur(12px);
 		box-shadow: 0 20px 50px rgba(0, 0, 0, 0.38);
+	}
+
+	.scrap-modal-backdrop {
+		position: fixed;
+		inset: 0;
+		z-index: 40;
+		display: grid;
+		place-items: center;
+		padding: 1rem;
+		border: 0;
+		background: rgba(5, 5, 5, 0.7);
+		backdrop-filter: blur(12px);
+		cursor: pointer;
+	}
+
+	.scrap-modal {
+		width: min(32rem, calc(100vw - 2rem));
+		padding: 1rem;
+		gap: 0.9rem;
+	}
+
+	.scrap-modal-head,
+	.scrap-actions,
+	.scrap-quantity-controls {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+	}
+
+	.scrap-modal-head h2,
+	.scrap-copy {
+		margin: 0;
+	}
+
+	.scrap-modal-eyebrow {
+		margin: 0 0 0.25rem;
+	}
+
+	.scrap-stats-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.75rem;
+	}
+
+	.scrap-copy {
+		color: #c4c4c4;
+		font-size: 0.94rem;
+	}
+
+	.scrap-form,
+	.scrap-quantity-field {
+		display: grid;
+		gap: 0.75rem;
+	}
+
+	.scrap-quantity-controls input {
+		width: 100%;
+		min-height: 2.35rem;
+		padding: 0.65rem 0.8rem;
+		border-radius: 0.85rem;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		background: rgba(255, 255, 255, 0.04);
+		color: #f5f5f5;
+		font: inherit;
+		text-align: center;
+	}
+
+	.quantity-button {
+		width: 2.5rem;
+		padding: 0;
+		font-size: 1.1rem;
+		font-weight: 700;
+	}
+
+	.scrap-total-card strong {
+		font-size: 1.35rem;
+	}
+
+	.scrap-confirmation {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.6rem;
+		color: #f5f5f5;
+		font-size: 0.92rem;
+	}
+
+	.scrap-confirmation input {
+		margin-top: 0.15rem;
+	}
+
+	.modal-close {
+		min-height: 1.95rem;
+		padding: 0 0.75rem;
+		border-radius: 999px;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		background: rgba(255, 255, 255, 0.04);
+		color: #f5f5f5;
+		font: inherit;
+		cursor: pointer;
 	}
 
 	@media (min-width: 980px) {
@@ -1066,8 +1406,21 @@
 			flex-direction: column;
 		}
 
+		.scrap-modal-head,
+		.scrap-actions,
+		.scrap-quantity-controls {
+			align-items: stretch;
+			flex-direction: column;
+		}
+
+		.scrap-stats-grid {
+			grid-template-columns: 1fr;
+		}
+
 		.save,
-		.ghost {
+		.ghost,
+		.modal-close,
+		.quantity-button {
 			width: 100%;
 		}
 	}

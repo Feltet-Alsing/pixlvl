@@ -1,6 +1,7 @@
 import {
 	placeLoadoutWeaponForUser,
 	removeLoadoutPlacementForUser,
+	scrapOwnedWeaponsForUser,
 	saveLoadoutForUser,
 	toActionFailure
 } from '$lib/server/campaign-route';
@@ -31,6 +32,11 @@ export const actions: Actions = {
 	saveLoadout: async ({ request, locals, params }) => {
 		const campaignId = Number(params.campaignId);
 		const result = await saveLoadoutForUser(locals.user?.id, campaignId, await request.formData());
+
+		return toActionFailure(result);
+	},
+	scrapItems: async ({ request, locals }) => {
+		const result = await scrapOwnedWeaponsForUser(locals.user?.id, await request.formData());
 
 		return toActionFailure(result);
 	}

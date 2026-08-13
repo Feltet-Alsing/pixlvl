@@ -27,6 +27,7 @@
 		groups: InventoryWeaponGroup[];
 		draggedWeaponInstanceId: string | null;
 		onSelectGroup: (group: InventoryWeaponGroup) => void;
+		onRequestScrap?: (group: InventoryWeaponGroup) => void;
 		onInventoryDragOver: (event: DragEvent) => void;
 		onInventoryDragLeave: () => void;
 		onInventoryDrop: (event: DragEvent) => void;
@@ -43,6 +44,7 @@
 		groups,
 		draggedWeaponInstanceId,
 		onSelectGroup,
+		onRequestScrap,
 		onInventoryDragOver,
 		onInventoryDragLeave,
 		onInventoryDrop,
@@ -64,6 +66,10 @@
 		}
 
 		onSearchInput(target.value);
+	}
+
+	function getScrapableCount(group: InventoryWeaponGroup) {
+		return Math.max(0, Math.min(group.availableCount, group.totalCount - 1));
 	}
 </script>
 
@@ -100,15 +106,13 @@
 			{#if groups.length}
 				<div class="inventory-toolbox-grid">
 					{#each groups as group (group.definitionId)}
-						<button
+						<div
 							class={`inventory-weapon inventory-toolbox-item rarity-${group.rarity}`}
-							type="button"
+							role="group"
 							draggable={group.availableCount > 0}
-							disabled={group.availableCount < 1}
 							class:equipped={group.equippedCount > 0}
 							class:unavailable={group.availableCount < 1}
 							class:dragging={draggedWeaponInstanceId === group.representativeWeaponInstanceId}
-							onclick={() => onSelectGroup(group)}
 							ondragstart={(event) => onGroupDragStart(event, group)}
 							ondragend={onWeaponDragEnd}
 						>
@@ -116,30 +120,43 @@
 								<span class="inventory-count-badge">{group.totalCount}</span>
 							{/if}
 
-							<div class="inventory-toolbox-head">
-								<div>
-									<strong>{group.name}</strong>
-									<p class="weapon-role">{group.role}</p>
+							<button
+								class="inventory-card-button"
+								type="button"
+								disabled={group.availableCount < 1}
+								onclick={() => onSelectGroup(group)}
+							>
+								<div class="inventory-toolbox-head">
+									<div>
+										<strong>{group.name}</strong>
+										<p class="weapon-role">{group.role}</p>
+									</div>
+									<span class="inventory-status">{formatGroupStatus(group)}</span>
 								</div>
-								<span class="inventory-status">{formatGroupStatus(group)}</span>
-							</div>
 
-							<div class="inventory-toolbox-body">
-								<div
-									class="shape-grid inventory-shape-grid"
-									style:grid-template-columns={`repeat(${group.shape.width}, 1fr)`}
-								>
-									{#each createIndexArray(group.shape.height) as shapeY (`inventory:${group.definitionId}:${shapeY}`)}
-										{#each createIndexArray(group.shape.width) as shapeX (`inventory:${group.definitionId}:${shapeY}:${shapeX}`)}
-											<div
-												class="shape-cell"
-												class:filled={isShapeCellFilled(group.shape, shapeX, shapeY)}
-											></div>
+								<div class="inventory-toolbox-body">
+									<div
+										class="shape-grid inventory-shape-grid"
+										style:grid-template-columns={`repeat(${group.shape.width}, 1fr)`}
+									>
+										{#each createIndexArray(group.shape.height) as shapeY (`inventory:${group.definitionId}:${shapeY}`)}
+											{#each createIndexArray(group.shape.width) as shapeX (`inventory:${group.definitionId}:${shapeY}:${shapeX}`)}
+												<div
+													class="shape-cell"
+													class:filled={isShapeCellFilled(group.shape, shapeX, shapeY)}
+												></div>
+											{/each}
 										{/each}
-									{/each}
+									</div>
 								</div>
-							</div>
-						</button>
+							</button>
+
+							{#if onRequestScrap && getScrapableCount(group) > 0}
+								<button class="scrap-button" type="button" onclick={() => onRequestScrap(group)}>
+									Scrap {getScrapableCount(group)}
+								</button>
+							{/if}
+						</div>
 					{/each}
 				</div>
 			{:else}
@@ -250,7 +267,6 @@
 
 	.inventory-weapon {
 		width: 100%;
-		padding: 0.72rem;
 		display: grid;
 		gap: 0.65rem;
 		text-align: left;
@@ -262,6 +278,23 @@
 		box-shadow: 0 24px 60px rgba(0, 0, 0, 0.32);
 		color: #f5f5f5;
 		cursor: grab;
+	}
+
+	.inventory-card-button {
+		width: 100%;
+		padding: 0.72rem;
+		display: grid;
+		gap: 0.65rem;
+		text-align: left;
+		font: inherit;
+		color: inherit;
+		background: transparent;
+		border: 0;
+		cursor: inherit;
+	}
+
+	.inventory-card-button:disabled {
+		cursor: default;
 	}
 
 	.inventory-weapon.equipped {
@@ -278,6 +311,23 @@
 		min-height: 8.1rem;
 		align-content: start;
 		overflow: hidden;
+	}
+
+	.scrap-button {
+		margin: 0 0.72rem 0.72rem;
+		min-height: 1.95rem;
+		padding: 0 0.75rem;
+		justify-self: start;
+		border-radius: 999px;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		background: rgba(255, 255, 255, 0.06);
+		color: #f5f5f5;
+		font: inherit;
+		font-size: 0.76rem;
+		font-weight: 700;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		cursor: pointer;
 	}
 
 	.inventory-count-badge {

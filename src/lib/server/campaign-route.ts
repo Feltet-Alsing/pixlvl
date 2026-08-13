@@ -18,6 +18,12 @@ import {
 	resetGameStateForUser,
 	updateGameState
 } from '$lib/server/game-state';
+import {
+	buildShopState,
+	createShopOwnedWeaponInstance,
+	getScrapableGroupState,
+	removeScrappedWeapons
+} from '$lib/server/shop';
 
 import { getCampaignRouteNotificationCounts } from '$lib/game/notifications';
 
@@ -44,6 +50,7 @@ export async function loadCampaignRouteData(
 
 	const gameState = userId ? await getOrCreateGameState(userId) : null;
 	const campaignState = userId ? await getCampaignProgressForUser(userId, campaignId) : null;
+	const shopState = userId && gameState ? buildShopState(gameState, userId) : null;
 
 	return {
 		campaignId,
@@ -58,8 +65,23 @@ export async function loadCampaignRouteData(
 		weaponDefinitionsById: weaponDefinitions,
 		gameState,
 		campaignState,
+		shopState,
 		notificationCounts: getCampaignRouteNotificationCounts(gameState?.pixlState)
 	};
+}
+
+function parsePositiveCount(value: FormDataEntryValue | null) {
+	if (typeof value !== 'string') {
+		return null;
+	}
+
+	const parsed = Number(value);
+
+	if (!Number.isInteger(parsed) || parsed < 1) {
+		return null;
+	}
+
+	return parsed;
 }
 
 function parseGridCoordinate(value: FormDataEntryValue | null, maxExclusive: number) {
@@ -388,6 +410,154 @@ export async function saveLoadoutForUser(
 	}
 
 	return persistLoadoutPlacementsForUser(userId, placements);
+}
+
+export async function scrapOwnedWeaponsForUser(
+	userId: string | undefined,
+	formData: FormData
+): Promise<ActionResult<{ loadoutError?: string; loadoutSuccess?: string }>> {
+	if (!userId) {
+		return {
+			ok: false,
+			status: 401,
+			data: { loadoutError: 'Sign in to manage scrapping.' }
+		};
+	}
+
+	const definitionId = formData.get('definitionId');
+	const quantity = parsePositiveCount(formData.get('quantity'));
+	const confirmedHighRarity = formData.get('confirmHighRarity') === 'yes';
+
+	if (typeof definitionId !== 'string' || quantity === null) {
+		return { ok: false, status: 400, data: { loadoutError: 'Invalid scrap request.' } };
+	}
+
+	const gameState = await getOrCreateGameState(userId);
+	const scrapState = getScrapableGroupState(
+		gameState.pixlState.ownedWeapons,
+		gameState.pixlState.loadoutPlacements,
+		definitionId
+	);
+
+	if (!scrapState || scrapState.scrapableCount < 1) {
+		return {
+			ok: false,
+			status: 400,
+			data: { loadoutError: 'That item does not have any scrapable duplicates.' }
+		};
+	}
+
+	if (quantity > scrapState.scrapableCount) {
+		return {
+			ok: false,
+			status: 400,
+			data: {
+				loadoutError: `Only ${scrapState.scrapableCount} duplicate${scrapState.scrapableCount === 1 ? '' : 's'} can be scrapped right now.`
+			}
+		};
+	}
+
+	if (scrapState.requiresWarning && !confirmedHighRarity) {
+		return {
+			ok: false,
+			status: 400,
+			data: { loadoutError: `Confirm scrapping ${scrapState.rarity} items before continuing.` }
+		};
+	}
+
+	const nextOwnedWeapons = removeScrappedWeapons(
+		gameState.pixlState.ownedWeapons,
+		definitionId,
+		quantity,
+		gameState.pixlState.loadoutPlacements
+	);
+	const scrapEarned = quantity * scrapState.scrapValuePerItem;
+
+	await updateGameState(userId, {
+		pixlState: {
+			scrap: gameState.pixlState.scrap + scrapEarned,
+			ownedWeapons: nextOwnedWeapons
+		}
+	});
+
+	return {
+		ok: true,
+		data: {
+			loadoutSuccess: `Scrapped ${quantity} ${scrapState.name}${quantity === 1 ? '' : ' copies'} for ${scrapEarned} Scrap.`
+		}
+	};
+}
+
+export async function buyShopItemForUser(
+	userId: string | undefined,
+	formData: FormData
+): Promise<ActionResult<{ shopError?: string; shopSuccess?: string }>> {
+	if (!userId) {
+		return {
+			ok: false,
+			status: 401,
+			data: { shopError: 'Sign in to buy shop items.' }
+		};
+	}
+
+	const definitionId = formData.get('definitionId');
+	const refreshStartedAt = formData.get('refreshStartedAt');
+
+	if (typeof definitionId !== 'string' || typeof refreshStartedAt !== 'string') {
+		return { ok: false, status: 400, data: { shopError: 'Invalid shop purchase request.' } };
+	}
+
+	const gameState = await getOrCreateGameState(userId);
+	const shopState = buildShopState(gameState, userId);
+
+	if (!shopState.isUnlocked) {
+		return {
+			ok: false,
+			status: 400,
+			data: { shopError: 'Finish a campaign before the shop unlocks.' }
+		};
+	}
+
+	if (shopState.refreshStartedAt !== refreshStartedAt) {
+		return {
+			ok: false,
+			status: 409,
+			data: { shopError: 'The shop refreshed. Review the new stock and try again.' }
+		};
+	}
+
+	const offer = shopState.offers.find((candidate) => candidate.definitionId === definitionId);
+
+	if (!offer) {
+		return {
+			ok: false,
+			status: 400,
+			data: { shopError: 'That item is not in the current shop rotation.' }
+		};
+	}
+
+	if (gameState.pixlState.scrap < offer.price) {
+		return {
+			ok: false,
+			status: 400,
+			data: { shopError: `You need ${offer.price - gameState.pixlState.scrap} more Scrap.` }
+		};
+	}
+
+	await updateGameState(userId, {
+		pixlState: {
+			scrap: gameState.pixlState.scrap - offer.price,
+			ownedWeapons: [
+				...gameState.pixlState.ownedWeapons,
+				createShopOwnedWeaponInstance(offer.definitionId, offer.campaignId)
+			]
+		}
+	});
+
+	return {
+		ok: true,
+		data: { shopSuccess: `${offer.name} purchased for ${offer.price} Scrap.` }
+	};
 }
 
 export async function selectStageForUser(

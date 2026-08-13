@@ -195,6 +195,151 @@ V1 already includes several quality-of-life pieces:
 - equipped weapon summaries
 - unread notifications for newly acquired weapon types
 
+### Duplicate handling direction
+
+Duplicates are currently a natural part of the drop loop, and that is good.
+They support:
+
+- multiple copies of strong filler weapons
+- alternative loadout shapes using the same weapon family
+- build flexibility while the inventory is still small
+
+However, duplicate accumulation should not remain purely passive forever.
+Once the player has a stable collection, excess copies become inventory noise unless they convert into a second reward loop.
+
+The next inventory-economy layer should be:
+
+- duplicate weapons that are not currently equipped can be scrapped
+- scrapping produces a persistent resource called `Scrap`
+- `Scrap` is spent in a `Shop`
+
+Initial scrap values by rarity:
+
+- `normal`: `5` Scrap
+- `magic`: `25` Scrap
+- `rare`: `100` Scrap
+- `exotic`: `500` Scrap
+- `legendary`: `5000` Scrap
+
+Scrap rules:
+
+- only duplicates can be scrapped
+- equipped items cannot be scrapped
+- an item must be unequipped before it becomes scrapable
+- scrapping should support bulk actions from grouped inventory entries rather than forcing one-item-at-a-time cleanup
+- choosing Scrap on a grouped item should open a popup where the player enters or adjusts the number of copies to scrap
+- the popup should give granular control over quantity instead of only offering fixed presets
+- scrapping `exotic` or `legendary` items should require an explicit warning confirmation before the action completes
+
+The scrap popup should show:
+
+- current duplicate count
+- current equipped count
+- scrap value per item
+- total scrap yield for the selected quantity
+- warning text when the item rarity is `exotic` or `legendary`
+
+The shop should not replace drops.
+It should sit beside them as a pressure-release valve and long-term goal layer.
+
+Design intent:
+
+- drops remain the primary source of new weapons
+- duplicates remain useful in the early and mid game
+- excess duplicates become meaningful instead of dead inventory
+- the player gains some agency over bad luck without deleting randomness
+
+Initial shop direction:
+
+- stock should focus on unique, curated items rather than common filler
+- shop items should feel special enough that saving Scrap is a real choice
+- shop inventory can include weapons, utilities, or other build-defining unlocks
+- shop items should be exclusive to the shop rather than shared with the normal drop pool
+- the shop should avoid becoming a full replacement for campaign progression rewards
+
+Shop weapon philosophy:
+
+- shop weapons should have a clear tactical purpose rather than being generic stat upgrades
+- each shop weapon should help solve a recognizable player problem or build weakness
+- the player should be able to look at a shop item and immediately understand what issue it is meant to address
+
+Examples of intended shop weapon purpose:
+
+- anti-ranged pressure
+- anti-swarm or other AOE coverage
+- anti-tank sustained damage
+- leak prevention against fast enemies
+- backline reach or priority-target removal
+
+This gives the shop its own role:
+
+- campaign drops provide the broad loot loop
+- shop items provide more deliberate agency when the player identifies a specific weakness in their current build
+
+Shop exclusivity is important:
+
+- campaign drops should remain the source of normal campaign loot
+- the shop should offer its own distinct rewards
+- players should not be able to buy a shop item from the drop pool later, or vice versa
+- this keeps Scrap spending exciting without diluting the identity of campaign drops
+
+Duplicate purchase behavior:
+
+- shop-exclusive items are not one-time unlocks only
+- if a player wants multiple copies of the same shop item for loadout reasons, they should be allowed to buy duplicates over time
+- purchased shop items can therefore reappear in later refreshes if the roll selects them again
+
+Shop item mix:
+
+- the long-term direction should be a mix of shop-exclusive weapons and shop-exclusive utilities
+- in the near term, shop inventory will lean on exclusive weapons first because utilities are not implemented yet
+- utility-based shop inventory should be added as part of the next utility implementation pass rather than faked early
+
+Progression gating:
+
+- the shop should be tied to campaign progression rather than being fully open from the start
+- the player should not be able to bypass a whole campaign simply by farming duplicates into Scrap
+- clearing a stage `5` boss level should unlock the next appropriate shop inventory band
+- each unlocked campaign should add its own shop-exclusive item pool
+
+This means the shop should behave like a progression-aware supplement:
+
+- clear stage `5` of a campaign or stage band
+- unlock the corresponding campaign shop pool
+- spend Scrap only within the pools already earned through play
+
+The goal is to let Scrap smooth progression and provide player agency without turning the shop into a campaign skip system.
+
+Shop refresh model:
+
+- the shop should include a controlled amount of randomness
+- shop inventory should refresh every `15` minutes
+- each refresh should roll `5` random items from the currently unlocked campaign shop pools
+- each refresh must contain `5` distinct items rather than duplicate entries of the same item
+- campaign `1` shop should effectively show its guaranteed pool because only campaign `1` shop items are unlocked at that point
+- later campaigns should keep earlier campaign shop items in the pool, but with reduced weight
+- campaign `2` should roll campaign `1` shop items at roughly `50%` weight compared with campaign `2` shop items
+- the same principle should continue forward so older campaign shop items remain possible but become less common than current-tier items
+- randomness should never pull from locked future campaign shop pools
+
+Rarity and pool behavior:
+
+- rarity still matters for how exciting a shop roll feels, but the primary rule is campaign-pool eligibility first
+- current campaign shop items should dominate the roll table
+- older unlocked campaign shop items should remain in rotation as lower-weight fallback options
+
+This means the intended flow is:
+
+- progression unlocks additional campaign shop pools
+- the timer refreshes what is currently on offer from those unlocked pools
+- current campaign items feel most relevant, while older campaign items still occasionally reappear
+
+This means duplicate handling should evolve into:
+
+> drop -> keep or equip -> duplicate overflow -> scrap -> save toward unique shop items
+
+This is a stronger near-term retention feature than prestige and should happen earlier.
+
 ---
 
 ## Enemy model
@@ -383,6 +528,7 @@ Known limitations of V1:
 - targeting behavior is not yet a player-controlled system
 - build diversity is mostly weapon-shape-driven rather than rule-system-driven
 - long-term motivation beyond clearing harder content is still limited
+- duplicate overflow does not yet convert into a meaningful secondary economy
 - balance is functional but still early
 
 These are acceptable V1 limitations.
@@ -427,11 +573,17 @@ Add stronger reasons to keep playing after the first stable climb.
 
 Candidates:
 
+- duplicate scrapping into a persistent Scrap currency
+- a Scrap shop with curated unique items
 - campaign-specific unlocks
 - weapon collection goals
 - achievement-like milestones
 - prestige or rebirth later
 - build presets and saved loadouts
+
+Near-term note:
+
+- prestige is still a valid long-term system, but it should come after the game has a stronger duplicate economy and shop loop
 
 ### Priority 4: balance pass
 

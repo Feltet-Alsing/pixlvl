@@ -18,7 +18,10 @@ export interface GameState {
 
 export interface GameStatePatch {
 	pixlState?: Partial<
-		Pick<PersistedPixlState, 'xp' | 'defence' | 'agility' | 'ownedWeapons' | 'loadoutPlacements'>
+		Pick<
+			PersistedPixlState,
+			'xp' | 'scrap' | 'defence' | 'agility' | 'ownedWeapons' | 'loadoutPlacements'
+		>
 	>;
 	campaignProgress?: Array<
 		Partial<
@@ -104,6 +107,14 @@ function normalizeAcknowledgedPerkPoints(value: unknown) {
 	return Math.max(0, Math.floor(value));
 }
 
+function normalizeScrap(value: unknown) {
+	if (typeof value !== 'number' || !Number.isFinite(value)) {
+		return 0;
+	}
+
+	return Math.max(0, Math.floor(value));
+}
+
 function normalizeLoadoutPlacements(
 	loadoutPlacements: LoadoutPlacement[] | null | undefined,
 	ownedWeapons: OwnedWeaponInstance[]
@@ -136,6 +147,7 @@ function createDefaultPixlState(userId: string): InferInsertModel<typeof pixlSta
 		xp: baselineState.xp,
 		level: baselineState.level,
 		perkPoints: baselineState.perkPoints,
+		scrap: 0,
 		defence: baselineState.defence,
 		agility: baselineState.agility,
 		health: baselineState.health,
@@ -228,6 +240,7 @@ async function ensureGameState(userId: string) {
 		storedPixlState.acknowledgedWeaponDefinitionIds,
 		normalizedOwnedWeapons
 	);
+	const normalizedScrap = normalizeScrap(storedPixlState.scrap);
 
 	const normalizedProgression = createUpgradeablePixlState({
 		xp: storedPixlState.xp,
@@ -239,6 +252,7 @@ async function ensureGameState(userId: string) {
 		normalizedProgression.xp !== storedPixlState.xp ||
 		normalizedProgression.level !== storedPixlState.level ||
 		normalizedProgression.perkPoints !== storedPixlState.perkPoints ||
+		normalizedScrap !== storedPixlState.scrap ||
 		normalizedProgression.defence !== storedPixlState.defence ||
 		normalizedProgression.agility !== storedPixlState.agility ||
 		normalizedProgression.health !== storedPixlState.health ||
@@ -256,6 +270,7 @@ async function ensureGameState(userId: string) {
 				xp: normalizedProgression.xp,
 				level: normalizedProgression.level,
 				perkPoints: normalizedProgression.perkPoints,
+				scrap: normalizedScrap,
 				defence: normalizedProgression.defence,
 				agility: normalizedProgression.agility,
 				health: normalizedProgression.health,
@@ -321,6 +336,7 @@ export async function updateGameState(userId: string, patch: GameStatePatch): Pr
 		const nextPixlState: Partial<InferInsertModel<typeof pixlState>> = {};
 
 		const xp = toNonNegativeInteger(patch.pixlState.xp) ?? storedPixlState.xp;
+		const scrap = toNonNegativeInteger(patch.pixlState.scrap) ?? storedPixlState.scrap;
 		const defence = toNonNegativeInteger(patch.pixlState.defence) ?? storedPixlState.defence;
 		const agility = toNonNegativeInteger(patch.pixlState.agility) ?? storedPixlState.agility;
 		const normalizedProgression = createUpgradeablePixlState({ xp, defence, agility });
@@ -337,6 +353,7 @@ export async function updateGameState(userId: string, patch: GameStatePatch): Pr
 		nextPixlState.xp = normalizedProgression.xp;
 		nextPixlState.level = normalizedProgression.level;
 		nextPixlState.perkPoints = normalizedProgression.perkPoints;
+		nextPixlState.scrap = scrap;
 		nextPixlState.defence = normalizedProgression.defence;
 		nextPixlState.agility = normalizedProgression.agility;
 		nextPixlState.health = normalizedProgression.health;
@@ -412,6 +429,7 @@ export async function resetGameStateForUser(userId: string): Promise<GameState> 
 			xp: defaultPixlState.xp,
 			level: defaultPixlState.level,
 			perkPoints: defaultPixlState.perkPoints,
+			scrap: defaultPixlState.scrap,
 			defence: defaultPixlState.defence,
 			agility: defaultPixlState.agility,
 			health: defaultPixlState.health,
