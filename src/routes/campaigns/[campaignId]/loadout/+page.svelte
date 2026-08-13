@@ -1188,13 +1188,12 @@
 	}
 
 	.inventory-panel {
-		position: sticky;
-		top: 1.15rem;
+		position: static;
 		align-self: start;
-		height: calc(100dvh - 6.6rem);
-		max-height: calc(100dvh - 6.6rem);
+		height: auto;
+		max-height: none;
 		min-height: 0;
-		overflow: hidden;
+		overflow: visible;
 		grid-template-rows: minmax(0, 1fr);
 		gap: 0.75rem;
 	}
@@ -1390,6 +1389,14 @@
 		.inventory-panel {
 			min-width: 0;
 		}
+
+		.inventory-panel {
+			position: sticky;
+			top: 1.15rem;
+			height: calc(100dvh - 6.6rem);
+			max-height: calc(100dvh - 6.6rem);
+			overflow: hidden;
+		}
 	}
 
 	@media (max-width: 860px) {
@@ -1422,6 +1429,23 @@
 		.modal-close,
 		.quantity-button {
 			width: 100%;
+		}
+	}
+
+	@media (max-width: 640px) {
+		.shell {
+			padding: 0.55rem;
+			gap: 0.55rem;
+		}
+
+		.layout-stack,
+		.inventory-panel {
+			gap: 0.55rem;
+		}
+
+		.panel {
+			padding: 0.65rem;
+			gap: 0.55rem;
 		}
 	}
 </style>

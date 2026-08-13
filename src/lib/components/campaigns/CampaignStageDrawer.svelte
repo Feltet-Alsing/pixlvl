@@ -72,7 +72,7 @@
 				<a
 					class:active={campaignRoute.campaignId === campaignId}
 					class="drawer-campaign-link"
-					href={`${resolve(`/campaigns/${campaignRoute.campaignId}`)}?menu=campaign`}
+					href={resolve(`/campaigns/${campaignRoute.campaignId}?menu=campaign`)}
 				>
 					Campaign {campaignRoute.campaignId}
 				</a>
@@ -268,5 +268,31 @@
 		border-color: rgba(255, 255, 255, 0.12);
 		color: #f5f5f5;
 		background: rgba(255, 255, 255, 0.05);
+	}
+
+	@media (max-width: 860px) {
+		.campaign-drawer {
+			position: static;
+			inset: auto;
+			width: 100%;
+			padding: 0.95rem;
+			border-right: 0;
+			border-radius: 1.1rem;
+			box-shadow: 0 24px 60px rgba(0, 0, 0, 0.32);
+			overflow: visible;
+		}
+
+		.campaign-drawer-header {
+			grid-template-columns: 1fr;
+		}
+
+		.drawer-back-link,
+		.drawer-close {
+			justify-self: start;
+		}
+
+		.campaign-summary-grid {
+			grid-template-columns: 1fr;
+		}
 	}
 </style>

@@ -113,4 +113,17 @@
 		color: #ffb3b3;
 		background: rgba(255, 96, 96, 0.08);
 	}
+
+	@media (max-width: 860px) {
+		.stats-overlay {
+			justify-self: stretch;
+			align-self: auto;
+			width: 100%;
+		}
+
+		.stats-overlay-grid,
+		.overlay-upgrade-grid {
+			grid-template-columns: 1fr;
+		}
+	}
 </style>

@@ -257,6 +257,10 @@
 		flex-wrap: wrap;
 	}
 
+	.stage-grid form {
+		flex: 1 1 16rem;
+	}
+
 	.panel,
 	.stage-card,
 	.jump,
@@ -474,13 +478,28 @@
 		align-content: start;
 	}
 
-	@media (max-width: 860px) {
+	@media (max-width: 980px) {
 		.grid {
 			grid-template-columns: 1fr;
 		}
 
 		.shop-refresh-row,
 		.shop-meta-grid {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	@media (max-width: 640px) {
+		.route-links {
+			flex-direction: column;
+		}
+
+		.jump,
+		.stage-grid form {
+			width: 100%;
+		}
+
+		.shop-offer-head {
 			grid-template-columns: 1fr;
 		}
 	}

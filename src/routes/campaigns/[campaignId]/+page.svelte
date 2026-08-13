@@ -66,7 +66,11 @@
 		completed: boolean;
 	}
 
+	const MOBILE_LAYOUT_BREAKPOINT = 860;
+
 	let { data, form }: PageProps = $props();
+	let innerWidth = $state<number | null>(null);
+	let isMobileLayout = $derived(innerWidth !== null && innerWidth <= MOBILE_LAYOUT_BREAKPOINT);
 	let runMode = $state<LocalRunMode>('combat');
 	let showStatsOverlay = $state(false);
 	let showStageDrawer = $state(false);
@@ -351,6 +355,134 @@
 	<title>Campaign {data.campaignId} | pixlvl</title>
 </svelte:head>
 
+<svelte:window bind:innerWidth />
+
+{#snippet arenaPanels()}
+	{#if !isMobileLayout && showStageDrawer}
+		<button
+			class="drawer-backdrop"
+			type="button"
+			aria-label="Close campaign menu"
+			onclick={() => setCampaignMenuOpen(false)}
+		></button>
+	{/if}
+
+	{#if showStageDrawer}
+		<CampaignStageDrawer
+			campaignId={data.campaignId}
+			campaignNumber={data.campaign.campaign}
+			campaignRoutes={data.campaignRoutes}
+			{currentStage}
+			currentLevel={sketchCampaignLevel}
+			{highestUnlockedLevel}
+			{highestClearedLevel}
+			levelsPerStage={data.campaign.levelsPerStage}
+			{unlockedStages}
+			hasCampaignState={Boolean(data.campaignState)}
+			stageError={form?.stageError}
+			stageSuccess={form?.stageSuccess}
+			submit={selectStage}
+			onClose={() => setCampaignMenuOpen(false)}
+		/>
+	{/if}
+
+	{#if runMode === 'combat'}
+		{#if showStatsOverlay}
+			<ArenaStatsOverlay
+				stats={overlayStatCards}
+				upgradeOptions={overlayUpgradeOptions}
+				signedIn={Boolean(data.gameState)}
+				purchaseError={form?.purchaseError}
+				submit={purchaseUpgrade}
+			/>
+		{/if}
+
+		{#if showResultsPopup}
+			<LevelResultsPopup
+				campaignNumber={data.campaign.campaign}
+				stage={combatOverlay.stage}
+				stageLevel={combatOverlay.stageLevel}
+				{rewardDropRows}
+				{resultsEmptyLabel}
+				{resultsCountdownLabel}
+				onSkip={() => (skipResultsSignal += 1)}
+			/>
+		{/if}
+
+		<div class="overlay combat-panel">
+			<p class="combat-title">
+				Campaign {data.campaign.campaign} · Stage {combatOverlay.stage} · Level {combatOverlay.stageLevel}
+			</p>
+			<div>
+				<span>Remaining</span>
+				<strong>{combatOverlay.remainingEnemies}</strong>
+			</div>
+
+			<div class="combat-bars">
+				<div class="combat-bar-group">
+					<div class="combat-bar-meta">
+						<span>Health</span>
+						<strong>{combatOverlay.pixlHealth} / {combatOverlay.maxPixlHealth}</strong>
+					</div>
+					<div class="combat-health">
+						<div class="combat-health-fill" style:--health-ratio={combatHealthRatio}></div>
+					</div>
+				</div>
+				<div class="combat-bar-group">
+					<div class="combat-bar-meta">
+						<span>XP</span>
+						<strong>{combatXpLabel}</strong>
+					</div>
+					<div class="combat-xp">
+						<div class="combat-xp-fill" style:--xp-ratio={combatXpRatio}></div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		{#if combatStatusLabel}
+			<div class={`status-overlay ${combatStatusTone}`}>
+				{combatStatusLabel}
+			</div>
+		{/if}
+	{/if}
+{/snippet}
+
+{#snippet loadoutPreviewPanel()}
+	<aside class="overlay loadout-preview-panel" aria-label="Loadout sweep preview">
+		<div class="loadout-preview-header compact-heading">
+			<p class="eyebrow">Loadout sweep</p>
+			<p class="upgrade-note">
+				Live preview synced to equipped weapons, attack speed, and loadout size.
+			</p>
+		</div>
+		<div class="loadout-preview-meta summary-row">
+			<span>Equipped</span>
+			<strong>{currentLoadoutRows.length}</strong>
+		</div>
+		{#if previewLoadoutRows.length > 0}
+			<div class="loadout-preview-list" aria-label="Equipped weapons sorted by rarity">
+				{#each previewLoadoutRows as weapon (weapon.weaponInstanceId)}
+					<div class={`summary-row loadout-preview-row rarity-${weapon.rarity}`}>
+						<div class="loadout-preview-copy">
+							<strong>{weapon.name}</strong>
+							<span>{weapon.rarity}</span>
+						</div>
+						<span class="loadout-preview-coords">{weapon.x},{weapon.y}</span>
+					</div>
+				{/each}
+			</div>
+		{:else}
+			<p class="loadout-preview-empty">No equipped weapons.</p>
+		{/if}
+		<div class="loadout-preview-canvas-shell">
+			{#key loadoutPreviewRemountKey}
+				<P5Canvas class="preview-canvas-frame" sketch={loadoutSweepPreviewSketch} />
+			{/key}
+		</div>
+	</aside>
+{/snippet}
+
 <div class="page">
 	<div class={['arena-shell', runMode === 'combat' && showLoadoutPreview ? 'preview-enabled' : '']}>
 		<div class="utility-bar">
@@ -387,153 +519,28 @@
 			{/if}
 		</div>
 
-		<section class:drawer-open={showStageDrawer} class="canvas-stage">
+		<section class:drawer-open={!isMobileLayout && showStageDrawer} class="canvas-stage">
 			{#key sketchRemountKey}
 				<P5Canvas class="canvas-frame" sketch={campaignSketch} />
 			{/key}
 
-			<div class="overlay-layout">
-				{#if showStageDrawer}
-					<button
-						class="drawer-backdrop"
-						type="button"
-						aria-label="Close campaign menu"
-						onclick={() => setCampaignMenuOpen(false)}
-					></button>
-				{/if}
-
-				{#if showStageDrawer}
-					<CampaignStageDrawer
-						campaignId={data.campaignId}
-						campaignNumber={data.campaign.campaign}
-						campaignRoutes={data.campaignRoutes}
-						{currentStage}
-						currentLevel={sketchCampaignLevel}
-						{highestUnlockedLevel}
-						{highestClearedLevel}
-						levelsPerStage={data.campaign.levelsPerStage}
-						{unlockedStages}
-						hasCampaignState={Boolean(data.campaignState)}
-						stageError={form?.stageError}
-						stageSuccess={form?.stageSuccess}
-						submit={selectStage}
-						onClose={() => setCampaignMenuOpen(false)}
-					/>
-				{/if}
-
-				{#if runMode === 'combat'}
-					{#if showStatsOverlay}
-						<ArenaStatsOverlay
-							stats={overlayStatCards}
-							upgradeOptions={overlayUpgradeOptions}
-							signedIn={Boolean(data.gameState)}
-							purchaseError={form?.purchaseError}
-							submit={purchaseUpgrade}
-						/>
-					{/if}
-
-					{#if showResultsPopup}
-						<LevelResultsPopup
-							campaignNumber={data.campaign.campaign}
-							stage={combatOverlay.stage}
-							stageLevel={combatOverlay.stageLevel}
-							{rewardDropRows}
-							{resultsEmptyLabel}
-							{resultsCountdownLabel}
-							onSkip={() => (skipResultsSignal += 1)}
-						/>
-					{/if}
-
-					<div class="overlay combat-panel">
-						<p class="combat-title">
-							Campaign {data.campaign.campaign} · Stage {combatOverlay.stage} · Level {combatOverlay.stageLevel}
-						</p>
-						<div class="combat-grid">
-							<div>
-								<span>Pixl hp</span>
-								<strong>{combatOverlay.pixlHealth} / {combatOverlay.maxPixlHealth}</strong>
-							</div>
-							<div>
-								<span>Banked xp</span>
-								<strong>{combatOverlay.bankedXp}</strong>
-							</div>
-							<div>
-								<span>Wave xp</span>
-								<strong>{combatOverlay.waveXp}</strong>
-							</div>
-							<div>
-								<span>Wave drops</span>
-								<strong>{combatOverlay.waveDrops.length}</strong>
-							</div>
-							<div>
-								<span>Remaining</span>
-								<strong>{combatOverlay.remainingEnemies}</strong>
-							</div>
-						</div>
-						<div class="combat-bars">
-							<div class="combat-bar-group">
-								<div class="combat-bar-meta">
-									<span>Health</span>
-									<strong>{combatOverlay.pixlHealth} / {combatOverlay.maxPixlHealth}</strong>
-								</div>
-								<div class="combat-health">
-									<div class="combat-health-fill" style:--health-ratio={combatHealthRatio}></div>
-								</div>
-							</div>
-							<div class="combat-bar-group">
-								<div class="combat-bar-meta">
-									<span>XP</span>
-									<strong>{combatXpLabel}</strong>
-								</div>
-								<div class="combat-xp">
-									<div class="combat-xp-fill" style:--xp-ratio={combatXpRatio}></div>
-								</div>
-							</div>
-						</div>
-					</div>
-
-					{#if combatStatusLabel}
-						<div class={`status-overlay ${combatStatusTone}`}>
-							{combatStatusLabel}
-						</div>
-					{/if}
-				{/if}
-			</div>
+			{#if !isMobileLayout}
+				<div class="overlay-layout">
+					{@render arenaPanels()}
+				</div>
+			{/if}
 		</section>
 
-		{#if runMode === 'combat' && showLoadoutPreview}
-			<aside class="overlay loadout-preview-panel" aria-label="Loadout sweep preview">
-				<div class="loadout-preview-header compact-heading">
-					<p class="eyebrow">Loadout sweep</p>
-					<p class="upgrade-note">
-						Live preview synced to equipped weapons, attack speed, and loadout size.
-					</p>
-				</div>
-				<div class="loadout-preview-meta summary-row">
-					<span>Equipped</span>
-					<strong>{currentLoadoutRows.length}</strong>
-				</div>
-				{#if previewLoadoutRows.length > 0}
-					<div class="loadout-preview-list" aria-label="Equipped weapons sorted by rarity">
-						{#each previewLoadoutRows as weapon (weapon.weaponInstanceId)}
-							<div class={`summary-row loadout-preview-row rarity-${weapon.rarity}`}>
-								<div class="loadout-preview-copy">
-									<strong>{weapon.name}</strong>
-									<span>{weapon.rarity}</span>
-								</div>
-								<span class="loadout-preview-coords">{weapon.x},{weapon.y}</span>
-							</div>
-						{/each}
-					</div>
-				{:else}
-					<p class="loadout-preview-empty">No equipped weapons.</p>
+		{#if isMobileLayout}
+			<div class="mobile-panel-stack">
+				{@render arenaPanels()}
+
+				{#if runMode === 'combat' && showLoadoutPreview}
+					{@render loadoutPreviewPanel()}
 				{/if}
-				<div class="loadout-preview-canvas-shell">
-					{#key loadoutPreviewRemountKey}
-						<P5Canvas class="preview-canvas-frame" sketch={loadoutSweepPreviewSketch} />
-					{/key}
-				</div>
-			</aside>
+			</div>
+		{:else if runMode === 'combat' && showLoadoutPreview}
+			{@render loadoutPreviewPanel()}
 		{/if}
 	</div>
 </div>
@@ -588,6 +595,12 @@
 		gap: 1rem;
 		padding: 1rem;
 		pointer-events: none;
+	}
+
+	.mobile-panel-stack {
+		display: grid;
+		gap: 0.75rem;
+		align-content: start;
 	}
 
 	.drawer-backdrop {
@@ -961,10 +974,10 @@
 		grid-row: 3;
 		justify-self: center;
 		align-self: end;
-		width: min(37.5rem, 100%);
-		padding: 0.62rem 0.82rem;
+		width: min(34.5rem, 100%);
+		padding: 0.52rem 0.72rem;
 		display: grid;
-		gap: 0.48rem;
+		gap: 0.4rem;
 	}
 
 	.combat-title {
@@ -976,14 +989,14 @@
 
 	.combat-grid {
 		display: grid;
-		grid-template-columns: repeat(6, minmax(0, max-content));
-		justify-content: space-between;
-		gap: 0.48rem 0.42rem;
+		grid-template-columns: repeat(5, minmax(0, max-content));
+		justify-content: center;
+		gap: 0.32rem 0.75rem;
 	}
 
 	.combat-grid div {
 		display: grid;
-		gap: 0.15rem;
+		gap: 0.1rem;
 		align-content: start;
 	}
 
@@ -995,12 +1008,12 @@
 
 	.combat-bars {
 		display: grid;
-		gap: 0.34rem;
+		gap: 0.28rem;
 	}
 
 	.combat-bar-group {
 		display: grid;
-		gap: 0.14rem;
+		gap: 0.12rem;
 	}
 
 	.combat-bar-meta {
@@ -1331,6 +1344,12 @@
 	}
 
 	@media (max-width: 860px) {
+		.page {
+			height: auto;
+			min-height: 100dvh;
+			overflow: auto;
+		}
+
 		.utility-bar {
 			align-items: flex-start;
 			flex-direction: column;
@@ -1350,15 +1369,23 @@
 		.arena-shell,
 		.arena-shell.preview-enabled {
 			grid-template-columns: 1fr;
-			grid-template-rows: auto minmax(0, 1fr) auto;
+			grid-template-rows: auto auto minmax(0, auto);
 			gap: 0.75rem;
 			padding: 0.75rem;
 		}
 
-		.overlay-layout {
-			grid-template-rows: auto auto auto auto;
-			gap: 0.75rem;
-			padding: 0.75rem;
+		.canvas-stage {
+			height: auto;
+			min-height: 0;
+			overflow: hidden;
+		}
+
+		.canvas-stage :global(.canvas-frame) {
+			height: auto;
+			min-height: 18rem;
+			aspect-ratio: 1;
+			border-radius: inherit;
+			overflow: hidden;
 		}
 
 		.utility-bar,
@@ -1381,27 +1408,26 @@
 
 		.stats-panel,
 		.shop-panel,
-		.stats-overlay,
 		.combat-panel,
+		.status-overlay,
 		.loadout-preview-panel {
 			grid-column: 1;
 			width: 100%;
 			max-height: none;
+			justify-self: stretch;
+			align-self: auto;
 		}
 
-		.stats-panel,
-		.stats-overlay {
-			grid-row: 2;
-			justify-self: stretch;
+		.stats-panel {
+			grid-row: auto;
 		}
 
 		.combat-panel {
-			grid-row: 3;
-			justify-self: stretch;
+			grid-row: auto;
 		}
 
 		.shop-panel {
-			grid-row: 4;
+			grid-row: auto;
 		}
 
 		.combat-grid {
@@ -1419,14 +1445,9 @@
 
 		.status-overlay {
 			grid-column: 1;
-			grid-row: 2;
-			justify-self: center;
-			align-self: start;
+			grid-row: auto;
+			justify-self: start;
 			margin-top: 0;
-		}
-
-		.results-popup {
-			width: min(100%, 28rem);
 		}
 
 		.campaign-drawer {
@@ -1440,7 +1461,7 @@
 
 		.loadout-preview-panel {
 			grid-column: 1;
-			grid-row: 3;
+			grid-row: auto;
 			min-height: 18rem;
 		}
 	}

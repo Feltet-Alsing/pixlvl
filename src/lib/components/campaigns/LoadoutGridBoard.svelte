@@ -134,13 +134,18 @@
 		width: min(100%, 56rem);
 		margin: 0 auto;
 		--board-gap: 0.22rem;
+		--shape-gap: 0.35rem;
+		--cell-radius: 0.4rem;
+		--weapon-outline-inset: -0.26rem;
+		--weapon-outline-width: 3px;
+		--weapon-outline-radius: 0.82rem;
 	}
 
 	.loadout-grid,
 	.placed-weapons-layer,
 	.placed-weapon-shape {
 		display: grid;
-		gap: 0.35rem;
+		gap: var(--shape-gap);
 	}
 
 	.main-loadout-grid,
@@ -168,7 +173,7 @@
 
 	.grid-cell,
 	.placed-weapon-cell {
-		border-radius: 0.4rem;
+		border-radius: var(--cell-radius);
 		border: 1px solid rgba(255, 255, 255, 0.12);
 		background: rgba(255, 255, 255, 0.05);
 		box-sizing: border-box;
@@ -221,9 +226,9 @@
 	.placed-weapon::after {
 		content: '';
 		position: absolute;
-		inset: -0.26rem;
-		border: 3px solid var(--weapon-outline-stroke, rgba(245, 245, 245, 0.9));
-		border-radius: 0.82rem;
+		inset: var(--weapon-outline-inset);
+		border: var(--weapon-outline-width) solid var(--weapon-outline-stroke, rgba(245, 245, 245, 0.9));
+		border-radius: var(--weapon-outline-radius);
 		pointer-events: none;
 	}
 
@@ -289,6 +294,17 @@
 		.main-loadout-grid,
 		.placed-weapons-layer {
 			grid-auto-rows: minmax(2.7rem, 1fr);
+		}
+	}
+
+	@media (max-width: 640px) {
+		.loadout-grid-shell {
+			--board-gap: 0.14rem;
+			--shape-gap: 0.24rem;
+			--cell-radius: 0.3rem;
+			--weapon-outline-inset: -0.12rem;
+			--weapon-outline-width: 2px;
+			--weapon-outline-radius: 0.58rem;
 		}
 	}
 </style>

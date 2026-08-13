@@ -180,4 +180,26 @@
 		font-weight: 600;
 		cursor: pointer;
 	}
+
+	@media (max-width: 860px) {
+		.results-popup {
+			justify-self: stretch;
+			align-self: auto;
+			width: 100%;
+		}
+
+		.results-drop-row {
+			align-items: flex-start;
+			flex-direction: column;
+		}
+
+		.results-popup-footer {
+			grid-template-columns: 1fr;
+		}
+
+		.results-skip {
+			width: 100%;
+			justify-self: stretch;
+		}
+	}
 </style>
