@@ -757,20 +757,6 @@
 	<div class="shell">
 		<section class="layout-stack">
 			<div class="panel grid-panel">
-				<div class="section-head section-head-split">
-					<form method="post" action="?/saveLoadout" bind:this={saveLoadoutForm}>
-						<input type="hidden" name="loadoutPlacements" value={draftLoadoutPayload} />
-						<button
-							class="save"
-							type="button"
-							onclick={requestLoadoutSaveConfirmation}
-							disabled={!canSaveLoadout}
-						>
-							Save loadout
-						</button>
-					</form>
-				</div>
-
 				{#if form?.loadoutError}
 					<p class="feedback error">{form.loadoutError}</p>
 				{:else if form?.loadoutSuccess}
@@ -789,33 +775,46 @@
 					</div>
 				{/if}
 
-				<div class="draft-actions">
-					<button
-						class="ghost"
-						type="button"
-						onclick={clearDraftLoadout}
-						disabled={!draftLoadoutPlacements.length}
-					>
-						Reset loadout
-					</button>
-					<button
-						class="ghost"
-						type="button"
-						onclick={resetDraftLoadout}
-						disabled={!hasUnsavedChanges}
-					>
-						Reset draft
-					</button>
-				</div>
+				<div class="loadout-toolbar-row">
+					<LoadoutSummaryStrip
+						stage={liveRunStage}
+						stageLevel={liveRunStageLevel}
+						status={liveRunStatus}
+						damagePerCycle={formatCycleAverage(equippedDamagePerCycle)}
+						projectilesPerCycle={formatCycleAverage(equippedProjectilesPerCycle)}
+						equippedCount={loadoutWeapons.length}
+					/>
 
-				<LoadoutSummaryStrip
-					stage={liveRunStage}
-					stageLevel={liveRunStageLevel}
-					status={liveRunStatus}
-					damagePerCycle={formatCycleAverage(equippedDamagePerCycle)}
-					projectilesPerCycle={formatCycleAverage(equippedProjectilesPerCycle)}
-					equippedCount={loadoutWeapons.length}
-				/>
+					<div class="draft-actions toolbar-actions">
+						<form method="post" action="?/saveLoadout" bind:this={saveLoadoutForm}>
+							<input type="hidden" name="loadoutPlacements" value={draftLoadoutPayload} />
+							<button
+								class="save"
+								type="button"
+								onclick={requestLoadoutSaveConfirmation}
+								disabled={!canSaveLoadout}
+							>
+								Save loadout
+							</button>
+						</form>
+						<button
+							class="ghost"
+							type="button"
+							onclick={clearDraftLoadout}
+							disabled={!draftLoadoutPlacements.length}
+						>
+							Reset loadout
+						</button>
+						<button
+							class="ghost"
+							type="button"
+							onclick={resetDraftLoadout}
+							disabled={!hasUnsavedChanges}
+						>
+							Reset draft
+						</button>
+					</div>
+				</div>
 
 				{#if showSaveWarning}
 					<LoadoutSaveDialog
@@ -851,6 +850,8 @@
 					{isShapeCellFilled}
 					{isLabelCell}
 				/>
+
+				<LoadoutWeaponDetailsPane detail={selectedWeaponDetails} />
 			</div>
 
 			<aside class="panel inventory-panel" aria-label="Loadout toolbox">
@@ -870,8 +871,6 @@
 					{isShapeCellFilled}
 				/>
 			</aside>
-
-			<LoadoutWeaponDetailsPane detail={selectedWeaponDetails} />
 		</section>
 	</div>
 </div>
@@ -887,7 +886,9 @@
 	}
 
 	.route-page {
-		min-height: 100vh;
+		min-height: 100%;
+		width: 100%;
+		overflow-x: hidden;
 		background: radial-gradient(circle at top, rgba(255, 255, 255, 0.05), transparent 24%), #050505;
 		position: relative;
 	}
@@ -907,9 +908,11 @@
 	}
 
 	.shell {
-		max-width: 1120px;
-		margin: 0 auto;
+		width: 100%;
+		max-width: none;
+		margin: 0;
 		padding: 0.75rem;
+		box-sizing: border-box;
 		display: grid;
 		gap: 0.75rem;
 	}
@@ -930,21 +933,29 @@
 		gap: 0.65rem;
 	}
 
-	.section-head-split,
-	.draft-actions {
+	.draft-actions,
+	.loadout-toolbar-row {
 		display: flex;
 		justify-content: space-between;
 		gap: 0.6rem;
 		align-items: center;
 	}
 
-	.section-head-split {
-		align-items: start;
+	.draft-actions {
+		justify-content: flex-end;
+	}
+
+	.loadout-toolbar-row {
+		align-items: flex-start;
+	}
+
+	.toolbar-actions {
+		flex: 0 0 auto;
 		flex-wrap: wrap;
 	}
 
-	.draft-actions {
-		justify-content: flex-end;
+	.toolbar-actions form {
+		margin: 0;
 	}
 
 	.layout-stack {
@@ -960,10 +971,13 @@
 
 	.inventory-panel {
 		position: sticky;
-		top: 0.75rem;
-		max-height: calc(100vh - 1.5rem);
+		top: 1.15rem;
+		align-self: start;
+		height: calc(100dvh - 6.6rem);
+		max-height: calc(100dvh - 6.6rem);
+		min-height: 0;
 		overflow: hidden;
-		grid-template-rows: auto auto 1fr;
+		grid-template-rows: minmax(0, 1fr);
 		gap: 0.75rem;
 	}
 
@@ -1029,11 +1043,7 @@
 
 	@media (min-width: 980px) {
 		.layout-stack {
-			grid-template-columns: minmax(0, 1.65fr) minmax(18rem, 21rem);
-		}
-
-		:global(.details-pane) {
-			grid-column: 1 / -1;
+			grid-template-columns: minmax(0, 1fr) minmax(22rem, 26rem);
 		}
 
 		.grid-panel,
@@ -1045,18 +1055,20 @@
 	@media (max-width: 860px) {
 		.inventory-panel {
 			position: static;
+			height: auto;
 			max-height: none;
 			overflow: visible;
+		}
+
+		.loadout-toolbar-row,
+		.toolbar-actions {
+			align-items: stretch;
+			flex-direction: column;
 		}
 
 		.save,
 		.ghost {
 			width: 100%;
-		}
-
-		.section-head-split {
-			align-items: start;
-			flex-direction: column;
 		}
 	}
 </style>

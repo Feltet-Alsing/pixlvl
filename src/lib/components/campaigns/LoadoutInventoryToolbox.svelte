@@ -152,7 +152,9 @@
 <style>
 	.toolbox-shell {
 		display: grid;
+		grid-template-rows: auto auto minmax(0, 1fr);
 		gap: 0.7rem;
+		height: 100%;
 		min-height: 0;
 	}
 
@@ -211,6 +213,7 @@
 	.inventory-drop-zone {
 		display: grid;
 		min-height: 0;
+		height: 100%;
 		border-radius: 1rem;
 		border: 1px dashed rgba(255, 255, 255, 0.12);
 		background: rgba(255, 255, 255, 0.02);
@@ -231,6 +234,12 @@
 		overflow-y: auto;
 		padding-bottom: 1rem;
 		padding-right: 0.25rem;
+		scrollbar-width: none;
+		-ms-overflow-style: none;
+	}
+
+	.inventory-scroll::-webkit-scrollbar {
+		display: none;
 	}
 
 	.inventory-toolbox-grid {

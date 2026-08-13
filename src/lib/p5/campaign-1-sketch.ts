@@ -1425,6 +1425,20 @@ export function createCampaignSketch(
 				return;
 			}
 
+			if (weapon.definition.id === 'splitter') {
+				const targets = getClosestEnemies(Math.max(1, weapon.definition.attack.projectileCount));
+
+				if (targets.length === 0) {
+					return;
+				}
+
+				for (const splitTarget of targets) {
+					fireProjectile(splitTarget, weapon.definition);
+				}
+
+				return;
+			}
+
 			const { projectileCount, spreadDegrees } = weapon.definition.attack;
 
 			if (projectileCount <= 1) {

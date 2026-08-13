@@ -128,12 +128,11 @@
 				[1, 2]
 			]
 		},
-		"baseDamage": 3,
+		"baseDamage": 5,
 		"projectileSpeed": 340,
 		"attack": {
-			"kind": "spread",
+			"kind": "single",
 			"projectileCount": 3,
-			"spreadDegrees": 8,
 			"targeting": "current-target"
 		},
 		"projectileVisual": {
@@ -147,7 +146,7 @@
 			"stageEnd": 5,
 			"perLevelDropChance": 0.14
 		},
-		"role": "Early spread-shot weapon that improves wave clear"
+		"role": "Early splitter weapon that launches three projectiles at different enemies when available"
 	},
 	{
 		"id": "heavy-orb",
