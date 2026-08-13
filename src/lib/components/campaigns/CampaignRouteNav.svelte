@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 
-	type CampaignSection = 'arena' | 'loadout' | 'management' | 'stats';
+	type CampaignSection = 'arena' | 'loadout' | 'shop' | 'stats';
 
 	interface Props {
 		campaignId: number;
@@ -41,6 +41,10 @@
 		{
 			key: 'loadout',
 			label: 'Loadout'
+		},
+		{
+			key: 'stats',
+			label: 'Stats'
 		}
 	] as const);
 </script>

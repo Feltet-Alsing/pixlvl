@@ -1,8 +1,15 @@
 <script lang="ts">
-	import type { UtilityDefinition, WeaponDefinition, WeaponShape } from '$lib/data/types';
+	import CampaignItemCard from '$lib/components/campaigns/CampaignItemCard.svelte';
+	import type {
+		LoadoutItemDefinition,
+		UtilityDefinition,
+		WeaponDefinition,
+		WeaponShape
+	} from '$lib/data/types';
 
 	interface InventoryWeaponGroup {
 		definitionId: string;
+		definition: LoadoutItemDefinition;
 		category: 'weapon' | 'utility';
 		name: string;
 		rarity: WeaponDefinition['rarity'];
@@ -54,10 +61,6 @@
 		isShapeCellFilled
 	}: Props = $props();
 
-	function createIndexArray(length: number) {
-		return Array.from({ length }, (_, index) => index);
-	}
-
 	function handleSearchInput(event: Event) {
 		const target = event.currentTarget;
 
@@ -70,6 +73,14 @@
 
 	function getScrapableCount(group: InventoryWeaponGroup) {
 		return Math.max(0, Math.min(group.availableCount, group.totalCount - 1));
+	}
+
+	function buildGroupMetaRows(group: InventoryWeaponGroup) {
+		return [
+			{ label: 'Owned', value: group.totalCount.toString() },
+			{ label: 'Ready', value: group.availableCount.toString() },
+			{ label: 'Equip', value: group.equippedCount.toString() }
+		];
 	}
 </script>
 
@@ -116,39 +127,25 @@
 							ondragstart={(event) => onGroupDragStart(event, group)}
 							ondragend={onWeaponDragEnd}
 						>
-							{#if group.totalCount > 1}
-								<span class="inventory-count-badge">{group.totalCount}</span>
-							{/if}
-
 							<button
 								class="inventory-card-button"
 								type="button"
 								disabled={group.availableCount < 1}
 								onclick={() => onSelectGroup(group)}
 							>
-								<div class="inventory-toolbox-head">
-									<div>
-										<strong>{group.name}</strong>
-										<p class="weapon-role">{group.role}</p>
-									</div>
-									<span class="inventory-status">{formatGroupStatus(group)}</span>
-								</div>
-
-								<div class="inventory-toolbox-body">
-									<div
-										class="shape-grid inventory-shape-grid"
-										style:grid-template-columns={`repeat(${group.shape.width}, 1fr)`}
-									>
-										{#each createIndexArray(group.shape.height) as shapeY (`inventory:${group.definitionId}:${shapeY}`)}
-											{#each createIndexArray(group.shape.width) as shapeX (`inventory:${group.definitionId}:${shapeY}:${shapeX}`)}
-												<div
-													class="shape-cell"
-													class:filled={isShapeCellFilled(group.shape, shapeX, shapeY)}
-												></div>
-											{/each}
-										{/each}
-									</div>
-								</div>
+								<CampaignItemCard
+									definition={group.definition}
+									headerStartLabel={group.totalCount > 1 ? String(group.totalCount) : ''}
+									subtitle={group.role}
+									metaRows={buildGroupMetaRows(group)}
+									size="compact"
+								>
+									{#snippet footer()}
+										<div class="inventory-toolbox-footer">
+											<span class="inventory-status">{formatGroupStatus(group)}</span>
+										</div>
+									{/snippet}
+								</CampaignItemCard>
 							</button>
 
 							{#if onRequestScrap && getScrapableCount(group) > 0}
@@ -182,13 +179,11 @@
 
 	.section-head h2,
 	.section-head p,
-	.weapon-role,
 	.inventory-empty-state {
 		margin: 0;
 	}
 
-	.section-head p,
-	.weapon-role {
+	.section-head p {
 		color: #c4c4c4;
 	}
 
@@ -272,19 +267,14 @@
 		text-align: left;
 		font: inherit;
 		position: relative;
-		border-radius: 1.1rem;
-		border: 1px solid rgba(255, 255, 255, 0.08);
-		background: rgba(10, 10, 10, 0.92);
-		box-shadow: 0 24px 60px rgba(0, 0, 0, 0.32);
 		color: #f5f5f5;
 		cursor: grab;
 	}
 
 	.inventory-card-button {
 		width: 100%;
-		padding: 0.72rem;
-		display: grid;
-		gap: 0.65rem;
+		padding: 0;
+		display: block;
 		text-align: left;
 		font: inherit;
 		color: inherit;
@@ -297,9 +287,11 @@
 		cursor: default;
 	}
 
-	.inventory-weapon.equipped {
+	.inventory-weapon.equipped :global(.campaign-item-card) {
 		border-color: rgba(103, 217, 111, 0.3);
-		background: rgba(103, 217, 111, 0.08);
+		background:
+			radial-gradient(circle at top, rgba(103, 217, 111, 0.18), transparent 56%),
+			linear-gradient(180deg, rgba(8, 12, 8, 0.98), rgba(5, 8, 5, 0.96));
 	}
 
 	.inventory-weapon.unavailable {
@@ -308,9 +300,8 @@
 	}
 
 	.inventory-toolbox-item {
-		min-height: 8.1rem;
+		min-height: 0;
 		align-content: start;
-		overflow: hidden;
 	}
 
 	.scrap-button {
@@ -330,66 +321,11 @@
 		cursor: pointer;
 	}
 
-	.inventory-count-badge {
-		position: absolute;
-		top: 0.55rem;
-		right: 0.55rem;
-		min-width: 1.4rem;
-		height: 1.4rem;
-		padding: 0 0.45rem;
-		border-radius: 999px;
-		background: rgba(255, 255, 255, 0.14);
-		border: 1px solid rgba(255, 255, 255, 0.22);
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 0.68rem;
-		font-weight: 700;
-		line-height: 1;
-	}
-
-	.inventory-toolbox-head {
+	.inventory-toolbox-footer {
 		display: flex;
 		justify-content: space-between;
-		gap: 0.55rem;
 		align-items: center;
-	}
-
-	.inventory-toolbox-head strong {
-		display: block;
-		padding-right: 2.2rem;
-		font-size: 1.05rem;
-	}
-
-	.inventory-toolbox-body {
-		display: flex;
-		align-items: center;
-		gap: 0.6rem;
-		min-width: 0;
-	}
-
-	.shape-grid {
-		display: grid;
-		gap: 0.22rem;
-		width: fit-content;
-	}
-
-	.inventory-shape-grid {
-		justify-self: start;
-		padding: 0.15rem;
-		flex: 0 0 auto;
-	}
-
-	.shape-cell {
-		aspect-ratio: 1;
-		border-radius: 0.42rem;
-		border: 1px solid rgba(255, 255, 255, 0.12);
-		background: rgba(255, 255, 255, 0.05);
-	}
-
-	.inventory-weapon .shape-cell.filled {
-		background: var(--inventory-fill-color, rgba(255, 255, 255, 0.18));
-		border-color: var(--inventory-border-color, rgba(255, 255, 255, 0.52));
+		gap: 0.5rem;
 	}
 
 	.dragging {
@@ -406,52 +342,13 @@
 		font-size: 0.9rem;
 	}
 
-	.inventory-weapon.rarity-normal {
-		border-color: rgba(236, 236, 236, 0.14);
-		--inventory-fill-color: rgba(122, 128, 138, 0.86);
-		--inventory-border-color: rgba(240, 244, 248, 0.9);
-	}
-
-	.inventory-weapon.rarity-magic {
-		border-color: rgba(84, 150, 255, 0.28);
-		--inventory-fill-color: rgba(54, 101, 196, 0.86);
-		--inventory-border-color: rgba(170, 206, 255, 0.92);
-	}
-
-	.inventory-weapon.rarity-rare {
-		border-color: rgba(255, 210, 74, 0.28);
-		--inventory-fill-color: rgba(191, 139, 30, 0.88);
-		--inventory-border-color: rgba(255, 232, 153, 0.92);
-	}
-
-	.inventory-weapon.rarity-exotic {
-		border-color: rgba(224, 74, 74, 0.28);
-		--inventory-fill-color: rgba(177, 49, 49, 0.88);
-		--inventory-border-color: rgba(255, 170, 170, 0.92);
-	}
-
-	.inventory-weapon.rarity-legendary {
-		border-color: rgba(170, 104, 48, 0.34);
-		--inventory-fill-color: rgba(123, 72, 28, 0.9);
-		--inventory-border-color: rgba(224, 156, 92, 0.94);
-	}
-
 	@media (max-width: 860px) {
 		.inventory-toolbox-grid {
 			grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
 		}
 
-		.inventory-toolbox-body {
-			align-items: start;
-		}
-
 		.inventory-scroll {
 			height: auto;
-		}
-
-		.inventory-toolbox-head {
-			align-items: start;
-			flex-direction: column;
 		}
 	}
 </style>

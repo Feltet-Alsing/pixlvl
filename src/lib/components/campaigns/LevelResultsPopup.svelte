@@ -1,7 +1,11 @@
 <script lang="ts">
+	import CampaignItemCard from '$lib/components/campaigns/CampaignItemCard.svelte';
+	import type { LoadoutItemDefinition } from '$lib/data/types';
+
 	interface RewardDropRow {
 		instanceId: string;
 		definitionId: string;
+		definition: LoadoutItemDefinition;
 		name: string;
 		rarity: 'normal' | 'magic' | 'rare' | 'exotic' | 'legendary';
 		isNew: boolean;
@@ -37,15 +41,15 @@
 	{#if rewardDropRows.length > 0}
 		<div class="results-drop-list">
 			{#each rewardDropRows as drop (drop.instanceId)}
-				<div class={[`rarity-${drop.rarity}`, 'results-drop-row']}>
-					<div class="results-drop-copy">
-						<strong>{drop.name}</strong>
-						<span>{drop.rarity}</span>
-					</div>
-					<strong class:results-tag-new={drop.isNew} class="results-tag">
-						{drop.isNew ? 'New' : 'Duplicate'}
-					</strong>
-				</div>
+				<CampaignItemCard definition={drop.definition} size="compact">
+					{#snippet footer()}
+						<div class="results-drop-footer">
+							<strong class:results-tag-new={drop.isNew} class="results-tag">
+								{drop.isNew ? 'New' : 'Duplicate'}
+							</strong>
+						</div>
+					{/snippet}
+				</CampaignItemCard>
 			{/each}
 		</div>
 	{:else}
@@ -79,14 +83,14 @@
 
 	.results-popup-header,
 	.results-popup-footer,
-	.results-drop-copy,
 	.results-drop-list {
 		display: grid;
 		gap: 0.2rem;
 	}
 
 	.results-drop-list {
-		gap: 0.6rem;
+		grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+		gap: 0.65rem;
 	}
 
 	.compact-heading {
@@ -94,7 +98,6 @@
 	}
 
 	.eyebrow,
-	.results-drop-copy span,
 	.results-tag,
 	.results-countdown {
 		margin: 0;
@@ -112,25 +115,14 @@
 
 	.results-context,
 	.results-countdown,
-	.results-drop-copy span,
 	.results-empty {
 		margin: 0;
 		color: #cfcfcf;
 	}
 
-	.results-drop-row {
-		padding: 0.8rem 0.9rem;
-		border-radius: 1rem;
-		border: 1px solid rgba(255, 255, 255, 0.08);
-		background: rgba(255, 255, 255, 0.03);
+	.results-drop-footer {
 		display: flex;
-		justify-content: space-between;
-		gap: 0.75rem;
-		align-items: center;
-	}
-
-	.results-drop-copy strong {
-		font-size: 1rem;
+		justify-content: flex-end;
 	}
 
 	.results-tag {
@@ -139,26 +131,6 @@
 
 	.results-tag-new {
 		color: #c9f8cc;
-	}
-
-	.rarity-normal {
-		border-color: rgba(236, 236, 236, 0.14);
-	}
-
-	.rarity-magic {
-		border-color: rgba(84, 150, 255, 0.28);
-	}
-
-	.rarity-rare {
-		border-color: rgba(255, 210, 74, 0.28);
-	}
-
-	.rarity-exotic {
-		border-color: rgba(224, 74, 74, 0.28);
-	}
-
-	.rarity-legendary {
-		border-color: rgba(170, 104, 48, 0.34);
 	}
 
 	.results-popup-footer {
@@ -186,11 +158,6 @@
 			justify-self: stretch;
 			align-self: auto;
 			width: 100%;
-		}
-
-		.results-drop-row {
-			align-items: flex-start;
-			flex-direction: column;
 		}
 
 		.results-popup-footer {

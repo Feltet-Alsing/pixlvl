@@ -6,11 +6,11 @@
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 
-	type CampaignSection = 'arena' | 'management' | 'stats' | 'loadout';
+	type CampaignSection = 'arena' | 'shop' | 'stats' | 'loadout';
 
 	let activeSection = $derived.by((): CampaignSection => {
-		if (page.url.pathname.endsWith('/management')) {
-			return 'management';
+		if (page.url.pathname.endsWith('/shop')) {
+			return 'shop';
 		}
 
 		if (page.url.pathname.endsWith('/stats')) {

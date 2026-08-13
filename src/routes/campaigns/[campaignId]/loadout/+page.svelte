@@ -731,7 +731,7 @@
 		let anchor = defaultAnchor;
 
 		if (target instanceof HTMLElement) {
-			const shapeGrid = target.querySelector('.inventory-shape-grid');
+			const shapeGrid = target.querySelector('.shape-grid');
 
 			if (shapeGrid instanceof HTMLElement) {
 				anchor = getDragAnchorFromGrid(event, weapon.shape, shapeGrid, defaultAnchor);

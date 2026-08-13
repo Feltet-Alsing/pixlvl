@@ -189,6 +189,9 @@ interface EnemyProjectileState {
 }
 
 interface ForceFieldState {
+	centerX: number;
+	centerY: number;
+	startDelay: number;
 	radius: number;
 	maxRadius: number;
 	expansionSpeed: number;
@@ -225,6 +228,21 @@ interface NeedleBurstState {
 	age: number;
 	duration: number;
 	hasHit: boolean;
+}
+
+interface ExecutionLatticeStrikeState {
+	enemyId: number | null;
+	targetX: number;
+	targetY: number;
+	startY: number;
+	markerSize: number;
+	damage: number;
+	color: string;
+	glow: boolean;
+	age: number;
+	dropDuration: number;
+	hasHit: boolean;
+	startDelay: number;
 }
 
 interface EquippedWeaponState {
@@ -561,6 +579,7 @@ export function createCampaignSketch(
 		let forceFields: ForceFieldState[] = [];
 		let laserSweeps: LaserSweepState[] = [];
 		let needleBursts: NeedleBurstState[] = [];
+		let executionLatticeStrikes: ExecutionLatticeStrikeState[] = [];
 		let sniperLocks: SniperLockState[] = [];
 		let centerX = 0;
 		let centerY = 0;
@@ -751,6 +770,7 @@ export function createCampaignSketch(
 			forceFields = [];
 			laserSweeps = [];
 			needleBursts = [];
+			executionLatticeStrikes = [];
 			sniperLocks = [];
 			spawnQueue = shuffleInPlace(buildSpawnQueue(currentLevel), p);
 
@@ -932,6 +952,16 @@ export function createCampaignSketch(
 				.slice(0, count);
 		};
 
+		const getFurthestEnemies = (count: number) => {
+			return [...enemies]
+				.sort(
+					(left, right) =>
+						Math.hypot(right.x - centerX, right.y - centerY) -
+						Math.hypot(left.x - centerX, left.y - centerY)
+				)
+				.slice(0, count);
+		};
+
 		const awardEnemyDefeat = (enemyIndex: number) => {
 			const defeatedEnemy = enemies[enemyIndex];
 
@@ -1080,17 +1110,29 @@ export function createCampaignSketch(
 				return;
 			}
 
-			forceFields.push({
-				radius: combatProfile.collision.pixlRadius,
-				maxRadius: special.maxRadius,
-				expansionSpeed: special.expansionSpeed,
-				lineWidth: special.lineWidth,
-				damage: getAdjustedWeaponDamage(weapon),
-				color: weapon.projectileVisual.color,
-				glow: weapon.projectileVisual.glow ?? false,
-				age: 0,
-				hitEnemyIds: []
-			});
+			const burstCount = Math.max(1, special.burstCount ?? 1);
+			const offsetDistance = Math.max(0, special.offsetDistance ?? 0);
+			const burstDelay = Math.max(0, special.burstDelay ?? 0);
+			const startOffset = -((burstCount - 1) * offsetDistance) / 2;
+
+			for (let index = 0; index < burstCount; index += 1) {
+				const offsetX = startOffset + index * offsetDistance;
+
+				forceFields.push({
+					centerX: centerX + offsetX,
+					centerY,
+					startDelay: index * burstDelay,
+					radius: combatProfile.collision.pixlRadius,
+					maxRadius: special.maxRadius,
+					expansionSpeed: special.expansionSpeed,
+					lineWidth: special.lineWidth,
+					damage: getAdjustedWeaponDamage(weapon),
+					color: weapon.projectileVisual.color,
+					glow: weapon.projectileVisual.glow ?? false,
+					age: 0,
+					hitEnemyIds: []
+				});
+			}
 		};
 
 		const spawnLaserSweep = (weapon: WeaponDefinition) => {
@@ -1138,6 +1180,33 @@ export function createCampaignSketch(
 				glow: weapon.projectileVisual.glow ?? false,
 				weapon
 			});
+		};
+
+		const spawnExecutionLattice = (weapon: WeaponDefinition) => {
+			const special = weapon.attack.special;
+
+			if (!special || special.type !== 'execution-lattice') {
+				return;
+			}
+
+			const targets = getFurthestEnemies(Math.max(1, special.targetCount));
+
+			for (const [index, enemy] of targets.entries()) {
+				executionLatticeStrikes.push({
+					enemyId: enemy.id,
+					targetX: enemy.x,
+					targetY: enemy.y,
+					startY: enemy.y - special.dropHeight,
+					markerSize: special.markerSize,
+					damage: getAdjustedWeaponDamage(weapon),
+					color: weapon.projectileVisual.color,
+					glow: weapon.projectileVisual.glow ?? false,
+					age: 0,
+					dropDuration: special.dropDuration,
+					hasHit: false,
+					startDelay: index * 0.05
+				});
+			}
 		};
 
 		const retargetRicochetProjectile = (projectile: ProjectileState) => {
@@ -1426,6 +1495,11 @@ export function createCampaignSketch(
 				return;
 			}
 
+			if (special?.type === 'execution-lattice') {
+				spawnExecutionLattice(weapon.definition);
+				return;
+			}
+
 			if (weapon.definition.id === 'splitter') {
 				const targets = getClosestEnemies(Math.max(1, weapon.definition.attack.projectileCount));
 
@@ -1595,6 +1669,11 @@ export function createCampaignSketch(
 			for (let index = forceFields.length - 1; index >= 0; index -= 1) {
 				const field = forceFields[index];
 				field.age += dt;
+
+				if (field.age < field.startDelay) {
+					continue;
+				}
+
 				field.radius += field.expansionSpeed * dt;
 
 				for (let enemyIndex = enemies.length - 1; enemyIndex >= 0; enemyIndex -= 1) {
@@ -1605,7 +1684,7 @@ export function createCampaignSketch(
 					}
 
 					const enemyRadius = ENEMY_VISUALS[enemy.kind].radius;
-					const distance = Math.hypot(enemy.x - centerX, enemy.y - centerY);
+					const distance = Math.hypot(enemy.x - field.centerX, enemy.y - field.centerY);
 					const ringThreshold = field.lineWidth / 2 + enemyRadius;
 
 					if (Math.abs(distance - field.radius) > ringThreshold) {
@@ -1820,6 +1899,42 @@ export function createCampaignSketch(
 				}
 
 				sniperLocks.splice(index, 1);
+			}
+		};
+
+		const updateExecutionLatticeStrikes = (dt: number) => {
+			for (let index = executionLatticeStrikes.length - 1; index >= 0; index -= 1) {
+				const strike = executionLatticeStrikes[index];
+				strike.age += dt;
+
+				const trackedTarget =
+					(strike.enemyId !== null && enemies.find((enemy) => enemy.id === strike.enemyId)) ?? null;
+
+				if (trackedTarget) {
+					strike.targetX = trackedTarget.x;
+					strike.targetY = trackedTarget.y;
+				}
+
+				const progress = Math.min(
+					1,
+					Math.max(0, (strike.age - strike.startDelay) / strike.dropDuration)
+				);
+
+				if (!strike.hasHit && progress >= 1) {
+					if (trackedTarget) {
+						const enemyIndex = enemies.findIndex((enemy) => enemy.id === trackedTarget.id);
+
+						if (enemyIndex >= 0) {
+							applyDamageToEnemy(enemyIndex, strike.damage, 0.12);
+						}
+					}
+
+					strike.hasHit = true;
+				}
+
+				if (progress >= 1.08 || !trackedTarget) {
+					executionLatticeStrikes.splice(index, 1);
+				}
 			}
 		};
 
@@ -2064,17 +2179,21 @@ export function createCampaignSketch(
 			p.push();
 
 			for (const field of forceFields) {
+				if (field.age < field.startDelay) {
+					continue;
+				}
+
 				if (field.glow) {
 					p.noFill();
 					p.stroke(`${field.color}44`);
 					p.strokeWeight(field.lineWidth * 1.6);
-					p.circle(centerX, centerY, field.radius * 2.15);
+					p.circle(field.centerX, field.centerY, field.radius * 2.15);
 				}
 
 				p.noFill();
 				p.stroke(field.color);
 				p.strokeWeight(field.lineWidth);
-				p.circle(centerX, centerY, field.radius * 2);
+				p.circle(field.centerX, field.centerY, field.radius * 2);
 			}
 
 			for (const sweep of laserSweeps) {
@@ -2209,6 +2328,35 @@ export function createCampaignSketch(
 				p.pop();
 			}
 
+			for (const strike of executionLatticeStrikes) {
+				const progress = Math.min(
+					1,
+					Math.max(0, (strike.age - strike.startDelay) / strike.dropDuration)
+				);
+				const currentY = strike.startY + (strike.targetY - strike.startY) * progress;
+				const size = strike.markerSize;
+
+				if (strike.glow) {
+					p.noStroke();
+					p.fill(`${strike.color}33`);
+					p.circle(strike.targetX, currentY, size * 3.2);
+				}
+
+				p.push();
+				p.translate(strike.targetX, currentY);
+				p.noStroke();
+				p.fill(strike.color);
+				p.triangle(0, size, -size * 0.72, -size * 0.64, size * 0.72, -size * 0.64);
+				p.pop();
+
+				if (progress >= 1) {
+					p.noFill();
+					p.stroke(`${strike.color}aa`);
+					p.strokeWeight(2);
+					p.circle(strike.targetX, strike.targetY, size * 2.2);
+				}
+			}
+
 			p.pop();
 		};
 
@@ -2296,6 +2444,7 @@ export function createCampaignSketch(
 				updateForceFields(dt);
 				updateLaserSweeps(dt);
 				updateNeedleBursts(dt);
+				updateExecutionLatticeStrikes(dt);
 				updateEnemies(dt);
 				updateEnemyProjectiles(dt);
 				updateSniperLocks(dt);

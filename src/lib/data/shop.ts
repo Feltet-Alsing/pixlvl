@@ -348,7 +348,7 @@ export const campaign2ShopWeapons: WeaponDefinition[] = [
 				[4, 4]
 			]
 		},
-		baseDamage: 16,
+		baseDamage: 12,
 		projectileSpeed: 0,
 		attack: {
 			kind: 'single',
@@ -358,12 +358,15 @@ export const campaign2ShopWeapons: WeaponDefinition[] = [
 				type: 'force-field',
 				maxRadius: 176,
 				expansionSpeed: 250,
-				lineWidth: 24
+				lineWidth: 8,
+				burstCount: 3,
+				offsetDistance: 0,
+				burstDelay: 0.192
 			},
 			targeting: 'current-target'
 		},
 		projectileVisual: {
-			color: '#e9d5ff',
+			color: '#f5f5f5',
 			size: 'large',
 			shape: 'orb',
 			trail: 'pulse',
@@ -538,31 +541,31 @@ export const campaign3ShopWeapons: WeaponDefinition[] = [
 				[2, 2]
 			]
 		},
-		baseDamage: 26,
-		projectileSpeed: 190,
+		baseDamage: 30,
+		projectileSpeed: 0,
 		attack: {
 			kind: 'single',
 			projectileCount: 1,
-			cycleInterval: 2,
+			cycleInterval: 3,
 			special: {
-				type: 'shrapnel-burst',
-				fragmentCount: 10,
-				fragmentDamageMultiplier: 0.45,
-				fragmentSearchRadius: 190,
-				fragmentSpeedMultiplier: 1.55
+				type: 'execution-lattice',
+				targetCount: 5,
+				dropHeight: 92,
+				dropDuration: 0.5,
+				markerSize: 8
 			},
 			targeting: 'furthest-target'
 		},
 		projectileVisual: {
-			color: '#f0abfc',
-			size: 'large',
-			shape: 'orb',
+			color: '#ef4444',
+			size: 'medium',
+			shape: 'spark',
 			glow: true,
-			trail: 'pulse'
+			trail: 'streak'
 		},
 		drop: { mode: 'shop', campaignId: 3 },
 		shop: { campaignId: 3, price: shopPrices.legendary },
-		role: 'Shop-exclusive premium finisher that deletes distant support targets and then fractures into follow-up cleanup'
+		role: 'Shop-exclusive execution strike that marks the five furthest enemies and drops a 30-damage triangle on each'
 	}
 ];
 

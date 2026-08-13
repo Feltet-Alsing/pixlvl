@@ -23,6 +23,7 @@ export interface CombatOverlayState {
 export interface RewardDropRow {
 	instanceId: string;
 	definitionId: string;
+	definition: LoadoutItemDefinition;
 	name: string;
 	rarity: WeaponDefinition['rarity'];
 	isNew: boolean;
@@ -186,6 +187,7 @@ export function buildRewardDropRows(
 			return {
 				instanceId: weapon.instanceId,
 				definitionId: definition.id,
+				definition,
 				name: definition.name,
 				rarity: definition.rarity,
 				isNew: !ownedDefinitionIdsBeforeDrops.has(definition.id)

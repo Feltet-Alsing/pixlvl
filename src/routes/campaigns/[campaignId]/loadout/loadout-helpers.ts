@@ -28,6 +28,7 @@ export interface LoadoutWeapon {
 export interface InventoryWeapon {
 	weaponInstanceId: string;
 	definitionId: string;
+	definition: LoadoutItemDefinition;
 	category: 'weapon' | 'utility';
 	name: string;
 	rarity: WeaponDefinition['rarity'];
@@ -46,6 +47,7 @@ export interface InventoryWeapon {
 
 export interface InventoryWeaponGroup {
 	definitionId: string;
+	definition: LoadoutItemDefinition;
 	category: 'weapon' | 'utility';
 	name: string;
 	rarity: WeaponDefinition['rarity'];
@@ -147,6 +149,7 @@ export function buildInventoryWeapons(
 		rows.push({
 			weaponInstanceId: weapon.instanceId,
 			definitionId: weapon.definitionId,
+			definition,
 			category: isWeaponDefinition(definition) ? 'weapon' : 'utility',
 			name: definition.name,
 			rarity: definition.rarity,
@@ -181,6 +184,7 @@ export function buildInventoryWeaponGroups(inventoryWeapons: InventoryWeapon[]) 
 		if (!existing) {
 			groups[weapon.definitionId] = {
 				definitionId: weapon.definitionId,
+				definition: weapon.definition,
 				category: weapon.category,
 				name: weapon.name,
 				rarity: weapon.rarity,

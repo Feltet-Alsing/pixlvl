@@ -19,7 +19,8 @@ export type WeaponSpecialAttackKind =
 	| 'needle-fan'
 	| 'expanding-wave'
 	| 'sniper-line'
-	| 'shrapnel-burst';
+	| 'shrapnel-burst'
+	| 'execution-lattice';
 
 export type WeaponTargetingKind = 'current-target' | 'furthest-target';
 
@@ -91,6 +92,9 @@ export interface WeaponAttackBehavior {
 				maxRadius: number;
 				expansionSpeed: number;
 				lineWidth: number;
+				burstCount?: number;
+				offsetDistance?: number;
+				burstDelay?: number;
 		  }
 		| {
 				type: 'laser-sweep';
@@ -126,6 +130,13 @@ export interface WeaponAttackBehavior {
 				fragmentDamageMultiplier: number;
 				fragmentSearchRadius: number;
 				fragmentSpeedMultiplier: number;
+		  }
+		| {
+				type: 'execution-lattice';
+				targetCount: number;
+				dropHeight: number;
+				dropDuration: number;
+				markerSize: number;
 		  };
 	targeting: WeaponTargetingKind;
 }
