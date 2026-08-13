@@ -409,8 +409,7 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 		cycleInterval: 3,
 		effect: {
 			type: 'shield-pool',
-			shieldAmount: 20,
-			durationCycles: 1
+			shieldAmount: 20
 		},
 		utilityVisual: {
 			color: '#60a5fa',
@@ -424,7 +423,90 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 			stageEnd: 5,
 			perLevelDropChance: 0.16
 		},
-		role: 'Defensive utility that grants a temporary 20-point shield pool around the pixl'
+		role: 'Defensive utility that adds a 20-point shield until broken and refreshes it on the next trigger'
+	},
+	{
+		id: 'shield-array',
+		name: 'Shield Array',
+		category: 'utility',
+		rarity: 'magic',
+		shape: {
+			width: 3,
+			height: 3,
+			cells: [
+				[0, 0],
+				[1, 0],
+				[2, 0],
+				[0, 1],
+				[1, 1],
+				[2, 1],
+				[0, 2],
+				[1, 2],
+				[2, 2]
+			]
+		},
+		activationKind: 'triggered',
+		cycleInterval: 3,
+		effect: {
+			type: 'shield-pool',
+			shieldAmount: 35
+		},
+		utilityVisual: {
+			color: '#7dd3fc',
+			shape: 'ring',
+			glow: true
+		},
+		drop: {
+			mode: 'drop',
+			campaignId: 2,
+			stageStart: 4,
+			stageEnd: 5,
+			perLevelDropChance: 0.1
+		},
+		role: 'Magic shield utility that adds 35 shield until broken and replenishes it every trigger cycle'
+	},
+	{
+		id: 'shield-bastion',
+		name: 'Shield Bastion',
+		category: 'utility',
+		rarity: 'rare',
+		shape: {
+			width: 3,
+			height: 4,
+			cells: [
+				[0, 0],
+				[1, 0],
+				[2, 0],
+				[0, 1],
+				[1, 1],
+				[2, 1],
+				[0, 2],
+				[1, 2],
+				[2, 2],
+				[0, 3],
+				[1, 3],
+				[2, 3]
+			]
+		},
+		activationKind: 'triggered',
+		cycleInterval: 3,
+		effect: {
+			type: 'shield-pool',
+			shieldAmount: 50
+		},
+		utilityVisual: {
+			color: '#38bdf8',
+			shape: 'ring',
+			glow: true
+		},
+		drop: {
+			mode: 'drop',
+			campaignId: 2,
+			stageStart: 5,
+			stageEnd: 5,
+			perLevelDropChance: 0.06
+		},
+		role: 'Rare shield utility that adds 50 shield until broken and recharges on each trigger cycle'
 	},
 	{
 		id: 'cycle-booster',

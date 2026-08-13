@@ -175,7 +175,6 @@ export interface UtilityDefinition {
 		| {
 				type: 'shield-pool';
 				shieldAmount: number;
-				durationCycles: number;
 		  }
 		| {
 				type: 'cycle-adjacency-reduction';

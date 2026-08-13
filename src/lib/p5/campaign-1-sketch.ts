@@ -566,7 +566,6 @@ export function createCampaignSketch(
 		let waveDrops: OwnedWeaponInstance[] = [];
 		let pixlHealth = pixlProgression.health;
 		let pixlShieldPool = 0;
-		let pixlShieldExpiresAfterSweepIndex: number | null = null;
 		let cycleDamageMultiplier = 1;
 		let cycleDamageBuffExpiresAfterSweepIndex: number | null = null;
 		let activeShieldColor = '#60a5fa';
@@ -649,7 +648,9 @@ export function createCampaignSketch(
 		const getEnemyContactRange = (kind: GlitchKind) =>
 			Math.max(
 				combatProfile.collision.contactRange,
-				combatProfile.collision.pixlRadius + ENEMY_VISUALS[kind].radius
+				(pixlShieldPool > 0
+					? combatProfile.collision.pixlRadius * 1.45
+					: combatProfile.collision.pixlRadius) + ENEMY_VISUALS[kind].radius
 			);
 
 		const getEnemyStageMultiplier = (scalingKey: 'healthPerStage' | 'damagePerStage') => {
@@ -759,7 +760,6 @@ export function createCampaignSketch(
 			waveDrops = [];
 			pixlHealth = pixlProgression.health;
 			pixlShieldPool = 0;
-			pixlShieldExpiresAfterSweepIndex = null;
 			cycleDamageMultiplier = 1;
 			cycleDamageBuffExpiresAfterSweepIndex = null;
 			pixlFlash = 0;
@@ -984,7 +984,6 @@ export function createCampaignSketch(
 
 				if (pixlShieldPool <= 0) {
 					pixlShieldPool = 0;
-					pixlShieldExpiresAfterSweepIndex = null;
 				}
 			}
 
@@ -1544,8 +1543,7 @@ export function createCampaignSketch(
 			const effect = utility.definition.effect;
 
 			if (effect.type === 'shield-pool') {
-				pixlShieldPool = effect.shieldAmount;
-				pixlShieldExpiresAfterSweepIndex = currentSweepIndex + effect.durationCycles;
+				pixlShieldPool = Math.max(pixlShieldPool, effect.shieldAmount);
 				activeShieldColor = utility.definition.utilityVisual?.color ?? '#60a5fa';
 				return;
 			}
@@ -1616,14 +1614,6 @@ export function createCampaignSketch(
 					) {
 						cycleDamageMultiplier = 1;
 						cycleDamageBuffExpiresAfterSweepIndex = null;
-					}
-
-					if (
-						pixlShieldExpiresAfterSweepIndex !== null &&
-						currentSweepIndex >= pixlShieldExpiresAfterSweepIndex
-					) {
-						pixlShieldPool = 0;
-						pixlShieldExpiresAfterSweepIndex = null;
 					}
 				}
 			}

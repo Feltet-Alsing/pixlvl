@@ -397,7 +397,7 @@ export function getLoadoutItemEffectSummary(definition: LoadoutItemDefinition) {
 
 	switch (definition.effect.type) {
 		case 'shield-pool':
-			return `Shield ${definition.effect.shieldAmount} for ${definition.effect.durationCycles} cycles`;
+			return `Adds ${definition.effect.shieldAmount} shield until broken`;
 		case 'cycle-adjacency-reduction':
 			return `Adjacent weapons activate ${definition.effect.reduction} cycle faster`;
 		case 'cycle-damage-boost':
