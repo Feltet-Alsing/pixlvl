@@ -129,9 +129,9 @@
 <style>
 	.loadout-grid-shell {
 		position: relative;
-		width: min(100%, 78rem);
+		width: min(100%, 56rem);
 		margin: 0 auto;
-		--board-gap: 0.35rem;
+		--board-gap: 0.22rem;
 	}
 
 	.loadout-grid,
@@ -144,7 +144,7 @@
 	.main-loadout-grid,
 	.placed-weapons-layer {
 		gap: var(--board-gap);
-		grid-auto-rows: minmax(4.9rem, 1fr);
+		grid-auto-rows: minmax(3.45rem, 1fr);
 	}
 
 	.placed-weapons-layer {
@@ -159,14 +159,14 @@
 		align-items: center;
 		justify-content: center;
 		color: #f5f5f5;
-		font-size: 0.68rem;
+		font-size: 0.56rem;
 		font-weight: 700;
 		letter-spacing: 0.08em;
 	}
 
 	.grid-cell,
 	.placed-weapon-cell {
-		border-radius: 0.6rem;
+		border-radius: 0.4rem;
 		border: 1px solid rgba(255, 255, 255, 0.12);
 		background: rgba(255, 255, 255, 0.05);
 		box-sizing: border-box;
@@ -219,9 +219,9 @@
 	.placed-weapon::after {
 		content: '';
 		position: absolute;
-		inset: -0.42rem;
-		border: 4px solid var(--weapon-outline-stroke, rgba(245, 245, 245, 0.9));
-		border-radius: 1.2rem;
+		inset: -0.26rem;
+		border: 3px solid var(--weapon-outline-stroke, rgba(245, 245, 245, 0.9));
+		border-radius: 0.82rem;
 		pointer-events: none;
 	}
 
@@ -238,7 +238,7 @@
 
 	.placed-weapon-cell.filled {
 		background: var(--weapon-fill-color, rgba(64, 64, 64, 0.94));
-		border: 2px solid var(--weapon-border-color, rgba(255, 255, 255, 0.96));
+		border: 1.5px solid var(--weapon-border-color, rgba(255, 255, 255, 0.96));
 		box-shadow:
 			inset 0 0 0 1px rgba(255, 255, 255, 0.16),
 			0 0 0 1px rgba(0, 0, 0, 0.82);
@@ -286,7 +286,7 @@
 	@media (max-width: 860px) {
 		.main-loadout-grid,
 		.placed-weapons-layer {
-			grid-auto-rows: minmax(3.5rem, 1fr);
+			grid-auto-rows: minmax(2.7rem, 1fr);
 		}
 	}
 </style>

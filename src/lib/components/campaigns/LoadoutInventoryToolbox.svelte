@@ -153,7 +153,7 @@
 <style>
 	.toolbox-shell {
 		display: grid;
-		gap: 0.9rem;
+		gap: 0.7rem;
 		min-height: 0;
 	}
 
@@ -177,12 +177,12 @@
 
 	.inventory-search {
 		display: grid;
-		gap: 0.45rem;
+		gap: 0.35rem;
 	}
 
 	.inventory-search span,
 	.inventory-status {
-		font-size: 0.7rem;
+		font-size: 0.64rem;
 		letter-spacing: 0.1em;
 		text-transform: uppercase;
 		color: #bdbdc3;
@@ -190,13 +190,14 @@
 
 	.inventory-search input {
 		width: 100%;
-		min-height: 2.8rem;
-		padding: 0.8rem 0.95rem;
-		border-radius: 0.9rem;
+		min-height: 2.25rem;
+		padding: 0.65rem 0.8rem;
+		border-radius: 0.75rem;
 		border: 1px solid rgba(255, 255, 255, 0.12);
 		background: rgba(255, 255, 255, 0.04);
 		color: #f5f5f5;
 		font: inherit;
+		font-size: 0.92rem;
 	}
 
 	.inventory-search input::placeholder {
@@ -237,14 +238,14 @@
 	.inventory-toolbox-grid {
 		display: grid;
 		grid-template-columns: 1fr;
-		gap: 0.85rem;
+		gap: 0.65rem;
 	}
 
 	.inventory-weapon {
 		width: 100%;
-		padding: 0.9rem;
+		padding: 0.72rem;
 		display: grid;
-		gap: 0.85rem;
+		gap: 0.65rem;
 		text-align: left;
 		font: inherit;
 		position: relative;
@@ -267,17 +268,17 @@
 	}
 
 	.inventory-toolbox-item {
-		min-height: 9.75rem;
+		min-height: 8.1rem;
 		align-content: start;
 		overflow: hidden;
 	}
 
 	.inventory-count-badge {
 		position: absolute;
-		top: 0.7rem;
-		right: 0.7rem;
-		min-width: 1.7rem;
-		height: 1.7rem;
+		top: 0.55rem;
+		right: 0.55rem;
+		min-width: 1.4rem;
+		height: 1.4rem;
 		padding: 0 0.45rem;
 		border-radius: 999px;
 		background: rgba(255, 255, 255, 0.14);
@@ -285,7 +286,7 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		font-size: 0.78rem;
+		font-size: 0.68rem;
 		font-weight: 700;
 		line-height: 1;
 	}
@@ -293,37 +294,38 @@
 	.inventory-toolbox-head {
 		display: flex;
 		justify-content: space-between;
-		gap: 0.75rem;
+		gap: 0.55rem;
 		align-items: center;
 	}
 
 	.inventory-toolbox-head strong {
 		display: block;
 		padding-right: 2.2rem;
+		font-size: 1.05rem;
 	}
 
 	.inventory-toolbox-body {
 		display: flex;
 		align-items: center;
-		gap: 0.8rem;
+		gap: 0.6rem;
 		min-width: 0;
 	}
 
 	.shape-grid {
 		display: grid;
-		gap: 0.35rem;
+		gap: 0.22rem;
 		width: fit-content;
 	}
 
 	.inventory-shape-grid {
 		justify-self: start;
-		padding: 0.2rem;
+		padding: 0.15rem;
 		flex: 0 0 auto;
 	}
 
 	.shape-cell {
 		aspect-ratio: 1;
-		border-radius: 0.6rem;
+		border-radius: 0.42rem;
 		border: 1px solid rgba(255, 255, 255, 0.12);
 		background: rgba(255, 255, 255, 0.05);
 	}
@@ -335,8 +337,8 @@
 
 	.inventory-card-summary {
 		min-width: 0;
-		font-size: 0.75rem;
-		line-height: 1.35;
+		font-size: 0.74rem;
+		line-height: 1.3;
 		color: #d9d9de;
 		line-clamp: 2;
 		display: -webkit-box;
@@ -351,11 +353,12 @@
 
 	.inventory-empty-state {
 		padding: 1rem;
-		border-radius: 0.9rem;
+		border-radius: 0.75rem;
 		border: 1px dashed rgba(255, 255, 255, 0.12);
 		background: rgba(255, 255, 255, 0.03);
 		color: #c9c9cf;
 		text-align: center;
+		font-size: 0.9rem;
 	}
 
 	.inventory-weapon.rarity-normal {

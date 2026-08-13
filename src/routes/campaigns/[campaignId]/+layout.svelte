@@ -69,6 +69,6 @@
 
 	.campaign-topbar {
 		display: flex;
-		justify-content: center;
+		justify-content: flex-end;
 	}
 </style>

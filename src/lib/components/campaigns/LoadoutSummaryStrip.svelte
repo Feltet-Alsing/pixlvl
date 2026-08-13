@@ -34,35 +34,35 @@
 
 <style>
 	.loadout-summary-strip {
-		width: min(100%, 58rem);
+		width: min(100%, 37rem);
 		display: grid;
 		grid-template-columns: repeat(4, minmax(0, 1fr));
-		gap: 0.75rem;
+		gap: 0.5rem;
 	}
 
 	.loadout-summary-card {
-		padding: 0.85rem 0.95rem;
-		border-radius: 0.95rem;
+		padding: 0.65rem 0.72rem;
+		border-radius: 0.78rem;
 		border: 1px solid rgba(255, 255, 255, 0.08);
 		background: rgba(255, 255, 255, 0.04);
 		display: grid;
-		gap: 0.3rem;
+		gap: 0.22rem;
 	}
 
 	.loadout-summary-card span {
-		font-size: 0.72rem;
+		font-size: 0.62rem;
 		letter-spacing: 0.1em;
 		text-transform: uppercase;
 		color: #bdbdc3;
 	}
 
 	.loadout-summary-card strong {
-		font-size: 1.45rem;
+		font-size: 1.05rem;
 		line-height: 1;
 	}
 
 	.loadout-summary-card small {
-		font-size: 0.78rem;
+		font-size: 0.68rem;
 		color: #c4c4ca;
 	}
 

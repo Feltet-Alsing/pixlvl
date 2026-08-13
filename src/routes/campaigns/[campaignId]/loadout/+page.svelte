@@ -762,11 +762,11 @@
 	}
 
 	.shell {
-		max-width: 1520px;
+		max-width: 1120px;
 		margin: 0 auto;
-		padding: 1rem;
+		padding: 0.75rem;
 		display: grid;
-		gap: 1rem;
+		gap: 0.75rem;
 	}
 
 	.panel,
@@ -780,16 +780,16 @@
 	}
 
 	.panel {
-		padding: 1rem;
+		padding: 0.8rem;
 		display: grid;
-		gap: 0.8rem;
+		gap: 0.65rem;
 	}
 
 	.section-head-split,
 	.draft-actions {
 		display: flex;
 		justify-content: space-between;
-		gap: 0.75rem;
+		gap: 0.6rem;
 		align-items: center;
 	}
 
@@ -813,11 +813,12 @@
 	.section-head p {
 		margin: 0;
 		color: #c4c4c4;
+		font-size: 0.92rem;
 	}
 
 	.layout-stack {
 		display: grid;
-		gap: 1rem;
+		gap: 0.75rem;
 		align-items: start;
 	}
 
@@ -828,19 +829,20 @@
 
 	.inventory-panel {
 		position: sticky;
-		top: 1rem;
-		max-height: calc(100vh - 2rem);
+		top: 0.75rem;
+		max-height: calc(100vh - 1.5rem);
 		overflow: hidden;
 		grid-template-rows: auto auto 1fr;
-		gap: 0.9rem;
+		gap: 0.75rem;
 	}
 
 	.save,
 	.ghost {
-		min-height: 2.2rem;
-		padding: 0 0.9rem;
+		min-height: 1.95rem;
+		padding: 0 0.8rem;
 		color: #f5f5f5;
 		font: inherit;
+		font-size: 0.9rem;
 		cursor: pointer;
 	}
 
@@ -860,7 +862,8 @@
 	}
 
 	.feedback {
-		padding: 0.8rem 0.9rem;
+		padding: 0.7rem 0.8rem;
+		font-size: 0.9rem;
 	}
 
 	.feedback.error {
@@ -878,7 +881,7 @@
 
 	@media (min-width: 980px) {
 		.layout-stack {
-			grid-template-columns: minmax(0, 1.85fr) minmax(19rem, 24rem);
+			grid-template-columns: minmax(0, 1.65fr) minmax(18rem, 21rem);
 		}
 
 		.grid-panel,

@@ -367,6 +367,48 @@
 
 <div class="page">
 	<div class={['arena-shell', runMode === 'combat' && showLoadoutPreview ? 'preview-enabled' : '']}>
+		<div class="utility-bar">
+			{#if runMode === 'combat'}
+				<div class="utility-primary">
+					<button
+						class="toggle campaign-toggle"
+						type="button"
+						onclick={() => {
+							const nextOpen = !showStageDrawer;
+							if (nextOpen) {
+								showStatsOverlay = false;
+							}
+							setCampaignMenuOpen(nextOpen);
+						}}
+						aria-pressed={showStageDrawer}
+					>
+						{showStageDrawer ? 'Close Campaign Menu' : 'Campaign Menu'}
+					</button>
+				</div>
+
+				<div class="utility-secondary">
+					<CampaignRouteNav
+						campaignId={data.campaignId}
+						active="arena"
+						{loadoutTooltip}
+						showSweeperToggle={true}
+						showStatsToggle={true}
+						onToggleSweeper={() => {
+							showLoadoutPreview = !showLoadoutPreview;
+						}}
+						sweeperEnabled={showLoadoutPreview}
+						onToggleStats={() => {
+							showStatsOverlay = !showStatsOverlay;
+							if (showStatsOverlay) {
+								showStageDrawer = false;
+							}
+						}}
+						statsEnabled={showStatsOverlay}
+					/>
+				</div>
+			{/if}
+		</div>
+
 		<section class="canvas-stage">
 			{#key sketchRemountKey}
 				<P5Canvas class="canvas-frame" sketch={campaignSketch} />
@@ -381,43 +423,6 @@
 						onclick={() => setCampaignMenuOpen(false)}
 					></button>
 				{/if}
-
-				<div class="utility-bar">
-					{#if runMode === 'combat'}
-						<CampaignRouteNav
-							campaignId={data.campaignId}
-							active="arena"
-							{loadoutTooltip}
-							showSweeperToggle={true}
-							showStatsToggle={true}
-							onToggleSweeper={() => {
-								showLoadoutPreview = !showLoadoutPreview;
-							}}
-							sweeperEnabled={showLoadoutPreview}
-							onToggleStats={() => {
-								showStatsOverlay = !showStatsOverlay;
-								if (showStatsOverlay) {
-									showStageDrawer = false;
-								}
-							}}
-							statsEnabled={showStatsOverlay}
-						/>
-						<button
-							class="toggle campaign-toggle"
-							type="button"
-							onclick={() => {
-								const nextOpen = !showStageDrawer;
-								if (nextOpen) {
-									showStatsOverlay = false;
-								}
-								setCampaignMenuOpen(nextOpen);
-							}}
-							aria-pressed={showStageDrawer}
-						>
-							{showStageDrawer ? 'Close Campaign Menu' : 'Campaign Menu'}
-						</button>
-					{/if}
-				</div>
 
 				{#if showStageDrawer}
 					<CampaignStageDrawer
@@ -589,6 +594,7 @@
 		min-height: 0;
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
+		grid-template-rows: auto minmax(0, 1fr);
 		gap: 1rem;
 		padding: 1rem;
 		box-sizing: border-box;
@@ -596,9 +602,12 @@
 
 	.arena-shell.preview-enabled {
 		grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
+		grid-template-rows: auto minmax(0, 1fr);
 	}
 
 	.canvas-stage {
+		grid-column: 1;
+		grid-row: 2;
 		position: relative;
 		width: 100%;
 		height: 100%;
@@ -652,7 +661,9 @@
 
 	.utility-bar,
 	.utility-actions,
-	.mode-toggle {
+	.mode-toggle,
+	.utility-primary,
+	.utility-secondary {
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
@@ -678,8 +689,19 @@
 	.utility-bar {
 		grid-column: 1 / -1;
 		grid-row: 1;
-		justify-content: flex-end;
+		justify-content: space-between;
 		pointer-events: auto;
+	}
+
+	.utility-primary {
+		flex: 0 0 auto;
+		justify-content: flex-start;
+	}
+
+	.utility-secondary {
+		flex: 1 1 auto;
+		justify-content: flex-end;
+		min-width: 0;
 	}
 
 	.meta-pill {
@@ -1172,6 +1194,8 @@
 	}
 
 	.loadout-preview-panel {
+		grid-column: 2;
+		grid-row: 2;
 		align-self: stretch;
 		min-width: 0;
 		min-height: 0;
@@ -1342,6 +1366,17 @@
 	}
 
 	@media (max-width: 860px) {
+		.utility-bar {
+			align-items: flex-start;
+			flex-direction: column;
+		}
+
+		.utility-primary,
+		.utility-secondary {
+			width: 100%;
+			justify-content: flex-start;
+		}
+
 		.arena-shell,
 		.overlay-layout {
 			grid-template-columns: 1fr;
@@ -1350,7 +1385,7 @@
 		.arena-shell,
 		.arena-shell.preview-enabled {
 			grid-template-columns: 1fr;
-			grid-template-rows: minmax(0, 1fr) auto;
+			grid-template-rows: auto minmax(0, 1fr) auto;
 			gap: 0.75rem;
 			padding: 0.75rem;
 		}
@@ -1439,6 +1474,8 @@
 		}
 
 		.loadout-preview-panel {
+			grid-column: 1;
+			grid-row: 3;
 			min-height: 18rem;
 		}
 	}
