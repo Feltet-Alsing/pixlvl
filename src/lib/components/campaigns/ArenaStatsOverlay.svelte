@@ -62,6 +62,7 @@
 		background: rgba(10, 10, 10, 0.92);
 		box-shadow: 0 24px 60px rgba(0, 0, 0, 0.32);
 		backdrop-filter: blur(12px);
+		pointer-events: auto;
 	}
 
 	.stats-overlay-header {

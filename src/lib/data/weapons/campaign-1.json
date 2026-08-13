@@ -152,7 +152,7 @@
 	{
 		"id": "heavy-orb",
 		"name": "Heavy Orb",
-		"rarity": "exotic",
+		"rarity": "legendary",
 		"shape": {
 			"width": 4,
 			"height": 3,
@@ -172,7 +172,7 @@
 			]
 		},
 		"baseDamage": 24,
-		"projectileSpeed": 220,
+		"projectileSpeed": 176,
 		"attack": {
 			"kind": "single",
 			"projectileCount": 1,
@@ -199,7 +199,7 @@
 			"stageEnd": 5,
 			"perLevelDropChance": 0.06
 		},
-		"role": "Oversized premium weapon that cracks on impact and sprays nearby glitches with heavy shrapnel"
+		"role": "Legendary heavy orb that locks onto its spawned target, slowly homes in, and cracks on impact into heavy shrapnel"
 	},
 	{
 		"id": "tide-caster",

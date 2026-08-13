@@ -160,6 +160,8 @@ interface ProjectileState {
 	sizeGrowth: number;
 	maxSize: number;
 	hitEnemyIds: number[];
+	homingTargetEnemyId: number | null;
+	homingTurnRate: number;
 }
 
 interface SniperLockState {
@@ -1176,6 +1178,28 @@ export function createCampaignSketch(
 			return true;
 		};
 
+		const retargetHomingProjectile = (projectile: ProjectileState) => {
+			let nextEnemy: EnemyState | null = null;
+			let closestDistance = Number.POSITIVE_INFINITY;
+
+			for (const enemy of enemies) {
+				if (projectile.hitEnemyIds.includes(enemy.id)) {
+					continue;
+				}
+
+				const distance = Math.hypot(enemy.x - projectile.x, enemy.y - projectile.y);
+
+				if (distance < closestDistance) {
+					closestDistance = distance;
+					nextEnemy = enemy;
+				}
+			}
+
+			projectile.homingTargetEnemyId = nextEnemy?.id ?? null;
+
+			return nextEnemy;
+		};
+
 		const spawnProjectile = ({
 			originX,
 			originY,
@@ -1277,7 +1301,9 @@ export function createCampaignSketch(
 					scaledSize,
 					primaryShrapnelOrb ? scaledSize : (maxSize ?? expandingWave?.maxSize ?? scaledSize)
 				),
-				hitEnemyIds: []
+				hitEnemyIds: [],
+				homingTargetEnemyId: weapon.id === 'heavy-orb' ? (target?.id ?? null) : null,
+				homingTurnRate: weapon.id === 'heavy-orb' ? 2.4 : 0
 			});
 		};
 
@@ -1793,6 +1819,34 @@ export function createCampaignSketch(
 					projectile.speed += 240 * dt;
 				}
 
+				if (projectile.homingTargetEnemyId !== null) {
+					let targetEnemy =
+						enemies.find((enemy) => enemy.id === projectile.homingTargetEnemyId) ?? null;
+
+					if (!targetEnemy) {
+						targetEnemy = retargetHomingProjectile(projectile);
+					}
+
+					if (targetEnemy) {
+						const dx = targetEnemy.x - projectile.x;
+						const dy = targetEnemy.y - projectile.y;
+						const distance = Math.hypot(dx, dy) || 1;
+						const desiredDirectionX = dx / distance;
+						const desiredDirectionY = dy / distance;
+						const turnAmount = Math.min(1, projectile.homingTurnRate * dt);
+						const nextDirectionX =
+							projectile.directionX + (desiredDirectionX - projectile.directionX) * turnAmount;
+						const nextDirectionY =
+							projectile.directionY + (desiredDirectionY - projectile.directionY) * turnAmount;
+						const magnitude = Math.hypot(nextDirectionX, nextDirectionY) || 1;
+
+						projectile.directionX = nextDirectionX / magnitude;
+						projectile.directionY = nextDirectionY / magnitude;
+						projectile.perpendicularX = -projectile.directionY;
+						projectile.perpendicularY = projectile.directionX;
+					}
+				}
+
 				projectile.distanceTravelled += projectile.speed * dt;
 
 				if (projectile.sizeGrowth > 0) {
@@ -1809,16 +1863,21 @@ export function createCampaignSketch(
 					);
 				}
 
-				const waveOffset = projectile.motion === 'wave' ? Math.sin(projectile.age * 18) * 10 : 0;
+				if (projectile.homingTargetEnemyId !== null) {
+					projectile.x += projectile.directionX * projectile.speed * dt;
+					projectile.y += projectile.directionY * projectile.speed * dt;
+				} else {
+					const waveOffset = projectile.motion === 'wave' ? Math.sin(projectile.age * 18) * 10 : 0;
 
-				projectile.x =
-					projectile.originX +
-					projectile.directionX * projectile.distanceTravelled +
-					projectile.perpendicularX * waveOffset;
-				projectile.y =
-					projectile.originY +
-					projectile.directionY * projectile.distanceTravelled +
-					projectile.perpendicularY * waveOffset;
+					projectile.x =
+						projectile.originX +
+						projectile.directionX * projectile.distanceTravelled +
+						projectile.perpendicularX * waveOffset;
+					projectile.y =
+						projectile.originY +
+						projectile.directionY * projectile.distanceTravelled +
+						projectile.perpendicularY * waveOffset;
+				}
 
 				let hitEnemyIndex = -1;
 
