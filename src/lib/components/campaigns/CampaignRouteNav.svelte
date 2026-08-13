@@ -7,6 +7,9 @@
 		campaignId: number;
 		active: CampaignSection;
 		loadoutTooltip?: string;
+		showCampaignMenuToggle?: boolean;
+		campaignMenuEnabled?: boolean;
+		onToggleCampaignMenu?: () => void;
 		showSweeperToggle?: boolean;
 		sweeperEnabled?: boolean;
 		onToggleSweeper?: () => void;
@@ -19,6 +22,9 @@
 		campaignId,
 		active,
 		loadoutTooltip = '',
+		showCampaignMenuToggle = false,
+		campaignMenuEnabled = false,
+		onToggleCampaignMenu,
 		showSweeperToggle = false,
 		sweeperEnabled = false,
 		onToggleSweeper,
@@ -60,6 +66,17 @@
 				</a>
 			{/if}
 		{/each}
+
+		{#if showCampaignMenuToggle}
+			<button
+				class:active={campaignMenuEnabled}
+				class="route-link toggle-pill"
+				type="button"
+				onclick={onToggleCampaignMenu}
+			>
+				{campaignMenuEnabled ? 'Hide Campaign Menu' : 'Show Campaign Menu'}
+			</button>
+		{/if}
 
 		{#if showSweeperToggle}
 			<button

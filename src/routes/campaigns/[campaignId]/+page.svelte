@@ -186,6 +186,7 @@
 	});
 	let resultsEmptyLabel = $derived(`No item drops. +${combatOverlay.waveXp} XP earned.`);
 	let loadoutTooltip = $derived(buildLoadoutTooltip(currentLoadoutRows));
+	let defaultCampaignMenuOpen = $derived(page.url.searchParams.get('menu') !== 'closed');
 
 	$effect(() => {
 		void data.campaignId;
@@ -194,7 +195,7 @@
 		campaignStateOverride = null;
 		combatOverlayOverride = null;
 		showStatsOverlay = false;
-		showStageDrawer = page.url.searchParams.get('menu') === 'campaign';
+		showStageDrawer = defaultCampaignMenuOpen;
 		showLoadoutPreview = true;
 		skipResultsSignal = 0;
 	});
@@ -247,9 +248,9 @@
 		const nextUrl = new URL(page.url);
 
 		if (nextOpen) {
-			nextUrl.searchParams.set('menu', 'campaign');
-		} else {
 			nextUrl.searchParams.delete('menu');
+		} else {
+			nextUrl.searchParams.set('menu', 'closed');
 		}
 
 		history.replaceState(history.state, '', `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`);
@@ -300,14 +301,14 @@
 			}
 
 			if (result.type !== 'success' || !Number.isInteger(stage)) {
-				showStageDrawer = true;
+				setCampaignMenuOpen(true);
 				return;
 			}
 
 			const targetLevel = (stage - 1) * data.campaign.levelsPerStage + 1;
 			const baseCampaignState = liveCampaignState ?? data.campaignState;
 
-			showStageDrawer = false;
+			setCampaignMenuOpen(false);
 			showStatsOverlay = false;
 
 			if (!baseCampaignState || targetLevel === sketchCampaignLevel) {
@@ -354,30 +355,22 @@
 	<div class={['arena-shell', runMode === 'combat' && showLoadoutPreview ? 'preview-enabled' : '']}>
 		<div class="utility-bar">
 			{#if runMode === 'combat'}
-				<div class="utility-primary">
-					<button
-						class="toggle campaign-toggle"
-						type="button"
-						onclick={() => {
+				<div class="utility-secondary">
+					<CampaignRouteNav
+						campaignId={data.campaignId}
+						active="arena"
+						{loadoutTooltip}
+						showCampaignMenuToggle={true}
+						showSweeperToggle={true}
+						showStatsToggle={true}
+						onToggleCampaignMenu={() => {
 							const nextOpen = !showStageDrawer;
 							if (nextOpen) {
 								showStatsOverlay = false;
 							}
 							setCampaignMenuOpen(nextOpen);
 						}}
-						aria-pressed={showStageDrawer}
-					>
-						{showStageDrawer ? 'Close Campaign Menu' : 'Campaign Menu'}
-					</button>
-				</div>
-
-				<div class="utility-secondary">
-					<CampaignRouteNav
-						campaignId={data.campaignId}
-						active="arena"
-						{loadoutTooltip}
-						showSweeperToggle={true}
-						showStatsToggle={true}
+						campaignMenuEnabled={showStageDrawer}
 						onToggleSweeper={() => {
 							showLoadoutPreview = !showLoadoutPreview;
 						}}
@@ -385,7 +378,7 @@
 						onToggleStats={() => {
 							showStatsOverlay = !showStatsOverlay;
 							if (showStatsOverlay) {
-								showStageDrawer = false;
+								setCampaignMenuOpen(false);
 							}
 						}}
 						statsEnabled={showStatsOverlay}
@@ -640,7 +633,6 @@
 	.utility-bar,
 	.utility-actions,
 	.mode-toggle,
-	.utility-primary,
 	.utility-secondary {
 		display: flex;
 		align-items: center;
@@ -660,20 +652,11 @@
 		cursor: pointer;
 	}
 
-	.campaign-toggle {
-		justify-self: start;
-	}
-
 	.utility-bar {
 		grid-column: 1 / -1;
 		grid-row: 1;
-		justify-content: space-between;
+		justify-content: flex-end;
 		pointer-events: auto;
-	}
-
-	.utility-primary {
-		flex: 0 0 auto;
-		justify-content: flex-start;
 	}
 
 	.utility-secondary {
