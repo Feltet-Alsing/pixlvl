@@ -293,6 +293,21 @@ export async function getOrCreateGameState(userId: string): Promise<GameState> {
 	};
 }
 
+export function getLastPlayedCampaignId(gameState: GameState) {
+	const latestProgress = [...gameState.campaignProgress].sort((left, right) => {
+		const leftTime = new Date(left.lastPlayedAt).getTime();
+		const rightTime = new Date(right.lastPlayedAt).getTime();
+
+		if (rightTime !== leftTime) {
+			return rightTime - leftTime;
+		}
+
+		return right.currentLevel - left.currentLevel || left.campaignId - right.campaignId;
+	})[0];
+
+	return latestProgress?.campaignId ?? defaultCampaigns[0] ?? 1;
+}
+
 export async function updateGameState(userId: string, patch: GameStatePatch): Promise<GameState> {
 	await ensureGameState(userId);
 

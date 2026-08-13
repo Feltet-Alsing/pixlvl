@@ -9,7 +9,7 @@
 
 	const loginHref = resolve('/auth/login');
 	const dashboardHref = resolve('/dashboard');
-	const campaignsHref = resolve('/campaigns');
+	const playHref = resolve('/campaigns');
 	const campaignCount = Object.keys(campaigns).length;
 	let persistedPixlState = $derived(data.gameState?.pixlState ?? null);
 	const introSketch = (p: import('p5').default) =>
@@ -58,7 +58,7 @@
 				</p>
 				<p class="status">Session active</p>
 				<div class="actions">
-					<a class="primary" href={campaignsHref}>Choose campaign</a>
+					<a class="primary" href={playHref}>Play</a>
 					<a class="primary" href={dashboardHref}>Open dashboard</a>
 					<form method="post" action="?/signOut">
 						<button type="submit" class="secondary">Sign out</button>
@@ -69,7 +69,7 @@
 					This page showcases the base `pixl` loop without tying the preview to a full campaign run.
 				</p>
 				<div class="actions">
-					<a class="primary" href={campaignsHref}>Choose campaign</a>
+					<a class="primary" href={playHref}>Play</a>
 					<a class="primary" href={loginHref}>Sign in to continue</a>
 				</div>
 			{/if}

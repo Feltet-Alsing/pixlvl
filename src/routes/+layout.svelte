@@ -15,91 +15,152 @@
 </svelte:head>
 
 <div class="app-shell">
-	<div class="app-auth-bar">
-		<a class="app-link ghost" href={resolve('/')}>Home</a>
-		<a class="app-link ghost" href={resolve('/campaigns')}>Campaigns</a>
+	<header class="app-header">
+		<div class="app-header-shell">
+			<a class="app-brand" href={resolve('/')}>pixlvl</a>
 
-		{#if data.user && data.session}
-			<a class="app-link ghost" href={resolve('/dashboard')}>Dashboard</a>
-			<p class="app-user">{data.user.name || data.user.email}</p>
-			<form method="post" action={resolve('/auth/logout')}>
-				<input type="hidden" name="next" value={currentPath} />
-				<button class="app-link solid" type="submit">Log out</button>
-			</form>
-		{:else if !isAuthRoute}
-			<form method="get" action={resolve('/auth/login')}>
-				<input type="hidden" name="next" value={currentPath} />
-				<button class="app-link solid" type="submit">Sign in</button>
-			</form>
-		{/if}
+			<nav class="app-nav" aria-label="Primary">
+				<a class="app-nav-link" href={resolve('/')}>Main</a>
+				<a class="app-nav-link" href={resolve('/campaigns')}>Play</a>
+				{#if data.user && data.session}
+					<a class="app-nav-link" href={resolve('/dashboard')}>Dashboard</a>
+				{:else}
+					<a class="app-nav-link" href={resolve('/auth/login')}>Profile</a>
+				{/if}
+			</nav>
+
+			<div class="app-session">
+				{#if data.user && data.session}
+					<p class="app-user">{data.user.name || data.user.email}</p>
+					<form method="post" action={resolve('/auth/logout')}>
+						<input type="hidden" name="next" value={currentPath} />
+						<button class="app-session-button" type="submit">Log out</button>
+					</form>
+				{:else if !isAuthRoute}
+					<form method="get" action={resolve('/auth/login')}>
+						<input type="hidden" name="next" value={currentPath} />
+						<button class="app-session-button" type="submit">Sign in</button>
+					</form>
+				{/if}
+			</div>
+		</div>
+	</header>
+
+	<div class="app-content">
+		{@render children()}
 	</div>
-
-	{@render children()}
 </div>
 
 <style>
 	.app-shell {
-		min-height: 100vh;
+		height: 100dvh;
+		min-height: 100dvh;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
 	}
 
-	.app-auth-bar {
-		position: fixed;
-		top: 1rem;
-		right: 1rem;
-		z-index: 50;
+	.app-content {
+		flex: 1;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+		overflow: auto;
+	}
+
+	.app-header {
+		position: sticky;
+		top: 0;
+		z-index: 60;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+		background:
+			linear-gradient(180deg, rgba(6, 6, 6, 0.96), rgba(6, 6, 6, 0.9)),
+			radial-gradient(circle at top left, rgba(255, 255, 255, 0.08), transparent 30%);
+		backdrop-filter: blur(14px);
+	}
+
+	.app-header-shell {
+		max-width: 1200px;
+		margin: 0 auto;
+		padding: 0.9rem 1rem;
 		display: flex;
 		flex-wrap: wrap;
-		justify-content: flex-end;
-		gap: 0.6rem;
-		max-width: min(100vw - 2rem, 40rem);
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
 	}
 
-	.app-auth-bar form,
-	.app-user {
-		margin: 0;
-	}
-
-	.app-link,
+	.app-brand,
+	.app-nav-link,
+	.app-session-button,
 	.app-user {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		min-height: 2.35rem;
-		padding: 0 0.9rem;
+		min-height: 2.5rem;
 		border-radius: 999px;
-		backdrop-filter: blur(10px);
 		font: inherit;
-		font-size: 0.85rem;
+		font-size: 0.88rem;
 		font-weight: 600;
 	}
 
-	.app-link {
-		border: 1px solid rgba(255, 255, 255, 0.14);
+	.app-brand {
+		padding: 0 0.9rem;
 		text-decoration: none;
-		cursor: pointer;
+		color: #f5f5f5;
+		font-size: 1rem;
+		letter-spacing: 0.14em;
+		text-transform: uppercase;
 	}
 
-	.app-link.ghost,
+	.app-nav {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.65rem;
+	}
+
+	.app-nav-link,
+	.app-session-button,
 	.app-user {
-		background: rgba(10, 10, 10, 0.72);
+		padding: 0 1rem;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		background: rgba(255, 255, 255, 0.04);
 		color: #f5f5f5;
 	}
 
-	.app-link.solid {
+	.app-nav-link {
+		text-decoration: none;
+	}
+
+	.app-session {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: flex-end;
+		gap: 0.65rem;
+		align-items: center;
+	}
+
+	.app-session form,
+	.app-user {
+		margin: 0;
+	}
+
+	.app-session-button {
+		cursor: pointer;
 		background: #f5f5f5;
 		color: #050505;
 	}
 
 	@media (max-width: 640px) {
-		.app-auth-bar {
-			top: 0.75rem;
-			right: 0.75rem;
-			left: 0.75rem;
-			max-width: none;
+		.app-header-shell {
+			align-items: flex-start;
 		}
 
-		.app-user {
+		.app-nav,
+		.app-session {
 			width: 100%;
+			justify-content: flex-start;
 		}
 	}
 </style>

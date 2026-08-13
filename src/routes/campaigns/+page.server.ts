@@ -1,20 +1,14 @@
-import { getOrCreateGameState } from '$lib/server/game-state';
+import { redirect } from '@sveltejs/kit';
+
+import { getLastPlayedCampaignId, getOrCreateGameState } from '$lib/server/game-state';
 
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.user) {
-		return {
-			progressByCampaign: {}
-		};
+		throw redirect(302, '/campaigns/1');
 	}
 
 	const gameState = await getOrCreateGameState(locals.user.id);
-	const progressByCampaign = Object.fromEntries(
-		gameState.campaignProgress.map((entry) => [entry.campaignId, entry])
-	);
-
-	return {
-		progressByCampaign
-	};
+	throw redirect(302, `/campaigns/${getLastPlayedCampaignId(gameState)}`);
 };

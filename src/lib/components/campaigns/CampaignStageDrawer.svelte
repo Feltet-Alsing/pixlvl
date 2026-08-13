@@ -130,7 +130,7 @@
 	.campaign-drawer {
 		position: absolute;
 		top: 0;
-		left: 0;
+		right: 0;
 		bottom: 0;
 		z-index: 5;
 		width: min(24rem, 100vw);
@@ -138,10 +138,12 @@
 		display: grid;
 		align-content: start;
 		gap: 0.85rem;
-		border-right: 1px solid rgba(255, 255, 255, 0.08);
+		border-left: 1px solid rgba(255, 255, 255, 0.08);
 		background: rgba(10, 10, 10, 0.92);
-		box-shadow: 24px 0 60px rgba(0, 0, 0, 0.42);
+		box-shadow: -24px 0 60px rgba(0, 0, 0, 0.42);
 		backdrop-filter: blur(12px);
+		pointer-events: auto;
+		overflow: auto;
 	}
 
 	.campaign-drawer-header,

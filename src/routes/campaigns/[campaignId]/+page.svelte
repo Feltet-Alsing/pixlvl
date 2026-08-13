@@ -363,52 +363,39 @@
 				{/if}
 
 				<div class="utility-bar">
-					<button
-						class="toggle campaign-toggle"
-						type="button"
-						onclick={() => {
-							showStageDrawer = !showStageDrawer;
-							if (showStageDrawer) {
-								showStatsOverlay = false;
-							}
-						}}
-						aria-pressed={showStageDrawer}
-					>
-						{showStageDrawer ? 'Close campaign' : 'Campaign menu'}
-					</button>
-					<div class="utility-actions">
-						{#if runMode === 'combat'}
-							<button
-								class="toggle slim-toggle"
-								type="button"
-								onclick={() => {
-									showLoadoutPreview = !showLoadoutPreview;
-								}}
-								aria-pressed={showLoadoutPreview}
-							>
-								{showLoadoutPreview ? 'Hide Loadout Sweep' : 'Show Loadout Sweep'}
-							</button>
-							<button
-								class="toggle slim-toggle"
-								type="button"
-								onclick={() => {
-									showStatsOverlay = !showStatsOverlay;
-									if (showStatsOverlay) {
-										showStageDrawer = false;
-									}
-								}}
-								aria-pressed={showStatsOverlay}
-							>
-								{showStatsOverlay ? 'Hide stats' : 'Show stats'}
-							</button>
-						{/if}
+					{#if runMode === 'combat'}
 						<CampaignRouteNav
 							campaignId={data.campaignId}
 							active="arena"
 							{loadoutTooltip}
-							{notificationCounts}
+							showSweeperToggle={true}
+							showStatsToggle={true}
+							onToggleSweeper={() => {
+								showLoadoutPreview = !showLoadoutPreview;
+							}}
+							sweeperEnabled={showLoadoutPreview}
+							onToggleStats={() => {
+								showStatsOverlay = !showStatsOverlay;
+								if (showStatsOverlay) {
+									showStageDrawer = false;
+								}
+							}}
+							statsEnabled={showStatsOverlay}
 						/>
-					</div>
+						<button
+							class="toggle campaign-toggle"
+							type="button"
+							onclick={() => {
+								showStageDrawer = !showStageDrawer;
+								if (showStageDrawer) {
+									showStatsOverlay = false;
+								}
+							}}
+							aria-pressed={showStageDrawer}
+						>
+							{showStageDrawer ? 'Close Campaign Menu' : 'Campaign Menu'}
+						</button>
+					{/if}
 				</div>
 
 				{#if showStageDrawer}
@@ -566,14 +553,19 @@
 	}
 
 	.page {
-		width: 100vw;
-		height: 100vh;
+		flex: 1;
+		width: 100%;
+		height: 100%;
+		min-height: 0;
+		overflow: hidden;
 		background: radial-gradient(circle at top, rgba(255, 255, 255, 0.05), transparent 28%), #020202;
 	}
 
 	.arena-shell {
 		width: 100%;
 		height: 100%;
+		min-width: 0;
+		min-height: 0;
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
 		gap: 1rem;
@@ -665,7 +657,7 @@
 	.utility-bar {
 		grid-column: 1 / -1;
 		grid-row: 1;
-		justify-content: space-between;
+		justify-content: flex-end;
 		pointer-events: auto;
 	}
 
@@ -731,7 +723,7 @@
 	.campaign-drawer {
 		position: absolute;
 		top: 0;
-		left: 0;
+		right: 0;
 		bottom: 0;
 		z-index: 5;
 		width: min(24rem, 100vw);
@@ -740,8 +732,8 @@
 		align-content: start;
 		gap: 0.85rem;
 		border-radius: 0;
-		border-right: 1px solid rgba(255, 255, 255, 0.08);
-		box-shadow: 24px 0 60px rgba(0, 0, 0, 0.42);
+		border-left: 1px solid rgba(255, 255, 255, 0.08);
+		box-shadow: -24px 0 60px rgba(0, 0, 0, 0.42);
 	}
 
 	.campaign-drawer-header,

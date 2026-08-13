@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import CampaignRouteNav from '$lib/components/campaigns/CampaignRouteNav.svelte';
 	import type { Snippet } from 'svelte';
@@ -25,7 +24,8 @@
 		return 'arena';
 	});
 
-	let showTopbar = $derived(activeSection !== 'arena');
+	let showSharedRouteNav = $derived(activeSection !== 'arena');
+
 	let loadoutTooltip = $derived(
 		(data.gameState?.pixlState.loadoutPlacements ?? [])
 			.map((placement) => {
@@ -43,17 +43,11 @@
 	);
 </script>
 
-{#if showTopbar}
+{#if showSharedRouteNav}
 	<div class="campaign-topbar-wrap">
 		<div class="campaign-topbar-shell">
 			<div class="campaign-topbar">
-				<a class="back" href={resolve('/campaigns')}>All campaigns</a>
-				<CampaignRouteNav
-					campaignId={data.campaignId}
-					active={activeSection}
-					{loadoutTooltip}
-					notificationCounts={data.notificationCounts}
-				/>
+				<CampaignRouteNav campaignId={data.campaignId} active={activeSection} {loadoutTooltip} />
 			</div>
 		</div>
 	</div>
@@ -65,7 +59,7 @@
 	.campaign-topbar-wrap {
 		position: relative;
 		z-index: 1;
-		padding: 1rem 1rem 0;
+		padding: 0 1rem 1rem;
 	}
 
 	.campaign-topbar-shell {
@@ -75,32 +69,6 @@
 
 	.campaign-topbar {
 		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		gap: 0.75rem;
-		flex-wrap: wrap;
-	}
-
-	.back {
-		display: inline-flex;
-		align-items: center;
 		justify-content: center;
-		min-height: 2.2rem;
-		padding: 0 0.9rem;
-		border-radius: 1.1rem;
-		border: 1px solid rgba(255, 255, 255, 0.08);
-		background: rgba(10, 10, 10, 0.92);
-		box-shadow: 0 24px 60px rgba(0, 0, 0, 0.32);
-		text-decoration: none;
-		color: #f5f5f5;
-		font-size: 0.9rem;
-		font-weight: 600;
-	}
-
-	@media (max-width: 860px) {
-		.campaign-topbar {
-			align-items: flex-start;
-			flex-direction: column;
-		}
 	}
 </style>

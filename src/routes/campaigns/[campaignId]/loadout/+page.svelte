@@ -613,21 +613,6 @@
 	{/if}
 
 	<div class="shell">
-		<section class="hero panel">
-			<p class="eyebrow">Campaign {data.campaign.campaign}</p>
-			<h1>Loadout</h1>
-			<p class="lede">Fit item shapes inside the {loadoutRowCount} x {loadoutColumnCount} grid.</p>
-			<p class="live-run-label">
-				Pixl level {progressionState.level} · {progressionState.perkPoints} perk {progressionState.perkPoints ===
-				1
-					? 'point'
-					: 'points'} · Loadout {loadoutRowCount} x {loadoutColumnCount}
-			</p>
-			<p class="live-run-label">
-				Run continues here: Stage {liveRunStage} · Level {liveRunStageLevel} · Campaign level {liveRunCampaignLevel}
-			</p>
-		</section>
-
 		<section class="layout-stack">
 			<div class="panel grid-panel">
 				<div class="section-head section-head-split">
@@ -817,38 +802,17 @@
 		justify-content: flex-end;
 	}
 
-	.hero h1,
 	.section-head h2 {
 		margin: 0;
 	}
 
-	.hero h1 {
-		font-size: 2rem;
-	}
-
-	.eyebrow,
 	.section-head p {
 		letter-spacing: 0.12em;
 	}
 
-	.eyebrow {
-		text-transform: uppercase;
-		font-size: 0.72rem;
-		color: #9d9d9d;
-		font-weight: 700;
-	}
-
-	.lede,
 	.section-head p {
 		margin: 0;
 		color: #c4c4c4;
-	}
-
-	.live-run-label {
-		font-size: 0.88rem;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: #d7d7dc;
 	}
 
 	.layout-stack {
