@@ -1983,7 +1983,7 @@ export function createCampaignSketch(
 					);
 				}
 
-				if (projectile.homingTargetEnemyId !== null) {
+				if (projectile.homingTurnRate > 0) {
 					projectile.x += projectile.directionX * projectile.speed * dt;
 					projectile.y += projectile.directionY * projectile.speed * dt;
 				} else {
