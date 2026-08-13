@@ -476,13 +476,6 @@
 								<span>Remaining</span>
 								<strong>{combatOverlay.remainingEnemies}</strong>
 							</div>
-							<div>
-								<span>Wave mix</span>
-								<strong>
-									B {combatOverlay.composition.biters} · S {combatOverlay.composition.swarmers} · T {combatOverlay
-										.composition.tankers}
-								</strong>
-							</div>
 						</div>
 						<div class="combat-bars">
 							<div class="combat-bar-group">
