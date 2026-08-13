@@ -55,7 +55,6 @@
 					class:active={active === route.key}
 					class="route-link"
 					href={resolve(`/campaigns/${campaignId}/${route.key}`)}
-					title={route.key === 'loadout' ? loadoutTooltip : undefined}
 				>
 					{route.label}
 				</a>

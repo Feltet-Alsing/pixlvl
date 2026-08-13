@@ -32,7 +32,6 @@
 		onGroupDragStart: (event: DragEvent, group: InventoryWeaponGroup) => void;
 		onWeaponDragEnd: (event: DragEvent) => void;
 		formatGroupStatus: (group: InventoryWeaponGroup) => string;
-		formatCardSummary: (group: InventoryWeaponGroup) => string;
 		isShapeCellFilled: (shape: WeaponShape, x: number, y: number) => boolean;
 	}
 
@@ -48,7 +47,6 @@
 		onGroupDragStart,
 		onWeaponDragEnd,
 		formatGroupStatus,
-		formatCardSummary,
 		isShapeCellFilled
 	}: Props = $props();
 
@@ -137,8 +135,6 @@
 										{/each}
 									{/each}
 								</div>
-
-								<p class="inventory-card-summary">{formatCardSummary(group)}</p>
 							</div>
 						</button>
 					{/each}
@@ -165,7 +161,6 @@
 	.section-head h2,
 	.section-head p,
 	.weapon-role,
-	.inventory-card-summary,
 	.inventory-empty-state {
 		margin: 0;
 	}
@@ -333,18 +328,6 @@
 	.inventory-weapon .shape-cell.filled {
 		background: var(--inventory-fill-color, rgba(255, 255, 255, 0.18));
 		border-color: var(--inventory-border-color, rgba(255, 255, 255, 0.52));
-	}
-
-	.inventory-card-summary {
-		min-width: 0;
-		font-size: 0.74rem;
-		line-height: 1.3;
-		color: #d9d9de;
-		line-clamp: 2;
-		display: -webkit-box;
-		-webkit-line-clamp: 2;
-		-webkit-box-orient: vertical;
-		overflow: hidden;
 	}
 
 	.dragging {

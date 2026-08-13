@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { fade } from 'svelte/transition';
 	import LoadoutDraggedShapePreview from '$lib/components/campaigns/LoadoutDraggedShapePreview.svelte';
 	import LoadoutGridBoard from '$lib/components/campaigns/LoadoutGridBoard.svelte';
 	import LoadoutInventoryToolbox from '$lib/components/campaigns/LoadoutInventoryToolbox.svelte';
@@ -15,7 +16,6 @@
 		cloneLoadoutPlacements,
 		filterInventoryWeaponGroups,
 		formatCycleAverage,
-		formatInventoryCardSummary,
 		formatInventoryGroupStatus,
 		getDefaultDragAnchor,
 		getDragAnchorFromGrid,
@@ -66,10 +66,13 @@
 	let isInventoryDropTargetActive = $state(false);
 	let inventorySearch = $state('');
 	let showSaveWarning = $state(false);
+	let showUnsavedToast = $state(false);
 	let saveLoadoutForm = $state<HTMLFormElement | null>(null);
 	let pixlStateOverride = $state.raw<PixlStateOverride | null>(null);
 	let campaignStateOverride = $state.raw<CampaignStateOverride | null>(null);
 	let liveCombatProgressOverride = $state<LiveCombatProgress | null>(null);
+	let previousHasUnsavedChanges = false;
+	let unsavedToastTimeout: ReturnType<typeof setTimeout> | null = null;
 	let livePixlState: LivePixlState | null = $derived.by(() => {
 		const basePixlState = data.gameState?.pixlState ?? null;
 
@@ -257,6 +260,38 @@
 	let filteredInventoryWeaponGroups = $derived.by(() =>
 		filterInventoryWeaponGroups(inventoryWeaponGroups, inventorySearch)
 	);
+
+	$effect(() => {
+		const shouldShowToast =
+			hasUnsavedChanges &&
+			!previousHasUnsavedChanges &&
+			!form?.loadoutError &&
+			!form?.loadoutSuccess;
+
+		if (shouldShowToast) {
+			showUnsavedToast = true;
+
+			if (unsavedToastTimeout) {
+				clearTimeout(unsavedToastTimeout);
+			}
+
+			unsavedToastTimeout = setTimeout(() => {
+				showUnsavedToast = false;
+				unsavedToastTimeout = null;
+			}, 1800);
+		}
+
+		if (!hasUnsavedChanges) {
+			showUnsavedToast = false;
+
+			if (unsavedToastTimeout) {
+				clearTimeout(unsavedToastTimeout);
+				unsavedToastTimeout = null;
+			}
+		}
+
+		previousHasUnsavedChanges = hasUnsavedChanges;
+	});
 
 	function getInitialLoadoutPlacements() {
 		return cloneLoadoutPlacements(data.gameState?.pixlState.loadoutPlacements ?? []);
@@ -498,30 +533,36 @@
 	}
 
 	function getGridCellFromPoint(event: DragEvent) {
-		const target = event.target;
-
-		if (!(target instanceof Element)) {
+		if (!Number.isFinite(event.clientX) || !Number.isFinite(event.clientY)) {
 			return null;
 		}
 
-		const cellElement = target.closest('[data-grid-x][data-grid-y]');
+		for (const element of document.elementsFromPoint(event.clientX, event.clientY)) {
+			if (!(element instanceof HTMLElement)) {
+				continue;
+			}
 
-		if (!(cellElement instanceof HTMLElement)) {
-			return null;
+			const cellElement = element.closest('[data-grid-x][data-grid-y]');
+
+			if (!(cellElement instanceof HTMLElement)) {
+				continue;
+			}
+
+			const x = Number(cellElement.dataset.gridX);
+			const y = Number(cellElement.dataset.gridY);
+
+			if (!Number.isInteger(x) || !Number.isInteger(y)) {
+				continue;
+			}
+
+			return {
+				x,
+				y,
+				key: getGridCellKey(x, y)
+			} satisfies GridCell;
 		}
 
-		const x = Number(cellElement.dataset.gridX);
-		const y = Number(cellElement.dataset.gridY);
-
-		if (!Number.isInteger(x) || !Number.isInteger(y)) {
-			return null;
-		}
-
-		return {
-			x,
-			y,
-			key: getGridCellKey(x, y)
-		} satisfies GridCell;
+		return null;
 	}
 
 	function handleWeaponDragEnd(event: DragEvent) {
@@ -616,13 +657,6 @@
 		<section class="layout-stack">
 			<div class="panel grid-panel">
 				<div class="section-head section-head-split">
-					<div>
-						<h2>Loadout grid</h2>
-						<p>
-							Drag an item from inventory into the grid, drag placed items to reposition, or drag
-							them back out to unequip.
-						</p>
-					</div>
 					<form method="post" action="?/saveLoadout" bind:this={saveLoadoutForm}>
 						<input type="hidden" name="loadoutPlacements" value={draftLoadoutPayload} />
 						<button
@@ -640,8 +674,18 @@
 					<p class="feedback error">{form.loadoutError}</p>
 				{:else if form?.loadoutSuccess}
 					<p class="feedback success">{form.loadoutSuccess}</p>
-				{:else if hasUnsavedChanges}
-					<p class="feedback neutral">You have unsaved loadout changes.</p>
+				{/if}
+
+				{#if showUnsavedToast}
+					<div class="toast-anchor" aria-live="polite">
+						<div
+							class="feedback neutral toast-message"
+							in:fade={{ duration: 160 }}
+							out:fade={{ duration: 220 }}
+						>
+							You have unsaved loadout changes.
+						</div>
+					</div>
 				{/if}
 
 				<div class="draft-actions">
@@ -683,10 +727,7 @@
 				{/if}
 
 				{#if draggedWeaponDefinition}
-					<LoadoutDraggedShapePreview
-						shape={draggedWeaponDefinition.shape}
-						role={draggedWeaponDefinition.role}
-					/>
+					<LoadoutDraggedShapePreview shape={draggedWeaponDefinition.shape} />
 				{/if}
 
 				<LoadoutGridBoard
@@ -723,7 +764,6 @@
 					onGroupDragStart={beginInventoryWeaponGroupDrag}
 					onWeaponDragEnd={handleWeaponDragEnd}
 					formatGroupStatus={formatInventoryGroupStatus}
-					formatCardSummary={formatInventoryCardSummary}
 					{isShapeCellFilled}
 				/>
 			</aside>
@@ -802,20 +842,6 @@
 		justify-content: flex-end;
 	}
 
-	.section-head h2 {
-		margin: 0;
-	}
-
-	.section-head p {
-		letter-spacing: 0.12em;
-	}
-
-	.section-head p {
-		margin: 0;
-		color: #c4c4c4;
-		font-size: 0.92rem;
-	}
-
 	.layout-stack {
 		display: grid;
 		gap: 0.75rem;
@@ -877,6 +903,23 @@
 
 	.feedback.neutral {
 		background: rgba(255, 255, 255, 0.05);
+	}
+
+	.toast-anchor {
+		position: fixed;
+		inset: 0;
+		z-index: 30;
+		display: grid;
+		place-items: center;
+		pointer-events: none;
+	}
+
+	.toast-message {
+		width: min(24rem, calc(100vw - 2rem));
+		padding: 0.95rem 1.1rem;
+		text-align: center;
+		backdrop-filter: blur(12px);
+		box-shadow: 0 20px 50px rgba(0, 0, 0, 0.38);
 	}
 
 	@media (min-width: 980px) {

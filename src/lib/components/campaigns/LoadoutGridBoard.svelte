@@ -107,7 +107,6 @@
 				ondrop={onPlacedWeaponDrop}
 				ondragstart={(event) => onPlacedWeaponDragStart(event, weapon)}
 				ondragend={onWeaponDragEnd}
-				title={`${weapon.name} at ${weapon.x}, ${weapon.y}`}
 			>
 				<div class="placed-weapon-shape" style={getShapeGridTemplate(weapon.shape)}>
 					{#each createIndexArray(weapon.shape.height) as shapeY (`${weapon.weaponInstanceId}:${shapeY}`)}

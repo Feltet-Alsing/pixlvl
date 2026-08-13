@@ -1,7 +1,4 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
-	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import ArenaStatsOverlay from '$lib/components/campaigns/ArenaStatsOverlay.svelte';
@@ -17,12 +14,8 @@
 		buildRewardDropRows,
 		buildUnlockedStages,
 		createInitialCombatOverlay,
-		type CampaignStageSummary,
-		type CombatOverlayState,
-		type LoadoutRow,
-		type RewardDropRow
+		type CombatOverlayState
 	} from './arena-helpers';
-	import { getCampaignRouteNotificationCounts } from '$lib/game/notifications';
 	import { createCampaignSketch, createLoadoutSweepPreviewSketch } from '$lib/p5/campaign-1-sketch';
 	import {
 		applyUpgradePurchase,
@@ -31,11 +24,7 @@
 		getUpgradeOptions,
 		isUpgradeKey
 	} from '$lib/game/upgrades';
-	import type {
-		LoadoutItemDefinition,
-		OwnedWeaponInstance,
-		WeaponDefinition
-	} from '$lib/data/types';
+	import type { LoadoutItemDefinition } from '$lib/data/types';
 	import type { PageProps } from './$types';
 
 	type LocalRunMode = 'management' | 'combat';
@@ -194,9 +183,6 @@
 	});
 	let resultsEmptyLabel = $derived(`No item drops. +${combatOverlay.waveXp} XP earned.`);
 	let loadoutTooltip = $derived(buildLoadoutTooltip(currentLoadoutRows));
-	let notificationCounts = $derived(
-		getCampaignRouteNotificationCounts(livePixlState ?? data.gameState?.pixlState ?? null)
-	);
 
 	$effect(() => {
 		void data.campaignId;
@@ -263,11 +249,7 @@
 			nextUrl.searchParams.delete('menu');
 		}
 
-		void goto(`${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`, {
-			replaceState: true,
-			noScroll: true,
-			keepFocus: true
-		});
+		history.replaceState(history.state, '', `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`);
 	}
 
 	const purchaseUpgrade: SubmitFunction = ({ formData }) => {

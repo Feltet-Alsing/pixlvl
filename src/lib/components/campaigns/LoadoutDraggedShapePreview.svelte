@@ -3,10 +3,9 @@
 
 	interface Props {
 		shape: WeaponShape;
-		role: string;
 	}
 
-	let { shape, role }: Props = $props();
+	let { shape }: Props = $props();
 
 	function createIndexArray(length: number) {
 		return Array.from({ length }, (_, index) => index);
@@ -25,7 +24,6 @@
 			{/each}
 		{/each}
 	</div>
-	<p class="weapon-role">{role}</p>
 </div>
 
 <style>
@@ -50,10 +48,5 @@
 
 	.shape-cell.filled {
 		background: rgba(255, 255, 255, 0.14);
-	}
-
-	.weapon-role {
-		margin: 0;
-		color: #c4c4c4;
 	}
 </style>

@@ -24,7 +24,7 @@
 		return 'arena';
 	});
 
-	let showSharedRouteNav = $derived(activeSection !== 'arena');
+	let showSharedRouteNav = $derived(activeSection !== 'arena' && activeSection !== 'loadout');
 
 	let loadoutTooltip = $derived(
 		(data.gameState?.pixlState.loadoutPlacements ?? [])
