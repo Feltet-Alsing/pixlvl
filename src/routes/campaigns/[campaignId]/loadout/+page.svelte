@@ -324,8 +324,8 @@
 	let mobileRotateWeapon = $derived(
 		mobileRotateInstanceId
 			? (loadoutWeapons.find((weapon) => weapon.weaponInstanceId === mobileRotateInstanceId) ??
-				inventoryWeapons.find((weapon) => weapon.weaponInstanceId === mobileRotateInstanceId) ??
-				null)
+					inventoryWeapons.find((weapon) => weapon.weaponInstanceId === mobileRotateInstanceId) ??
+					null)
 			: null
 	);
 	let inventoryWeaponGroups = $derived.by(() => buildInventoryWeaponGroups(inventoryWeapons));
@@ -1222,7 +1222,10 @@
 								class="save"
 								type="button"
 								onclick={() => {
-									if (draggedWeaponInstanceId && draggedWeaponInstanceId === mobileRotateInstanceId) {
+									if (
+										draggedWeaponInstanceId &&
+										draggedWeaponInstanceId === mobileRotateInstanceId
+									) {
 										rotateDraggedWeapon();
 									} else {
 										rotatePlacedWeapon(mobileRotateInstanceId);
