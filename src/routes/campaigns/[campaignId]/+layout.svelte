@@ -47,7 +47,12 @@
 	<div class="campaign-topbar-wrap">
 		<div class="campaign-topbar-shell">
 			<div class="campaign-topbar">
-				<CampaignRouteNav campaignId={data.campaignId} active={activeSection} {loadoutTooltip} />
+				<CampaignRouteNav
+					campaignId={data.campaignId}
+					active={activeSection}
+					notificationCounts={data.notificationCounts}
+					{loadoutTooltip}
+				/>
 			</div>
 		</div>
 	</div>

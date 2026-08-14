@@ -491,6 +491,7 @@
 					<CampaignRouteNav
 						campaignId={data.campaignId}
 						active="arena"
+						notificationCounts={data.notificationCounts}
 						{loadoutTooltip}
 						showCampaignMenuToggle={true}
 						showSweeperToggle={true}

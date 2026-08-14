@@ -136,6 +136,8 @@
 		switch (item.effect.type) {
 			case 'shield-pool':
 				return `Shield ${item.effect.shieldAmount}`;
+			case 'elemental-infuser':
+				return `${formatLabel(item.effect.element)} infusion`;
 			case 'cycle-adjacency-reduction':
 				return `Adj -${item.effect.reduction}`;
 			case 'cycle-damage-boost':

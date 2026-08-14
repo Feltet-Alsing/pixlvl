@@ -19,6 +19,7 @@ import type {
 	OwnedWeaponInstance,
 	UtilityDefinition,
 	WeaponAttackBehavior,
+	ElementalInfusionType,
 	WeaponDefinition,
 	WeaponProjectileMotion,
 	WeaponProjectileShape,
@@ -243,6 +244,63 @@ interface ExecutionLatticeStrikeState {
 	dropDuration: number;
 	hasHit: boolean;
 	startDelay: number;
+}
+
+interface ForkLightningState {
+	segments: Array<{
+		from: { x: number; y: number };
+		to: { x: number; y: number };
+		enemyId: number | null;
+		damage: number;
+		startDelay: number;
+		hasHit: boolean;
+	}>;
+	branchWidth: number;
+	color: string;
+	glow: boolean;
+	age: number;
+	duration: number;
+}
+
+interface FlamethrowerConeState {
+	angle: number;
+	reach: number;
+	halfAngleRadians: number;
+	damagePerTick: number;
+	tickInterval: number;
+	tickTimer: number;
+	color: string;
+	glow: boolean;
+	expiresAfterSweepIndex: number;
+	hitEnemyIdsThisTick: number[];
+}
+
+interface IceSpikeState {
+	enemyId: number | null;
+	targetX: number;
+	targetY: number;
+	startY: number;
+	age: number;
+	startDelay: number;
+	fallDuration: number;
+	damage: number;
+	impactRadius: number;
+	color: string;
+	glow: boolean;
+	hasHit: boolean;
+}
+
+interface VoidTendrilState {
+	enemyId: number | null;
+	targetX: number;
+	targetY: number;
+	age: number;
+	duration: number;
+	damage: number;
+	healPerHit: number;
+	color: string;
+	glow: boolean;
+	hasHit: boolean;
 }
 
 interface EquippedWeaponState {
@@ -487,6 +545,15 @@ function doCellsTouchByEdge(
 	return false;
 }
 
+function createEmptyElementalInfusions(): Record<ElementalInfusionType, number> {
+	return {
+		fire: 0,
+		lightning: 0,
+		cold: 0,
+		void: 0
+	};
+}
+
 export function createCampaignSketch(
 	campaign: CampaignDefinition,
 	combatProfile: CombatProfile,
@@ -566,6 +633,7 @@ export function createCampaignSketch(
 		let waveDrops: OwnedWeaponInstance[] = [];
 		let pixlHealth = pixlProgression.health;
 		let pixlShieldPool = 0;
+		let elementalInfusions = createEmptyElementalInfusions();
 		let cycleDamageMultiplier = 1;
 		let cycleDamageBuffExpiresAfterSweepIndex: number | null = null;
 		let activeShieldColor = '#60a5fa';
@@ -579,6 +647,10 @@ export function createCampaignSketch(
 		let laserSweeps: LaserSweepState[] = [];
 		let needleBursts: NeedleBurstState[] = [];
 		let executionLatticeStrikes: ExecutionLatticeStrikeState[] = [];
+		let forkLightningBursts: ForkLightningState[] = [];
+		let flamethrowerCones: FlamethrowerConeState[] = [];
+		let iceSpikes: IceSpikeState[] = [];
+		let voidTendrils: VoidTendrilState[] = [];
 		let sniperLocks: SniperLockState[] = [];
 		let centerX = 0;
 		let centerY = 0;
@@ -771,6 +843,10 @@ export function createCampaignSketch(
 			laserSweeps = [];
 			needleBursts = [];
 			executionLatticeStrikes = [];
+			forkLightningBursts = [];
+			flamethrowerCones = [];
+			iceSpikes = [];
+			voidTendrils = [];
 			sniperLocks = [];
 			spawnQueue = shuffleInPlace(buildSpawnQueue(currentLevel), p);
 
@@ -960,6 +1036,19 @@ export function createCampaignSketch(
 						Math.hypot(left.x - centerX, left.y - centerY)
 				)
 				.slice(0, count);
+		};
+
+		const healPixl = (amount: number) => {
+			if (amount <= 0) {
+				return;
+			}
+
+			pixlHealth = Math.min(pixlProgression.health, pixlHealth + amount);
+		};
+
+		const easeInQuad = (progress: number) => {
+			const clamped = Math.max(0, Math.min(1, progress));
+			return clamped * clamped;
 		};
 
 		const awardEnemyDefeat = (enemyIndex: number) => {
@@ -1204,6 +1293,145 @@ export function createCampaignSketch(
 					dropDuration: special.dropDuration,
 					hasHit: false,
 					startDelay: index * 0.05
+				});
+			}
+		};
+
+		const spawnForkLightning = (weapon: WeaponDefinition) => {
+			const special = weapon.attack.special;
+
+			if (!special || special.type !== 'fork-lightning') {
+				return;
+			}
+
+			const targets = getFurthestEnemies(enemies.length);
+
+			if (targets.length === 0) {
+				return;
+			}
+
+			const initialStrikeLead = 0.08;
+			const chainDelay = 0.05;
+			const segments: ForkLightningState['segments'] = [];
+			let previousGeneration = [{ x: centerX, y: centerY }];
+			let nextTargetIndex = 0;
+			let generationIndex = 0;
+
+			while (nextTargetIndex < targets.length) {
+				const nextGeneration: Array<{ x: number; y: number }> = [];
+
+				for (const branchStart of previousGeneration) {
+					for (let branchIndex = 0; branchIndex < 2; branchIndex += 1) {
+						if (nextTargetIndex >= targets.length) {
+							break;
+						}
+
+						const target = targets[nextTargetIndex];
+						nextTargetIndex += 1;
+						nextGeneration.push({ x: target.x, y: target.y });
+
+						segments.push({
+							from: branchStart,
+							to: { x: target.x, y: target.y },
+							enemyId: target.id,
+							damage: getAdjustedWeaponDamage(weapon),
+							startDelay:
+								generationIndex === 0 ? 0 : initialStrikeLead + (generationIndex - 1) * chainDelay,
+							hasHit: false
+						});
+					}
+				}
+
+				previousGeneration = nextGeneration;
+				generationIndex += 1;
+			}
+
+			forkLightningBursts.push({
+				segments,
+				branchWidth: special.branchWidth,
+				color: weapon.projectileVisual.color,
+				glow: weapon.projectileVisual.glow ?? false,
+				age: 0,
+				duration: special.duration
+			});
+		};
+
+		const spawnFlamethrowerCone = (weapon: WeaponDefinition, target: EnemyState) => {
+			const special = weapon.attack.special;
+
+			if (!special || special.type !== 'flamethrower-cone') {
+				return;
+			}
+
+			flamethrowerCones.push({
+				angle: Math.atan2(target.y - centerY, target.x - centerX),
+				reach: special.reach,
+				halfAngleRadians: ((special.coneAngleDegrees / 2) * Math.PI) / 180,
+				damagePerTick: getAdjustedWeaponDamage(weapon),
+				tickInterval: special.tickInterval,
+				tickTimer: special.tickInterval,
+				color: weapon.projectileVisual.color,
+				glow: weapon.projectileVisual.glow ?? false,
+				expiresAfterSweepIndex: currentSweepIndex + special.durationCycles,
+				hitEnemyIdsThisTick: []
+			});
+		};
+
+		const spawnIceShower = (weapon: WeaponDefinition) => {
+			const special = weapon.attack.special;
+
+			if (!special || special.type !== 'ice-shower') {
+				return;
+			}
+
+			const cycleDuration = 1 / Math.max(0.001, pixlProgression.attackSpeed);
+			const spikeCount = Math.max(1, special.spikeCount);
+
+			for (let index = 0; index < spikeCount; index += 1) {
+				const fallbackAngle = p.random(p.TWO_PI);
+				const fallbackRadius = p.random(0, arenaRadius * 0.82);
+				const target = enemies.length > 0 ? enemies[index % enemies.length] : null;
+				const targetX = target ? target.x : centerX + Math.cos(fallbackAngle) * fallbackRadius;
+				const targetY = target ? target.y : centerY + Math.sin(fallbackAngle) * fallbackRadius;
+
+				iceSpikes.push({
+					enemyId: target?.id ?? null,
+					targetX,
+					targetY,
+					startY: targetY - 120,
+					age: 0,
+					startDelay: (cycleDuration / spikeCount) * index,
+					fallDuration: special.fallDuration,
+					damage: getAdjustedWeaponDamage(weapon),
+					impactRadius: special.impactRadius,
+					color: weapon.projectileVisual.color,
+					glow: weapon.projectileVisual.glow ?? false,
+					hasHit: false
+				});
+			}
+		};
+
+		const spawnVoidTendrils = (weapon: WeaponDefinition) => {
+			const special = weapon.attack.special;
+
+			if (!special || special.type !== 'void-tendrils') {
+				return;
+			}
+
+			const targets = getClosestEnemies(Math.max(1, special.targetCount));
+
+			for (const target of targets) {
+				voidTendrils.push({
+					enemyId: target.id,
+					targetX: target.x,
+					targetY: target.y,
+					age: 0,
+					duration: special.duration,
+					damage: getAdjustedWeaponDamage(weapon),
+					healPerHit: special.healPerHit,
+					color: weapon.projectileVisual.color,
+					glow: weapon.projectileVisual.glow ?? false,
+					hasHit: false
 				});
 			}
 		};
@@ -1499,6 +1727,26 @@ export function createCampaignSketch(
 				return;
 			}
 
+			if (special?.type === 'fork-lightning') {
+				spawnForkLightning(weapon.definition);
+				return;
+			}
+
+			if (special?.type === 'flamethrower-cone') {
+				spawnFlamethrowerCone(weapon.definition, target);
+				return;
+			}
+
+			if (special?.type === 'ice-shower') {
+				spawnIceShower(weapon.definition);
+				return;
+			}
+
+			if (special?.type === 'void-tendrils') {
+				spawnVoidTendrils(weapon.definition);
+				return;
+			}
+
 			if (weapon.definition.id === 'splitter') {
 				const targets = getClosestEnemies(Math.max(1, weapon.definition.attack.projectileCount));
 
@@ -1548,6 +1796,11 @@ export function createCampaignSketch(
 				return;
 			}
 
+			if (effect.type === 'elemental-infuser') {
+				elementalInfusions[effect.element] += 1;
+				return;
+			}
+
 			if (effect.type === 'cycle-damage-boost') {
 				cycleDamageMultiplier = Math.max(cycleDamageMultiplier, effect.damageMultiplier);
 				cycleDamageBuffExpiresAfterSweepIndex = currentSweepIndex + 1;
@@ -1563,9 +1816,24 @@ export function createCampaignSketch(
 				activateUtility(utility);
 			}
 
-			for (const weapon of equippedWeapons) {
-				if (weapon.triggerColumn !== column) {
-					continue;
+			const weaponsAtColumn = equippedWeapons
+				.filter((weapon) => weapon.triggerColumn === column)
+				.sort(
+					(left, right) =>
+						left.placementY - right.placementY ||
+						left.placementX - right.placementX ||
+						left.instanceId.localeCompare(right.instanceId)
+				);
+
+			for (const weapon of weaponsAtColumn) {
+				const requiredInfusion = weapon.definition.attack.requiredInfusion;
+
+				if (requiredInfusion) {
+					if (elementalInfusions[requiredInfusion] <= 0) {
+						continue;
+					}
+
+					elementalInfusions[requiredInfusion] -= 1;
 				}
 
 				const target = getWeaponTarget(weapon.definition.attack.targeting);
@@ -1615,6 +1883,8 @@ export function createCampaignSketch(
 						cycleDamageMultiplier = 1;
 						cycleDamageBuffExpiresAfterSweepIndex = null;
 					}
+
+					elementalInfusions = createEmptyElementalInfusions();
 				}
 			}
 		};
@@ -1924,6 +2194,151 @@ export function createCampaignSketch(
 
 				if (progress >= 1.08 || !trackedTarget) {
 					executionLatticeStrikes.splice(index, 1);
+				}
+			}
+		};
+
+		const updateForkLightningBursts = (dt: number) => {
+			for (let index = forkLightningBursts.length - 1; index >= 0; index -= 1) {
+				const burst = forkLightningBursts[index];
+				burst.age += dt;
+
+				for (const segment of burst.segments) {
+					const progress = easeInQuad((burst.age - segment.startDelay) / burst.duration);
+
+					if (!segment.hasHit && progress >= 1 && segment.enemyId !== null) {
+						const enemyIndex = enemies.findIndex((enemy) => enemy.id === segment.enemyId);
+
+						if (enemyIndex >= 0) {
+							applyDamageToEnemy(enemyIndex, segment.damage, 0.1);
+						}
+
+						segment.hasHit = true;
+					}
+				}
+
+				const latestSegmentStartDelay = burst.segments.reduce(
+					(maxDelay, segment) => Math.max(maxDelay, segment.startDelay),
+					0
+				);
+
+				if (burst.age >= burst.duration + latestSegmentStartDelay) {
+					forkLightningBursts.splice(index, 1);
+				}
+			}
+		};
+
+		const updateFlamethrowerCones = (dt: number) => {
+			for (let index = flamethrowerCones.length - 1; index >= 0; index -= 1) {
+				const cone = flamethrowerCones[index];
+				cone.tickTimer -= dt;
+
+				while (cone.tickTimer <= 0) {
+					cone.tickTimer += cone.tickInterval;
+					cone.hitEnemyIdsThisTick = [];
+
+					for (let enemyIndex = enemies.length - 1; enemyIndex >= 0; enemyIndex -= 1) {
+						const enemy = enemies[enemyIndex];
+						const dx = enemy.x - centerX;
+						const dy = enemy.y - centerY;
+						const distance = Math.hypot(dx, dy);
+
+						if (distance <= 0 || distance > cone.reach) {
+							continue;
+						}
+
+						const angle = Math.atan2(dy, dx);
+						let delta = angle - cone.angle;
+						while (delta > Math.PI) delta -= Math.PI * 2;
+						while (delta < -Math.PI) delta += Math.PI * 2;
+
+						if (Math.abs(delta) > cone.halfAngleRadians) {
+							continue;
+						}
+
+						if (cone.hitEnemyIdsThisTick.includes(enemy.id)) {
+							continue;
+						}
+
+						cone.hitEnemyIdsThisTick.push(enemy.id);
+						applyDamageToEnemy(enemyIndex, cone.damagePerTick, 0.07);
+					}
+				}
+
+				if (currentSweepIndex >= cone.expiresAfterSweepIndex) {
+					flamethrowerCones.splice(index, 1);
+				}
+			}
+		};
+
+		const updateIceSpikes = (dt: number) => {
+			for (let index = iceSpikes.length - 1; index >= 0; index -= 1) {
+				const spike = iceSpikes[index];
+				spike.age += dt;
+
+				const trackedTarget =
+					(spike.enemyId !== null && enemies.find((enemy) => enemy.id === spike.enemyId)) ?? null;
+
+				if (trackedTarget) {
+					spike.targetX = trackedTarget.x;
+					spike.targetY = trackedTarget.y;
+				}
+
+				const progress = Math.min(
+					1,
+					Math.max(0, (spike.age - spike.startDelay) / spike.fallDuration)
+				);
+
+				if (!spike.hasHit && progress >= 1) {
+					for (let enemyIndex = enemies.length - 1; enemyIndex >= 0; enemyIndex -= 1) {
+						const enemy = enemies[enemyIndex];
+						const distance = Math.hypot(enemy.x - spike.targetX, enemy.y - spike.targetY);
+
+						if (distance > spike.impactRadius + ENEMY_VISUALS[enemy.kind].radius) {
+							continue;
+						}
+
+						applyDamageToEnemy(enemyIndex, spike.damage, 0.09);
+					}
+
+					spike.hasHit = true;
+				}
+
+				if (progress >= 1.08) {
+					iceSpikes.splice(index, 1);
+				}
+			}
+		};
+
+		const updateVoidTendrils = (dt: number) => {
+			for (let index = voidTendrils.length - 1; index >= 0; index -= 1) {
+				const tendril = voidTendrils[index];
+				tendril.age += dt;
+
+				const trackedTarget =
+					(tendril.enemyId !== null && enemies.find((enemy) => enemy.id === tendril.enemyId)) ??
+					null;
+
+				if (trackedTarget) {
+					tendril.targetX = trackedTarget.x;
+					tendril.targetY = trackedTarget.y;
+				}
+
+				if (!tendril.hasHit && tendril.age >= tendril.duration * 0.92) {
+					if (trackedTarget) {
+						const enemyIndex = enemies.findIndex((enemy) => enemy.id === trackedTarget.id);
+
+						if (enemyIndex >= 0) {
+							applyDamageToEnemy(enemyIndex, tendril.damage, 0.1);
+							healPixl(tendril.healPerHit);
+						}
+					}
+
+					tendril.hasHit = true;
+				}
+
+				if (tendril.age >= tendril.duration) {
+					voidTendrils.splice(index, 1);
 				}
 			}
 		};
@@ -2347,6 +2762,186 @@ export function createCampaignSketch(
 				}
 			}
 
+			for (const burst of forkLightningBursts) {
+				for (const segment of burst.segments) {
+					const progress = easeInQuad((burst.age - segment.startDelay) / burst.duration);
+
+					if (progress <= 0) {
+						continue;
+					}
+
+					const from = segment.from;
+					const to = segment.to;
+					const dx = to.x - from.x;
+					const dy = to.y - from.y;
+					const distance = Math.hypot(dx, dy) || 1;
+					const directionX = dx / distance;
+					const directionY = dy / distance;
+					const perpendicularX = -directionY;
+					const perpendicularY = directionX;
+					const zigzagAmplitude = Math.min(18, distance * 0.18);
+					const zigzagPoints = [
+						{ t: 0, x: from.x, y: from.y },
+						{
+							t: 0.28,
+							x: from.x + dx * 0.28 + perpendicularX * zigzagAmplitude,
+							y: from.y + dy * 0.28 + perpendicularY * zigzagAmplitude
+						},
+						{
+							t: 0.56,
+							x: from.x + dx * 0.56 - perpendicularX * zigzagAmplitude,
+							y: from.y + dy * 0.56 - perpendicularY * zigzagAmplitude
+						},
+						{
+							t: 0.8,
+							x: from.x + dx * 0.8 + perpendicularX * (zigzagAmplitude * 0.6),
+							y: from.y + dy * 0.8 + perpendicularY * (zigzagAmplitude * 0.6)
+						},
+						{ t: 1, x: to.x, y: to.y }
+					];
+					const visiblePoints = [zigzagPoints[0]];
+
+					for (let pointIndex = 1; pointIndex < zigzagPoints.length; pointIndex += 1) {
+						const previous = zigzagPoints[pointIndex - 1];
+						const current = zigzagPoints[pointIndex];
+
+						if (progress >= current.t) {
+							visiblePoints.push(current);
+							continue;
+						}
+
+						const span = Math.max(0.0001, current.t - previous.t);
+						const localProgress = Math.max(0, Math.min(1, (progress - previous.t) / span));
+						visiblePoints.push({
+							t: progress,
+							x: previous.x + (current.x - previous.x) * localProgress,
+							y: previous.y + (current.y - previous.y) * localProgress
+						});
+						break;
+					}
+
+					if (burst.glow) {
+						p.stroke(`${burst.color}33`);
+						p.strokeWeight(burst.branchWidth * 2.2);
+						for (let pointIndex = 1; pointIndex < visiblePoints.length; pointIndex += 1) {
+							const previous = visiblePoints[pointIndex - 1];
+							const current = visiblePoints[pointIndex];
+							p.line(previous.x, previous.y, current.x, current.y);
+						}
+					}
+
+					p.stroke(burst.color);
+					p.strokeWeight(burst.branchWidth);
+					for (let pointIndex = 1; pointIndex < visiblePoints.length; pointIndex += 1) {
+						const previous = visiblePoints[pointIndex - 1];
+						const current = visiblePoints[pointIndex];
+						p.line(previous.x, previous.y, current.x, current.y);
+					}
+				}
+			}
+
+			for (const cone of flamethrowerCones) {
+				const leftAngle = cone.angle - cone.halfAngleRadians;
+				const rightAngle = cone.angle + cone.halfAngleRadians;
+				const leftX = centerX + Math.cos(leftAngle) * cone.reach;
+				const leftY = centerY + Math.sin(leftAngle) * cone.reach;
+				const rightX = centerX + Math.cos(rightAngle) * cone.reach;
+				const rightY = centerY + Math.sin(rightAngle) * cone.reach;
+
+				p.noStroke();
+				p.fill(cone.glow ? `${cone.color}44` : `${cone.color}2d`);
+				p.triangle(centerX, centerY, leftX, leftY, rightX, rightY);
+			}
+
+			for (const spike of iceSpikes) {
+				const progress = Math.min(
+					1,
+					Math.max(0, (spike.age - spike.startDelay) / spike.fallDuration)
+				);
+				const currentY = spike.startY + (spike.targetY - spike.startY) * progress;
+
+				if (spike.glow) {
+					p.noStroke();
+					p.fill(`${spike.color}33`);
+					p.circle(spike.targetX, currentY, 22);
+				}
+
+				p.noStroke();
+				p.fill(spike.color);
+				p.triangle(
+					spike.targetX,
+					currentY - 14,
+					spike.targetX - 8,
+					currentY + 10,
+					spike.targetX + 8,
+					currentY + 10
+				);
+			}
+
+			for (const tendril of voidTendrils) {
+				const normalizedAge = Math.max(0, Math.min(1, tendril.age / tendril.duration));
+				const progress = easeInQuad(normalizedAge);
+				const reachX = centerX + (tendril.targetX - centerX) * progress;
+				const reachY = centerY + (tendril.targetY - centerY) * progress;
+				const angle = Math.atan2(reachY - centerY, reachX - centerX);
+				const distance = Math.hypot(reachX - centerX, reachY - centerY) || 1;
+				const directionX = (reachX - centerX) / distance;
+				const directionY = (reachY - centerY) / distance;
+				const perpendicularX = -directionY;
+				const perpendicularY = directionX;
+				const snakeSegments = Math.max(4, Math.ceil(distance / 22));
+				const snakeAmplitude = Math.min(12, 2 + distance * 0.045);
+				const snakePoints = Array.from({ length: snakeSegments + 1 }, (_, index) => {
+					const t = index / snakeSegments;
+					const baseFadeIn = Math.min(1, t * 2.4);
+					const tipFadeOut = 1 - t * 0.2;
+					const wave =
+						Math.sin(t * Math.PI * 2.5 + tendril.age * 12) *
+						snakeAmplitude *
+						baseFadeIn *
+						tipFadeOut;
+					return {
+						x: centerX + directionX * distance * t + perpendicularX * wave,
+						y: centerY + directionY * distance * t + perpendicularY * wave
+					};
+				});
+				const clawLength = 15;
+				const clawSpread = 0.62;
+				const baseOffset = 6;
+				const clawPitch = Math.sin(normalizedAge * Math.PI * 1.3) * 0.22;
+				const clawBaseX = reachX - Math.cos(angle) * baseOffset;
+				const clawBaseY = reachY - Math.sin(angle) * baseOffset;
+
+				if (tendril.glow) {
+					p.stroke(`${tendril.color}33`);
+					p.strokeWeight(8);
+					for (let pointIndex = 1; pointIndex < snakePoints.length; pointIndex += 1) {
+						const previous = snakePoints[pointIndex - 1];
+						const current = snakePoints[pointIndex];
+						p.line(previous.x, previous.y, current.x, current.y);
+					}
+				}
+
+				p.stroke(tendril.color);
+				p.strokeWeight(2.2);
+				for (let pointIndex = 1; pointIndex < snakePoints.length; pointIndex += 1) {
+					const previous = snakePoints[pointIndex - 1];
+					const current = snakePoints[pointIndex];
+					p.line(previous.x, previous.y, current.x, current.y);
+				}
+
+				for (const [offset, lengthMultiplier] of [
+					[-clawSpread, 1],
+					[0, 0.78],
+					[clawSpread, 1]
+				] as const) {
+					const clawAngle = angle + offset + clawPitch * (offset === 0 ? -0.6 : 1);
+					const clawTipX = reachX + Math.cos(clawAngle) * clawLength * lengthMultiplier;
+					const clawTipY = reachY + Math.sin(clawAngle) * clawLength * lengthMultiplier;
+					p.line(clawBaseX, clawBaseY, clawTipX, clawTipY);
+				}
+			}
+
 			p.pop();
 		};
 
@@ -2435,6 +3030,10 @@ export function createCampaignSketch(
 				updateLaserSweeps(dt);
 				updateNeedleBursts(dt);
 				updateExecutionLatticeStrikes(dt);
+				updateForkLightningBursts(dt);
+				updateFlamethrowerCones(dt);
+				updateIceSpikes(dt);
+				updateVoidTendrils(dt);
 				updateEnemies(dt);
 				updateEnemyProjectiles(dt);
 				updateSniperLocks(dt);

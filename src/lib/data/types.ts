@@ -12,6 +12,8 @@ export type WeaponTrailStyle = 'none' | 'streak' | 'pulse';
 
 export type WeaponProjectileMotion = 'straight' | 'wave' | 'accelerate';
 
+export type ElementalInfusionType = 'fire' | 'lightning' | 'cold' | 'void';
+
 export type WeaponSpecialAttackKind =
 	| 'force-field'
 	| 'laser-sweep'
@@ -20,7 +22,11 @@ export type WeaponSpecialAttackKind =
 	| 'expanding-wave'
 	| 'sniper-line'
 	| 'shrapnel-burst'
-	| 'execution-lattice';
+	| 'execution-lattice'
+	| 'fork-lightning'
+	| 'flamethrower-cone'
+	| 'ice-shower'
+	| 'void-tendrils';
 
 export type WeaponTargetingKind = 'current-target' | 'furthest-target';
 
@@ -86,6 +92,7 @@ export interface WeaponAttackBehavior {
 	motion?: WeaponProjectileMotion;
 	pierceCount?: number;
 	impactRadius?: number;
+	requiredInfusion?: ElementalInfusionType;
 	special?:
 		| {
 				type: 'force-field';
@@ -137,6 +144,31 @@ export interface WeaponAttackBehavior {
 				dropHeight: number;
 				dropDuration: number;
 				markerSize: number;
+		  }
+		| {
+				type: 'fork-lightning';
+				duration: number;
+				branchWidth: number;
+		  }
+		| {
+				type: 'flamethrower-cone';
+				durationCycles: number;
+				tickInterval: number;
+				reach: number;
+				coneAngleDegrees: number;
+		  }
+		| {
+				type: 'ice-shower';
+				spikeCount: number;
+				durationCycles: number;
+				fallDuration: number;
+				impactRadius: number;
+		  }
+		| {
+				type: 'void-tendrils';
+				targetCount: number;
+				healPerHit: number;
+				duration: number;
 		  };
 	targeting: WeaponTargetingKind;
 }
@@ -175,6 +207,10 @@ export interface UtilityDefinition {
 		| {
 				type: 'shield-pool';
 				shieldAmount: number;
+		  }
+		| {
+				type: 'elemental-infuser';
+				element: ElementalInfusionType;
 		  }
 		| {
 				type: 'cycle-adjacency-reduction';

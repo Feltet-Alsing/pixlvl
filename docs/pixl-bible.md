@@ -683,6 +683,84 @@ Campaign 3 should continue using the Campaign 2 enemy roster:
 
 It should then add one new support enemy first, rather than replacing the existing identities.
 
+Campaign 3 should also introduce a new offensive build system:
+
+### Elemental infusions
+
+Campaign 3 weapons should begin introducing `elemental infusions` as a new activation dependency.
+
+The four elemental types are:
+
+- `fire`
+- `lightning`
+- `cold`
+- `void`
+
+Core rule:
+
+- an elemental weapon does not fire just because the sweep reaches its trigger column
+- it also requires a matching elemental infusion to be available
+- when it fires, it consumes one matching infusion
+
+This means Campaign 3 builds should start caring about two linked layers:
+
+- where elemental weapons are placed
+- whether the player is generating the right infusions to feed them
+
+### Infusers
+
+The first source of elemental infusions should be utility items called `Infusers`.
+
+Initial infuser set:
+
+- Fire Infuser
+- Lightning Infuser
+- Cold Infuser
+- Void Infuser
+
+Initial infuser rules:
+
+- each infuser is a `2x2` utility item
+- each infuser generates its own matching elemental infusion
+- elemental weapons then consume those infusions when triggered
+- all four infusers are `normal` rarity
+- infusers should be able to drop throughout all of Campaign 3
+
+### Initial elemental weapon rarity and drop rules
+
+The first elemental weapons introduced alongside the infusion system should all be `exotic` rarity.
+
+Initial rule:
+
+- the first wave of elemental payoff weapons all drop throughout Campaign 3 rather than being restricted to only late stages
+
+This means the early Campaign 3 loop should teach the new system directly:
+
+- infusers can begin appearing across the campaign
+- elemental weapons can also begin appearing across the campaign
+- players are expected to discover the generator-and-consumer relationship while progressing, not only at the very end
+
+Infusion lifecycle rules:
+
+- an infuser generates `1` matching infusion per cycle
+- infusions do not persist between cycles
+- all stored infusions dissipate when the current sweep cycle ends
+- within a single cycle, any number of infusions can be stored if the player generates them
+
+Consumption priority:
+
+- if multiple elemental weapons would consume the same elemental infusion during the same sweep window, priority should resolve from top to bottom
+- the highest placed weapon on the loadout gets first claim on the matching infusion
+- lower placed weapons only fire if enough matching infusions remain after higher placed weapons consume theirs
+
+Design intent:
+
+- Campaign 3 should deepen the loadout puzzle beyond raw shape fitting
+- elemental weapons should feel stronger or more specialized, but only when their support utilities are present
+- infusers and elemental weapons should create mini-engines inside the larger sweep system
+
+This should become a defining Campaign 3 mechanic rather than a one-off gimmick.
+
 ### New enemy: shielder
 
 The new shielder glitch should:

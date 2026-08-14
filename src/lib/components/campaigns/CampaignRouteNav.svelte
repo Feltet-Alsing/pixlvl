@@ -6,6 +6,10 @@
 	interface Props {
 		campaignId: number;
 		active: CampaignSection;
+		notificationCounts?: {
+			stats: number;
+			loadout: number;
+		};
 		loadoutTooltip?: string;
 		showCampaignMenuToggle?: boolean;
 		campaignMenuEnabled?: boolean;
@@ -21,6 +25,7 @@
 	let {
 		campaignId,
 		active,
+		notificationCounts = { stats: 0, loadout: 0 },
 		loadoutTooltip = '',
 		showCampaignMenuToggle = false,
 		campaignMenuEnabled = false,
@@ -36,15 +41,18 @@
 	let routeLinks = $derived([
 		{
 			key: 'arena',
-			label: 'Arena'
+			label: 'Arena',
+			badge: 0
 		},
 		{
 			key: 'loadout',
-			label: 'Loadout'
+			label: 'Loadout',
+			badge: notificationCounts.loadout
 		},
 		{
 			key: 'stats',
-			label: 'Stats'
+			label: 'Stats',
+			badge: notificationCounts.stats
 		}
 	] as const);
 </script>
@@ -59,6 +67,9 @@
 					href={resolve(`/campaigns/${campaignId}`)}
 				>
 					{route.label}
+					{#if route.badge > 0}
+						<span class="route-badge">{route.badge}</span>
+					{/if}
 				</a>
 			{:else}
 				<a
@@ -67,6 +78,9 @@
 					href={resolve(`/campaigns/${campaignId}/${route.key}`)}
 				>
 					{route.label}
+					{#if route.badge > 0}
+						<span class="route-badge">{route.badge}</span>
+					{/if}
 				</a>
 			{/if}
 		{/each}
@@ -141,5 +155,21 @@
 	.route-link.active {
 		border-color: rgba(103, 217, 111, 0.48);
 		background: rgba(103, 217, 111, 0.16);
+	}
+
+	.route-badge {
+		margin-left: 0.45rem;
+		min-width: 1.15rem;
+		height: 1.15rem;
+		padding: 0 0.32rem;
+		border-radius: 999px;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		background: rgba(255, 96, 96, 0.9);
+		color: #fff;
+		font-size: 0.68rem;
+		font-weight: 700;
+		line-height: 1;
 	}
 </style>
