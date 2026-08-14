@@ -764,8 +764,9 @@ export function createCampaignSketch(
 		};
 
 		const updateArenaMetrics = () => {
+			const verticalOffsetRatio = p.width <= 420 ? 0.06 : ARENA_VERTICAL_OFFSET_RATIO;
 			centerX = p.width / 2;
-			centerY = p.height * (0.5 - ARENA_VERTICAL_OFFSET_RATIO);
+			centerY = p.height * (0.5 - verticalOffsetRatio);
 			arenaRadius = FIXED_ARENA_RADIUS;
 		};
 
