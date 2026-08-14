@@ -36,6 +36,7 @@
 		onSelectGroup: (group: InventoryWeaponGroup) => void;
 		onRequestScrap?: (group: InventoryWeaponGroup) => void;
 		onGroupPointerDown: (event: PointerEvent, group: InventoryWeaponGroup) => void;
+		onGroupPick?: (group: InventoryWeaponGroup) => void;
 		formatGroupStatus: (group: InventoryWeaponGroup) => string;
 		isShapeCellFilled: (shape: WeaponShape, x: number, y: number) => boolean;
 	}
@@ -49,6 +50,7 @@
 		onSelectGroup,
 		onRequestScrap,
 		onGroupPointerDown,
+		onGroupPick,
 		formatGroupStatus,
 		isShapeCellFilled
 	}: Props = $props();
@@ -119,7 +121,10 @@
 								class="inventory-card-button"
 								type="button"
 								disabled={group.availableCount < 1}
-								onclick={() => onSelectGroup(group)}
+								onclick={() => {
+									onSelectGroup(group);
+									onGroupPick?.(group);
+								}}
 							>
 								<CampaignItemCard
 									definition={group.definition}
@@ -257,6 +262,7 @@
 		position: relative;
 		color: #f5f5f5;
 		cursor: grab;
+		touch-action: none;
 	}
 
 	.inventory-card-button {
@@ -269,6 +275,7 @@
 		background: transparent;
 		border: 0;
 		cursor: inherit;
+		touch-action: none;
 	}
 
 	.inventory-card-button:disabled {

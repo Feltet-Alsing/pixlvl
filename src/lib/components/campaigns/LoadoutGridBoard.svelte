@@ -37,8 +37,10 @@
 		previewCellStateByKey: Record<string, 'valid' | 'invalid'>;
 		weapons: LoadoutWeapon[];
 		draggedWeaponInstanceId: string | null;
+		mobilePlacementMode?: boolean;
 		onSelectWeapon: (weapon: LoadoutWeapon) => void;
 		onPlacedWeaponPointerDown: (event: PointerEvent, weapon: LoadoutWeapon) => void;
+		onGridCellPress?: (cell: GridCell) => void;
 		getWeaponGridArea: (weapon: LoadoutWeapon) => string;
 		getShapeGridTemplate: (shape: WeaponShape) => string;
 		isShapeCellFilled: (shape: WeaponShape, x: number, y: number) => boolean;
@@ -53,8 +55,10 @@
 		previewCellStateByKey,
 		weapons,
 		draggedWeaponInstanceId,
+		mobilePlacementMode = false,
 		onSelectWeapon,
 		onPlacedWeaponPointerDown,
+		onGridCellPress,
 		getWeaponGridArea,
 		getShapeGridTemplate,
 		isShapeCellFilled,
@@ -78,11 +82,18 @@
 				data-grid-x={cell.x}
 				data-grid-y={cell.y}
 				role="gridcell"
-				tabindex="-1"
+				tabindex={mobilePlacementMode ? 0 : -1}
 				aria-label={`Loadout cell ${cell.x}, ${cell.y}`}
 				class:occupied={occupiedCellKeys[cell.key] && !previewCellStateByKey[cell.key]}
 				class:preview-valid={previewCellStateByKey[cell.key] === 'valid'}
 				class:preview-invalid={previewCellStateByKey[cell.key] === 'invalid'}
+				onclick={() => mobilePlacementMode && onGridCellPress?.(cell)}
+				onkeydown={(event) => {
+					if ((event.key === 'Enter' || event.key === ' ') && mobilePlacementMode) {
+						event.preventDefault();
+						onGridCellPress?.(cell);
+					}
+				}}
 			></div>
 		{/each}
 	</div>
@@ -123,6 +134,7 @@
 		position: relative;
 		width: min(100%, 56rem);
 		margin: 0 auto;
+		touch-action: none;
 		--board-gap: 0.22rem;
 		--shape-gap: 0.35rem;
 		--cell-radius: 0.4rem;
@@ -211,6 +223,7 @@
 		-webkit-appearance: none;
 		color: #f5f5f5;
 		cursor: grab;
+		touch-action: none;
 	}
 
 	.placed-weapon::after {

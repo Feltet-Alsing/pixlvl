@@ -98,8 +98,11 @@
 		exotic: 500,
 		legendary: 5000
 	} as const;
+	const MOBILE_LAYOUT_BREAKPOINT = 860;
 
 	let { data, form }: PageProps = $props();
+	let innerWidth = $state<number | null>(null);
+	let isMobileLayout = $derived(innerWidth !== null && innerWidth <= MOBILE_LAYOUT_BREAKPOINT);
 	let draggedWeaponInstanceId = $state<string | null>(null);
 	let draggedWeaponAnchor = $state<{ x: number; y: number } | null>(null);
 	let draggedWeaponRotation = $state<LoadoutRotation>(0);
@@ -111,6 +114,7 @@
 	let showUnsavedToast = $state(false);
 	let showRotationTip = $state(false);
 	let hasSeenRotationTip = $state(false);
+	let isMobileItemPaneOpen = $state(false);
 	let selectedPlacedWeaponInstanceId = $state<string | null>(null);
 	let selectedInventoryDefinitionId = $state<string | null>(null);
 	let scrapDialog = $state<ScrapDialogState | null>(null);
@@ -314,6 +318,16 @@
 					null)
 			: null
 	);
+	let mobileRotateInstanceId = $derived(
+		draggedWeaponInstanceId ?? selectedPlacedWeaponInstanceId ?? null
+	);
+	let mobileRotateWeapon = $derived(
+		mobileRotateInstanceId
+			? (loadoutWeapons.find((weapon) => weapon.weaponInstanceId === mobileRotateInstanceId) ??
+				inventoryWeapons.find((weapon) => weapon.weaponInstanceId === mobileRotateInstanceId) ??
+				null)
+			: null
+	);
 	let inventoryWeaponGroups = $derived.by(() => buildInventoryWeaponGroups(inventoryWeapons));
 	let filteredInventoryWeaponGroups = $derived.by(() =>
 		filterInventoryWeaponGroups(inventoryWeaponGroups, inventorySearch)
@@ -470,6 +484,12 @@
 		}
 
 		hasSeenRotationTip = localStorage.getItem('pixlvl-loadout-rotation-tip-seen') === 'true';
+	});
+
+	$effect(() => {
+		if (!isMobileLayout) {
+			isMobileItemPaneOpen = false;
+		}
 	});
 
 	function getInitialLoadoutPlacements() {
@@ -754,6 +774,23 @@
 		clearDragState();
 	}
 
+	function pickWeaponForMobilePlacement(weaponInstanceId: string, rotation: LoadoutRotation) {
+		const ownedWeapon = ownedWeaponByInstanceId[weaponInstanceId];
+		const definition = ownedWeapon ? weaponDefinitionById[ownedWeapon.definitionId] : null;
+
+		if (!ownedWeapon || !definition) {
+			return;
+		}
+
+		draggedWeaponInstanceId = weaponInstanceId;
+		draggedWeaponRotation = rotation;
+		draggedWeaponAnchor = getDefaultDragAnchor(rotateWeaponShape(definition.shape, rotation));
+		draggedWeaponPointerId = null;
+		hoveredGridOrigin = null;
+		isInventoryDropTargetActive = false;
+		showRotationTip = false;
+	}
+
 	function resetDraftLoadout() {
 		draftLoadoutPlacements = cloneLoadoutPlacements(savedLoadoutPlacements);
 		clearDragState();
@@ -770,6 +807,10 @@
 		anchor: { x: number; y: number },
 		rotation: LoadoutRotation
 	) {
+		if (event.cancelable) {
+			event.preventDefault();
+		}
+
 		draggedWeaponInstanceId = weaponInstanceId;
 		draggedWeaponAnchor = anchor;
 		draggedWeaponRotation = rotation;
@@ -808,6 +849,10 @@
 			return;
 		}
 
+		if (event.cancelable) {
+			event.preventDefault();
+		}
+
 		const cell = getGridCellFromPoint(event.clientX, event.clientY);
 
 		if (cell) {
@@ -833,6 +878,10 @@
 
 	function finishPointerDrag(event: PointerEvent) {
 		if (!draggedWeaponInstanceId) {
+			return;
+		}
+
+		if (isMobileLayout && draggedWeaponPointerId === null) {
 			return;
 		}
 
@@ -866,6 +915,11 @@
 		hoveredGridOrigin = null;
 		isInventoryDropTargetActive = false;
 		showRotationTip = false;
+	}
+
+	function cancelMobilePlacement() {
+		clearDragState();
+		selectedInventoryDefinitionId = null;
 	}
 
 	function rotateDraggedWeapon() {
@@ -966,6 +1020,11 @@
 	function beginPlacedWeaponDrag(event: PointerEvent, weapon: LoadoutWeapon) {
 		selectedPlacedWeaponInstanceId = weapon.weaponInstanceId;
 		selectedInventoryDefinitionId = null;
+
+		if (isMobileLayout) {
+			isMobileItemPaneOpen = false;
+		}
+
 		beginWeaponDrag(
 			event,
 			weapon.weaponInstanceId,
@@ -989,6 +1048,11 @@
 
 		selectedPlacedWeaponInstanceId = null;
 		selectedInventoryDefinitionId = weapon.definitionId;
+
+		if (isMobileLayout) {
+			isMobileItemPaneOpen = false;
+		}
+
 		scrollLoadoutGridIntoView();
 		beginWeaponDrag(event, weapon.weaponInstanceId, anchor, 0);
 	}
@@ -1009,6 +1073,39 @@
 		beginInventoryWeaponDrag(event, weapon);
 	}
 
+	function handleMobileGroupPick(group: InventoryWeaponGroup) {
+		if (!isMobileLayout || !group.representativeWeaponInstanceId || group.availableCount < 1) {
+			return;
+		}
+
+		const weapon = inventoryWeapons.find(
+			(candidate) => candidate.weaponInstanceId === group.representativeWeaponInstanceId
+		);
+
+		if (!weapon) {
+			return;
+		}
+
+		selectedPlacedWeaponInstanceId = null;
+		selectedInventoryDefinitionId = group.definitionId;
+		pickWeaponForMobilePlacement(weapon.weaponInstanceId, 0);
+		isMobileItemPaneOpen = false;
+	}
+
+	function handleMobileGridCellPress(cell: GridCell) {
+		if (!isMobileLayout || !draggedWeaponInstanceId) {
+			return;
+		}
+
+		const anchor = draggedWeaponAnchor ?? { x: 0, y: 0 };
+		placeWeaponAt(
+			draggedWeaponInstanceId,
+			cell.x - anchor.x,
+			cell.y - anchor.y,
+			draggedWeaponRotation
+		);
+	}
+
 	function selectPlacedWeapon(weapon: LoadoutWeapon) {
 		selectedPlacedWeaponInstanceId = weapon.weaponInstanceId;
 		selectedInventoryDefinitionId = null;
@@ -1025,6 +1122,7 @@
 </svelte:head>
 
 <svelte:window
+	bind:innerWidth
 	onkeydown={handleWindowKeydown}
 	onpointermove={handlePointerMove}
 	onpointerup={finishPointerDrag}
@@ -1114,6 +1212,34 @@
 					</div>
 				</div>
 
+				{#if isMobileLayout}
+					<div class="mobile-loadout-actions">
+						<button class="ghost" type="button" onclick={() => (isMobileItemPaneOpen = true)}>
+							Items
+						</button>
+						{#if mobileRotateInstanceId && mobileRotateWeapon}
+							<button
+								class="save"
+								type="button"
+								onclick={() => {
+									if (draggedWeaponInstanceId && draggedWeaponInstanceId === mobileRotateInstanceId) {
+										rotateDraggedWeapon();
+									} else {
+										rotatePlacedWeapon(mobileRotateInstanceId);
+									}
+								}}
+							>
+								Rotate {mobileRotateWeapon.name}
+							</button>
+							{#if draggedWeaponInstanceId}
+								<button class="ghost" type="button" onclick={cancelMobilePlacement}>
+									Cancel
+								</button>
+							{/if}
+						{/if}
+					</div>
+				{/if}
+
 				{#if showSaveWarning}
 					<LoadoutSaveDialog
 						stage={liveRunStage}
@@ -1136,8 +1262,10 @@
 					{previewCellStateByKey}
 					weapons={visiblePlacedWeapons}
 					{draggedWeaponInstanceId}
+					mobilePlacementMode={isMobileLayout && Boolean(draggedWeaponInstanceId)}
 					onSelectWeapon={selectPlacedWeapon}
 					onPlacedWeaponPointerDown={beginPlacedWeaponDrag}
+					onGridCellPress={handleMobileGridCellPress}
 					{getWeaponGridArea}
 					{getShapeGridTemplate}
 					{isShapeCellFilled}
@@ -1154,7 +1282,15 @@
 				/>
 			</div>
 
-			<aside class="panel inventory-panel" aria-label="Loadout toolbox">
+			<aside
+				class={[
+					'panel',
+					'inventory-panel',
+					isMobileLayout ? 'mobile-item-pane' : '',
+					isMobileLayout && isMobileItemPaneOpen ? 'open' : ''
+				]}
+				aria-label="Loadout toolbox"
+			>
 				<LoadoutInventoryToolbox
 					searchValue={inventorySearch}
 					onSearchInput={(value) => (inventorySearch = value)}
@@ -1164,10 +1300,20 @@
 					onSelectGroup={selectInventoryGroup}
 					onRequestScrap={openScrapDialog}
 					onGroupPointerDown={beginInventoryWeaponGroupDrag}
+					onGroupPick={handleMobileGroupPick}
 					formatGroupStatus={formatInventoryGroupStatus}
 					{isShapeCellFilled}
 				/>
 			</aside>
+
+			{#if isMobileLayout && isMobileItemPaneOpen}
+				<button
+					class="mobile-pane-backdrop"
+					type="button"
+					aria-label="Close item pane"
+					onclick={() => (isMobileItemPaneOpen = false)}
+				></button>
+			{/if}
 		</section>
 	</div>
 
@@ -1378,6 +1524,7 @@
 	.grid-panel {
 		justify-items: stretch;
 		align-content: start;
+		touch-action: none;
 	}
 
 	.inventory-panel {
@@ -1389,6 +1536,10 @@
 		overflow: visible;
 		grid-template-rows: minmax(0, 1fr);
 		gap: 0.75rem;
+	}
+
+	.mobile-loadout-actions {
+		display: none;
 	}
 
 	.save,
@@ -1593,11 +1744,50 @@
 	}
 
 	@media (max-width: 860px) {
+		.mobile-loadout-actions {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.5rem;
+			align-items: center;
+		}
+
+		.mobile-loadout-actions .save,
+		.mobile-loadout-actions .ghost {
+			min-height: 2rem;
+			padding: 0 0.72rem;
+		}
+
 		.inventory-panel {
 			position: static;
 			height: auto;
 			max-height: none;
 			overflow: visible;
+		}
+
+		.inventory-panel.mobile-item-pane {
+			position: fixed;
+			top: 50%;
+			right: 0.75rem;
+			bottom: auto;
+			z-index: 35;
+			width: min(20rem, calc(100vw - 1.5rem));
+			max-height: min(78dvh, 40rem);
+			transform: translate3d(calc(100% + 1rem), -50%, 0);
+			transition: transform 180ms ease;
+			overflow: hidden;
+		}
+
+		.inventory-panel.mobile-item-pane.open {
+			transform: translate3d(0, -50%, 0);
+		}
+
+		.mobile-pane-backdrop {
+			position: fixed;
+			inset: 0;
+			z-index: 34;
+			border: 0;
+			padding: 0;
+			background: rgba(0, 0, 0, 0.42);
 		}
 
 		.loadout-toolbar-row,
@@ -1639,6 +1829,13 @@
 		.panel {
 			padding: 0.65rem;
 			gap: 0.55rem;
+		}
+	}
+
+	@media (max-width: 480px) {
+		.inventory-panel.mobile-item-pane {
+			right: 0.5rem;
+			width: min(18.5rem, calc(100vw - 1rem));
 		}
 	}
 </style>
