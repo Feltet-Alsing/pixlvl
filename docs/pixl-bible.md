@@ -62,6 +62,7 @@ The arena UI is intentionally overlay-driven:
 
 - combat remains the main visual focus
 - stats can be opened as an overlay
+- the sweeper/loadout preview panel shows actual weapon damage dealt in the most recently completed sweep cycle
 - campaign stage selection lives in a side drawer
 - management-heavy systems live on dedicated routes
 
@@ -173,9 +174,17 @@ The loadout is a shape-based grid, not a list of slots.
 Current rules:
 
 - each weapon occupies its exact shape
+- equipped weapons can be rotated freely in `90°` steps
 - weapons cannot overlap
 - weapons must fit inside the current grid bounds
 - build strength depends on both what the player owns and how efficiently it fits
+
+Rotation rules:
+
+- rotation is applied per equipped copy, not per weapon definition
+- all pieces support the full `0°`, `90°`, `180°`, `270°` rotation set, even if a piece is mirrored or symmetric
+- rotation changes both fit and combat timing, because the sweep still keys off the leftmost occupied column of the rotated shape
+- the loadout editor should teach this with a one-time first-use prompt when the player first picks up a piece
 
 This gives `pixlvl` its strongest current identity:
 

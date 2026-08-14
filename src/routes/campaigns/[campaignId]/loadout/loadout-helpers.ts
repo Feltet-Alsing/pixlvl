@@ -1,8 +1,14 @@
 import { isUtilityDefinition, isWeaponDefinition } from '$lib/data';
+import {
+	getLoadoutRotationLabel,
+	getPlacementRotation,
+	rotateWeaponShape
+} from '$lib/game/loadout-rotation';
 
 import type {
 	LoadoutItemDefinition,
 	LoadoutPlacement,
+	LoadoutRotation,
 	OwnedWeaponInstance,
 	UtilityDefinition,
 	WeaponDefinition,
@@ -23,6 +29,7 @@ export interface LoadoutWeapon {
 	role: string;
 	x: number;
 	y: number;
+	rotation: LoadoutRotation;
 }
 
 export interface InventoryWeapon {
@@ -91,7 +98,10 @@ export function getGridCellKey(x: number, y: number) {
 }
 
 export function cloneLoadoutPlacements(placements: LoadoutPlacement[]) {
-	return placements.map((placement) => ({ ...placement }));
+	return placements.map((placement) => ({
+		...placement,
+		rotation: getPlacementRotation(placement)
+	}));
 }
 
 export function buildLoadoutWeapons(
@@ -115,14 +125,15 @@ export function buildLoadoutWeapons(
 			category: isWeaponDefinition(definition) ? 'weapon' : 'utility',
 			name: definition.name,
 			rarity: definition.rarity,
-			shape: definition.shape,
+			shape: rotateWeaponShape(definition.shape, getPlacementRotation(placement)),
 			baseDamage: isWeaponDefinition(definition) ? definition.baseDamage : undefined,
 			attack: isWeaponDefinition(definition) ? definition.attack : undefined,
 			activationKind: isUtilityDefinition(definition) ? definition.activationKind : undefined,
 			effectSummary: getLoadoutItemEffectSummary(definition),
 			role: definition.role,
 			x: placement.x,
-			y: placement.y
+			y: placement.y,
+			rotation: getPlacementRotation(placement)
 		});
 	}
 
@@ -284,11 +295,25 @@ export function getDefaultDragAnchor(shape: WeaponShape) {
 	return { x: topLeftCell[0], y: topLeftCell[1] };
 }
 
+export function getShapeLabel(
+	shape: { width: number; height: number; cells: Array<[number, number]> },
+	rotation?: LoadoutRotation
+) {
+	const baseLabel = `${shape.width}x${shape.height} · ${shape.cells.length} tiles`;
+	return rotation === undefined ? baseLabel : `${baseLabel} · ${getLoadoutRotationLabel(rotation)}`;
+}
+
 function clamp(value: number, min: number, max: number) {
 	return Math.min(Math.max(value, min), max);
 }
 
-export function getPlacedWeaponDragAnchor(event: DragEvent, shape: WeaponShape) {
+type DragPointerLikeEvent = {
+	clientX: number;
+	clientY: number;
+	currentTarget: EventTarget | null;
+};
+
+export function getPlacedWeaponDragAnchor(event: DragPointerLikeEvent, shape: WeaponShape) {
 	const target = event.currentTarget;
 
 	if (!(target instanceof HTMLElement)) {
@@ -310,7 +335,7 @@ export function getPlacedWeaponDragAnchor(event: DragEvent, shape: WeaponShape) 
 }
 
 export function getDragAnchorFromGrid(
-	event: DragEvent,
+	event: DragPointerLikeEvent,
 	shape: WeaponShape,
 	gridElement: HTMLElement,
 	fallback: { x: number; y: number }

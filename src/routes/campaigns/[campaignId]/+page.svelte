@@ -139,7 +139,7 @@
 	let previewLoadoutRows = $derived.by(() => buildPreviewLoadoutRows(currentLoadoutRows));
 	let loadoutSignature = $derived(
 		currentLoadoutRows
-			.map((weapon) => `${weapon.weaponInstanceId}:${weapon.x}:${weapon.y}`)
+			.map((weapon) => `${weapon.weaponInstanceId}:${weapon.x}:${weapon.y}:${weapon.rotation}`)
 			.join('|')
 	);
 	let previewPixlState = $derived(livePixlState ?? data.gameState?.pixlState ?? null);
@@ -191,6 +191,32 @@
 	let resultsEmptyLabel = $derived(`No item drops. +${combatOverlay.waveXp} XP earned.`);
 	let loadoutTooltip = $derived(buildLoadoutTooltip(currentLoadoutRows));
 	let defaultCampaignMenuOpen = $derived(page.url.searchParams.get('menu') !== 'closed');
+	let averageLevelDamageTotal = $derived.by(() => {
+		if (combatOverlay.weaponDamageRows.length === 0) {
+			return 0;
+		}
+
+		return combatOverlay.weaponDamageRows.reduce(
+			(total, row) => total + row.averageDamagePerCycle,
+			0
+		);
+	});
+	let averageLevelDamageShare = $derived.by(() => {
+		if (combatOverlay.weaponDamageRows.length === 0) {
+			return 0;
+		}
+
+		return 100 / combatOverlay.weaponDamageRows.length;
+	});
+
+	function formatDamageValue(value: number) {
+		return Number.isInteger(value)
+			? value.toString()
+			: value.toLocaleString(undefined, {
+					minimumFractionDigits: 0,
+					maximumFractionDigits: 2
+				});
+	}
 
 	$effect(() => {
 		void data.campaignId;
@@ -460,6 +486,10 @@
 			<span>Equipped</span>
 			<strong>{currentLoadoutRows.length}</strong>
 		</div>
+		<div class="loadout-preview-meta summary-row">
+			<span>Avg lvl share</span>
+			<strong>{formatDamageValue(averageLevelDamageShare)}%</strong>
+		</div>
 		{#if previewLoadoutRows.length > 0}
 			<div class="loadout-preview-list" aria-label="Equipped weapons sorted by rarity">
 				{#each previewLoadoutRows as weapon (weapon.weaponInstanceId)}
@@ -475,6 +505,41 @@
 		{:else}
 			<p class="loadout-preview-empty">No equipped weapons.</p>
 		{/if}
+		<div class="loadout-preview-damage-block" aria-label="Weapon damage overview">
+			<div class="loadout-preview-damage-header compact-heading">
+				<p class="eyebrow">Damage overview</p>
+				<p class="upgrade-note">
+					Showing actual damage dealt across the whole level, averaged per completed cycle.
+				</p>
+			</div>
+			{#if combatOverlay.latestCompletedCycle > 0 && combatOverlay.weaponDamageRows.length > 0}
+				<div class="loadout-preview-damage-list" role="list" aria-label="Weapon damage dealt">
+					{#each combatOverlay.weaponDamageRows as row (row.weaponInstanceId)}
+						<div
+							class={`summary-row loadout-preview-damage-row rarity-${row.rarity}`}
+							role="listitem"
+						>
+							<div class="loadout-preview-copy">
+								<strong>{row.name}</strong>
+								<span>{row.placement}</span>
+							</div>
+							<div class="loadout-preview-damage-metrics">
+								<strong
+									>{formatDamageValue(
+										averageLevelDamageTotal > 0
+											? (row.averageDamagePerCycle / averageLevelDamageTotal) * 100
+											: 0
+									)}%</strong
+								>
+								<span>{formatDamageValue(row.averageDamagePerCycle)} avg / cycle</span>
+							</div>
+						</div>
+					{/each}
+				</div>
+			{:else}
+				<p class="loadout-preview-empty">Complete one full sweep cycle to see weapon damage.</p>
+			{/if}
+		</div>
 		<div class="loadout-preview-canvas-shell">
 			{#key loadoutPreviewRemountKey}
 				<P5Canvas class="preview-canvas-frame" sketch={loadoutSweepPreviewSketch} />
@@ -1167,7 +1232,7 @@
 		min-height: 0;
 		padding: 0.9rem;
 		display: grid;
-		grid-template-rows: auto auto auto minmax(0, 1fr);
+		grid-template-rows: auto auto auto auto minmax(0, 1fr) minmax(12rem, 16rem);
 		gap: 0.75rem;
 		overflow: hidden;
 	}
@@ -1188,7 +1253,32 @@
 		overflow: auto;
 	}
 
+	.loadout-preview-damage-block {
+		display: grid;
+		grid-template-rows: auto minmax(0, 1fr);
+		gap: 0.45rem;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.loadout-preview-damage-header {
+		display: grid;
+		gap: 0.18rem;
+	}
+
+	.loadout-preview-damage-list {
+		display: grid;
+		gap: 0.45rem;
+		min-height: 0;
+		overflow: auto;
+	}
+
 	.loadout-preview-row {
+		align-items: center;
+		padding: 0.55rem 0.7rem;
+	}
+
+	.loadout-preview-damage-row {
 		align-items: center;
 		padding: 0.55rem 0.7rem;
 	}
@@ -1199,11 +1289,23 @@
 		min-width: 0;
 	}
 
+	.loadout-preview-damage-metrics {
+		display: grid;
+		gap: 0.08rem;
+		justify-items: end;
+		text-align: right;
+	}
+
+	.loadout-preview-damage-metrics strong {
+		font-size: 0.88rem;
+	}
+
 	.loadout-preview-copy strong {
 		font-size: 0.88rem;
 	}
 
 	.loadout-preview-copy span,
+	.loadout-preview-damage-metrics span,
 	.loadout-preview-coords,
 	.loadout-preview-empty {
 		font-size: 0.72rem;

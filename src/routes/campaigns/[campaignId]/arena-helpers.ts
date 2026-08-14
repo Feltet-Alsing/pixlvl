@@ -1,4 +1,12 @@
-import type { LoadoutItemDefinition, OwnedWeaponInstance, WeaponDefinition } from '$lib/data/types';
+import { getLoadoutRotationLabel } from '$lib/game/loadout-rotation';
+
+import type {
+	LoadoutItemDefinition,
+	LoadoutPlacement,
+	LoadoutRotation,
+	OwnedWeaponInstance,
+	WeaponDefinition
+} from '$lib/data/types';
 import type { PageProps } from './$types';
 
 export interface CombatOverlayState {
@@ -17,6 +25,15 @@ export interface CombatOverlayState {
 		swarmers: number;
 		tankers: number;
 	};
+	latestCompletedCycle: number;
+	weaponDamageRows: Array<{
+		weaponInstanceId: string;
+		definitionId: string;
+		name: string;
+		rarity: WeaponDefinition['rarity'];
+		placement: string;
+		averageDamagePerCycle: number;
+	}>;
 	status: 'running' | 'cleared' | 'defeated' | 'complete';
 }
 
@@ -36,6 +53,7 @@ export interface LoadoutRow {
 	rarity: WeaponDefinition['rarity'];
 	x: number;
 	y: number;
+	rotation: LoadoutRotation;
 }
 
 export interface CampaignStageSummary {
@@ -76,6 +94,8 @@ export function createInitialCombatOverlay(pageData: PageProps['data']): CombatO
 		statusTimerRemaining: 0,
 		remainingEnemies: composition.biters + composition.swarmers + composition.tankers,
 		composition,
+		latestCompletedCycle: 0,
+		weaponDamageRows: [],
 		status: 'running'
 	};
 }
@@ -129,7 +149,7 @@ export function buildUnlockedStages(
 
 export function buildCurrentLoadoutRows(
 	ownedWeapons: OwnedWeaponInstance[],
-	loadoutPlacements: Array<{ weaponInstanceId: string; x: number; y: number }>,
+	loadoutPlacements: LoadoutPlacement[],
 	weaponDefinitionById: Record<string, LoadoutItemDefinition>
 ) {
 	const ownedWeaponById = Object.fromEntries(
@@ -151,7 +171,8 @@ export function buildCurrentLoadoutRows(
 				name: definition.name,
 				rarity: definition.rarity,
 				x: placement.x,
-				y: placement.y
+				y: placement.y,
+				rotation: placement.rotation
 			} satisfies LoadoutRow;
 		})
 		.filter((entry): entry is LoadoutRow => entry !== null)
@@ -198,7 +219,11 @@ export function buildRewardDropRows(
 
 export function buildLoadoutTooltip(currentLoadoutRows: LoadoutRow[]) {
 	return (
-		currentLoadoutRows.map((weapon) => `${weapon.name} (${weapon.x}, ${weapon.y})`).join('\n') ||
-		'No equipped items'
+		currentLoadoutRows
+			.map(
+				(weapon) =>
+					`${weapon.name} (${weapon.x}, ${weapon.y}) · ${getLoadoutRotationLabel(weapon.rotation)}`
+			)
+			.join('\n') || 'No equipped items'
 	);
 }

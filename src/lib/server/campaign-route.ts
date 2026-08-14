@@ -26,6 +26,7 @@ import {
 } from '$lib/server/shop';
 
 import { getCampaignRouteNotificationCounts } from '$lib/game/notifications';
+import { getPlacementRotation, rotateWeaponShape } from '$lib/game/loadout-rotation';
 
 import type { LoadoutItemDefinition, LoadoutPlacement, OwnedWeaponInstance } from '$lib/data/types';
 
@@ -107,12 +108,13 @@ function buildOwnedWeaponById(ownedWeapons: OwnedWeaponInstance[]) {
 
 function isPlacementWithinBounds(
 	definition: LoadoutItemDefinition,
+	rotation: LoadoutPlacement['rotation'],
 	x: number,
 	y: number,
 	columnCount: number,
 	rowCount: number
 ) {
-	return definition.shape.cells.every(([cellX, cellY]) => {
+	return rotateWeaponShape(definition.shape, rotation).cells.every(([cellX, cellY]) => {
 		const gridX = x + cellX;
 		const gridY = y + cellY;
 
@@ -125,6 +127,7 @@ function placementsOverlap(
 	placements: LoadoutPlacement[],
 	currentInstanceId: string,
 	definition: LoadoutItemDefinition,
+	rotation: LoadoutPlacement['rotation'],
 	x: number,
 	y: number
 ) {
@@ -143,13 +146,16 @@ function placementsOverlap(
 		}
 
 		const placedDefinition = getLoadoutItemDefinition(ownedWeapon.definitionId);
+		const placedShape = rotateWeaponShape(placedDefinition.shape, getPlacementRotation(placement));
 
-		for (const [cellX, cellY] of placedDefinition.shape.cells) {
+		for (const [cellX, cellY] of placedShape.cells) {
 			occupied.add(`${placement.x + cellX}:${placement.y + cellY}`);
 		}
 	}
 
-	return definition.shape.cells.some(([cellX, cellY]) => occupied.has(`${x + cellX}:${y + cellY}`));
+	return rotateWeaponShape(definition.shape, rotation).cells.some(([cellX, cellY]) =>
+		occupied.has(`${x + cellX}:${y + cellY}`)
+	);
 }
 
 function validateLoadoutPlacements(
@@ -192,7 +198,18 @@ function validateLoadoutPlacements(
 			equippedLegendaryDefinitionIds.add(definition.id);
 		}
 
-		if (!isPlacementWithinBounds(definition, placement.x, placement.y, columnCount, rowCount)) {
+		const rotation = getPlacementRotation(placement);
+
+		if (
+			!isPlacementWithinBounds(
+				definition,
+				rotation,
+				placement.x,
+				placement.y,
+				columnCount,
+				rowCount
+			)
+		) {
 			return {
 				ok: false,
 				error: `A weapon does not fit inside the ${rowCount} x ${columnCount} grid.`
@@ -205,6 +222,7 @@ function validateLoadoutPlacements(
 				placements,
 				placement.weaponInstanceId,
 				definition,
+				rotation,
 				placement.x,
 				placement.y
 			)
@@ -274,7 +292,8 @@ function parseLoadoutPlacementsFromFormData(formData: FormData) {
 				return {
 					weaponInstanceId: entry.weaponInstanceId,
 					x: entry.x,
-					y: entry.y
+					y: entry.y,
+					rotation: getPlacementRotation(entry)
 				} satisfies LoadoutPlacement;
 			})
 			.filter((entry): entry is LoadoutPlacement => entry !== null);
@@ -302,6 +321,9 @@ export async function placeLoadoutWeaponForUser(
 	const weaponInstanceId = formData.get('weaponInstanceId');
 	const x = parseGridCoordinate(formData.get('x'), columnCount);
 	const y = parseGridCoordinate(formData.get('y'), rowCount);
+	const rotation = getPlacementRotation({
+		rotation: formData.get('rotation') ? Number(formData.get('rotation')) : 0
+	});
 
 	if (typeof weaponInstanceId !== 'string' || x === null || y === null) {
 		return { ok: false, status: 400, data: { loadoutError: 'Invalid loadout placement request.' } };
@@ -329,7 +351,8 @@ export async function placeLoadoutWeaponForUser(
 		{
 			weaponInstanceId,
 			x,
-			y
+			y,
+			rotation
 		}
 	];
 	const result = await persistLoadoutPlacementsForUser(userId, nextPlacements);

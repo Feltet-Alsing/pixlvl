@@ -7,6 +7,12 @@
 	import LoadoutSummaryStrip from '$lib/components/campaigns/LoadoutSummaryStrip.svelte';
 	import LoadoutWeaponDetailsPane from '$lib/components/campaigns/LoadoutWeaponDetailsPane.svelte';
 	import P5Canvas from '$lib/components/P5Canvas.svelte';
+	import {
+		cycleLoadoutRotation,
+		getLoadoutRotationLabel,
+		getPlacementRotation,
+		rotateWeaponShape
+	} from '$lib/game/loadout-rotation';
 	import { createBaselineUpgradeablePixlState } from '$lib/game/upgrades';
 	import { createCampaignSketch } from '$lib/p5/campaign-1-sketch';
 	import {
@@ -24,6 +30,7 @@
 		getDragAnchorFromGrid,
 		getGridCellKey,
 		getPlacedWeaponDragAnchor,
+		getShapeLabel,
 		getShapeGridTemplate,
 		getWeaponCycleRate,
 		getWeaponGridArea,
@@ -37,7 +44,7 @@
 		type LiveCombatProgress,
 		type LoadoutWeapon
 	} from './loadout-helpers';
-	import type { LoadoutItemDefinition, LoadoutPlacement } from '$lib/data/types';
+	import type { LoadoutItemDefinition, LoadoutPlacement, LoadoutRotation } from '$lib/data/types';
 	import type { PageProps } from './$types';
 
 	const baselinePixlProgression = createBaselineUpgradeablePixlState();
@@ -68,8 +75,10 @@
 		category: 'weapon' | 'utility';
 		role: string;
 		shapeLabel: string;
+		rotationLabel?: string;
 		summary: string;
 		stats: Array<{ label: string; value: string }>;
+		canRotate?: boolean;
 	}
 
 	interface ScrapDialogState {
@@ -93,12 +102,17 @@
 	let { data, form }: PageProps = $props();
 	let draggedWeaponInstanceId = $state<string | null>(null);
 	let draggedWeaponAnchor = $state<{ x: number; y: number } | null>(null);
+	let draggedWeaponRotation = $state<LoadoutRotation>(0);
+	let draggedWeaponPointerId = $state<number | null>(null);
 	let hoveredGridOrigin = $state<{ x: number; y: number } | null>(null);
 	let isInventoryDropTargetActive = $state(false);
 	let inventorySearch = $state('');
 	let showSaveWarning = $state(false);
 	let showUnsavedToast = $state(false);
-	let selectedWeaponDetails = $state<SelectedWeaponDetails | null>(null);
+	let showRotationTip = $state(false);
+	let hasSeenRotationTip = $state(false);
+	let selectedPlacedWeaponInstanceId = $state<string | null>(null);
+	let selectedInventoryDefinitionId = $state<string | null>(null);
 	let scrapDialog = $state<ScrapDialogState | null>(null);
 	let scrapQuantity = $state(1);
 	let confirmHighRarityScrap = $state(false);
@@ -108,6 +122,7 @@
 	let liveCombatProgressOverride = $state<LiveCombatProgress | null>(null);
 	let previousHasUnsavedChanges = false;
 	let unsavedToastTimeout: ReturnType<typeof setTimeout> | null = null;
+	let rotationTipTimeout: ReturnType<typeof setTimeout> | null = null;
 	let livePixlState: LivePixlState | null = $derived.by(() => {
 		const basePixlState = data.gameState?.pixlState ?? null;
 
@@ -194,6 +209,11 @@
 			? weaponDefinitionById[ownedWeaponByInstanceId[draggedWeaponInstanceId]?.definitionId]
 			: null
 	);
+	let draggedWeaponShape = $derived(
+		draggedWeaponDefinition
+			? rotateWeaponShape(draggedWeaponDefinition.shape, draggedWeaponRotation)
+			: null
+	);
 	let occupiedCellKeys = $derived.by(() => {
 		const occupied: Record<string, true> = {};
 
@@ -214,7 +234,7 @@
 	let previewCellStateByKey = $derived.by(() => {
 		const preview: Record<string, 'valid' | 'invalid'> = {};
 
-		if (!draggedWeaponInstanceId || !draggedWeaponDefinition || !hoveredGridOrigin) {
+		if (!draggedWeaponInstanceId || !draggedWeaponShape || !hoveredGridOrigin) {
 			return preview;
 		}
 
@@ -224,7 +244,7 @@
 			hoveredGridOrigin.y
 		);
 
-		for (const [shapeX, shapeY] of draggedWeaponDefinition.shape.cells) {
+		for (const [shapeX, shapeY] of draggedWeaponShape.cells) {
 			const gridX = hoveredGridOrigin.x + shapeX;
 			const gridY = hoveredGridOrigin.y + shapeY;
 
@@ -298,6 +318,106 @@
 	let filteredInventoryWeaponGroups = $derived.by(() =>
 		filterInventoryWeaponGroups(inventoryWeaponGroups, inventorySearch)
 	);
+	let selectedPlacedWeapon = $derived(
+		selectedPlacedWeaponInstanceId
+			? (loadoutWeapons.find(
+					(weapon) => weapon.weaponInstanceId === selectedPlacedWeaponInstanceId
+				) ?? null)
+			: null
+	);
+	let selectedInventoryGroup = $derived(
+		selectedInventoryDefinitionId
+			? (inventoryWeaponGroups.find(
+					(group) => group.definitionId === selectedInventoryDefinitionId
+				) ?? null)
+			: null
+	);
+	let selectedWeaponDetails = $derived.by(() => {
+		if (selectedPlacedWeapon) {
+			return {
+				name: selectedPlacedWeapon.name,
+				rarity: selectedPlacedWeapon.rarity,
+				category: selectedPlacedWeapon.category,
+				role: selectedPlacedWeapon.role,
+				shapeLabel: getShapeLabel(selectedPlacedWeapon.shape, selectedPlacedWeapon.rotation),
+				rotationLabel: getLoadoutRotationLabel(selectedPlacedWeapon.rotation),
+				summary:
+					selectedPlacedWeapon.category === 'weapon'
+						? selectedPlacedWeapon.effectSummary
+						: `${selectedPlacedWeapon.activationKind === 'passive' ? 'Passive' : 'Triggered'} utility · ${selectedPlacedWeapon.effectSummary}`,
+				stats: [
+					...(selectedPlacedWeapon.category === 'weapon' && selectedPlacedWeapon.baseDamage
+						? [{ label: 'Damage', value: `${selectedPlacedWeapon.baseDamage}` }]
+						: []),
+					...(selectedPlacedWeapon.category === 'weapon' && selectedPlacedWeapon.attack
+						? [
+								{ label: 'Projectiles', value: `${selectedPlacedWeapon.attack.projectileCount}` },
+								{
+									label: 'Cadence',
+									value: `Every ${formatCycleThreshold(selectedPlacedWeapon.attack)} cycle${formatCycleThreshold(selectedPlacedWeapon.attack) === '1' ? '' : 's'}`
+								},
+								{ label: 'Attack', value: formatAttackLabel(selectedPlacedWeapon.attack.kind) }
+							]
+						: []),
+					...(selectedPlacedWeapon.category === 'utility'
+						? [
+								{
+									label: 'Activation',
+									value: selectedPlacedWeapon.activationKind === 'passive' ? 'Passive' : 'Triggered'
+								}
+							]
+						: []),
+					{ label: 'Placement', value: `${selectedPlacedWeapon.x}, ${selectedPlacedWeapon.y}` }
+				],
+				canRotate: true
+			} satisfies SelectedWeaponDetails;
+		}
+
+		if (selectedInventoryGroup) {
+			return {
+				name: selectedInventoryGroup.name,
+				rarity: selectedInventoryGroup.rarity,
+				category: selectedInventoryGroup.category,
+				role: selectedInventoryGroup.role,
+				shapeLabel: getShapeLabel(selectedInventoryGroup.shape),
+				summary:
+					selectedInventoryGroup.category === 'weapon'
+						? selectedInventoryGroup.effectSummary
+						: `${selectedInventoryGroup.activationKind === 'passive' ? 'Passive' : 'Triggered'} utility · ${selectedInventoryGroup.effectSummary}`,
+				stats: [
+					...(selectedInventoryGroup.category === 'weapon' && selectedInventoryGroup.baseDamage
+						? [{ label: 'Damage', value: `${selectedInventoryGroup.baseDamage}` }]
+						: []),
+					...(selectedInventoryGroup.category === 'weapon' && selectedInventoryGroup.attack
+						? [
+								{ label: 'Projectiles', value: `${selectedInventoryGroup.attack.projectileCount}` },
+								{
+									label: 'Cadence',
+									value: `Every ${formatCycleThreshold(selectedInventoryGroup.attack)} cycle${formatCycleThreshold(selectedInventoryGroup.attack) === '1' ? '' : 's'}`
+								},
+								{ label: 'Attack', value: formatAttackLabel(selectedInventoryGroup.attack.kind) }
+							]
+						: []),
+					...(selectedInventoryGroup.projectileSpeed
+						? [{ label: 'Projectile speed', value: `${selectedInventoryGroup.projectileSpeed}` }]
+						: []),
+					...(selectedInventoryGroup.category === 'utility'
+						? [
+								{
+									label: 'Activation',
+									value:
+										selectedInventoryGroup.activationKind === 'passive' ? 'Passive' : 'Triggered'
+								}
+							]
+						: []),
+					{ label: 'Ready', value: `${selectedInventoryGroup.availableCount}` },
+					{ label: 'Equipped', value: `${selectedInventoryGroup.equippedCount}` }
+				]
+			} satisfies SelectedWeaponDetails;
+		}
+
+		return null;
+	});
 	let scrapValuePerItem = $derived(scrapDialog ? scrapValueByRarity[scrapDialog.rarity] : 0);
 	let isHighRarityScrap = $derived(
 		scrapDialog ? scrapDialog.rarity === 'exotic' || scrapDialog.rarity === 'legendary' : false
@@ -342,6 +462,14 @@
 		}
 
 		scrapQuantity = Math.max(1, Math.min(scrapQuantity, scrapDialog.scrapableCount));
+	});
+
+	$effect(() => {
+		if (typeof localStorage === 'undefined') {
+			return;
+		}
+
+		hasSeenRotationTip = localStorage.getItem('pixlvl-loadout-rotation-tip-seen') === 'true';
 	});
 
 	function getInitialLoadoutPlacements() {
@@ -462,6 +590,37 @@
 		liveCombatProgressOverride = update;
 	}
 
+	function markRotationTipSeen() {
+		hasSeenRotationTip = true;
+		showRotationTip = false;
+
+		if (rotationTipTimeout) {
+			clearTimeout(rotationTipTimeout);
+			rotationTipTimeout = null;
+		}
+
+		if (typeof localStorage !== 'undefined') {
+			localStorage.setItem('pixlvl-loadout-rotation-tip-seen', 'true');
+		}
+	}
+
+	function showRotationTipOnce() {
+		if (hasSeenRotationTip) {
+			return;
+		}
+
+		showRotationTip = true;
+
+		if (rotationTipTimeout) {
+			clearTimeout(rotationTipTimeout);
+		}
+
+		rotationTipTimeout = setTimeout(() => {
+			showRotationTip = false;
+			rotationTipTimeout = null;
+		}, 2600);
+	}
+
 	function requestLoadoutSaveConfirmation() {
 		if (!canSaveLoadout) {
 			return;
@@ -505,7 +664,35 @@
 		});
 	}
 
-	function canPlaceWeaponAt(weaponInstanceId: string, x: number, y: number) {
+	function getOccupiedCellKeys(excludedWeaponInstanceId: string | null = draggedWeaponInstanceId) {
+		const occupied: Record<string, true> = {};
+
+		for (const weapon of loadoutWeapons) {
+			if (weapon.weaponInstanceId === excludedWeaponInstanceId) {
+				continue;
+			}
+
+			for (const [shapeX, shapeY] of weapon.shape.cells) {
+				occupied[getGridCellKey(weapon.x + shapeX, weapon.y + shapeY)] = true;
+			}
+		}
+
+		return occupied;
+	}
+
+	function clampPlacementOrigin(shape: { width: number; height: number }, x: number, y: number) {
+		return {
+			x: Math.max(0, Math.min(x, loadoutColumnCount - shape.width)),
+			y: Math.max(0, Math.min(y, loadoutRowCount - shape.height))
+		};
+	}
+
+	function canPlaceWeaponAt(
+		weaponInstanceId: string,
+		x: number,
+		y: number,
+		rotation = draggedWeaponRotation
+	) {
 		const ownedWeapon = ownedWeaponByInstanceId[weaponInstanceId];
 		const definition = ownedWeapon ? weaponDefinitionById[ownedWeapon.definitionId] : null;
 
@@ -517,7 +704,10 @@
 			return false;
 		}
 
-		return definition.shape.cells.every(([shapeX, shapeY]) => {
+		const shape = rotateWeaponShape(definition.shape, rotation);
+		const occupiedCells = getOccupiedCellKeys(weaponInstanceId);
+
+		return shape.cells.every(([shapeX, shapeY]) => {
 			const gridX = x + shapeX;
 			const gridY = y + shapeY;
 
@@ -526,13 +716,18 @@
 				gridX < loadoutColumnCount &&
 				gridY >= 0 &&
 				gridY < loadoutRowCount &&
-				!occupiedCellKeys[getGridCellKey(gridX, gridY)]
+				!occupiedCells[getGridCellKey(gridX, gridY)]
 			);
 		});
 	}
 
-	function placeWeaponAt(weaponInstanceId: string, x: number, y: number) {
-		if (!canPlaceWeaponAt(weaponInstanceId, x, y)) {
+	function placeWeaponAt(
+		weaponInstanceId: string,
+		x: number,
+		y: number,
+		rotation = draggedWeaponRotation
+	) {
+		if (!canPlaceWeaponAt(weaponInstanceId, x, y, rotation)) {
 			return;
 		}
 
@@ -540,8 +735,10 @@
 			...draftLoadoutPlacements.filter(
 				(placement) => placement.weaponInstanceId !== weaponInstanceId
 			),
-			{ weaponInstanceId, x, y } satisfies LoadoutPlacement
+			{ weaponInstanceId, x, y, rotation } satisfies LoadoutPlacement
 		];
+		selectedPlacedWeaponInstanceId = weaponInstanceId;
+		selectedInventoryDefinitionId = null;
 		clearDragState();
 	}
 
@@ -549,6 +746,11 @@
 		draftLoadoutPlacements = draftLoadoutPlacements.filter(
 			(placement) => placement.weaponInstanceId !== weaponInstanceId
 		);
+
+		if (selectedPlacedWeaponInstanceId === weaponInstanceId) {
+			selectedPlacedWeaponInstanceId = null;
+		}
+
 		clearDragState();
 	}
 
@@ -563,18 +765,23 @@
 	}
 
 	function beginWeaponDrag(
-		event: DragEvent,
+		event: PointerEvent,
 		weaponInstanceId: string,
-		anchor: { x: number; y: number }
+		anchor: { x: number; y: number },
+		rotation: LoadoutRotation
 	) {
 		draggedWeaponInstanceId = weaponInstanceId;
 		draggedWeaponAnchor = anchor;
+		draggedWeaponRotation = rotation;
+		draggedWeaponPointerId = event.pointerId;
 		hoveredGridOrigin = null;
 		isInventoryDropTargetActive = false;
-		event.dataTransfer?.setData('text/plain', weaponInstanceId);
+		showRotationTipOnce();
 
-		if (event.dataTransfer) {
-			event.dataTransfer.effectAllowed = 'move';
+		const target = event.currentTarget;
+
+		if (target instanceof HTMLElement) {
+			target.setPointerCapture(event.pointerId);
 		}
 	}
 
@@ -586,78 +793,149 @@
 		});
 	}
 
-	function handleGridDragOver(event: DragEvent, cell: GridCell) {
+	function updateHoveredOriginFromCell(cell: GridCell) {
 		if (!draggedWeaponInstanceId) {
 			return;
 		}
 
-		event.preventDefault();
 		const anchor = draggedWeaponAnchor ?? { x: 0, y: 0 };
-		const nextOrigin = { x: cell.x - anchor.x, y: cell.y - anchor.y };
-		hoveredGridOrigin = nextOrigin;
+		hoveredGridOrigin = { x: cell.x - anchor.x, y: cell.y - anchor.y };
 		isInventoryDropTargetActive = false;
-
-		if (event.dataTransfer) {
-			event.dataTransfer.dropEffect = canPlaceWeaponAt(
-				draggedWeaponInstanceId,
-				nextOrigin.x,
-				nextOrigin.y
-			)
-				? 'move'
-				: 'none';
-		}
 	}
 
-	function handleGridDrop(event: DragEvent, cell: GridCell) {
-		if (!draggedWeaponInstanceId) {
+	function handlePointerMove(event: PointerEvent) {
+		if (draggedWeaponPointerId === null || event.pointerId !== draggedWeaponPointerId) {
 			return;
 		}
 
-		event.preventDefault();
-		const anchor = draggedWeaponAnchor ?? { x: 0, y: 0 };
-		placeWeaponAt(draggedWeaponInstanceId, cell.x - anchor.x, cell.y - anchor.y);
-	}
+		const cell = getGridCellFromPoint(event.clientX, event.clientY);
 
-	function handleInventoryDragOver(event: DragEvent) {
-		if (!draggedWeaponInstanceId || !draggedInventoryWeapon?.isEquipped) {
+		if (cell) {
+			updateHoveredOriginFromCell(cell);
 			return;
 		}
 
-		event.preventDefault();
+		const inventoryDropZone = document.getElementById('loadout-inventory-drop-zone');
+
+		if (
+			draggedInventoryWeapon?.isEquipped &&
+			inventoryDropZone instanceof HTMLElement &&
+			isPointWithinElementBounds(inventoryDropZone, event.clientX, event.clientY)
+		) {
+			hoveredGridOrigin = null;
+			isInventoryDropTargetActive = true;
+			return;
+		}
+
 		hoveredGridOrigin = null;
-		isInventoryDropTargetActive = true;
-
-		if (event.dataTransfer) {
-			event.dataTransfer.dropEffect = 'move';
-		}
-	}
-
-	function handleInventoryDragLeave() {
 		isInventoryDropTargetActive = false;
 	}
 
-	function handleInventoryDrop(event: DragEvent) {
-		if (!draggedWeaponInstanceId || !draggedInventoryWeapon?.isEquipped) {
+	function finishPointerDrag(event: PointerEvent) {
+		if (!draggedWeaponInstanceId) {
 			return;
 		}
 
-		event.preventDefault();
-		removeDraftPlacement(draggedWeaponInstanceId);
+		if (draggedWeaponPointerId !== null && event.pointerId !== draggedWeaponPointerId) {
+			return;
+		}
+
+		if (hoveredGridOrigin) {
+			placeWeaponAt(
+				draggedWeaponInstanceId,
+				hoveredGridOrigin.x,
+				hoveredGridOrigin.y,
+				draggedWeaponRotation
+			);
+			return;
+		}
+
+		if (isInventoryDropTargetActive && draggedInventoryWeapon?.isEquipped) {
+			removeDraftPlacement(draggedWeaponInstanceId);
+			return;
+		}
+
+		clearDragState();
 	}
 
 	function clearDragState() {
 		draggedWeaponInstanceId = null;
 		draggedWeaponAnchor = null;
+		draggedWeaponRotation = 0;
+		draggedWeaponPointerId = null;
 		hoveredGridOrigin = null;
 		isInventoryDropTargetActive = false;
+		showRotationTip = false;
 	}
 
-	function getGridCellFromPoint(event: DragEvent) {
-		if (!Number.isFinite(event.clientX) || !Number.isFinite(event.clientY)) {
+	function rotateDraggedWeapon() {
+		if (!draggedWeaponDefinition) {
+			return;
+		}
+
+		const nextRotation = cycleLoadoutRotation(draggedWeaponRotation);
+		const nextShape = rotateWeaponShape(draggedWeaponDefinition.shape, nextRotation);
+		const hoveredCell =
+			hoveredGridOrigin && draggedWeaponAnchor
+				? {
+						x: hoveredGridOrigin.x + draggedWeaponAnchor.x,
+						y: hoveredGridOrigin.y + draggedWeaponAnchor.y
+					}
+				: null;
+
+		draggedWeaponRotation = nextRotation;
+		draggedWeaponAnchor = getDefaultDragAnchor(nextShape);
+
+		if (hoveredCell) {
+			hoveredGridOrigin = {
+				x: hoveredCell.x - draggedWeaponAnchor!.x,
+				y: hoveredCell.y - draggedWeaponAnchor!.y
+			};
+		}
+
+		markRotationTipSeen();
+	}
+
+	function rotatePlacedWeapon(weaponInstanceId: string) {
+		const placement = placementByWeaponInstanceId[weaponInstanceId];
+		const ownedWeapon = ownedWeaponByInstanceId[weaponInstanceId];
+		const definition = ownedWeapon ? weaponDefinitionById[ownedWeapon.definitionId] : null;
+
+		if (!placement || !definition) {
+			return;
+		}
+
+		const nextRotation = cycleLoadoutRotation(getPlacementRotation(placement));
+		const rotatedShape = rotateWeaponShape(definition.shape, nextRotation);
+		const nextOrigin = clampPlacementOrigin(rotatedShape, placement.x, placement.y);
+
+		if (!canPlaceWeaponAt(weaponInstanceId, nextOrigin.x, nextOrigin.y, nextRotation)) {
+			return;
+		}
+
+		draftLoadoutPlacements = draftLoadoutPlacements.map((entry) =>
+			entry.weaponInstanceId === weaponInstanceId
+				? { ...entry, x: nextOrigin.x, y: nextOrigin.y, rotation: nextRotation }
+				: entry
+		);
+		selectedPlacedWeaponInstanceId = weaponInstanceId;
+		selectedInventoryDefinitionId = null;
+		markRotationTipSeen();
+	}
+
+	function handleWindowKeydown(event: KeyboardEvent) {
+		if ((event.key === 'r' || event.key === 'R') && draggedWeaponInstanceId) {
+			event.preventDefault();
+			rotateDraggedWeapon();
+		}
+	}
+
+	function getGridCellFromPoint(clientX: number, clientY: number) {
+		if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) {
 			return null;
 		}
 
-		for (const element of document.elementsFromPoint(event.clientX, event.clientY)) {
+		for (const element of document.elementsFromPoint(clientX, clientY)) {
 			if (!(element instanceof HTMLElement)) {
 				continue;
 			}
@@ -685,47 +963,18 @@
 		return null;
 	}
 
-	function handleWeaponDragEnd(event: DragEvent) {
-		const loadoutGridShell = document.getElementById('loadout-grid-shell');
-
-		if (
-			draggedWeaponInstanceId &&
-			draggedInventoryWeapon?.isEquipped &&
-			loadoutGridShell instanceof HTMLElement &&
-			!isPointWithinElementBounds(loadoutGridShell, event.clientX, event.clientY)
-		) {
-			removeDraftPlacement(draggedWeaponInstanceId);
-			return;
-		}
-
-		clearDragState();
+	function beginPlacedWeaponDrag(event: PointerEvent, weapon: LoadoutWeapon) {
+		selectedPlacedWeaponInstanceId = weapon.weaponInstanceId;
+		selectedInventoryDefinitionId = null;
+		beginWeaponDrag(
+			event,
+			weapon.weaponInstanceId,
+			getPlacedWeaponDragAnchor(event, weapon.shape),
+			weapon.rotation
+		);
 	}
 
-	function beginPlacedWeaponDrag(event: DragEvent, weapon: LoadoutWeapon) {
-		beginWeaponDrag(event, weapon.weaponInstanceId, getPlacedWeaponDragAnchor(event, weapon.shape));
-	}
-
-	function handlePlacedWeaponDragOver(event: DragEvent) {
-		const cell = getGridCellFromPoint(event);
-
-		if (!cell) {
-			return;
-		}
-
-		handleGridDragOver(event, cell);
-	}
-
-	function handlePlacedWeaponDrop(event: DragEvent) {
-		const cell = getGridCellFromPoint(event);
-
-		if (!cell) {
-			return;
-		}
-
-		handleGridDrop(event, cell);
-	}
-
-	function beginInventoryWeaponDrag(event: DragEvent, weapon: InventoryWeapon) {
+	function beginInventoryWeaponDrag(event: PointerEvent, weapon: InventoryWeapon) {
 		const target = event.currentTarget;
 		const defaultAnchor = getDefaultDragAnchor(weapon.shape);
 		let anchor = defaultAnchor;
@@ -735,15 +984,16 @@
 
 			if (shapeGrid instanceof HTMLElement) {
 				anchor = getDragAnchorFromGrid(event, weapon.shape, shapeGrid, defaultAnchor);
-				setShapeGridDragImage(event, weapon.shape, shapeGrid, anchor);
 			}
 		}
 
+		selectedPlacedWeaponInstanceId = null;
+		selectedInventoryDefinitionId = weapon.definitionId;
 		scrollLoadoutGridIntoView();
-		beginWeaponDrag(event, weapon.weaponInstanceId, anchor);
+		beginWeaponDrag(event, weapon.weaponInstanceId, anchor, 0);
 	}
 
-	function beginInventoryWeaponGroupDrag(event: DragEvent, group: InventoryWeaponGroup) {
+	function beginInventoryWeaponGroupDrag(event: PointerEvent, group: InventoryWeaponGroup) {
 		if (!group.representativeWeaponInstanceId) {
 			return;
 		}
@@ -759,94 +1009,27 @@
 		beginInventoryWeaponDrag(event, weapon);
 	}
 
-	function getShapeLabel(shape: { width: number; height: number; cells: Array<[number, number]> }) {
-		return `${shape.width}x${shape.height} · ${shape.cells.length} tiles`;
-	}
-
 	function selectPlacedWeapon(weapon: LoadoutWeapon) {
-		selectedWeaponDetails = {
-			name: weapon.name,
-			rarity: weapon.rarity,
-			category: weapon.category,
-			role: weapon.role,
-			shapeLabel: getShapeLabel(weapon.shape),
-			summary:
-				weapon.category === 'weapon'
-					? weapon.effectSummary
-					: `${weapon.activationKind === 'passive' ? 'Passive' : 'Triggered'} utility · ${weapon.effectSummary}`,
-			stats: [
-				...(weapon.category === 'weapon' && weapon.baseDamage
-					? [{ label: 'Damage', value: `${weapon.baseDamage}` }]
-					: []),
-				...(weapon.category === 'weapon' && weapon.attack
-					? [
-							{ label: 'Projectiles', value: `${weapon.attack.projectileCount}` },
-							{
-								label: 'Cadence',
-								value: `Every ${formatCycleThreshold(weapon.attack)} cycle${formatCycleThreshold(weapon.attack) === '1' ? '' : 's'}`
-							},
-							{ label: 'Attack', value: formatAttackLabel(weapon.attack.kind) }
-						]
-					: []),
-				...(weapon.category === 'utility'
-					? [
-							{
-								label: 'Activation',
-								value: weapon.activationKind === 'passive' ? 'Passive' : 'Triggered'
-							}
-						]
-					: []),
-				{ label: 'Placement', value: `${weapon.x}, ${weapon.y}` }
-			]
-		};
+		selectedPlacedWeaponInstanceId = weapon.weaponInstanceId;
+		selectedInventoryDefinitionId = null;
 	}
 
 	function selectInventoryGroup(group: InventoryWeaponGroup) {
-		selectedWeaponDetails = {
-			name: group.name,
-			rarity: group.rarity,
-			category: group.category,
-			role: group.role,
-			shapeLabel: getShapeLabel(group.shape),
-			summary:
-				group.category === 'weapon'
-					? group.effectSummary
-					: `${group.activationKind === 'passive' ? 'Passive' : 'Triggered'} utility · ${group.effectSummary}`,
-			stats: [
-				...(group.category === 'weapon' && group.baseDamage
-					? [{ label: 'Damage', value: `${group.baseDamage}` }]
-					: []),
-				...(group.category === 'weapon' && group.attack
-					? [
-							{ label: 'Projectiles', value: `${group.attack.projectileCount}` },
-							{
-								label: 'Cadence',
-								value: `Every ${formatCycleThreshold(group.attack)} cycle${formatCycleThreshold(group.attack) === '1' ? '' : 's'}`
-							},
-							{ label: 'Attack', value: formatAttackLabel(group.attack.kind) }
-						]
-					: []),
-				...(group.projectileSpeed
-					? [{ label: 'Projectile speed', value: `${group.projectileSpeed}` }]
-					: []),
-				...(group.category === 'utility'
-					? [
-							{
-								label: 'Activation',
-								value: group.activationKind === 'passive' ? 'Passive' : 'Triggered'
-							}
-						]
-					: []),
-				{ label: 'Ready', value: `${group.availableCount}` },
-				{ label: 'Equipped', value: `${group.equippedCount}` }
-			]
-		};
+		selectedPlacedWeaponInstanceId = null;
+		selectedInventoryDefinitionId = group.definitionId;
 	}
 </script>
 
 <svelte:head>
 	<title>Loadout | Campaign {data.campaignId} | pixlvl</title>
 </svelte:head>
+
+<svelte:window
+	onkeydown={handleWindowKeydown}
+	onpointermove={handlePointerMove}
+	onpointerup={finishPointerDrag}
+	onpointercancel={finishPointerDrag}
+/>
 
 <div class="route-page">
 	{#if hiddenSketchPixlState && (liveCampaignState ?? data.campaignState)}
@@ -874,6 +1057,18 @@
 							out:fade={{ duration: 220 }}
 						>
 							You have unsaved loadout changes.
+						</div>
+					</div>
+				{/if}
+
+				{#if showRotationTip}
+					<div class="toast-anchor" aria-live="polite">
+						<div
+							class="feedback neutral toast-message"
+							in:fade={{ duration: 160 }}
+							out:fade={{ duration: 220 }}
+						>
+							Press R while dragging to rotate weapon pieces.
 						</div>
 					</div>
 				{/if}
@@ -929,8 +1124,8 @@
 					/>
 				{/if}
 
-				{#if draggedWeaponDefinition}
-					<LoadoutDraggedShapePreview shape={draggedWeaponDefinition.shape} />
+				{#if draggedWeaponShape}
+					<LoadoutDraggedShapePreview shape={draggedWeaponShape} />
 				{/if}
 
 				<LoadoutGridBoard
@@ -942,19 +1137,21 @@
 					weapons={visiblePlacedWeapons}
 					{draggedWeaponInstanceId}
 					onSelectWeapon={selectPlacedWeapon}
-					onGridDragOver={handleGridDragOver}
-					onGridDrop={handleGridDrop}
-					onPlacedWeaponDragOver={handlePlacedWeaponDragOver}
-					onPlacedWeaponDrop={handlePlacedWeaponDrop}
-					onPlacedWeaponDragStart={beginPlacedWeaponDrag}
-					onWeaponDragEnd={handleWeaponDragEnd}
+					onPlacedWeaponPointerDown={beginPlacedWeaponDrag}
 					{getWeaponGridArea}
 					{getShapeGridTemplate}
 					{isShapeCellFilled}
 					{isLabelCell}
 				/>
 
-				<LoadoutWeaponDetailsPane detail={selectedWeaponDetails} />
+				<LoadoutWeaponDetailsPane
+					detail={selectedWeaponDetails}
+					onRotate={() => {
+						if (selectedPlacedWeaponInstanceId) {
+							rotatePlacedWeapon(selectedPlacedWeaponInstanceId);
+						}
+					}}
+				/>
 			</div>
 
 			<aside class="panel inventory-panel" aria-label="Loadout toolbox">
@@ -966,11 +1163,7 @@
 					{draggedWeaponInstanceId}
 					onSelectGroup={selectInventoryGroup}
 					onRequestScrap={openScrapDialog}
-					onInventoryDragOver={handleInventoryDragOver}
-					onInventoryDragLeave={handleInventoryDragLeave}
-					onInventoryDrop={handleInventoryDrop}
-					onGroupDragStart={beginInventoryWeaponGroupDrag}
-					onWeaponDragEnd={handleWeaponDragEnd}
+					onGroupPointerDown={beginInventoryWeaponGroupDrag}
 					formatGroupStatus={formatInventoryGroupStatus}
 					{isShapeCellFilled}
 				/>

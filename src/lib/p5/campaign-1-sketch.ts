@@ -9,6 +9,7 @@ import {
 	isUtilityDefinition,
 	isWeaponDefinition
 } from '$lib/data';
+import { getPlacementRotation, rotateWeaponShape } from '$lib/game/loadout-rotation';
 import { applyXpGain, createUpgradeablePixlState } from '$lib/game/upgrades';
 import type {
 	CampaignDefinition,
@@ -25,7 +26,8 @@ import type {
 	WeaponProjectileShape,
 	WeaponRarity,
 	WeaponProjectileSize,
-	WeaponTrailStyle
+	WeaponTrailStyle,
+	WeaponShape
 } from '$lib/data/types';
 import type { PersistedCampaignProgress, PersistedPixlState } from '$lib/server/game-state';
 
@@ -132,6 +134,7 @@ interface EnemyState {
 
 interface ProjectileState {
 	weaponId: string;
+	sourceWeaponInstanceId: string;
 	originX: number;
 	originY: number;
 	x: number;
@@ -181,6 +184,7 @@ interface SniperLockState {
 	color: string;
 	glow: boolean;
 	weapon: WeaponDefinition;
+	sourceWeaponInstanceId: string;
 }
 
 interface EnemyProjectileState {
@@ -196,6 +200,7 @@ interface EnemyProjectileState {
 }
 
 interface ForceFieldState {
+	sourceWeaponInstanceId: string;
 	centerX: number;
 	centerY: number;
 	startDelay: number;
@@ -211,6 +216,7 @@ interface ForceFieldState {
 }
 
 interface LaserSweepState {
+	sourceWeaponInstanceId: string;
 	startAngle: number;
 	angle: number;
 	beamLength: number;
@@ -224,6 +230,7 @@ interface LaserSweepState {
 }
 
 interface NeedleBurstState {
+	sourceWeaponInstanceId: string;
 	enemyId: number;
 	targetX: number;
 	targetY: number;
@@ -238,6 +245,7 @@ interface NeedleBurstState {
 }
 
 interface ExecutionLatticeStrikeState {
+	sourceWeaponInstanceId: string;
 	enemyId: number | null;
 	targetX: number;
 	targetY: number;
@@ -253,6 +261,7 @@ interface ExecutionLatticeStrikeState {
 }
 
 interface ForkLightningState {
+	sourceWeaponInstanceId: string;
 	segments: Array<{
 		from: { x: number; y: number };
 		to: { x: number; y: number };
@@ -269,6 +278,7 @@ interface ForkLightningState {
 }
 
 interface FlamethrowerConeState {
+	sourceWeaponInstanceId: string;
 	enemyId: number | null;
 	angle: number;
 	reach: number;
@@ -286,6 +296,7 @@ interface FlamethrowerConeState {
 }
 
 interface IceSpikeState {
+	sourceWeaponInstanceId: string;
 	enemyId: number | null;
 	targetX: number;
 	targetY: number;
@@ -306,6 +317,7 @@ interface IceSpikeState {
 }
 
 interface VoidTendrilState {
+	sourceWeaponInstanceId: string;
 	enemyId: number | null;
 	targetX: number;
 	targetY: number;
@@ -321,6 +333,7 @@ interface VoidTendrilState {
 interface EquippedWeaponState {
 	instanceId: string;
 	definition: WeaponDefinition;
+	shape: WeaponShape;
 	triggerColumn: number;
 	placementX: number;
 	placementY: number;
@@ -331,6 +344,7 @@ interface EquippedWeaponState {
 interface EquippedUtilityState {
 	instanceId: string;
 	definition: UtilityDefinition;
+	shape: WeaponShape;
 	triggerColumn: number;
 	placementX: number;
 	placementY: number;
@@ -341,6 +355,7 @@ interface EquippedUtilityState {
 interface EquippedLoadoutEntry {
 	instanceId: string;
 	definition: LoadoutItemDefinition;
+	shape: WeaponShape;
 	triggerColumn: number;
 	placementX: number;
 	placementY: number;
@@ -383,7 +398,18 @@ interface CampaignSketchOptions {
 			biters: number;
 			swarmers: number;
 			tankers: number;
+			shard: number;
+			bulwark: number;
 		};
+		latestCompletedCycle: number;
+		weaponDamageRows: Array<{
+			weaponInstanceId: string;
+			definitionId: string;
+			name: string;
+			rarity: WeaponRarity;
+			placement: string;
+			averageDamagePerCycle: number;
+		}>;
 		status: WaveStatus;
 	}) => void;
 	getSkipResultsSignal?: () => number;
@@ -460,8 +486,8 @@ function shuffleInPlace<T>(items: T[], p: P5) {
 	return items;
 }
 
-function getLoadoutItemTriggerColumn(item: LoadoutItemDefinition, placementX: number) {
-	const leftmostShapeColumn = Math.min(...item.shape.cells.map(([cellX]) => cellX));
+function getLoadoutItemTriggerColumn(shape: WeaponShape, placementX: number) {
+	const leftmostShapeColumn = Math.min(...shape.cells.map(([cellX]) => cellX));
 
 	return placementX + leftmostShapeColumn;
 }
@@ -486,7 +512,8 @@ function buildEquippedLoadoutEntries(
 			}
 
 			const definition = getLoadoutItemDefinition(ownedWeapon.definitionId);
-			const triggerColumn = getLoadoutItemTriggerColumn(definition, placement.x);
+			const shape = rotateWeaponShape(definition.shape, getPlacementRotation(placement));
+			const triggerColumn = getLoadoutItemTriggerColumn(shape, placement.x);
 
 			if (triggerColumn < 0 || triggerColumn >= loadoutColumnCount) {
 				return null;
@@ -495,6 +522,7 @@ function buildEquippedLoadoutEntries(
 			return {
 				instanceId: ownedWeapon.instanceId,
 				definition,
+				shape,
 				triggerColumn,
 				placementX: placement.x,
 				placementY: placement.y
@@ -515,6 +543,7 @@ function buildEquippedWeapons(entries: EquippedLoadoutEntry[]) {
 		.map((entry) => ({
 			instanceId: entry.instanceId,
 			definition: entry.definition,
+			shape: entry.shape,
 			triggerColumn: entry.triggerColumn,
 			placementX: entry.placementX,
 			placementY: entry.placementY,
@@ -531,6 +560,7 @@ function buildEquippedUtilities(entries: EquippedLoadoutEntry[]) {
 		.map((entry) => ({
 			instanceId: entry.instanceId,
 			definition: entry.definition,
+			shape: entry.shape,
 			triggerColumn: entry.triggerColumn,
 			placementX: entry.placementX,
 			placementY: entry.placementY,
@@ -607,8 +637,8 @@ export function createCampaignSketch(
 				}
 
 				const touches = doCellsTouchByEdge(
-					getPlacedShapeCells(weapon.definition.shape, weapon.placementX, weapon.placementY),
-					getPlacedShapeCells(utility.definition.shape, utility.placementX, utility.placementY)
+					getPlacedShapeCells(weapon.shape, weapon.placementX, weapon.placementY),
+					getPlacedShapeCells(utility.shape, utility.placementX, utility.placementY)
 				);
 
 				if (touches) {
@@ -646,6 +676,12 @@ export function createCampaignSketch(
 		let ownedWeapons = [...(options.pixlState?.ownedWeapons ?? [])];
 		let waveXp = 0;
 		let waveDrops: OwnedWeaponInstance[] = [];
+		let cumulativeDamageByWeaponInstanceId = Object.fromEntries(
+			equippedWeapons.map((weapon) => [weapon.instanceId, 0])
+		) as Record<string, number>;
+		let publishedAverageDamageByWeaponInstanceId = Object.fromEntries(
+			equippedWeapons.map((weapon) => [weapon.instanceId, 0])
+		) as Record<string, number>;
 		let pixlHealth = pixlProgression.health;
 		let pixlShieldPool = 0;
 		let elementalInfusions = createEmptyElementalInfusions();
@@ -768,6 +804,18 @@ export function createCampaignSketch(
 			};
 		};
 
+		const recordWeaponDamage = (
+			sourceWeaponInstanceId: string | undefined,
+			actualDamage: number
+		) => {
+			if (!sourceWeaponInstanceId || actualDamage <= 0) {
+				return;
+			}
+
+			cumulativeDamageByWeaponInstanceId[sourceWeaponInstanceId] =
+				(cumulativeDamageByWeaponInstanceId[sourceWeaponInstanceId] ?? 0) + actualDamage;
+		};
+
 		const emitCombatState = () => {
 			const combatState = {
 				stage: currentLevel.stage,
@@ -787,6 +835,25 @@ export function createCampaignSketch(
 					shard: currentLevel.composition.shard ?? 0,
 					bulwark: currentLevel.composition.bulwark ?? 0
 				},
+				latestCompletedCycle: currentSweepIndex,
+				weaponDamageRows: equippedWeapons
+					.map((weapon) => {
+						const averageDamagePerCycle =
+							publishedAverageDamageByWeaponInstanceId[weapon.instanceId] ?? 0;
+						return {
+							weaponInstanceId: weapon.instanceId,
+							definitionId: weapon.definition.id,
+							name: weapon.definition.name,
+							rarity: weapon.definition.rarity,
+							placement: `${weapon.placementX}, ${weapon.placementY}`,
+							averageDamagePerCycle
+						};
+					})
+					.sort(
+						(left, right) =>
+							right.averageDamagePerCycle - left.averageDamagePerCycle ||
+							left.name.localeCompare(right.name)
+					),
 				status
 			};
 
@@ -1098,7 +1165,7 @@ export function createCampaignSketch(
 			pixlFlash = 0.16;
 		};
 
-		const spawnNeedleFan = (weapon: WeaponDefinition) => {
+		const spawnNeedleFan = (weapon: WeaponDefinition, sourceWeaponInstanceId: string) => {
 			const special = weapon.attack.special;
 
 			if (!special || special.type !== 'needle-fan') {
@@ -1109,6 +1176,7 @@ export function createCampaignSketch(
 
 			for (const enemy of targets) {
 				needleBursts.push({
+					sourceWeaponInstanceId,
 					enemyId: enemy.id,
 					targetX: enemy.x,
 					targetY: enemy.y,
@@ -1124,20 +1192,27 @@ export function createCampaignSketch(
 			}
 		};
 
-		const applyDamageToEnemy = (enemyIndex: number, damage: number, hitFlash = 0.08) => {
+		const applyDamageToEnemy = (
+			enemyIndex: number,
+			damage: number,
+			hitFlash = 0.08,
+			sourceWeaponInstanceId?: string
+		) => {
 			const enemy = enemies[enemyIndex];
 
 			if (!enemy) {
-				return false;
+				return { defeated: false, actualDamage: 0 };
 			}
 
 			const stats = combatProfile.glitches[enemy.kind];
 			let remainingDamage = damage;
+			let actualDamage = 0;
 
 			if (enemy.supportShieldPool > 0) {
 				const absorbed = Math.min(enemy.supportShieldPool, remainingDamage);
 				enemy.supportShieldPool -= absorbed;
 				remainingDamage -= absorbed;
+				actualDamage += absorbed;
 
 				if (enemy.supportShieldPool <= 0) {
 					enemy.supportShieldPool = 0;
@@ -1147,16 +1222,20 @@ export function createCampaignSketch(
 
 			if (remainingDamage <= 0) {
 				enemy.hitFlash = Math.max(enemy.hitFlash, hitFlash);
-				return false;
+				recordWeaponDamage(sourceWeaponInstanceId, actualDamage);
+				return { defeated: false, actualDamage };
 			}
 			const shieldReduction =
 				enemy.shieldPulseTimer > 0
 					? Math.min(0.9, Math.max(0, stats.onHitShieldDamageReduction ?? 0))
 					: 0;
 			const appliedDamage = Math.max(1, remainingDamage * (1 - shieldReduction));
+			const healthDamage = Math.min(enemy.health, appliedDamage);
+			actualDamage += healthDamage;
 
 			enemy.health -= appliedDamage;
 			enemy.hitFlash = Math.max(enemy.hitFlash, hitFlash);
+			recordWeaponDamage(sourceWeaponInstanceId, actualDamage);
 
 			if (
 				stats.onHitShieldDuration &&
@@ -1170,10 +1249,10 @@ export function createCampaignSketch(
 
 			if (enemy.health <= 0) {
 				awardEnemyDefeat(enemyIndex);
-				return true;
+				return { defeated: true, actualDamage };
 			}
 
-			return false;
+			return { defeated: false, actualDamage };
 		};
 
 		const updateNeedleBursts = (dt: number) => {
@@ -1194,7 +1273,7 @@ export function createCampaignSketch(
 					const enemyIndex = enemies.findIndex((enemy) => enemy.id === burst.enemyId);
 
 					if (enemyIndex >= 0) {
-						applyDamageToEnemy(enemyIndex, burst.damage, 0.09);
+						applyDamageToEnemy(enemyIndex, burst.damage, 0.09, burst.sourceWeaponInstanceId);
 					}
 
 					burst.hasHit = true;
@@ -1206,7 +1285,7 @@ export function createCampaignSketch(
 			}
 		};
 
-		const spawnForceField = (weapon: WeaponDefinition) => {
+		const spawnForceField = (weapon: WeaponDefinition, sourceWeaponInstanceId: string) => {
 			const special = weapon.attack.special;
 
 			if (!special || special.type !== 'force-field') {
@@ -1222,6 +1301,7 @@ export function createCampaignSketch(
 				const offsetX = startOffset + index * offsetDistance;
 
 				forceFields.push({
+					sourceWeaponInstanceId,
 					centerX: centerX + offsetX,
 					centerY,
 					startDelay: index * burstDelay,
@@ -1238,7 +1318,7 @@ export function createCampaignSketch(
 			}
 		};
 
-		const spawnLaserSweep = (weapon: WeaponDefinition) => {
+		const spawnLaserSweep = (weapon: WeaponDefinition, sourceWeaponInstanceId: string) => {
 			const special = weapon.attack.special;
 
 			if (!special || special.type !== 'laser-sweep') {
@@ -1246,6 +1326,7 @@ export function createCampaignSketch(
 			}
 
 			laserSweeps.push({
+				sourceWeaponInstanceId,
 				startAngle: p.random(p.TWO_PI),
 				angle: 0,
 				beamLength: special.beamLength,
@@ -1259,7 +1340,7 @@ export function createCampaignSketch(
 			});
 		};
 
-		const spawnSniperLock = (weapon: WeaponDefinition) => {
+		const spawnSniperLock = (weapon: WeaponDefinition, sourceWeaponInstanceId: string) => {
 			const special = weapon.attack.special;
 
 			if (!special || special.type !== 'sniper-line') {
@@ -1281,11 +1362,12 @@ export function createCampaignSketch(
 				lineWidth: special.lineWidth,
 				color: weapon.projectileVisual.color,
 				glow: weapon.projectileVisual.glow ?? false,
-				weapon
+				weapon,
+				sourceWeaponInstanceId
 			});
 		};
 
-		const spawnExecutionLattice = (weapon: WeaponDefinition) => {
+		const spawnExecutionLattice = (weapon: WeaponDefinition, sourceWeaponInstanceId: string) => {
 			const special = weapon.attack.special;
 
 			if (!special || special.type !== 'execution-lattice') {
@@ -1296,6 +1378,7 @@ export function createCampaignSketch(
 
 			for (const [index, enemy] of targets.entries()) {
 				executionLatticeStrikes.push({
+					sourceWeaponInstanceId,
 					enemyId: enemy.id,
 					targetX: enemy.x,
 					targetY: enemy.y,
@@ -1312,7 +1395,7 @@ export function createCampaignSketch(
 			}
 		};
 
-		const spawnForkLightning = (weapon: WeaponDefinition) => {
+		const spawnForkLightning = (weapon: WeaponDefinition, sourceWeaponInstanceId: string) => {
 			const special = weapon.attack.special;
 
 			if (!special || special.type !== 'fork-lightning') {
@@ -1362,6 +1445,7 @@ export function createCampaignSketch(
 			}
 
 			forkLightningBursts.push({
+				sourceWeaponInstanceId,
 				segments,
 				branchWidth: special.branchWidth,
 				color: weapon.projectileVisual.color,
@@ -1371,7 +1455,11 @@ export function createCampaignSketch(
 			});
 		};
 
-		const spawnFlamethrowerCone = (weapon: WeaponDefinition, target: EnemyState) => {
+		const spawnFlamethrowerCone = (
+			weapon: WeaponDefinition,
+			sourceWeaponInstanceId: string,
+			target: EnemyState
+		) => {
 			const special = weapon.attack.special;
 
 			if (!special || special.type !== 'flamethrower-cone') {
@@ -1379,6 +1467,7 @@ export function createCampaignSketch(
 			}
 
 			flamethrowerCones.push({
+				sourceWeaponInstanceId,
 				enemyId: target.id,
 				angle: Math.atan2(target.y - centerY, target.x - centerX),
 				reach: special.reach,
@@ -1396,7 +1485,7 @@ export function createCampaignSketch(
 			});
 		};
 
-		const spawnIceShower = (weapon: WeaponDefinition) => {
+		const spawnIceShower = (weapon: WeaponDefinition, sourceWeaponInstanceId: string) => {
 			const special = weapon.attack.special;
 
 			if (!special || special.type !== 'ice-shower') {
@@ -1414,6 +1503,7 @@ export function createCampaignSketch(
 				const targetY = target ? target.y : centerY + Math.sin(fallbackAngle) * fallbackRadius;
 
 				iceSpikes.push({
+					sourceWeaponInstanceId,
 					enemyId: target?.id ?? null,
 					targetX,
 					targetY,
@@ -1435,7 +1525,7 @@ export function createCampaignSketch(
 			}
 		};
 
-		const spawnVoidTendrils = (weapon: WeaponDefinition) => {
+		const spawnVoidTendrils = (weapon: WeaponDefinition, sourceWeaponInstanceId: string) => {
 			const special = weapon.attack.special;
 
 			if (!special || special.type !== 'void-tendrils') {
@@ -1446,6 +1536,7 @@ export function createCampaignSketch(
 
 			for (const target of targets) {
 				voidTendrils.push({
+					sourceWeaponInstanceId,
 					enemyId: target.id,
 					targetX: target.x,
 					targetY: target.y,
@@ -1522,6 +1613,7 @@ export function createCampaignSketch(
 		};
 
 		const spawnProjectile = ({
+			sourceWeaponInstanceId,
 			originX,
 			originY,
 			target,
@@ -1550,6 +1642,7 @@ export function createCampaignSketch(
 			maxSize,
 			canSplitOnImpact = weapon.attack.special?.type === 'shrapnel-burst'
 		}: {
+			sourceWeaponInstanceId: string;
 			originX: number;
 			originY: number;
 			target?: EnemyState;
@@ -1593,6 +1686,7 @@ export function createCampaignSketch(
 
 			projectiles.push({
 				weaponId: weapon.id,
+				sourceWeaponInstanceId,
 				originX,
 				originY,
 				x: originX,
@@ -1647,9 +1741,11 @@ export function createCampaignSketch(
 		const fireProjectile = (
 			target: EnemyState,
 			weapon: WeaponDefinition,
+			sourceWeaponInstanceId: string,
 			angleOffsetRadians = 0
 		) => {
 			spawnProjectile({
+				sourceWeaponInstanceId,
 				originX: centerX,
 				originY: centerY,
 				target,
@@ -1681,6 +1777,7 @@ export function createCampaignSketch(
 
 			for (const enemy of nearbyEnemies) {
 				spawnProjectile({
+					sourceWeaponInstanceId: projectile.sourceWeaponInstanceId,
 					originX: impactX,
 					originY: impactY,
 					target: enemy,
@@ -1708,6 +1805,7 @@ export function createCampaignSketch(
 
 			for (let index = 0; index < remainingFragments; index += 1) {
 				spawnProjectile({
+					sourceWeaponInstanceId: projectile.sourceWeaponInstanceId,
 					originX: impactX,
 					originY: impactY,
 					angleRadians: (index / Math.max(1, remainingFragments)) * Math.PI * 2,
@@ -1743,47 +1841,47 @@ export function createCampaignSketch(
 			const special = weapon.definition.attack.special;
 
 			if (special?.type === 'force-field') {
-				spawnForceField(weapon.definition);
+				spawnForceField(weapon.definition, weapon.instanceId);
 				return;
 			}
 
 			if (special?.type === 'laser-sweep') {
-				spawnLaserSweep(weapon.definition);
+				spawnLaserSweep(weapon.definition, weapon.instanceId);
 				return;
 			}
 
 			if (special?.type === 'needle-fan') {
-				spawnNeedleFan(weapon.definition);
+				spawnNeedleFan(weapon.definition, weapon.instanceId);
 				return;
 			}
 
 			if (special?.type === 'sniper-line') {
-				spawnSniperLock(weapon.definition);
+				spawnSniperLock(weapon.definition, weapon.instanceId);
 				return;
 			}
 
 			if (special?.type === 'execution-lattice') {
-				spawnExecutionLattice(weapon.definition);
+				spawnExecutionLattice(weapon.definition, weapon.instanceId);
 				return;
 			}
 
 			if (special?.type === 'fork-lightning') {
-				spawnForkLightning(weapon.definition);
+				spawnForkLightning(weapon.definition, weapon.instanceId);
 				return;
 			}
 
 			if (special?.type === 'flamethrower-cone') {
-				spawnFlamethrowerCone(weapon.definition, target);
+				spawnFlamethrowerCone(weapon.definition, weapon.instanceId, target);
 				return;
 			}
 
 			if (special?.type === 'ice-shower') {
-				spawnIceShower(weapon.definition);
+				spawnIceShower(weapon.definition, weapon.instanceId);
 				return;
 			}
 
 			if (special?.type === 'void-tendrils') {
-				spawnVoidTendrils(weapon.definition);
+				spawnVoidTendrils(weapon.definition, weapon.instanceId);
 				return;
 			}
 
@@ -1795,7 +1893,7 @@ export function createCampaignSketch(
 				}
 
 				for (const splitTarget of targets) {
-					fireProjectile(splitTarget, weapon.definition);
+					fireProjectile(splitTarget, weapon.definition, weapon.instanceId);
 				}
 
 				return;
@@ -1804,7 +1902,7 @@ export function createCampaignSketch(
 			const { projectileCount, spreadDegrees } = weapon.definition.attack;
 
 			if (projectileCount <= 1) {
-				fireProjectile(target, weapon.definition);
+				fireProjectile(target, weapon.definition, weapon.instanceId);
 				return;
 			}
 
@@ -1813,7 +1911,7 @@ export function createCampaignSketch(
 			const step = projectileCount > 1 ? totalSpreadRadians / (projectileCount - 1) : 0;
 
 			for (let index = 0; index < projectileCount; index += 1) {
-				fireProjectile(target, weapon.definition, startOffset + step * index);
+				fireProjectile(target, weapon.definition, weapon.instanceId, startOffset + step * index);
 			}
 		};
 
@@ -1915,6 +2013,12 @@ export function createCampaignSketch(
 				if (sweepProgress >= loadoutColumnCount) {
 					sweepProgress = 0;
 					currentSweepIndex += 1;
+					publishedAverageDamageByWeaponInstanceId = Object.fromEntries(
+						equippedWeapons.map((weapon) => [
+							weapon.instanceId,
+							(cumulativeDamageByWeaponInstanceId[weapon.instanceId] ?? 0) / currentSweepIndex
+						])
+					) as Record<string, number>;
 
 					if (
 						cycleDamageBuffExpiresAfterSweepIndex !== null &&
@@ -1992,7 +2096,7 @@ export function createCampaignSketch(
 					}
 
 					field.hitEnemyIds = [...field.hitEnemyIds, enemy.id];
-					applyDamageToEnemy(enemyIndex, field.damage, 0.1);
+					applyDamageToEnemy(enemyIndex, field.damage, 0.1, field.sourceWeaponInstanceId);
 				}
 
 				if (field.radius >= field.maxRadius) {
@@ -2034,7 +2138,7 @@ export function createCampaignSketch(
 					}
 
 					sweep.hitEnemyIds = [...sweep.hitEnemyIds, enemy.id];
-					applyDamageToEnemy(enemyIndex, sweep.damage, 0.1);
+					applyDamageToEnemy(enemyIndex, sweep.damage, 0.1, sweep.sourceWeaponInstanceId);
 				}
 
 				if (sweep.age >= sweep.duration) {
@@ -2195,7 +2299,7 @@ export function createCampaignSketch(
 				const releaseTarget = trackedTarget ?? getWeaponTarget(lock.weapon.attack.targeting);
 
 				if (releaseTarget) {
-					fireProjectile(releaseTarget, lock.weapon);
+					fireProjectile(releaseTarget, lock.weapon, lock.sourceWeaponInstanceId);
 				}
 
 				sniperLocks.splice(index, 1);
@@ -2225,7 +2329,7 @@ export function createCampaignSketch(
 						const enemyIndex = enemies.findIndex((enemy) => enemy.id === trackedTarget.id);
 
 						if (enemyIndex >= 0) {
-							applyDamageToEnemy(enemyIndex, strike.damage, 0.12);
+							applyDamageToEnemy(enemyIndex, strike.damage, 0.12, strike.sourceWeaponInstanceId);
 						}
 					}
 
@@ -2250,7 +2354,7 @@ export function createCampaignSketch(
 						const enemyIndex = enemies.findIndex((enemy) => enemy.id === segment.enemyId);
 
 						if (enemyIndex >= 0) {
-							applyDamageToEnemy(enemyIndex, segment.damage, 0.1);
+							applyDamageToEnemy(enemyIndex, segment.damage, 0.1, burst.sourceWeaponInstanceId);
 						}
 
 						segment.hasHit = true;
@@ -2339,6 +2443,7 @@ export function createCampaignSketch(
 						const perpendicularX = -directionY;
 						const perpendicularY = directionX;
 						spawnProjectile({
+							sourceWeaponInstanceId: cone.sourceWeaponInstanceId,
 							originX:
 								centerX + directionX * muzzleForwardOffset + perpendicularX * muzzleLateralOffset,
 							originY:
@@ -2425,7 +2530,7 @@ export function createCampaignSketch(
 							continue;
 						}
 
-						applyDamageToEnemy(enemyIndex, spike.damage, 0.09);
+						applyDamageToEnemy(enemyIndex, spike.damage, 0.09, spike.sourceWeaponInstanceId);
 					}
 
 					spike.hasHit = true;
@@ -2456,7 +2561,7 @@ export function createCampaignSketch(
 						const enemyIndex = enemies.findIndex((enemy) => enemy.id === trackedTarget.id);
 
 						if (enemyIndex >= 0) {
-							applyDamageToEnemy(enemyIndex, tendril.damage, 0.1);
+							applyDamageToEnemy(enemyIndex, tendril.damage, 0.1, tendril.sourceWeaponInstanceId);
 							healPixl(tendril.healPerHit);
 						}
 					}
@@ -2596,7 +2701,12 @@ export function createCampaignSketch(
 							const enemyIndex = enemies.findIndex((enemy) => enemy.id === enemyId);
 
 							if (enemyIndex >= 0) {
-								applyDamageToEnemy(enemyIndex, projectile.damage, 0.04);
+								applyDamageToEnemy(
+									enemyIndex,
+									projectile.damage,
+									0.04,
+									projectile.sourceWeaponInstanceId
+								);
 							}
 						}
 
@@ -2633,7 +2743,12 @@ export function createCampaignSketch(
 							}
 
 							if (
-								applyDamageToEnemy(splashIndex, splashDamage, 0.06) &&
+								applyDamageToEnemy(
+									splashIndex,
+									splashDamage,
+									0.06,
+									projectile.sourceWeaponInstanceId
+								).defeated &&
 								splashIndex < hitEnemyIndex
 							) {
 								hitEnemyIndex -= 1;
@@ -2649,7 +2764,12 @@ export function createCampaignSketch(
 						enemy.id
 					);
 
-					applyDamageToEnemy(hitEnemyIndex, projectile.damage, 0.08);
+					applyDamageToEnemy(
+						hitEnemyIndex,
+						projectile.damage,
+						0.08,
+						projectile.sourceWeaponInstanceId
+					);
 
 					if (projectile.ricochetRemaining > 0 && retargetRicochetProjectile(projectile)) {
 						projectile.ricochetRemaining -= 1;
@@ -2716,7 +2836,7 @@ export function createCampaignSketch(
 			for (const item of equippedLoadoutEntries) {
 				const fill = WEAPON_FILL_BY_RARITY[item.definition.rarity];
 
-				for (const [cellX, cellY] of item.definition.shape.cells) {
+				for (const [cellX, cellY] of item.shape.cells) {
 					const gridX = item.placementX + cellX;
 					const gridY = item.placementY + cellY;
 
@@ -3377,7 +3497,7 @@ export function createLoadoutSweepPreviewSketch(options: LoadoutSweepPreviewOpti
 			for (const item of equippedLoadoutEntries) {
 				const fill = WEAPON_FILL_BY_RARITY[item.definition.rarity];
 
-				for (const [cellX, cellY] of item.definition.shape.cells) {
+				for (const [cellX, cellY] of item.shape.cells) {
 					const gridX = item.placementX + cellX;
 					const gridY = item.placementY + cellY;
 

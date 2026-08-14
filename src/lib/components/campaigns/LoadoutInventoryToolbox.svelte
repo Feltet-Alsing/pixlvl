@@ -35,11 +35,7 @@
 		draggedWeaponInstanceId: string | null;
 		onSelectGroup: (group: InventoryWeaponGroup) => void;
 		onRequestScrap?: (group: InventoryWeaponGroup) => void;
-		onInventoryDragOver: (event: DragEvent) => void;
-		onInventoryDragLeave: () => void;
-		onInventoryDrop: (event: DragEvent) => void;
-		onGroupDragStart: (event: DragEvent, group: InventoryWeaponGroup) => void;
-		onWeaponDragEnd: (event: DragEvent) => void;
+		onGroupPointerDown: (event: PointerEvent, group: InventoryWeaponGroup) => void;
 		formatGroupStatus: (group: InventoryWeaponGroup) => string;
 		isShapeCellFilled: (shape: WeaponShape, x: number, y: number) => boolean;
 	}
@@ -52,11 +48,7 @@
 		draggedWeaponInstanceId,
 		onSelectGroup,
 		onRequestScrap,
-		onInventoryDragOver,
-		onInventoryDragLeave,
-		onInventoryDrop,
-		onGroupDragStart,
-		onWeaponDragEnd,
+		onGroupPointerDown,
 		formatGroupStatus,
 		isShapeCellFilled
 	}: Props = $props();
@@ -104,14 +96,12 @@
 	</label>
 
 	<div
+		id="loadout-inventory-drop-zone"
 		class="inventory-drop-zone"
 		class:drop-target={isDropTargetActive}
 		role="button"
 		tabindex="0"
 		aria-label="Drag equipped items here to unequip them"
-		ondragover={onInventoryDragOver}
-		ondragleave={onInventoryDragLeave}
-		ondrop={onInventoryDrop}
 	>
 		<div class="inventory-scroll">
 			{#if groups.length}
@@ -120,12 +110,10 @@
 						<div
 							class={`inventory-weapon inventory-toolbox-item rarity-${group.rarity}`}
 							role="group"
-							draggable={group.availableCount > 0}
 							class:equipped={group.equippedCount > 0}
 							class:unavailable={group.availableCount < 1}
 							class:dragging={draggedWeaponInstanceId === group.representativeWeaponInstanceId}
-							ondragstart={(event) => onGroupDragStart(event, group)}
-							ondragend={onWeaponDragEnd}
+							onpointerdown={(event) => onGroupPointerDown(event, group)}
 						>
 							<button
 								class="inventory-card-button"

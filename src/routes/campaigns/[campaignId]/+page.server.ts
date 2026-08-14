@@ -13,6 +13,7 @@ import {
 	getOrCreateGameState,
 	updateGameState
 } from '$lib/server/game-state';
+import { getPlacementRotation, rotateWeaponShape } from '$lib/game/loadout-rotation';
 
 import type { LoadoutItemDefinition, LoadoutPlacement, OwnedWeaponInstance } from '$lib/data/types';
 
@@ -42,8 +43,13 @@ function buildOwnedWeaponById(ownedWeapons: OwnedWeaponInstance[]) {
 	>;
 }
 
-function isPlacementWithinBounds(definition: LoadoutItemDefinition, x: number, y: number) {
-	return definition.shape.cells.every(([cellX, cellY]) => {
+function isPlacementWithinBounds(
+	definition: LoadoutItemDefinition,
+	rotation: LoadoutPlacement['rotation'],
+	x: number,
+	y: number
+) {
+	return rotateWeaponShape(definition.shape, rotation).cells.every(([cellX, cellY]) => {
 		const gridX = x + cellX;
 		const gridY = y + cellY;
 
@@ -56,6 +62,7 @@ function placementsOverlap(
 	placements: LoadoutPlacement[],
 	currentInstanceId: string,
 	definition: LoadoutItemDefinition,
+	rotation: LoadoutPlacement['rotation'],
 	x: number,
 	y: number
 ) {
@@ -74,13 +81,16 @@ function placementsOverlap(
 		}
 
 		const placedDefinition = getLoadoutItemDefinition(ownedWeapon.definitionId);
+		const placedShape = rotateWeaponShape(placedDefinition.shape, getPlacementRotation(placement));
 
-		for (const [cellX, cellY] of placedDefinition.shape.cells) {
+		for (const [cellX, cellY] of placedShape.cells) {
 			occupied.add(`${placement.x + cellX}:${placement.y + cellY}`);
 		}
 	}
 
-	return definition.shape.cells.some(([cellX, cellY]) => occupied.has(`${x + cellX}:${y + cellY}`));
+	return rotateWeaponShape(definition.shape, rotation).cells.some(([cellX, cellY]) =>
+		occupied.has(`${x + cellX}:${y + cellY}`)
+	);
 }
 
 export const load: PageServerLoad = async ({ params, locals }) => {
@@ -128,6 +138,9 @@ export const actions: Actions = {
 		const weaponInstanceId = formData.get('weaponInstanceId');
 		const x = parseGridCoordinate(formData.get('x'), LOADOUT_COLUMN_COUNT);
 		const y = parseGridCoordinate(formData.get('y'), LOADOUT_ROW_COUNT);
+		const rotation = getPlacementRotation({
+			rotation: formData.get('rotation') ? Number(formData.get('rotation')) : 0
+		});
 
 		if (typeof weaponInstanceId !== 'string' || x === null || y === null) {
 			return fail(400, { loadoutError: 'Invalid loadout placement request.' });
@@ -152,7 +165,7 @@ export const actions: Actions = {
 
 		const definition = getLoadoutItemDefinition(ownedWeapon.definitionId);
 
-		if (!isPlacementWithinBounds(definition, x, y)) {
+		if (!isPlacementWithinBounds(definition, rotation, x, y)) {
 			return fail(400, { loadoutError: 'That placement does not fit inside the 5 x 8 grid.' });
 		}
 
@@ -162,6 +175,7 @@ export const actions: Actions = {
 				gameState.pixlState.loadoutPlacements,
 				weaponInstanceId,
 				definition,
+				rotation,
 				x,
 				y
 			)
@@ -176,7 +190,8 @@ export const actions: Actions = {
 					{
 						weaponInstanceId,
 						x,
-						y
+						y,
+						rotation
 					}
 				]
 			}

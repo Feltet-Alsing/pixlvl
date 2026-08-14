@@ -12,6 +12,8 @@ export type WeaponTrailStyle = 'none' | 'streak' | 'pulse';
 
 export type WeaponProjectileMotion = 'straight' | 'wave' | 'accelerate';
 
+export type LoadoutRotation = 0 | 1 | 2 | 3;
+
 export type ElementalInfusionType = 'fire' | 'lightning' | 'cold' | 'void';
 
 export type WeaponSpecialAttackKind =
@@ -271,6 +273,7 @@ export interface LoadoutPlacement {
 	weaponInstanceId: string;
 	x: number;
 	y: number;
+	rotation: LoadoutRotation;
 }
 
 export interface WaveComposition {

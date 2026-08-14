@@ -1,5 +1,10 @@
 <script lang="ts">
-	import type { UtilityDefinition, WeaponDefinition, WeaponShape } from '$lib/data/types';
+	import type {
+		LoadoutRotation,
+		UtilityDefinition,
+		WeaponDefinition,
+		WeaponShape
+	} from '$lib/data/types';
 
 	interface GridCell {
 		x: number;
@@ -21,6 +26,7 @@
 		role: string;
 		x: number;
 		y: number;
+		rotation: LoadoutRotation;
 	}
 
 	interface Props {
@@ -32,12 +38,7 @@
 		weapons: LoadoutWeapon[];
 		draggedWeaponInstanceId: string | null;
 		onSelectWeapon: (weapon: LoadoutWeapon) => void;
-		onGridDragOver: (event: DragEvent, cell: GridCell) => void;
-		onGridDrop: (event: DragEvent, cell: GridCell) => void;
-		onPlacedWeaponDragOver: (event: DragEvent) => void;
-		onPlacedWeaponDrop: (event: DragEvent) => void;
-		onPlacedWeaponDragStart: (event: DragEvent, weapon: LoadoutWeapon) => void;
-		onWeaponDragEnd: (event: DragEvent) => void;
+		onPlacedWeaponPointerDown: (event: PointerEvent, weapon: LoadoutWeapon) => void;
 		getWeaponGridArea: (weapon: LoadoutWeapon) => string;
 		getShapeGridTemplate: (shape: WeaponShape) => string;
 		isShapeCellFilled: (shape: WeaponShape, x: number, y: number) => boolean;
@@ -53,12 +54,7 @@
 		weapons,
 		draggedWeaponInstanceId,
 		onSelectWeapon,
-		onGridDragOver,
-		onGridDrop,
-		onPlacedWeaponDragOver,
-		onPlacedWeaponDrop,
-		onPlacedWeaponDragStart,
-		onWeaponDragEnd,
+		onPlacedWeaponPointerDown,
 		getWeaponGridArea,
 		getShapeGridTemplate,
 		isShapeCellFilled,
@@ -87,8 +83,6 @@
 				class:occupied={occupiedCellKeys[cell.key] && !previewCellStateByKey[cell.key]}
 				class:preview-valid={previewCellStateByKey[cell.key] === 'valid'}
 				class:preview-invalid={previewCellStateByKey[cell.key] === 'invalid'}
-				ondragover={(event) => onGridDragOver(event, cell)}
-				ondrop={(event) => onGridDrop(event, cell)}
 			></div>
 		{/each}
 	</div>
@@ -102,14 +96,10 @@
 			<button
 				class={`placed-weapon rarity-${weapon.rarity}`}
 				type="button"
-				draggable="true"
 				class:dragging={draggedWeaponInstanceId === weapon.weaponInstanceId}
 				style={getWeaponGridArea(weapon)}
 				onclick={() => onSelectWeapon(weapon)}
-				ondragover={onPlacedWeaponDragOver}
-				ondrop={onPlacedWeaponDrop}
-				ondragstart={(event) => onPlacedWeaponDragStart(event, weapon)}
-				ondragend={onWeaponDragEnd}
+				onpointerdown={(event) => onPlacedWeaponPointerDown(event, weapon)}
 			>
 				<div class="placed-weapon-shape" style={getShapeGridTemplate(weapon.shape)}>
 					{#each createIndexArray(weapon.shape.height) as shapeY (`${weapon.weaponInstanceId}:${shapeY}`)}

@@ -10,15 +10,18 @@
 		category: 'weapon' | 'utility';
 		role: string;
 		shapeLabel: string;
+		rotationLabel?: string;
 		summary: string;
 		stats: DetailRow[];
+		canRotate?: boolean;
 	}
 
 	interface Props {
 		detail: SelectedWeaponDetails | null;
+		onRotate?: () => void;
 	}
 
-	let { detail }: Props = $props();
+	let { detail, onRotate }: Props = $props();
 </script>
 
 <section class="details-pane panel" aria-label="Selected weapon details">
@@ -47,6 +50,12 @@
 				<span>Shape</span>
 				<strong>{detail.shapeLabel}</strong>
 			</div>
+			{#if detail.rotationLabel}
+				<div class="detail-card">
+					<span>Rotation</span>
+					<strong>{detail.rotationLabel}</strong>
+				</div>
+			{/if}
 			{#each detail.stats as stat (stat.label)}
 				<div class="detail-card">
 					<span>{stat.label}</span>
@@ -54,6 +63,10 @@
 				</div>
 			{/each}
 		</div>
+
+		{#if detail.canRotate && onRotate}
+			<button class="rotate-button" type="button" onclick={onRotate}>Rotate 90°</button>
+		{/if}
 	{:else}
 		<p class="details-empty">Select a placed weapon or a toolbox item to inspect its full stats.</p>
 	{/if}
@@ -140,6 +153,19 @@
 
 	.detail-card strong {
 		font-size: 0.94rem;
+	}
+
+	.rotate-button {
+		min-height: 2.25rem;
+		padding: 0.55rem 0.8rem;
+		border-radius: 0.85rem;
+		border: 1px solid rgba(255, 255, 255, 0.14);
+		background: rgba(255, 255, 255, 0.08);
+		color: #f5f5f5;
+		font: inherit;
+		font-size: 0.88rem;
+		font-weight: 600;
+		cursor: pointer;
 	}
 
 	.rarity-pill {

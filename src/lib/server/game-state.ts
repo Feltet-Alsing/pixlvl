@@ -2,6 +2,7 @@ import { and, eq, type InferInsertModel, type InferSelectModel } from 'drizzle-o
 
 import { baselineCombatProfile, campaigns, getCampaign, starterWeaponId } from '$lib/data';
 import { getOwnedWeaponDefinitionIds } from '$lib/game/notifications';
+import { normalizeLoadoutRotation } from '$lib/game/loadout-rotation';
 import { createBaselineUpgradeablePixlState, createUpgradeablePixlState } from '$lib/game/upgrades';
 import { db } from '$lib/server/db';
 import { campaignProgress, pixlState } from '$lib/server/db/schema';
@@ -57,7 +58,8 @@ function createStarterLoadoutPlacements(): LoadoutPlacement[] {
 		{
 			weaponInstanceId: STARTER_WEAPON_INSTANCE_ID,
 			x: 0,
-			y: 0
+			y: 0,
+			rotation: 0
 		}
 	];
 }
@@ -128,9 +130,14 @@ function normalizeLoadoutPlacements(
 	}
 
 	const ownedWeaponIds = new Set(ownedWeapons.map((weapon) => weapon.instanceId));
-	const validPlacements = loadoutPlacements.filter((placement) =>
-		ownedWeaponIds.has(placement.weaponInstanceId)
-	);
+	const validPlacements = loadoutPlacements
+		.filter((placement) => ownedWeaponIds.has(placement.weaponInstanceId))
+		.map((placement) => ({
+			weaponInstanceId: placement.weaponInstanceId,
+			x: placement.x,
+			y: placement.y,
+			rotation: normalizeLoadoutRotation(placement.rotation)
+		}));
 
 	if (validPlacements.length === 0) {
 		return [];
