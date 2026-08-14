@@ -275,7 +275,7 @@
 			position: static;
 			inset: auto;
 			width: 100%;
-			padding: 0.95rem;
+			padding: 0.8rem;
 			border-right: 0;
 			border-radius: 1.1rem;
 			box-shadow: 0 24px 60px rgba(0, 0, 0, 0.32);
@@ -284,15 +284,54 @@
 
 		.campaign-drawer-header {
 			grid-template-columns: 1fr;
+			gap: 0.55rem;
 		}
 
 		.drawer-back-link,
 		.drawer-close {
 			justify-self: start;
+			min-height: 1.9rem;
+			padding: 0 0.7rem;
+			font-size: 0.76rem;
 		}
 
 		.campaign-summary-grid {
 			grid-template-columns: 1fr;
+		}
+
+		.drawer-campaign-links {
+			gap: 0.45rem;
+		}
+
+		.drawer-campaign-link {
+			min-height: 1.9rem;
+			padding: 0 0.72rem;
+			font-size: 0.76rem;
+		}
+
+		.summary-row,
+		.stage-card {
+			padding: 0.68rem 0.78rem;
+		}
+
+		.stage-card strong {
+			font-size: 0.92rem;
+		}
+
+		.stage-card small {
+			font-size: 0.76rem;
+		}
+	}
+
+	@media (max-width: 480px) {
+		.campaign-drawer {
+			padding: 0.7rem;
+			gap: 0.7rem;
+		}
+
+		.summary-row,
+		.stage-card {
+			padding: 0.62rem 0.72rem;
 		}
 	}
 </style>

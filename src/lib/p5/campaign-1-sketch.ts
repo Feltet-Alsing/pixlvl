@@ -34,6 +34,7 @@ import type { PersistedCampaignProgress, PersistedPixlState } from '$lib/server/
 const MAX_WIDTH = 760;
 const BASE_HEIGHT = 520;
 const FIXED_ARENA_RADIUS = BASE_HEIGHT * 0.42;
+const FIXED_SPAWN_RADIUS = FIXED_ARENA_RADIUS;
 const ARENA_VERTICAL_OFFSET_RATIO = 0.1;
 const LOADOUT_COLUMN_COUNT = 8;
 const LEVEL_CLEAR_DELAY = 3;
@@ -765,7 +766,32 @@ export function createCampaignSketch(
 		const updateArenaMetrics = () => {
 			centerX = p.width / 2;
 			centerY = p.height * (0.5 - ARENA_VERTICAL_OFFSET_RATIO);
-			arenaRadius = Math.min(Math.min(p.width, p.height) * 0.42, FIXED_ARENA_RADIUS);
+			arenaRadius = FIXED_ARENA_RADIUS;
+		};
+
+		const getArenaRenderScale = () => {
+			const horizontalInset = p.width <= 420 ? 18 : 24;
+			const verticalInset = p.width <= 420 ? 18 : 24;
+			const maxDiameter = arenaRadius * 2;
+			const availableWidth = Math.max(1, p.width - horizontalInset * 2);
+			const availableHeight = Math.max(1, p.height - verticalInset * 2);
+			return Math.min(1, availableWidth / maxDiameter, availableHeight / maxDiameter);
+		};
+
+		const drawScaledArenaLayer = (draw: () => void) => {
+			const scale = getArenaRenderScale();
+
+			if (scale >= 0.999) {
+				draw();
+				return;
+			}
+
+			p.push();
+			p.translate(centerX, centerY);
+			p.scale(scale);
+			p.translate(-centerX, -centerY);
+			draw();
+			p.pop();
 		};
 
 		const getEnemyContactRange = (kind: GlitchKind) =>
@@ -991,12 +1017,12 @@ export function createCampaignSketch(
 
 		const spawnEnemy = (kind: GlitchKind) => {
 			const angle = p.random(p.TWO_PI);
-			const x = centerX + Math.cos(angle) * arenaRadius;
-			const y = centerY + Math.sin(angle) * arenaRadius;
+			const x = centerX + Math.cos(angle) * FIXED_SPAWN_RADIUS;
+			const y = centerY + Math.sin(angle) * FIXED_SPAWN_RADIUS;
 			const stats = combatProfile.glitches[kind];
 			const preferredRange = stats.preferredRange ?? getEnemyContactRange(kind);
 			const holdRadius =
-				stats.attackPattern === 'siege' ? arenaRadius : preferredRange + p.random(-12, 16);
+				stats.attackPattern === 'siege' ? FIXED_SPAWN_RADIUS : preferredRange + p.random(-12, 16);
 			const healthMultiplier = getEnemyStageMultiplier('healthPerStage');
 			const scaledHealth = Math.max(1, Math.round(stats.health * healthMultiplier));
 
@@ -1965,13 +1991,17 @@ export function createCampaignSketch(
 
 			for (const weapon of weaponsAtColumn) {
 				const requiredInfusion = weapon.definition.attack.requiredInfusion;
+				const requiredInfusionCount = Math.max(
+					1,
+					weapon.definition.attack.requiredInfusionCount ?? 1
+				);
 
 				if (requiredInfusion) {
-					if (elementalInfusions[requiredInfusion] <= 0) {
+					if (elementalInfusions[requiredInfusion] < requiredInfusionCount) {
 						continue;
 					}
 
-					elementalInfusions[requiredInfusion] -= 1;
+					elementalInfusions[requiredInfusion] -= requiredInfusionCount;
 				}
 
 				const target = getWeaponTarget(weapon.definition.attack.targeting);
@@ -3383,13 +3413,13 @@ export function createCampaignSketch(
 
 			emitCombatState();
 
-			drawArena();
+			drawScaledArenaLayer(drawArena);
 			if (showLoadoutSketch) {
 				drawLoadout();
 			}
-			drawProjectiles();
-			drawEnemies();
-			drawPixl();
+			drawScaledArenaLayer(drawProjectiles);
+			drawScaledArenaLayer(drawEnemies);
+			drawScaledArenaLayer(drawPixl);
 		};
 
 		p.windowResized = () => {

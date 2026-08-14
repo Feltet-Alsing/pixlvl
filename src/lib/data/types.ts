@@ -95,6 +95,7 @@ export interface WeaponAttackBehavior {
 	pierceCount?: number;
 	impactRadius?: number;
 	requiredInfusion?: ElementalInfusionType;
+	requiredInfusionCount?: number;
 	special?:
 		| {
 				type: 'force-field';

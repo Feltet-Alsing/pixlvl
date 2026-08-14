@@ -761,6 +761,11 @@ Consumption priority:
 - if multiple elemental weapons would consume the same elemental infusion during the same sweep window, priority should resolve from top to bottom
 - the highest placed weapon on the loadout gets first claim on the matching infusion
 - lower placed weapons only fire if enough matching infusions remain after higher placed weapons consume theirs
+- elemental weapons can require more than one matching infusion for a single activation when balance calls for it
+
+Current special case:
+
+- Thor's Hammer consumes `3` lightning infusions per activation
 
 Design intent:
 

@@ -79,7 +79,8 @@
 		min-height: 0;
 		display: flex;
 		flex-direction: column;
-		overflow: auto;
+		overflow-x: hidden;
+		overflow-y: auto;
 	}
 
 	.app-header {
@@ -168,6 +169,8 @@
 
 	@media (max-width: 640px) {
 		.app-header-shell {
+			padding: 0.75rem 0.8rem;
+			gap: 0.7rem;
 			align-items: flex-start;
 		}
 
@@ -175,6 +178,69 @@
 		.app-session {
 			width: 100%;
 			justify-content: flex-start;
+		}
+
+		.app-nav {
+			flex-wrap: nowrap;
+			overflow-x: auto;
+			scrollbar-width: none;
+			padding-bottom: 0.1rem;
+		}
+
+		.app-nav::-webkit-scrollbar {
+			display: none;
+		}
+
+		.app-brand,
+		.app-nav-link,
+		.app-session-button,
+		.app-user {
+			min-height: 2.15rem;
+			font-size: 0.8rem;
+		}
+
+		.app-nav-link,
+		.app-session-button,
+		.app-user {
+			padding: 0 0.8rem;
+			white-space: nowrap;
+		}
+
+		.app-user {
+			max-width: 100%;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+	}
+
+	@media (max-width: 480px) {
+		.app-header-shell {
+			padding: 0.6rem 0.65rem;
+			gap: 0.55rem;
+		}
+
+		.app-brand,
+		.app-nav-link,
+		.app-session-button,
+		.app-user {
+			min-height: 1.95rem;
+			font-size: 0.74rem;
+		}
+
+		.app-brand {
+			padding: 0 0.7rem;
+			font-size: 0.86rem;
+			letter-spacing: 0.1em;
+		}
+
+		.app-nav {
+			gap: 0.45rem;
+		}
+
+		.app-nav-link,
+		.app-session-button,
+		.app-user {
+			padding: 0 0.68rem;
 		}
 	}
 </style>

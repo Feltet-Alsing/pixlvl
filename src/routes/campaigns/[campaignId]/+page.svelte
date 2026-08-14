@@ -615,6 +615,7 @@
 	.page {
 		flex: 1;
 		width: 100%;
+		max-width: 100vw;
 		height: 100%;
 		min-height: 0;
 		overflow: hidden;
@@ -623,6 +624,7 @@
 
 	.arena-shell {
 		width: 100%;
+		max-width: 100%;
 		height: 100%;
 		min-width: 0;
 		min-height: 0;
@@ -665,6 +667,9 @@
 
 	.mobile-panel-stack {
 		display: grid;
+		width: 100%;
+		max-width: 100%;
+		min-width: 0;
 		gap: 0.75rem;
 		align-content: start;
 	}
@@ -724,6 +729,9 @@
 	.utility-bar {
 		grid-column: 1 / -1;
 		grid-row: 1;
+		width: 100%;
+		max-width: 100%;
+		min-width: 0;
 		justify-content: flex-end;
 		pointer-events: auto;
 	}
@@ -732,6 +740,7 @@
 		flex: 1 1 auto;
 		justify-content: flex-end;
 		min-width: 0;
+		max-width: 100%;
 	}
 
 	.meta-pill {
@@ -1450,12 +1459,14 @@
 		.page {
 			height: auto;
 			min-height: 100dvh;
-			overflow: auto;
+			overflow-x: hidden;
+			overflow-y: auto;
 		}
 
 		.utility-bar {
 			align-items: flex-start;
 			flex-direction: column;
+			overflow-x: hidden;
 		}
 
 		.utility-primary,
@@ -1481,12 +1492,18 @@
 			height: auto;
 			min-height: 0;
 			overflow: hidden;
+			max-width: 100%;
+			width: 100%;
+			justify-self: center;
 		}
 
 		.canvas-stage :global(.canvas-frame) {
 			height: auto;
-			min-height: 18rem;
-			aspect-ratio: 1;
+			min-height: 15rem;
+			aspect-ratio: 1 / 0.92;
+			width: 100%;
+			max-width: 100%;
+			margin: 0 auto;
 			border-radius: inherit;
 			overflow: hidden;
 		}
@@ -1527,6 +1544,9 @@
 
 		.combat-panel {
 			grid-row: auto;
+			width: min(100%, 22rem);
+			max-width: 22rem;
+			justify-self: center;
 		}
 
 		.shop-panel {
@@ -1565,7 +1585,103 @@
 		.loadout-preview-panel {
 			grid-column: 1;
 			grid-row: auto;
-			min-height: 18rem;
+			min-height: 0;
+			padding: 0.75rem;
+			gap: 0.6rem;
+			grid-template-rows: auto auto auto minmax(0, 7.5rem) minmax(0, 10rem) minmax(8.5rem, 10rem);
+		}
+
+		.loadout-preview-list {
+			max-height: none;
+			min-height: 0;
+		}
+
+		.loadout-preview-damage-list {
+			max-height: none;
+		}
+
+		.loadout-preview-row,
+		.loadout-preview-damage-row {
+			padding: 0.48rem 0.58rem;
+		}
+
+		.loadout-preview-copy strong,
+		.loadout-preview-damage-metrics strong {
+			font-size: 0.82rem;
+		}
+
+		.loadout-preview-copy span,
+		.loadout-preview-damage-metrics span,
+		.loadout-preview-coords,
+		.loadout-preview-empty {
+			font-size: 0.68rem;
+			letter-spacing: 0.04em;
+		}
+
+		.loadout-preview-canvas-shell {
+			min-height: 8.5rem;
+		}
+	}
+
+	@media (max-width: 480px) {
+		.arena-shell,
+		.arena-shell.preview-enabled {
+			gap: 0.6rem;
+			padding: 0.6rem;
+		}
+
+		.canvas-stage :global(.canvas-frame) {
+			min-height: 11.5rem;
+			aspect-ratio: 1 / 0.82;
+		}
+
+		.combat-panel {
+			width: min(100%, 18.6rem);
+			max-width: 18.6rem;
+			padding: 0.46rem 0.58rem;
+			gap: 0.32rem;
+		}
+
+		.combat-title {
+			font-size: 0.66rem;
+			letter-spacing: 0.1em;
+		}
+
+		.combat-bar-meta span {
+			font-size: 0.58rem;
+			letter-spacing: 0.08em;
+		}
+
+		.combat-bar-meta strong {
+			font-size: 0.68rem;
+		}
+
+		.loadout-preview-panel {
+			padding: 0.65rem;
+			gap: 0.5rem;
+			grid-template-rows: auto auto auto minmax(0, 5.75rem) minmax(0, 7.5rem) minmax(6.5rem, 8rem);
+		}
+
+		.loadout-preview-row,
+		.loadout-preview-damage-row {
+			padding: 0.42rem 0.5rem;
+		}
+
+		.loadout-preview-copy strong,
+		.loadout-preview-damage-metrics strong {
+			font-size: 0.76rem;
+		}
+
+		.loadout-preview-copy span,
+		.loadout-preview-damage-metrics span,
+		.loadout-preview-coords,
+		.loadout-preview-empty {
+			font-size: 0.64rem;
+			letter-spacing: 0.03em;
+		}
+
+		.loadout-preview-canvas-shell {
+			min-height: 6.5rem;
 		}
 	}
 </style>

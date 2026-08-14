@@ -123,12 +123,16 @@
 <style>
 	.route-nav {
 		display: block;
+		min-width: 0;
+		width: 100%;
 	}
 
 	.nav-links {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.6rem;
+		min-width: 0;
+		max-width: 100%;
 	}
 
 	.route-link {
@@ -171,5 +175,53 @@
 		font-size: 0.68rem;
 		font-weight: 700;
 		line-height: 1;
+	}
+
+	@media (max-width: 860px) {
+		.nav-links {
+			flex-wrap: nowrap;
+			gap: 0.45rem;
+			width: 100%;
+			overflow-x: auto;
+			overflow-y: hidden;
+			padding-bottom: 0.15rem;
+			scrollbar-width: none;
+		}
+
+		.nav-links::-webkit-scrollbar {
+			display: none;
+		}
+
+		.route-link {
+			min-height: 2rem;
+			padding: 0 0.72rem;
+			font-size: 0.76rem;
+			white-space: nowrap;
+		}
+
+		.route-badge {
+			margin-left: 0.35rem;
+			min-width: 1rem;
+			height: 1rem;
+			font-size: 0.62rem;
+		}
+	}
+
+	@media (max-width: 480px) {
+		.nav-links {
+			gap: 0.38rem;
+		}
+
+		.route-link {
+			min-height: 1.8rem;
+			padding: 0 0.55rem;
+			font-size: 0.68rem;
+		}
+
+		.route-badge {
+			min-width: 0.92rem;
+			height: 0.92rem;
+			font-size: 0.56rem;
+		}
 	}
 </style>
