@@ -216,11 +216,11 @@ export const campaign3Weapons: LoadoutItemDefinition[] = [
 		attack: {
 			kind: 'single',
 			projectileCount: 1,
-			cycleInterval: 2,
+			cycleInterval: 4,
 			requiredInfusion: 'fire',
 			special: {
 				type: 'flamethrower-cone',
-				durationCycles: 1,
+				durationCycles: 2,
 				tickInterval: 0.2,
 				reach: 190,
 				coneAngleDegrees: 34
@@ -241,7 +241,7 @@ export const campaign3Weapons: LoadoutItemDefinition[] = [
 			stageEnd: 5,
 			perLevelDropChance: 0.08
 		},
-		role: 'Exotic fire weapon that sustains a burning cone for one cycle after consuming one fire infusion'
+		role: 'Exotic fire weapon that sustains a long red flame stream for two cycles after consuming one fire infusion'
 	},
 	{
 		id: 'blizzard',
@@ -265,7 +265,7 @@ export const campaign3Weapons: LoadoutItemDefinition[] = [
 				[2, 3]
 			]
 		},
-		baseDamage: 25,
+		baseDamage: 12,
 		projectileSpeed: 0,
 		attack: {
 			kind: 'single',
@@ -274,15 +274,15 @@ export const campaign3Weapons: LoadoutItemDefinition[] = [
 			requiredInfusion: 'cold',
 			special: {
 				type: 'ice-shower',
-				spikeCount: 10,
+				spikeCount: 20,
 				durationCycles: 1,
-				fallDuration: 0.24,
+				fallDuration: 0.48,
 				impactRadius: 16
 			},
 			targeting: 'current-target'
 		},
 		projectileVisual: {
-			color: '#7dd3fc',
+			color: '#f5f5f5',
 			size: 'medium',
 			shape: 'diamond',
 			glow: true,

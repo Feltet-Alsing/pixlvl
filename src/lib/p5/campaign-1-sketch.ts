@@ -153,6 +153,10 @@ interface ProjectileState {
 	glow: boolean;
 	canSplitOnImpact: boolean;
 	motion: WeaponProjectileMotion;
+	waveAmplitude: number;
+	waveFrequency: number;
+	wavePhase: number;
+	waveDrift: number;
 	pierceRemaining: number;
 	impactRadius: number;
 	impactRadiusGrowth: number;
@@ -161,6 +165,8 @@ interface ProjectileState {
 	sizeGrowth: number;
 	maxSize: number;
 	hitEnemyIds: number[];
+	hitResetInterval: number;
+	hitResetTimer: number;
 	homingTargetEnemyId: number | null;
 	homingTurnRate: number;
 }
@@ -263,16 +269,20 @@ interface ForkLightningState {
 }
 
 interface FlamethrowerConeState {
+	enemyId: number | null;
 	angle: number;
 	reach: number;
 	halfAngleRadians: number;
 	damagePerTick: number;
 	tickInterval: number;
 	tickTimer: number;
+	emissionInterval: number;
+	emissionTimer: number;
+	projectilesReleased: number;
 	color: string;
 	glow: boolean;
+	age: number;
 	expiresAfterSweepIndex: number;
-	hitEnemyIdsThisTick: number[];
 }
 
 interface IceSpikeState {
@@ -280,6 +290,7 @@ interface IceSpikeState {
 	targetX: number;
 	targetY: number;
 	startY: number;
+	endY: number;
 	age: number;
 	startDelay: number;
 	fallDuration: number;
@@ -288,6 +299,10 @@ interface IceSpikeState {
 	color: string;
 	glow: boolean;
 	hasHit: boolean;
+	driftAmplitude: number;
+	driftSpeed: number;
+	driftPhase: number;
+	size: number;
 }
 
 interface VoidTendrilState {
@@ -1364,16 +1379,20 @@ export function createCampaignSketch(
 			}
 
 			flamethrowerCones.push({
+				enemyId: target.id,
 				angle: Math.atan2(target.y - centerY, target.x - centerX),
 				reach: special.reach,
 				halfAngleRadians: ((special.coneAngleDegrees / 2) * Math.PI) / 180,
 				damagePerTick: getAdjustedWeaponDamage(weapon),
 				tickInterval: special.tickInterval,
 				tickTimer: special.tickInterval,
+				emissionInterval: Math.max(0.012, special.tickInterval * 0.06),
+				emissionTimer: 0,
+				projectilesReleased: 0,
 				color: weapon.projectileVisual.color,
 				glow: weapon.projectileVisual.glow ?? false,
-				expiresAfterSweepIndex: currentSweepIndex + special.durationCycles,
-				hitEnemyIdsThisTick: []
+				age: 0,
+				expiresAfterSweepIndex: currentSweepIndex + special.durationCycles
 			});
 		};
 
@@ -1398,7 +1417,8 @@ export function createCampaignSketch(
 					enemyId: target?.id ?? null,
 					targetX,
 					targetY,
-					startY: targetY - 120,
+					startY: -20 - p.random(20, 120),
+					endY: p.height + 48,
 					age: 0,
 					startDelay: (cycleDuration / spikeCount) * index,
 					fallDuration: special.fallDuration,
@@ -1406,7 +1426,11 @@ export function createCampaignSketch(
 					impactRadius: special.impactRadius,
 					color: weapon.projectileVisual.color,
 					glow: weapon.projectileVisual.glow ?? false,
-					hasHit: false
+					hasHit: false,
+					driftAmplitude: p.random(4, 14),
+					driftSpeed: p.random(4, 8),
+					driftPhase: p.random(p.TWO_PI),
+					size: p.random(5, 9)
 				});
 			}
 		};
@@ -1512,7 +1536,12 @@ export function createCampaignSketch(
 			glow = weapon.projectileVisual.glow ?? false,
 			color = weapon.projectileVisual.color,
 			motion = weapon.attack.motion ?? 'straight',
+			waveAmplitude = motion === 'wave' ? 10 : 0,
+			waveFrequency = 18,
+			wavePhase = 0,
+			waveDrift = 0,
 			pierceRemaining = Math.max(0, weapon.attack.pierceCount ?? 0),
+			hitResetInterval = 0,
 			impactRadius = Math.max(0, weapon.attack.impactRadius ?? 0),
 			impactRadiusGrowth,
 			maxImpactRadius,
@@ -1535,7 +1564,12 @@ export function createCampaignSketch(
 			glow?: boolean;
 			color?: string;
 			motion?: WeaponProjectileMotion;
+			waveAmplitude?: number;
+			waveFrequency?: number;
+			wavePhase?: number;
+			waveDrift?: number;
 			pierceRemaining?: number;
+			hitResetInterval?: number;
 			impactRadius?: number;
 			impactRadiusGrowth?: number;
 			maxImpactRadius?: number;
@@ -1580,6 +1614,10 @@ export function createCampaignSketch(
 				glow,
 				canSplitOnImpact,
 				motion,
+				waveAmplitude,
+				waveFrequency,
+				wavePhase,
+				waveDrift,
 				pierceRemaining,
 				impactRadius,
 				impactRadiusGrowth: Math.max(
@@ -1599,6 +1637,8 @@ export function createCampaignSketch(
 					primaryShrapnelOrb ? scaledSize : (maxSize ?? expandingWave?.maxSize ?? scaledSize)
 				),
 				hitEnemyIds: [],
+				hitResetInterval,
+				hitResetTimer: hitResetInterval,
 				homingTargetEnemyId: weapon.id === 'heavy-orb' ? (target?.id ?? null) : null,
 				homingTurnRate: weapon.id === 'heavy-orb' ? 2.4 : 0
 			});
@@ -2231,38 +2271,111 @@ export function createCampaignSketch(
 		const updateFlamethrowerCones = (dt: number) => {
 			for (let index = flamethrowerCones.length - 1; index >= 0; index -= 1) {
 				const cone = flamethrowerCones[index];
+				const totalFlameParticles = 400;
+				cone.age += dt;
+
+				const trackedTarget =
+					(cone.enemyId !== null && enemies.find((enemy) => enemy.id === cone.enemyId)) ?? null;
+
+				if (trackedTarget) {
+					const desiredAngle = Math.atan2(trackedTarget.y - centerY, trackedTarget.x - centerX);
+					let delta = desiredAngle - cone.angle;
+					while (delta > Math.PI) delta -= Math.PI * 2;
+					while (delta < -Math.PI) delta += Math.PI * 2;
+					cone.angle += delta * Math.min(1, dt * 3.2);
+					cone.enemyId = trackedTarget.id;
+				} else {
+					const fallbackTarget = getWeaponTarget('current-target');
+
+					if (fallbackTarget) {
+						const desiredAngle = Math.atan2(fallbackTarget.y - centerY, fallbackTarget.x - centerX);
+						let delta = desiredAngle - cone.angle;
+						while (delta > Math.PI) delta -= Math.PI * 2;
+						while (delta < -Math.PI) delta += Math.PI * 2;
+						cone.angle += delta * Math.min(1, dt * 2.2);
+						cone.enemyId = fallbackTarget.id;
+					}
+				}
+
 				cone.tickTimer -= dt;
+				cone.emissionTimer -= dt;
+
+				while (cone.emissionTimer <= 0) {
+					cone.emissionTimer += cone.emissionInterval;
+
+					if (cone.projectilesReleased >= totalFlameParticles) {
+						continue;
+					}
+
+					const releaseTarget =
+						(cone.enemyId !== null && enemies.find((enemy) => enemy.id === cone.enemyId)) ??
+						getWeaponTarget('current-target');
+
+					if (releaseTarget) {
+						cone.enemyId = releaseTarget.id;
+					}
+
+					const baseAngle = cone.angle;
+					const volleyCount = Math.min(2, totalFlameParticles - cone.projectilesReleased);
+					const coneSpan = cone.halfAngleRadians * 2.9;
+					const initialConeSpan = cone.halfAngleRadians * 0.28;
+					const perProjectileDamage = Math.max(0.1, cone.damagePerTick / 10);
+
+					for (let volleyIndex = 0; volleyIndex < volleyCount; volleyIndex += 1) {
+						const globalProjectileIndex = cone.projectilesReleased + volleyIndex;
+						const arcPosition = (globalProjectileIndex * 0.61803398875) % 1;
+						const laneJitter = Math.sin(cone.age * 6 + globalProjectileIndex * 1.7) * 0.028;
+						const normalizedLane = Math.max(0, Math.min(1, arcPosition + laneJitter));
+						const t = normalizedLane;
+						const alternatingSize = globalProjectileIndex % 2 === 0 ? 1.1 : 2.2;
+						const waveDirection = globalProjectileIndex % 2 === 0 ? 1 : -1;
+						const lateralRatio = normalizedLane * 2 - 1;
+						const muzzleLateralOffset = lateralRatio * 3.5;
+						const muzzleForwardOffset = 6;
+						const offset = -initialConeSpan * 0.5 + initialConeSpan * normalizedLane;
+						const directionAngle = baseAngle + offset;
+						const directionX = Math.cos(directionAngle);
+						const directionY = Math.sin(directionAngle);
+						const perpendicularX = -directionY;
+						const perpendicularY = directionX;
+						spawnProjectile({
+							originX:
+								centerX + directionX * muzzleForwardOffset + perpendicularX * muzzleLateralOffset,
+							originY:
+								centerY + directionY * muzzleForwardOffset + perpendicularY * muzzleLateralOffset,
+							angleRadians: directionAngle,
+							weapon: {
+								...getWeaponDefinition('flamethrower'),
+								projectileSpeed: 120,
+								attack: {
+									...getWeaponDefinition('flamethrower').attack,
+									motion: 'straight'
+								}
+							},
+							damage: perProjectileDamage,
+							speed: 120,
+							size: alternatingSize + t * 0.15,
+							shape: 'spark',
+							trail: 'pulse',
+							glow: cone.glow,
+							color: '#ff3b1f',
+							motion: 'wave',
+							waveAmplitude: 2 + (1 - t) * 3,
+							waveFrequency: 12 + t * 4,
+							wavePhase:
+								globalProjectileIndex * 0.55 + normalizedLane * Math.PI * 2 * waveDirection,
+							waveDrift:
+								lateralRatio * (0.1 + Math.abs(lateralRatio) * 0.075) + waveDirection * 0.01,
+							pierceRemaining: Number.POSITIVE_INFINITY,
+							hitResetInterval: cone.tickInterval
+						});
+					}
+
+					cone.projectilesReleased += volleyCount;
+				}
 
 				while (cone.tickTimer <= 0) {
 					cone.tickTimer += cone.tickInterval;
-					cone.hitEnemyIdsThisTick = [];
-
-					for (let enemyIndex = enemies.length - 1; enemyIndex >= 0; enemyIndex -= 1) {
-						const enemy = enemies[enemyIndex];
-						const dx = enemy.x - centerX;
-						const dy = enemy.y - centerY;
-						const distance = Math.hypot(dx, dy);
-
-						if (distance <= 0 || distance > cone.reach) {
-							continue;
-						}
-
-						const angle = Math.atan2(dy, dx);
-						let delta = angle - cone.angle;
-						while (delta > Math.PI) delta -= Math.PI * 2;
-						while (delta < -Math.PI) delta += Math.PI * 2;
-
-						if (Math.abs(delta) > cone.halfAngleRadians) {
-							continue;
-						}
-
-						if (cone.hitEnemyIdsThisTick.includes(enemy.id)) {
-							continue;
-						}
-
-						cone.hitEnemyIdsThisTick.push(enemy.id);
-						applyDamageToEnemy(enemyIndex, cone.damagePerTick, 0.07);
-					}
 				}
 
 				if (currentSweepIndex >= cone.expiresAfterSweepIndex) {
@@ -2271,25 +2384,39 @@ export function createCampaignSketch(
 			}
 		};
 
+		const getDistanceToSegment = (
+			pointX: number,
+			pointY: number,
+			startX: number,
+			startY: number,
+			endX: number,
+			endY: number
+		) => {
+			const segmentX = endX - startX;
+			const segmentY = endY - startY;
+			const segmentLengthSquared = segmentX * segmentX + segmentY * segmentY;
+
+			if (segmentLengthSquared === 0) {
+				return Math.hypot(pointX - startX, pointY - startY);
+			}
+
+			const projection =
+				((pointX - startX) * segmentX + (pointY - startY) * segmentY) / segmentLengthSquared;
+			const clampedProjection = Math.max(0, Math.min(1, projection));
+			const nearestX = startX + segmentX * clampedProjection;
+			const nearestY = startY + segmentY * clampedProjection;
+
+			return Math.hypot(pointX - nearestX, pointY - nearestY);
+		};
+
 		const updateIceSpikes = (dt: number) => {
 			for (let index = iceSpikes.length - 1; index >= 0; index -= 1) {
 				const spike = iceSpikes[index];
 				spike.age += dt;
+				const progress = Math.max(0, (spike.age - spike.startDelay) / spike.fallDuration);
+				const currentY = spike.startY + (spike.endY - spike.startY) * progress;
 
-				const trackedTarget =
-					(spike.enemyId !== null && enemies.find((enemy) => enemy.id === spike.enemyId)) ?? null;
-
-				if (trackedTarget) {
-					spike.targetX = trackedTarget.x;
-					spike.targetY = trackedTarget.y;
-				}
-
-				const progress = Math.min(
-					1,
-					Math.max(0, (spike.age - spike.startDelay) / spike.fallDuration)
-				);
-
-				if (!spike.hasHit && progress >= 1) {
+				if (!spike.hasHit && currentY >= spike.targetY) {
 					for (let enemyIndex = enemies.length - 1; enemyIndex >= 0; enemyIndex -= 1) {
 						const enemy = enemies[enemyIndex];
 						const distance = Math.hypot(enemy.x - spike.targetX, enemy.y - spike.targetY);
@@ -2304,7 +2431,7 @@ export function createCampaignSketch(
 					spike.hasHit = true;
 				}
 
-				if (progress >= 1.08) {
+				if (currentY > p.height + 40) {
 					iceSpikes.splice(index, 1);
 				}
 			}
@@ -2382,6 +2509,15 @@ export function createCampaignSketch(
 					}
 				}
 
+				if (projectile.hitResetInterval > 0) {
+					projectile.hitResetTimer -= dt;
+
+					while (projectile.hitResetTimer <= 0) {
+						projectile.hitEnemyIds = [];
+						projectile.hitResetTimer += projectile.hitResetInterval;
+					}
+				}
+
 				projectile.distanceTravelled += projectile.speed * dt;
 
 				if (projectile.sizeGrowth > 0) {
@@ -2402,7 +2538,15 @@ export function createCampaignSketch(
 					projectile.x += projectile.directionX * projectile.speed * dt;
 					projectile.y += projectile.directionY * projectile.speed * dt;
 				} else {
-					const waveOffset = projectile.motion === 'wave' ? Math.sin(projectile.age * 18) * 10 : 0;
+					const waveRamp = Math.min(1, projectile.distanceTravelled / 105);
+					const bloomRamp = waveRamp * waveRamp;
+					const waveOffset =
+						projectile.motion === 'wave'
+							? Math.sin(projectile.age * projectile.waveFrequency + projectile.wavePhase) *
+									projectile.waveAmplitude *
+									bloomRamp +
+								projectile.distanceTravelled * projectile.waveDrift * bloomRamp
+							: 0;
 
 					projectile.x =
 						projectile.originX +
@@ -2414,7 +2558,8 @@ export function createCampaignSketch(
 						projectile.perpendicularY * waveOffset;
 				}
 
-				let hitEnemyIndex = -1;
+				const hitEnemyIdsThisStep: number[] = [];
+				const multiHitProjectile = projectile.hitResetInterval > 0;
 
 				for (let enemyIndex = 0; enemyIndex < enemies.length; enemyIndex += 1) {
 					const enemy = enemies[enemyIndex];
@@ -2423,17 +2568,54 @@ export function createCampaignSketch(
 					}
 
 					const hitRadius = ENEMY_VISUALS[enemy.kind].radius + projectile.size;
-					const distance = Math.hypot(projectile.x - enemy.x, projectile.y - enemy.y);
+					const distance = multiHitProjectile
+						? getDistanceToSegment(
+								enemy.x,
+								enemy.y,
+								projectile.lastX,
+								projectile.lastY,
+								projectile.x,
+								projectile.y
+							)
+						: Math.hypot(projectile.x - enemy.x, projectile.y - enemy.y);
 
 					if (distance <= hitRadius) {
-						hitEnemyIndex = enemyIndex;
-						break;
+						hitEnemyIdsThisStep.push(enemy.id);
+
+						if (!multiHitProjectile) {
+							break;
+						}
 					}
 				}
 
-				if (hitEnemyIndex >= 0) {
+				if (hitEnemyIdsThisStep.length > 0) {
+					projectile.hitEnemyIds = [...projectile.hitEnemyIds, ...hitEnemyIdsThisStep];
+
+					if (multiHitProjectile) {
+						for (const enemyId of hitEnemyIdsThisStep) {
+							const enemyIndex = enemies.findIndex((enemy) => enemy.id === enemyId);
+
+							if (enemyIndex >= 0) {
+								applyDamageToEnemy(enemyIndex, projectile.damage, 0.04);
+							}
+						}
+
+						if (projectile.pierceRemaining > 0) {
+							projectile.pierceRemaining -= hitEnemyIdsThisStep.length;
+						} else {
+							projectiles.splice(index, 1);
+						}
+
+						continue;
+					}
+
+					let hitEnemyIndex = enemies.findIndex((enemy) => enemy.id === hitEnemyIdsThisStep[0]);
+
+					if (hitEnemyIndex < 0) {
+						continue;
+					}
+
 					const enemy = enemies[hitEnemyIndex];
-					projectile.hitEnemyIds = [...projectile.hitEnemyIds, enemy.id];
 
 					if (projectile.impactRadius > 0) {
 						const splashDamage = Math.max(1, Math.round(projectile.damage * 0.6));
@@ -2840,42 +3022,46 @@ export function createCampaignSketch(
 				}
 			}
 
-			for (const cone of flamethrowerCones) {
-				const leftAngle = cone.angle - cone.halfAngleRadians;
-				const rightAngle = cone.angle + cone.halfAngleRadians;
-				const leftX = centerX + Math.cos(leftAngle) * cone.reach;
-				const leftY = centerY + Math.sin(leftAngle) * cone.reach;
-				const rightX = centerX + Math.cos(rightAngle) * cone.reach;
-				const rightY = centerY + Math.sin(rightAngle) * cone.reach;
-
-				p.noStroke();
-				p.fill(cone.glow ? `${cone.color}44` : `${cone.color}2d`);
-				p.triangle(centerX, centerY, leftX, leftY, rightX, rightY);
-			}
-
 			for (const spike of iceSpikes) {
-				const progress = Math.min(
-					1,
-					Math.max(0, (spike.age - spike.startDelay) / spike.fallDuration)
-				);
-				const currentY = spike.startY + (spike.targetY - spike.startY) * progress;
+				const progress = Math.max(0, (spike.age - spike.startDelay) / spike.fallDuration);
+				const currentY = spike.startY + (spike.endY - spike.startY) * progress;
+				const currentX =
+					spike.targetX +
+					Math.sin(spike.driftPhase + spike.age * spike.driftSpeed) * spike.driftAmplitude;
+				const fadeOut =
+					currentY >= spike.targetY ? Math.max(0, 1 - (currentY - spike.targetY) / 120) : 1;
+				const alphaHex = Math.round(255 * fadeOut)
+					.toString(16)
+					.padStart(2, '0');
 
 				if (spike.glow) {
 					p.noStroke();
-					p.fill(`${spike.color}33`);
-					p.circle(spike.targetX, currentY, 22);
+					p.fill(
+						`${spike.color}${Math.round(132 * fadeOut)
+							.toString(16)
+							.padStart(2, '0')}`
+					);
+					p.circle(currentX, currentY, spike.size * 3.8);
 				}
 
+				p.push();
+				p.translate(currentX, currentY);
+				p.rotate(spike.driftPhase + spike.age * 1.8);
+				p.stroke(`${spike.color}${alphaHex}`);
+				p.strokeWeight(1.8);
+				const half = spike.size * 0.5;
+				p.line(-half * 0.82, 0, half * 0.82, 0);
+				p.line(0, -half * 0.82, 0, half * 0.82);
+				p.line(-half * 0.58, -half * 0.58, half * 0.58, half * 0.58);
+				p.line(-half * 0.58, half * 0.58, half * 0.58, -half * 0.58);
 				p.noStroke();
-				p.fill(spike.color);
-				p.triangle(
-					spike.targetX,
-					currentY - 14,
-					spike.targetX - 8,
-					currentY + 10,
-					spike.targetX + 8,
-					currentY + 10
+				p.fill(
+					`${spike.color}${Math.round(255 * fadeOut)
+						.toString(16)
+						.padStart(2, '0')}`
 				);
+				p.circle(0, 0, spike.size * 1.1);
+				p.pop();
 			}
 
 			for (const tendril of voidTendrils) {
