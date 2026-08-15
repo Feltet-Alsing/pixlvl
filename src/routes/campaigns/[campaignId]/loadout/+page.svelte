@@ -759,6 +759,7 @@
 		];
 		selectedPlacedWeaponInstanceId = weaponInstanceId;
 		selectedInventoryDefinitionId = null;
+		isMobileItemPaneOpen = false;
 		clearDragState();
 	}
 
@@ -1048,10 +1049,6 @@
 
 		selectedPlacedWeaponInstanceId = null;
 		selectedInventoryDefinitionId = weapon.definitionId;
-
-		if (isMobileLayout) {
-			isMobileItemPaneOpen = false;
-		}
 
 		scrollLoadoutGridIntoView();
 		beginWeaponDrag(event, weapon.weaponInstanceId, anchor, 0);
