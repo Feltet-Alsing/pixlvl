@@ -402,7 +402,6 @@
 			onClose={() => setCampaignMenuOpen(false)}
 		/>
 	{/if}
-
 {/snippet}
 
 {#snippet statsOverlayPanel()}
@@ -416,7 +415,6 @@
 		/>
 	{/if}
 {/snippet}
-
 
 {#snippet combatHudPanel()}
 	{#if runMode === 'combat'}
@@ -451,9 +449,7 @@
 			</div>
 		</div>
 	{/if}
-	
 {/snippet}
-
 
 {#snippet transientArenaOverlays()}
 	{#if runMode === 'combat'}
