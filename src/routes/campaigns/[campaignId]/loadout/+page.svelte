@@ -107,6 +107,7 @@
 	let draggedWeaponAnchor = $state<{ x: number; y: number } | null>(null);
 	let draggedWeaponRotation = $state<LoadoutRotation>(0);
 	let draggedWeaponPointerId = $state<number | null>(null);
+	let dragPreviewPointer = $state<{ x: number; y: number } | null>(null);
 	let hoveredGridOrigin = $state<{ x: number; y: number } | null>(null);
 	let isInventoryDropTargetActive = $state(false);
 	let inventorySearch = $state('');
@@ -812,6 +813,7 @@
 			event.preventDefault();
 		}
 
+		dragPreviewPointer = { x: event.clientX, y: event.clientY };
 		draggedWeaponInstanceId = weaponInstanceId;
 		draggedWeaponAnchor = anchor;
 		draggedWeaponRotation = rotation;
@@ -853,6 +855,8 @@
 		if (event.cancelable) {
 			event.preventDefault();
 		}
+
+		dragPreviewPointer = { x: event.clientX, y: event.clientY };
 
 		const cell = getGridCellFromPoint(event.clientX, event.clientY);
 
@@ -916,6 +920,7 @@
 		hoveredGridOrigin = null;
 		isInventoryDropTargetActive = false;
 		showRotationTip = false;
+		dragPreviewPointer = null;
 	}
 
 	function cancelMobilePlacement() {
@@ -1068,6 +1073,43 @@
 		}
 
 		beginInventoryWeaponDrag(event, weapon);
+	}
+
+	function beginInventoryWeaponGroupMobileDrag(
+		group: InventoryWeaponGroup,
+		gesture: { pointerId: number; clientX: number; clientY: number }
+	) {
+		if (!isMobileLayout || !group.representativeWeaponInstanceId) {
+			return;
+		}
+
+		const weapon = inventoryWeapons.find(
+			(candidate) => candidate.weaponInstanceId === group.representativeWeaponInstanceId
+		);
+
+		if (!weapon) {
+			return;
+		}
+
+		selectedPlacedWeaponInstanceId = null;
+		selectedInventoryDefinitionId = weapon.definitionId;
+		isMobileItemPaneOpen = false;
+		draggedWeaponInstanceId = weapon.weaponInstanceId;
+		draggedWeaponAnchor = getDefaultDragAnchor(weapon.shape);
+		draggedWeaponRotation = 0;
+		draggedWeaponPointerId = gesture.pointerId;
+		dragPreviewPointer = { x: gesture.clientX, y: gesture.clientY };
+		hoveredGridOrigin = null;
+		isInventoryDropTargetActive = false;
+		showRotationTipOnce();
+
+		queueMicrotask(() => {
+			const cell = getGridCellFromPoint(gesture.clientX, gesture.clientY);
+
+			if (cell) {
+				updateHoveredOriginFromCell(cell);
+			}
+		});
 	}
 
 	function handleMobileGroupPick(group: InventoryWeaponGroup) {
@@ -1251,7 +1293,11 @@
 				{/if}
 
 				{#if draggedWeaponShape}
-					<LoadoutDraggedShapePreview shape={draggedWeaponShape} />
+					<LoadoutDraggedShapePreview
+						shape={draggedWeaponShape}
+						pointerX={dragPreviewPointer?.x ?? 0}
+						pointerY={dragPreviewPointer?.y ?? 0}
+					/>
 				{/if}
 
 				<LoadoutGridBoard
@@ -1293,6 +1339,7 @@
 			>
 				<LoadoutInventoryToolbox
 					searchValue={inventorySearch}
+					{isMobileLayout}
 					onSearchInput={(value) => (inventorySearch = value)}
 					isDropTargetActive={isInventoryDropTargetActive}
 					groups={filteredInventoryWeaponGroups}
@@ -1300,6 +1347,7 @@
 					onSelectGroup={selectInventoryGroup}
 					onRequestScrap={openScrapDialog}
 					onGroupPointerDown={beginInventoryWeaponGroupDrag}
+					onGroupMobileDragStart={beginInventoryWeaponGroupMobileDrag}
 					onGroupPick={handleMobileGroupPick}
 					formatGroupStatus={formatInventoryGroupStatus}
 					{isShapeCellFilled}
@@ -1774,6 +1822,8 @@
 			transform: translate3d(calc(100% + 1rem), -50%, 0);
 			transition: transform 180ms ease;
 			overflow: hidden;
+			touch-action: pan-y;
+			overscroll-behavior: contain;
 		}
 
 		.inventory-panel.mobile-item-pane.open {

@@ -29,6 +29,7 @@
 
 	interface Props {
 		searchValue: string;
+		isMobileLayout?: boolean;
 		onSearchInput: (value: string) => void;
 		isDropTargetActive: boolean;
 		groups: InventoryWeaponGroup[];
@@ -36,13 +37,27 @@
 		onSelectGroup: (group: InventoryWeaponGroup) => void;
 		onRequestScrap?: (group: InventoryWeaponGroup) => void;
 		onGroupPointerDown: (event: PointerEvent, group: InventoryWeaponGroup) => void;
+		onGroupMobileDragStart?: (
+			group: InventoryWeaponGroup,
+			gesture: { pointerId: number; clientX: number; clientY: number }
+		) => void;
 		onGroupPick?: (group: InventoryWeaponGroup) => void;
 		formatGroupStatus: (group: InventoryWeaponGroup) => string;
 		isShapeCellFilled: (shape: WeaponShape, x: number, y: number) => boolean;
 	}
 
+	interface PendingMobileDrag {
+		group: InventoryWeaponGroup;
+		pointerId: number;
+		startX: number;
+		startY: number;
+	}
+
+	const MOBILE_DRAG_THRESHOLD = 14;
+
 	let {
 		searchValue,
+		isMobileLayout = false,
 		onSearchInput,
 		isDropTargetActive,
 		groups,
@@ -50,10 +65,15 @@
 		onSelectGroup,
 		onRequestScrap,
 		onGroupPointerDown,
+		onGroupMobileDragStart,
 		onGroupPick,
 		formatGroupStatus,
 		isShapeCellFilled
 	}: Props = $props();
+
+	let pendingMobileDrag: PendingMobileDrag | null = null;
+	let suppressedPickDefinitionId: string | null = null;
+	let suppressedPickTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	function handleSearchInput(event: Event) {
 		const target = event.currentTarget;
@@ -76,7 +96,102 @@
 			{ label: 'Equip', value: group.equippedCount.toString() }
 		];
 	}
+
+	function scheduleSuppressedPickReset() {
+		if (suppressedPickTimeout) {
+			clearTimeout(suppressedPickTimeout);
+		}
+
+		suppressedPickTimeout = setTimeout(() => {
+			suppressedPickDefinitionId = null;
+			suppressedPickTimeout = null;
+		}, 400);
+	}
+
+	function handleGroupPointerDown(event: PointerEvent, group: InventoryWeaponGroup) {
+		if (!isMobileLayout) {
+			onGroupPointerDown(event, group);
+			return;
+		}
+
+		if (group.availableCount < 1) {
+			return;
+		}
+
+		pendingMobileDrag = {
+			group,
+			pointerId: event.pointerId,
+			startX: event.clientX,
+			startY: event.clientY
+		};
+	}
+
+	function clearPendingMobileDrag(pointerId?: number) {
+		if (!pendingMobileDrag) {
+			return;
+		}
+
+		if (pointerId !== undefined && pendingMobileDrag.pointerId !== pointerId) {
+			return;
+		}
+
+		pendingMobileDrag = null;
+	}
+
+	function handleWindowPointerMove(event: PointerEvent) {
+		if (!pendingMobileDrag || event.pointerId !== pendingMobileDrag.pointerId) {
+			return;
+		}
+
+		const deltaX = event.clientX - pendingMobileDrag.startX;
+		const deltaY = event.clientY - pendingMobileDrag.startY;
+		const absX = Math.abs(deltaX);
+		const absY = Math.abs(deltaY);
+
+		if (absY >= MOBILE_DRAG_THRESHOLD && absY > absX) {
+			clearPendingMobileDrag(event.pointerId);
+			return;
+		}
+
+		if (absX < MOBILE_DRAG_THRESHOLD || absX <= absY) {
+			return;
+		}
+
+		if (event.cancelable) {
+			event.preventDefault();
+		}
+
+		suppressedPickDefinitionId = pendingMobileDrag.group.definitionId;
+		scheduleSuppressedPickReset();
+		onGroupMobileDragStart?.(pendingMobileDrag.group, {
+			pointerId: event.pointerId,
+			clientX: event.clientX,
+			clientY: event.clientY
+		});
+		clearPendingMobileDrag(event.pointerId);
+	}
+
+	function handleGroupClick(group: InventoryWeaponGroup) {
+		onSelectGroup(group);
+
+		if (suppressedPickDefinitionId === group.definitionId) {
+			suppressedPickDefinitionId = null;
+			if (suppressedPickTimeout) {
+				clearTimeout(suppressedPickTimeout);
+				suppressedPickTimeout = null;
+			}
+			return;
+		}
+
+		onGroupPick?.(group);
+	}
 </script>
+
+<svelte:window
+	onpointermove={handleWindowPointerMove}
+	onpointerup={(event) => clearPendingMobileDrag(event.pointerId)}
+	onpointercancel={(event) => clearPendingMobileDrag(event.pointerId)}
+/>
 
 <div class="toolbox-shell">
 	<div class="section-head">
@@ -114,17 +229,15 @@
 							role="group"
 							class:equipped={group.equippedCount > 0}
 							class:unavailable={group.availableCount < 1}
+							class:mobile-scroll-card={isMobileLayout}
 							class:dragging={draggedWeaponInstanceId === group.representativeWeaponInstanceId}
-							onpointerdown={(event) => onGroupPointerDown(event, group)}
+							onpointerdown={(event) => handleGroupPointerDown(event, group)}
 						>
 							<button
 								class="inventory-card-button"
 								type="button"
 								disabled={group.availableCount < 1}
-								onclick={() => {
-									onSelectGroup(group);
-									onGroupPick?.(group);
-								}}
+								onclick={() => handleGroupClick(group)}
 							>
 								<CampaignItemCard
 									definition={group.definition}
@@ -219,6 +332,9 @@
 		display: grid;
 		min-height: 0;
 		height: 100%;
+		overflow: hidden;
+		touch-action: pan-y;
+		overscroll-behavior: contain;
 		border-radius: 1rem;
 		border: 1px dashed rgba(255, 255, 255, 0.12);
 		background: rgba(255, 255, 255, 0.02);
@@ -239,6 +355,8 @@
 		overflow-y: auto;
 		padding-bottom: 1rem;
 		padding-right: 0.25rem;
+		touch-action: pan-y;
+		overscroll-behavior: contain;
 		scrollbar-width: none;
 		-ms-overflow-style: none;
 	}
@@ -265,6 +383,11 @@
 		touch-action: none;
 	}
 
+	.inventory-weapon.mobile-scroll-card {
+		cursor: default;
+		touch-action: pan-y;
+	}
+
 	.inventory-card-button {
 		width: 100%;
 		padding: 0;
@@ -276,6 +399,10 @@
 		border: 0;
 		cursor: inherit;
 		touch-action: none;
+	}
+
+	.inventory-weapon.mobile-scroll-card .inventory-card-button {
+		touch-action: pan-y;
 	}
 
 	.inventory-card-button:disabled {
