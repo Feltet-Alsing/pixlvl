@@ -383,16 +383,7 @@
 
 <svelte:window bind:innerWidth />
 
-{#snippet arenaPanels()}
-	{#if !isMobileLayout && showStageDrawer}
-		<button
-			class="drawer-backdrop"
-			type="button"
-			aria-label="Close campaign menu"
-			onclick={() => setCampaignMenuOpen(false)}
-		></button>
-	{/if}
-
+{#snippet campaignDrawerPanel()}
 	{#if showStageDrawer}
 		<CampaignStageDrawer
 			campaignId={data.campaignId}
@@ -412,29 +403,23 @@
 		/>
 	{/if}
 
+{/snippet}
+
+{#snippet statsOverlayPanel()}
+	{#if showStatsOverlay}
+		<ArenaStatsOverlay
+			stats={overlayStatCards}
+			upgradeOptions={overlayUpgradeOptions}
+			signedIn={Boolean(data.gameState)}
+			purchaseError={form?.purchaseError}
+			submit={purchaseUpgrade}
+		/>
+	{/if}
+{/snippet}
+
+
+{#snippet combatHudPanel()}
 	{#if runMode === 'combat'}
-		{#if showStatsOverlay}
-			<ArenaStatsOverlay
-				stats={overlayStatCards}
-				upgradeOptions={overlayUpgradeOptions}
-				signedIn={Boolean(data.gameState)}
-				purchaseError={form?.purchaseError}
-				submit={purchaseUpgrade}
-			/>
-		{/if}
-
-		{#if showResultsPopup}
-			<LevelResultsPopup
-				campaignNumber={data.campaign.campaign}
-				stage={combatOverlay.stage}
-				stageLevel={combatOverlay.stageLevel}
-				{rewardDropRows}
-				{resultsEmptyLabel}
-				{resultsCountdownLabel}
-				onSkip={() => (skipResultsSignal += 1)}
-			/>
-		{/if}
-
 		<div class="overlay combat-panel">
 			<p class="combat-title">
 				Campaign {data.campaign.campaign} · Stage {combatOverlay.stage} · Level {combatOverlay.stageLevel}
@@ -465,6 +450,24 @@
 				</div>
 			</div>
 		</div>
+	{/if}
+	
+{/snippet}
+
+
+{#snippet transientArenaOverlays()}
+	{#if runMode === 'combat'}
+		{#if showResultsPopup}
+			<LevelResultsPopup
+				campaignNumber={data.campaign.campaign}
+				stage={combatOverlay.stage}
+				stageLevel={combatOverlay.stageLevel}
+				{rewardDropRows}
+				{resultsEmptyLabel}
+				{resultsCountdownLabel}
+				onSkip={() => (skipResultsSignal += 1)}
+			/>
+		{/if}
 
 		{#if combatStatusLabel}
 			<div class={`status-overlay ${combatStatusTone}`}>
@@ -585,28 +588,51 @@
 			{/if}
 		</div>
 
-		<section class:drawer-open={!isMobileLayout && showStageDrawer} class="canvas-stage">
-			{#key sketchRemountKey}
-				<P5Canvas class="canvas-frame" sketch={campaignSketch} />
-			{/key}
-
-			{#if !isMobileLayout}
-				<div class="overlay-layout">
-					{@render arenaPanels()}
+		<div
+			class={[
+				'arena-layout',
+				!isMobileLayout && showStageDrawer ? 'drawer-enabled' : '',
+				!isMobileLayout && runMode === 'combat' ? 'combat-enabled' : ''
+			]}
+		>
+			{#if !isMobileLayout && showStageDrawer}
+				<div class="desktop-panel-rail desktop-panel-rail-start">
+					{@render campaignDrawerPanel()}
 				</div>
 			{/if}
-		</section>
+
+			<section class="canvas-stage">
+				{#key sketchRemountKey}
+					<P5Canvas class="canvas-frame" sketch={campaignSketch} />
+				{/key}
+
+				<div class="overlay-layout">
+					{@render transientArenaOverlays()}
+				</div>
+			</section>
+
+			{#if !isMobileLayout && runMode === 'combat'}
+				<div class="desktop-panel-rail desktop-panel-rail-end">
+					{@render statsOverlayPanel()}
+					{@render combatHudPanel()}
+
+					{#if showLoadoutPreview}
+						{@render loadoutPreviewPanel()}
+					{/if}
+				</div>
+			{/if}
+		</div>
 
 		{#if isMobileLayout}
 			<div class="mobile-panel-stack">
-				{@render arenaPanels()}
+				{@render campaignDrawerPanel()}
+				{@render statsOverlayPanel()}
+				{@render combatHudPanel()}
 
 				{#if runMode === 'combat' && showLoadoutPreview}
 					{@render loadoutPreviewPanel()}
 				{/if}
 			</div>
-		{:else if runMode === 'combat' && showLoadoutPreview}
-			{@render loadoutPreviewPanel()}
 		{/if}
 	</div>
 </div>
@@ -636,14 +662,34 @@
 		box-sizing: border-box;
 	}
 
-	.arena-shell.preview-enabled {
+	.arena-layout {
+		grid-column: 1;
+		grid-row: 2;
+		display: grid;
+		grid-template-areas: 'canvas';
+		grid-template-columns: minmax(0, 1fr);
+		gap: 1rem;
+		min-width: 0;
+		min-height: 0;
+	}
+
+	.arena-layout.drawer-enabled {
+		grid-template-areas: 'left canvas';
+		grid-template-columns: minmax(18rem, 24rem) minmax(0, 1fr);
+	}
+
+	.arena-layout.combat-enabled {
+		grid-template-areas: 'canvas right';
 		grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
-		grid-template-rows: auto minmax(0, 1fr);
+	}
+
+	.arena-layout.drawer-enabled.combat-enabled {
+		grid-template-areas: 'left canvas right';
+		grid-template-columns: minmax(18rem, 24rem) minmax(0, 1fr) minmax(18rem, 24rem);
 	}
 
 	.canvas-stage {
-		grid-column: 1;
-		grid-row: 2;
+		grid-area: canvas;
 		position: relative;
 		width: 100%;
 		height: 100%;
@@ -651,6 +697,7 @@
 		min-height: 0;
 		overflow: hidden;
 		border-radius: 1.5rem;
+		touch-action: pan-y;
 	}
 
 	.overlay-layout {
@@ -665,6 +712,24 @@
 		pointer-events: none;
 	}
 
+	.desktop-panel-rail {
+		display: grid;
+		align-content: start;
+		gap: 1rem;
+		min-width: 0;
+		min-height: 0;
+	}
+
+	.desktop-panel-rail-start {
+		grid-area: left;
+	}
+
+	.desktop-panel-rail-end {
+		grid-area: right;
+		overflow-y: auto;
+		padding-right: 0.2rem;
+	}
+
 	.mobile-panel-stack {
 		display: grid;
 		width: 100%;
@@ -672,16 +737,7 @@
 		min-width: 0;
 		gap: 0.75rem;
 		align-content: start;
-	}
-
-	.drawer-backdrop {
-		position: absolute;
-		inset: 0;
-		border: 0;
-		padding: 0;
-		background: rgba(0, 0, 0, 0.4);
-		pointer-events: auto;
-		cursor: pointer;
+		justify-items: stretch;
 	}
 
 	.overlay {
@@ -689,6 +745,7 @@
 		border: 1px solid rgba(255, 255, 255, 0.08);
 		border-radius: 1.25rem;
 		box-shadow: 0 24px 60px rgba(0, 0, 0, 0.42);
+		box-sizing: border-box;
 	}
 
 	.back {
@@ -727,7 +784,7 @@
 	}
 
 	.utility-bar {
-		grid-column: 1 / -1;
+		grid-column: 1;
 		grid-row: 1;
 		width: 100%;
 		max-width: 100%;
@@ -776,13 +833,6 @@
 		pointer-events: auto;
 	}
 
-	.shop-panel {
-		grid-column: 3;
-		grid-row: 2 / span 2;
-		align-self: start;
-		width: 100%;
-	}
-
 	.feedback {
 		padding: 0.85rem 1rem;
 		border-radius: 1rem;
@@ -800,94 +850,6 @@
 		border-color: rgba(255, 255, 255, 0.12);
 		color: #f5f5f5;
 		background: rgba(255, 255, 255, 0.05);
-	}
-
-	.campaign-drawer {
-		position: absolute;
-		top: 0;
-		right: 0;
-		bottom: 0;
-		z-index: 5;
-		width: min(24rem, 100vw);
-		padding: 1rem;
-		display: grid;
-		align-content: start;
-		gap: 0.85rem;
-		border-radius: 0;
-		border-left: 1px solid rgba(255, 255, 255, 0.08);
-		box-shadow: -24px 0 60px rgba(0, 0, 0, 0.42);
-	}
-
-	.campaign-drawer-header,
-	.campaign-summary-grid,
-	.campaign-stage-list,
-	.drawer-switcher {
-		display: grid;
-		gap: 0.65rem;
-	}
-
-	.campaign-drawer-header {
-		grid-template-columns: minmax(0, 1fr) auto auto;
-		align-items: start;
-		gap: 0.75rem;
-	}
-
-	.campaign-summary-grid {
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-	}
-
-	.drawer-label {
-		font-size: 0.68rem;
-		font-weight: 700;
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		color: #9d9d9d;
-	}
-
-	.drawer-campaign-links {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.55rem;
-	}
-
-	.drawer-campaign-link {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		min-height: 2rem;
-		padding: 0 0.8rem;
-		border-radius: 999px;
-		border: 1px solid rgba(255, 255, 255, 0.14);
-		background: rgba(255, 255, 255, 0.05);
-		color: #f5f5f5;
-		text-decoration: none;
-		font-size: 0.82rem;
-		font-weight: 600;
-	}
-
-	.drawer-campaign-link.active {
-		border-color: rgba(103, 217, 111, 0.42);
-		background: rgba(103, 217, 111, 0.12);
-	}
-
-	.drawer-close {
-		min-height: 2rem;
-		padding: 0 0.8rem;
-		border-radius: 999px;
-		border: 1px solid rgba(255, 255, 255, 0.14);
-		background: rgba(255, 255, 255, 0.06);
-		color: #f5f5f5;
-		font: inherit;
-		font-size: 0.82rem;
-		font-weight: 600;
-		cursor: pointer;
-	}
-
-	.drawer-back-link {
-		min-height: 2rem;
-		padding: 0 0.8rem;
-		background: rgba(255, 255, 255, 0.06);
-		color: #f5f5f5;
 	}
 
 	.drawer-stage-card {
@@ -1013,43 +975,8 @@
 		cursor: not-allowed;
 	}
 
-	.stats-overlay {
-		grid-column: 1;
-		grid-row: 2;
-		justify-self: end;
-		align-self: start;
-		width: min(22rem, 100%);
-		padding: 0.9rem;
-		display: grid;
-		gap: 0.75rem;
-	}
-
-	.stats-overlay-header {
-		display: grid;
-		gap: 0.2rem;
-	}
-
-	.stats-overlay-grid {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 0.55rem;
-	}
-
-	.overlay-upgrade-grid {
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-	}
-
-	.overlay-upgrade-card {
-		gap: 0.4rem;
-		padding: 0.8rem;
-	}
-
 	.combat-panel {
-		grid-column: 1;
-		grid-row: 3;
-		justify-self: center;
-		align-self: end;
-		width: min(34.5rem, 100%);
+		width: 100%;
 		padding: 0.52rem 0.72rem;
 		display: grid;
 		gap: 0.4rem;
@@ -1142,7 +1069,7 @@
 
 	.status-overlay {
 		grid-column: 1;
-		grid-row: 2;
+		grid-row: 1;
 		justify-self: center;
 		align-self: start;
 		margin-top: 0.25rem;
@@ -1168,75 +1095,7 @@
 		color: #f5f5f5;
 	}
 
-	.results-popup {
-		grid-column: 1;
-		grid-row: 2;
-		justify-self: center;
-		align-self: center;
-		width: min(28rem, calc(100vw - 2rem));
-		padding: 1rem;
-		display: grid;
-		gap: 0.9rem;
-		text-align: left;
-	}
-
-	.results-popup-header,
-	.results-popup-footer,
-	.results-drop-copy {
-		display: grid;
-		gap: 0.2rem;
-	}
-
-	.results-context,
-	.results-countdown,
-	.results-drop-copy span,
-	.results-empty {
-		color: #cfcfcf;
-	}
-
-	.results-drop-list {
-		display: grid;
-		gap: 0.6rem;
-	}
-
-	.results-drop-row {
-		align-items: center;
-	}
-
-	.results-drop-copy strong {
-		font-size: 1rem;
-	}
-
-	.results-drop-copy span,
-	.results-tag,
-	.results-countdown {
-		font-size: 0.82rem;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-	}
-
-	.results-tag {
-		color: #bfbfbf;
-	}
-
-	.results-tag-new {
-		color: #c9f8cc;
-	}
-
-	.results-popup-footer {
-		grid-template-columns: minmax(0, 1fr) auto;
-		align-items: center;
-		gap: 0.75rem;
-	}
-
-	.results-skip {
-		justify-self: end;
-	}
-
 	.loadout-preview-panel {
-		grid-column: 2;
-		grid-row: 2;
-		align-self: stretch;
 		min-width: 0;
 		min-height: 0;
 		padding: 0.9rem;
@@ -1268,6 +1127,10 @@
 		gap: 0.45rem;
 		min-height: 0;
 		overflow: hidden;
+		padding: 0.7rem;
+		border-radius: 1rem;
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		background: rgba(255, 255, 255, 0.03);
 	}
 
 	.loadout-preview-damage-header {
@@ -1335,6 +1198,7 @@
 		min-width: 0;
 		min-height: 0;
 		height: 100%;
+		padding: 0.35rem;
 		border-radius: 1rem;
 		border: 1px solid rgba(255, 255, 255, 0.08);
 		background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
@@ -1421,6 +1285,7 @@
 		width: 100%;
 		height: 100%;
 		background: #000000;
+		touch-action: pan-y;
 	}
 
 	:global(.canvas-frame canvas) {
@@ -1443,15 +1308,8 @@
 	}
 
 	@media (min-width: 861px) {
-		.canvas-stage.drawer-open :global(.canvas-frame) {
-			width: calc(100% - min(24rem, 100vw));
-			margin-left: min(24rem, 100vw);
-		}
-
-		.canvas-stage.drawer-open .combat-panel,
-		.canvas-stage.drawer-open .status-overlay,
-		.canvas-stage.drawer-open :global(.results-popup) {
-			transform: translateX(calc(min(24rem, 100vw) / 2));
+		.mobile-panel-stack {
+			display: none;
 		}
 	}
 
@@ -1463,6 +1321,23 @@
 			overflow-y: auto;
 		}
 
+		.mobile-panel-stack {
+			padding-bottom: 1.25rem;
+		}
+
+		.arena-shell {
+			height: auto;
+			min-height: 100%;
+		}
+
+		.arena-layout,
+		.arena-layout.drawer-enabled,
+		.arena-layout.combat-enabled,
+		.arena-layout.drawer-enabled.combat-enabled {
+			grid-template-areas: 'canvas';
+			grid-template-columns: minmax(0, 1fr);
+		}
+
 		.utility-bar {
 			align-items: flex-start;
 			flex-direction: column;
@@ -1472,10 +1347,9 @@
 		.utility-primary,
 		.utility-secondary {
 			width: 100%;
-			justify-content: flex-start;
+			justify-content: center;
 		}
 
-		.arena-shell,
 		.overlay-layout {
 			grid-template-columns: 1fr;
 		}
@@ -1515,6 +1389,7 @@
 
 		.utility-bar {
 			flex-wrap: wrap;
+			align-items: center;
 		}
 
 		.toggle,
@@ -1531,11 +1406,31 @@
 		.combat-panel,
 		.status-overlay,
 		.loadout-preview-panel {
-			grid-column: 1;
 			width: 100%;
 			max-height: none;
 			justify-self: stretch;
 			align-self: auto;
+			position: relative;
+			inset: auto;
+			transform: none;
+		}
+
+		.loadout-preview-panel {
+			overflow: visible;
+			grid-template-rows: auto auto auto auto auto auto;
+			min-height: fit-content;
+		}
+
+		.loadout-preview-list,
+		.loadout-preview-damage-list,
+		.loadout-preview-canvas-shell {
+			max-height: none;
+			overflow: visible;
+			height: auto;
+		}
+
+		.loadout-preview-damage-block {
+			overflow: visible;
 		}
 
 		.stats-panel {
@@ -1571,15 +1466,6 @@
 			grid-row: auto;
 			justify-self: start;
 			margin-top: 0;
-		}
-
-		.campaign-drawer {
-			width: min(100vw, 26rem);
-			padding: 0.85rem;
-		}
-
-		.campaign-summary-grid {
-			grid-template-columns: 1fr;
 		}
 
 		.loadout-preview-panel {
@@ -1620,10 +1506,17 @@
 
 		.loadout-preview-canvas-shell {
 			min-height: 8.5rem;
+			height: 8.5rem;
+			max-height: 8.5rem;
+			overflow: hidden;
 		}
 	}
 
 	@media (max-width: 480px) {
+		.mobile-panel-stack {
+			padding-bottom: 1.5rem;
+		}
+
 		.arena-shell,
 		.arena-shell.preview-enabled {
 			gap: 0.6rem;
@@ -1659,7 +1552,7 @@
 		.loadout-preview-panel {
 			padding: 0.65rem;
 			gap: 0.5rem;
-			grid-template-rows: auto auto auto minmax(0, 5.75rem) minmax(0, 7.5rem) minmax(6.5rem, 8rem);
+			grid-template-rows: auto auto auto auto auto auto;
 		}
 
 		.loadout-preview-row,
@@ -1682,6 +1575,8 @@
 
 		.loadout-preview-canvas-shell {
 			min-height: 6.5rem;
+			height: 6.5rem;
+			max-height: 6.5rem;
 		}
 	}
 </style>

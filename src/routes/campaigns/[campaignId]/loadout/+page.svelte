@@ -1524,7 +1524,6 @@
 	.grid-panel {
 		justify-items: stretch;
 		align-content: start;
-		touch-action: none;
 	}
 
 	.inventory-panel {

@@ -134,10 +134,12 @@
 		bottom: 0;
 		z-index: 5;
 		width: min(24rem, 100vw);
+		max-width: 100%;
 		padding: 1rem;
 		display: grid;
 		align-content: start;
 		gap: 0.85rem;
+		box-sizing: border-box;
 		border-right: 1px solid rgba(255, 255, 255, 0.08);
 		background: rgba(10, 10, 10, 0.92);
 		box-shadow: 24px 0 60px rgba(0, 0, 0, 0.42);

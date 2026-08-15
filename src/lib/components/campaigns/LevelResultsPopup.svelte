@@ -69,10 +69,12 @@
 		justify-self: center;
 		align-self: center;
 		width: min(28rem, calc(100vw - 2rem));
+		max-width: 100%;
 		padding: 1rem;
 		display: grid;
 		gap: 0.9rem;
 		text-align: left;
+		box-sizing: border-box;
 		border-radius: 1.1rem;
 		border: 1px solid rgba(255, 255, 255, 0.08);
 		background: rgba(10, 10, 10, 0.92);

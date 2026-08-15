@@ -54,9 +54,11 @@
 		justify-self: end;
 		align-self: start;
 		width: min(22rem, 100%);
+		max-width: 100%;
 		padding: 0.9rem;
 		display: grid;
 		gap: 0.75rem;
+		box-sizing: border-box;
 		border-radius: 1.1rem;
 		border: 1px solid rgba(255, 255, 255, 0.08);
 		background: rgba(10, 10, 10, 0.92);

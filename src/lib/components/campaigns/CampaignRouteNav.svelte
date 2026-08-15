@@ -122,7 +122,8 @@
 
 <style>
 	.route-nav {
-		display: block;
+		display: flex;
+		justify-content: center;
 		min-width: 0;
 		width: 100%;
 	}
@@ -182,6 +183,7 @@
 			flex-wrap: nowrap;
 			gap: 0.45rem;
 			width: 100%;
+			justify-content: flex-start;
 			overflow-x: auto;
 			overflow-y: hidden;
 			padding-bottom: 0.15rem;
