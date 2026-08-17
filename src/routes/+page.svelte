@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { baselineCombatProfile, campaigns } from '$lib/data';
+	import { getActiveLoadoutPlacements } from '$lib/game/loadout-slots';
 	import type { PageServerData } from './$types';
 	import P5Canvas from '$lib/components/P5Canvas.svelte';
 	import { createPixlIntroSketch } from '$lib/p5/pixl-intro-sketch';
@@ -44,7 +45,11 @@
 				</div>
 				<div class="stat-tile">
 					<span>Equipped</span>
-					<strong>{persistedPixlState?.loadoutPlacements.length ?? 1}</strong>
+					<strong>
+						{persistedPixlState
+							? getActiveLoadoutPlacements(persistedPixlState.loadoutPlacements).length
+							: 1}
+					</strong>
 				</div>
 				<div class="stat-tile">
 					<span>{persistedPixlState ? 'Level' : 'Campaigns'}</span>

@@ -8,6 +8,7 @@
 	import CampaignRouteNav from '$lib/components/campaigns/CampaignRouteNav.svelte';
 	import LevelResultsPopup from '$lib/components/campaigns/LevelResultsPopup.svelte';
 	import P5Canvas from '$lib/components/P5Canvas.svelte';
+	import { getActiveLoadoutPlacements } from '$lib/game/loadout-slots';
 	import {
 		buildCurrentLoadoutRows,
 		buildLoadoutTooltip,
@@ -137,7 +138,11 @@
 		data.weaponDefinitionsById as Record<string, LoadoutItemDefinition>
 	);
 	let ownedWeapons = $derived(livePixlState?.ownedWeapons ?? []);
-	let loadoutPlacements = $derived(livePixlState?.loadoutPlacements ?? []);
+	let loadoutPlacements = $derived(
+		getActiveLoadoutPlacements(
+			livePixlState?.loadoutPlacements ?? { activeSlot: 0, slots: [[], [], []] }
+		)
+	);
 	let sketchCampaignLevel = $derived(
 		liveCampaignState?.currentLevel ?? data.campaignState?.currentLevel ?? 1
 	);
@@ -256,7 +261,9 @@
 			return;
 		}
 
-		const combatResumeText = sessionStorage.getItem(getArenaCombatResumeStorageKey(data.campaignId));
+		const combatResumeText = sessionStorage.getItem(
+			getArenaCombatResumeStorageKey(data.campaignId)
+		);
 
 		if (combatResumeText) {
 			try {

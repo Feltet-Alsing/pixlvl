@@ -9,16 +9,18 @@
 	import LoadoutWeaponDetailsPane from '$lib/components/campaigns/LoadoutWeaponDetailsPane.svelte';
 	import P5Canvas from '$lib/components/P5Canvas.svelte';
 	import {
+		cloneLoadoutSlots,
+		createPersistedLoadoutState,
+		normalizePersistedLoadoutState
+	} from '$lib/game/loadout-slots';
+	import {
 		cycleLoadoutRotation,
 		getLoadoutRotationLabel,
 		getPlacementRotation,
 		rotateWeaponShape
 	} from '$lib/game/loadout-rotation';
 	import { createBaselineUpgradeablePixlState } from '$lib/game/upgrades';
-	import {
-		createCampaignSketch,
-		type CampaignCombatResumeState
-	} from '$lib/p5/campaign-1-sketch';
+	import { createCampaignSketch, type CampaignCombatResumeState } from '$lib/p5/campaign-1-sketch';
 	import {
 		buildGridCells,
 		buildInventoryWeaponGroups,
@@ -51,6 +53,8 @@
 		LoadoutItemDefinition,
 		LoadoutPlacement,
 		LoadoutRotation,
+		LoadoutSlotIndex,
+		PersistedLoadoutState,
 		WeaponTargetingKind
 	} from '$lib/data/types';
 	import type { PageProps } from './$types';
@@ -134,9 +138,16 @@
 	];
 
 	let { data, form }: PageProps = $props();
+	const initialPersistedLoadoutState = (() =>
+		normalizePersistedLoadoutState(
+			data.gameState?.pixlState.loadoutPlacements ?? null,
+			data.gameState?.pixlState.ownedWeapons ?? []
+		))();
 	let innerWidth = $state<number | null>(null);
 	let isMobileLayout = $derived(innerWidth !== null && innerWidth <= MOBILE_LAYOUT_BREAKPOINT);
 	let draggedWeaponInstanceId = $state<string | null>(null);
+	let activeLoadoutSlot = $state<LoadoutSlotIndex>(initialPersistedLoadoutState.activeSlot);
+	let draftLoadoutSlots = $state.raw(cloneLoadoutSlots(initialPersistedLoadoutState.slots));
 	let draggedWeaponAnchor = $state<{ x: number; y: number } | null>(null);
 	let draggedWeaponRotation = $state<LoadoutRotation>(0);
 	let draggedWeaponTargeting = $state<WeaponTargetingKind>('nearest-target');
@@ -206,9 +217,19 @@
 			(typeof ownedWeapons)[number]
 		>
 	);
-	let savedLoadoutPlacements = $derived(data.gameState?.pixlState.loadoutPlacements ?? []);
-	let savedLoadoutPayload = $derived(JSON.stringify(savedLoadoutPlacements));
-	let draftLoadoutPlacements = $state.raw(getInitialLoadoutPlacements());
+	let savedLoadoutState = $derived(
+		normalizePersistedLoadoutState(
+			livePixlState?.loadoutPlacements ?? data.gameState?.pixlState.loadoutPlacements ?? null,
+			ownedWeapons
+		)
+	);
+	let savedLoadoutPlacements = $derived(savedLoadoutState.slots[activeLoadoutSlot] ?? []);
+	let savedLoadoutPayload = $derived(JSON.stringify(savedLoadoutState));
+	let draftLoadoutPlacements = $state.raw(
+		cloneLoadoutPlacements(
+			initialPersistedLoadoutState.slots[initialPersistedLoadoutState.activeSlot] ?? []
+		)
+	);
 	let liveCampaignLevel = $derived(
 		liveCampaignState?.currentLevel ?? data.campaignState?.currentLevel ?? 1
 	);
@@ -234,7 +255,12 @@
 			draftLoadoutPlacements.map((placement) => [placement.weaponInstanceId, placement])
 		) as Record<string, LoadoutPlacement>
 	);
-	let draftLoadoutPayload = $derived(JSON.stringify(draftLoadoutPlacements));
+	let draftLoadoutState = $derived.by(() => {
+		const slots = cloneLoadoutSlots(draftLoadoutSlots);
+		slots[activeLoadoutSlot] = cloneLoadoutPlacements(draftLoadoutPlacements);
+		return createPersistedLoadoutState(activeLoadoutSlot, slots);
+	});
+	let draftLoadoutPayload = $derived(JSON.stringify(draftLoadoutState));
 	let hasUnsavedChanges = $derived(savedLoadoutPayload !== draftLoadoutPayload);
 	let canSaveLoadout = $derived(Boolean(data.gameState) && hasUnsavedChanges);
 	let loadoutWeapons = $derived.by(() =>
@@ -329,7 +355,7 @@
 			defence: source.defence,
 			agility: source.agility,
 			ownedWeapons: source.ownedWeapons,
-			loadoutPlacements: savedLoadoutPlacements
+			loadoutPlacements: savedLoadoutState
 		};
 	});
 	let backgroundSketchRemountKey = $derived(
@@ -520,7 +546,9 @@
 			return;
 		}
 
-		const combatResumeText = sessionStorage.getItem(getArenaCombatResumeStorageKey(data.campaignId));
+		const combatResumeText = sessionStorage.getItem(
+			getArenaCombatResumeStorageKey(data.campaignId)
+		);
 
 		if (!combatResumeText) {
 			return;
@@ -562,7 +590,29 @@
 	});
 
 	function getInitialLoadoutPlacements() {
-		return cloneLoadoutPlacements(data.gameState?.pixlState.loadoutPlacements ?? []);
+		return cloneLoadoutPlacements(
+			initialPersistedLoadoutState.slots[initialPersistedLoadoutState.activeSlot] ?? []
+		);
+	}
+
+	function buildCurrentDraftLoadoutState(): PersistedLoadoutState {
+		const slots = cloneLoadoutSlots(draftLoadoutSlots);
+		slots[activeLoadoutSlot] = cloneLoadoutPlacements(draftLoadoutPlacements);
+		return createPersistedLoadoutState(activeLoadoutSlot, slots);
+	}
+
+	function switchLoadoutSlot(nextSlot: LoadoutSlotIndex) {
+		if (nextSlot === activeLoadoutSlot) {
+			return;
+		}
+
+		const currentDraftState = buildCurrentDraftLoadoutState();
+		draftLoadoutSlots = cloneLoadoutSlots(currentDraftState.slots);
+		activeLoadoutSlot = nextSlot;
+		draftLoadoutPlacements = cloneLoadoutPlacements(currentDraftState.slots[nextSlot] ?? []);
+		selectedPlacedWeaponInstanceId = null;
+		selectedInventoryDefinitionId = null;
+		clearDragState();
 	}
 
 	function getScrapableCount(group: InventoryWeaponGroup) {
@@ -1351,6 +1401,19 @@
 				{/if}
 
 				<div class="loadout-toolbar-row">
+					<div class="loadout-slot-pills" aria-label="Saved loadouts">
+						{#each [0, 1, 2] as slotIndex}
+							<button
+								class:active={activeLoadoutSlot === slotIndex}
+								class="loadout-slot-pill"
+								type="button"
+								onclick={() => switchLoadoutSlot(slotIndex as LoadoutSlotIndex)}
+							>
+								Loadout {slotIndex + 1}
+							</button>
+						{/each}
+					</div>
+
 					<LoadoutSummaryStrip
 						stage={liveRunStage}
 						stageLevel={liveRunStageLevel}
@@ -1362,7 +1425,7 @@
 
 					<div class="draft-actions toolbar-actions">
 						<form method="post" action="?/saveLoadout" bind:this={saveLoadoutForm}>
-							<input type="hidden" name="loadoutPlacements" value={draftLoadoutPayload} />
+							<input type="hidden" name="loadoutState" value={draftLoadoutPayload} />
 							<button
 								class="save"
 								type="button"
@@ -1690,6 +1753,31 @@
 		justify-content: space-between;
 		gap: 0.6rem;
 		align-items: center;
+	}
+
+	.loadout-slot-pills {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.45rem;
+	}
+
+	.loadout-slot-pill {
+		min-height: 2rem;
+		padding: 0 0.8rem;
+		border-radius: 999px;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		background: rgba(255, 255, 255, 0.04);
+		color: #f5f5f5;
+		font: inherit;
+		font-size: 0.82rem;
+		font-weight: 700;
+		cursor: pointer;
+	}
+
+	.loadout-slot-pill.active {
+		border-color: rgba(103, 217, 111, 0.42);
+		background: rgba(103, 217, 111, 0.12);
+		color: #c9f8cc;
 	}
 
 	.draft-actions {

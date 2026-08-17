@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import CampaignRouteNav from '$lib/components/campaigns/CampaignRouteNav.svelte';
+	import { getActiveLoadoutPlacements } from '$lib/game/loadout-slots';
 	import type { Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
 
@@ -27,7 +28,9 @@
 	let showSharedRouteNav = $derived(activeSection !== 'arena' && activeSection !== 'loadout');
 
 	let loadoutTooltip = $derived(
-		(data.gameState?.pixlState.loadoutPlacements ?? [])
+		getActiveLoadoutPlacements(
+			data.gameState?.pixlState.loadoutPlacements ?? { activeSlot: 0, slots: [[], [], []] }
+		)
 			.map((placement) => {
 				const ownedWeapon = data.gameState?.pixlState.ownedWeapons.find(
 					(weapon) => weapon.instanceId === placement.weaponInstanceId

@@ -3,10 +3,12 @@ import type { GameState } from '$lib/server/game-state';
 import type {
 	LoadoutPlacement,
 	OwnedWeaponInstance,
+	PersistedLoadoutState,
 	ShopOffer,
 	WeaponRarity
 } from '$lib/data/types';
 
+import { getActiveLoadoutPlacements } from '$lib/game/loadout-slots';
 const SHOP_REFRESH_MS = 15 * 60 * 1000;
 
 const rarityWeightByRarity: Record<WeaponRarity, number> = {
@@ -171,7 +173,7 @@ export function buildShopState(gameState: GameState, userId: string, now = Date.
 
 export function getScrapableGroupState(
 	ownedWeapons: OwnedWeaponInstance[],
-	loadoutPlacements: LoadoutPlacement[],
+	loadoutPlacements: LoadoutPlacement[] | PersistedLoadoutState,
 	definitionId: string
 ): ScrapableGroupState | null {
 	const definition = getLoadoutItemDefinition(definitionId);
@@ -181,7 +183,12 @@ export function getScrapableGroupState(
 		return null;
 	}
 
-	const equippedIds = new Set(loadoutPlacements.map((placement) => placement.weaponInstanceId));
+	const equippedIds = new Set(
+		(Array.isArray(loadoutPlacements)
+			? loadoutPlacements
+			: getActiveLoadoutPlacements(loadoutPlacements)
+		).map((placement) => placement.weaponInstanceId)
+	);
 	const equippedCount = groupWeapons.filter((weapon) => equippedIds.has(weapon.instanceId)).length;
 	const availableCount = groupWeapons.length - equippedCount;
 	const scrapableCount = Math.max(0, Math.min(availableCount, groupWeapons.length - 1));
@@ -202,9 +209,14 @@ export function removeScrappedWeapons(
 	ownedWeapons: OwnedWeaponInstance[],
 	definitionId: string,
 	quantity: number,
-	loadoutPlacements: LoadoutPlacement[]
+	loadoutPlacements: LoadoutPlacement[] | PersistedLoadoutState
 ) {
-	const equippedIds = new Set(loadoutPlacements.map((placement) => placement.weaponInstanceId));
+	const equippedIds = new Set(
+		(Array.isArray(loadoutPlacements)
+			? loadoutPlacements
+			: getActiveLoadoutPlacements(loadoutPlacements)
+		).map((placement) => placement.weaponInstanceId)
+	);
 	const candidates = ownedWeapons
 		.filter((weapon) => weapon.definitionId === definitionId && !equippedIds.has(weapon.instanceId))
 		.sort(

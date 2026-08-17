@@ -3,6 +3,7 @@
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import CampaignStatCard from '$lib/components/campaigns/CampaignStatCard.svelte';
 	import UpgradeOptionCard from '$lib/components/campaigns/UpgradeOptionCard.svelte';
+	import { getActiveLoadoutPlacements } from '$lib/game/loadout-slots';
 	import {
 		applyUpgradePurchase,
 		createBaselineUpgradeablePixlState,
@@ -37,7 +38,11 @@
 			: null) ?? createBaselineUpgradeablePixlState()
 	);
 	let upgradeOptions = $derived(getUpgradeOptions(upgradeState));
-	let equippedWeaponCount = $derived(data.gameState?.pixlState.loadoutPlacements.length ?? 0);
+	let equippedWeaponCount = $derived(
+		data.gameState
+			? getActiveLoadoutPlacements(data.gameState.pixlState.loadoutPlacements).length
+			: 0
+	);
 	let ownedWeaponCount = $derived(data.gameState?.pixlState.ownedWeapons.length ?? 0);
 	let statCards = $derived([
 		{ label: 'Level', value: upgradeState.level },

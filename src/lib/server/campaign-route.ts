@@ -9,6 +9,12 @@ import {
 	campaigns,
 	weaponDefinitions
 } from '$lib/data';
+import {
+	getActiveLoadoutPlacements,
+	normalizeLoadoutSlotIndex,
+	normalizePersistedLoadoutState,
+	setActiveLoadoutPlacements
+} from '$lib/game/loadout-slots';
 import { applyUpgradePurchase, isUpgradeKey } from '$lib/game/upgrades';
 import {
 	acknowledgePerkNotificationsForUser,
@@ -28,7 +34,12 @@ import {
 import { getCampaignRouteNotificationCounts } from '$lib/game/notifications';
 import { getPlacementRotation, rotateWeaponShape } from '$lib/game/loadout-rotation';
 
-import type { LoadoutItemDefinition, LoadoutPlacement, OwnedWeaponInstance } from '$lib/data/types';
+import type {
+	LoadoutItemDefinition,
+	LoadoutPlacement,
+	OwnedWeaponInstance,
+	PersistedLoadoutState
+} from '$lib/data/types';
 
 type ActionResult<T> = { ok: true; data: T } | { ok: false; status: number; data: T };
 
@@ -236,6 +247,10 @@ function validateLoadoutPlacements(
 
 async function persistLoadoutPlacementsForUser(userId: string, placements: LoadoutPlacement[]) {
 	const gameState = await getOrCreateGameState(userId);
+	const currentLoadoutState = normalizePersistedLoadoutState(
+		gameState.pixlState.loadoutPlacements,
+		gameState.pixlState.ownedWeapons
+	);
 	const validation = validateLoadoutPlacements(
 		gameState.pixlState.ownedWeapons,
 		placements,
@@ -253,7 +268,7 @@ async function persistLoadoutPlacementsForUser(userId: string, placements: Loado
 
 	await updateGameState(userId, {
 		pixlState: {
-			loadoutPlacements: placements
+			loadoutPlacements: setActiveLoadoutPlacements(currentLoadoutState, placements)
 		}
 	});
 
@@ -261,6 +276,105 @@ async function persistLoadoutPlacementsForUser(userId: string, placements: Loado
 		ok: true as const,
 		data: { loadoutSuccess: 'Loadout saved' }
 	};
+}
+
+async function persistLoadoutStateForUser(userId: string, loadoutState: PersistedLoadoutState) {
+	const gameState = await getOrCreateGameState(userId);
+	const normalizedState = normalizePersistedLoadoutState(
+		loadoutState,
+		gameState.pixlState.ownedWeapons
+	);
+
+	for (const placements of normalizedState.slots) {
+		const validation = validateLoadoutPlacements(
+			gameState.pixlState.ownedWeapons,
+			placements,
+			gameState.pixlState.loadoutColumns,
+			gameState.pixlState.loadoutRows
+		);
+
+		if (!validation.ok) {
+			return {
+				ok: false as const,
+				status: 400,
+				data: { loadoutError: validation.error }
+			};
+		}
+	}
+
+	await updateGameState(userId, {
+		pixlState: {
+			loadoutPlacements: normalizedState
+		}
+	});
+
+	return {
+		ok: true as const,
+		data: { loadoutSuccess: 'Loadout saved' }
+	};
+}
+
+function parseLoadoutStateFromFormData(formData: FormData) {
+	const rawState = formData.get('loadoutState');
+
+	if (typeof rawState !== 'string') {
+		return null;
+	}
+
+	try {
+		const parsed = JSON.parse(rawState) as {
+			activeSlot?: unknown;
+			slots?: unknown;
+		};
+
+		if (!Array.isArray(parsed.slots) || parsed.slots.length !== 3) {
+			return null;
+		}
+
+		const normalizedSlots = parsed.slots.map((slot) => {
+			if (!Array.isArray(slot)) {
+				return null;
+			}
+
+			return slot
+				.map((entry) => {
+					if (
+						typeof entry !== 'object' ||
+						entry === null ||
+						typeof (entry as LoadoutPlacement).weaponInstanceId !== 'string' ||
+						typeof (entry as LoadoutPlacement).x !== 'number' ||
+						typeof (entry as LoadoutPlacement).y !== 'number'
+					) {
+						return null;
+					}
+
+					const placement: LoadoutPlacement = {
+						weaponInstanceId: (entry as LoadoutPlacement).weaponInstanceId,
+						x: (entry as LoadoutPlacement).x,
+						y: (entry as LoadoutPlacement).y,
+						rotation: getPlacementRotation(entry as LoadoutPlacement)
+					};
+
+					if (typeof (entry as LoadoutPlacement).targeting === 'string') {
+						placement.targeting = (entry as LoadoutPlacement).targeting;
+					}
+
+					return placement;
+				})
+				.filter((entry): entry is LoadoutPlacement => entry !== null);
+		});
+
+		if (normalizedSlots.some((slot) => slot === null)) {
+			return null;
+		}
+
+		return {
+			activeSlot: normalizeLoadoutSlotIndex(parsed.activeSlot),
+			slots: normalizedSlots as PersistedLoadoutState['slots']
+		} satisfies PersistedLoadoutState;
+	} catch {
+		return null;
+	}
 }
 
 function parseLoadoutPlacementsFromFormData(formData: FormData) {
@@ -330,6 +444,12 @@ export async function placeLoadoutWeaponForUser(
 	}
 
 	const gameState = await getOrCreateGameState(userId);
+	const activePlacements = getActiveLoadoutPlacements(
+		normalizePersistedLoadoutState(
+			gameState.pixlState.loadoutPlacements,
+			gameState.pixlState.ownedWeapons
+		)
+	);
 	const columnCount = gameState.pixlState.loadoutColumns;
 	const rowCount = gameState.pixlState.loadoutRows;
 	const weaponInstanceId = formData.get('weaponInstanceId');
@@ -351,7 +471,7 @@ export async function placeLoadoutWeaponForUser(
 		return { ok: false, status: 400, data: { loadoutError: 'Unknown owned weapon instance.' } };
 	}
 
-	const alreadyPlaced = gameState.pixlState.loadoutPlacements.some(
+	const alreadyPlaced = activePlacements.some(
 		(placement) => placement.weaponInstanceId === weaponInstanceId
 	);
 
@@ -361,7 +481,7 @@ export async function placeLoadoutWeaponForUser(
 
 	const definition = getLoadoutItemDefinition(ownedWeapon.definitionId);
 	const nextPlacements = [
-		...gameState.pixlState.loadoutPlacements,
+		...activePlacements,
 		{
 			weaponInstanceId,
 			x,
@@ -399,11 +519,17 @@ export async function removeLoadoutPlacementForUser(
 	}
 
 	const gameState = await getOrCreateGameState(userId);
-	const nextPlacements = gameState.pixlState.loadoutPlacements.filter(
+	const activePlacements = getActiveLoadoutPlacements(
+		normalizePersistedLoadoutState(
+			gameState.pixlState.loadoutPlacements,
+			gameState.pixlState.ownedWeapons
+		)
+	);
+	const nextPlacements = activePlacements.filter(
 		(placement) => placement.weaponInstanceId !== weaponInstanceId
 	);
 
-	if (nextPlacements.length === gameState.pixlState.loadoutPlacements.length) {
+	if (nextPlacements.length === activePlacements.length) {
 		return {
 			ok: false,
 			status: 400,
@@ -441,13 +567,13 @@ export async function saveLoadoutForUser(
 		};
 	}
 
-	const placements = parseLoadoutPlacementsFromFormData(formData);
+	const loadoutState = parseLoadoutStateFromFormData(formData);
 
-	if (!placements) {
+	if (!loadoutState) {
 		return { ok: false, status: 400, data: { loadoutError: 'Invalid loadout save request.' } };
 	}
 
-	return persistLoadoutPlacementsForUser(userId, placements);
+	return persistLoadoutStateForUser(userId, loadoutState);
 }
 
 export async function scrapOwnedWeaponsForUser(

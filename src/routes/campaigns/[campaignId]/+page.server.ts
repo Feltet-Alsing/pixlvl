@@ -6,6 +6,11 @@ import {
 	getLoadoutItemDefinition,
 	getCampaignWeaponPool
 } from '$lib/data';
+import {
+	getActiveLoadoutPlacements,
+	normalizePersistedLoadoutState,
+	setActiveLoadoutPlacements
+} from '$lib/game/loadout-slots';
 import { applyUpgradePurchase, isUpgradeKey } from '$lib/game/upgrades';
 import {
 	getCampaignProgressForUser,
@@ -146,6 +151,12 @@ export const actions: Actions = {
 		}
 
 		const gameState = await getOrCreateGameState(locals.user.id);
+		const activePlacements = getActiveLoadoutPlacements(
+			normalizePersistedLoadoutState(
+				gameState.pixlState.loadoutPlacements,
+				gameState.pixlState.ownedWeapons
+			)
+		);
 		const ownedWeapon = gameState.pixlState.ownedWeapons.find(
 			(weapon) => weapon.instanceId === weaponInstanceId
 		);
@@ -154,7 +165,7 @@ export const actions: Actions = {
 			return fail(400, { loadoutError: 'Unknown owned weapon instance.' });
 		}
 
-		const alreadyPlaced = gameState.pixlState.loadoutPlacements.some(
+		const alreadyPlaced = activePlacements.some(
 			(placement) => placement.weaponInstanceId === weaponInstanceId
 		);
 
@@ -171,7 +182,7 @@ export const actions: Actions = {
 		if (
 			placementsOverlap(
 				gameState.pixlState.ownedWeapons,
-				gameState.pixlState.loadoutPlacements,
+				activePlacements,
 				weaponInstanceId,
 				definition,
 				rotation,
@@ -184,15 +195,21 @@ export const actions: Actions = {
 
 		await updateGameState(locals.user.id, {
 			pixlState: {
-				loadoutPlacements: [
-					...gameState.pixlState.loadoutPlacements,
-					{
-						weaponInstanceId,
-						x,
-						y,
-						rotation
-					}
-				]
+				loadoutPlacements: setActiveLoadoutPlacements(
+					normalizePersistedLoadoutState(
+						gameState.pixlState.loadoutPlacements,
+						gameState.pixlState.ownedWeapons
+					),
+					[
+						...activePlacements,
+						{
+							weaponInstanceId,
+							x,
+							y,
+							rotation
+						}
+					]
+				)
 			}
 		});
 
@@ -219,11 +236,17 @@ export const actions: Actions = {
 		}
 
 		const gameState = await getOrCreateGameState(locals.user.id);
-		const nextPlacements = gameState.pixlState.loadoutPlacements.filter(
+		const activePlacements = getActiveLoadoutPlacements(
+			normalizePersistedLoadoutState(
+				gameState.pixlState.loadoutPlacements,
+				gameState.pixlState.ownedWeapons
+			)
+		);
+		const nextPlacements = activePlacements.filter(
 			(placement) => placement.weaponInstanceId !== weaponInstanceId
 		);
 
-		if (nextPlacements.length === gameState.pixlState.loadoutPlacements.length) {
+		if (nextPlacements.length === activePlacements.length) {
 			return fail(400, { loadoutError: 'That weapon is not currently equipped.' });
 		}
 
@@ -234,7 +257,13 @@ export const actions: Actions = {
 
 		await updateGameState(locals.user.id, {
 			pixlState: {
-				loadoutPlacements: nextPlacements
+				loadoutPlacements: setActiveLoadoutPlacements(
+					normalizePersistedLoadoutState(
+						gameState.pixlState.loadoutPlacements,
+						gameState.pixlState.ownedWeapons
+					),
+					nextPlacements
+				)
 			}
 		});
 

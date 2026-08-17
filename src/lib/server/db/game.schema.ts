@@ -11,7 +11,7 @@ import {
 	timestamp
 } from 'drizzle-orm/pg-core';
 
-import type { LoadoutPlacement, OwnedWeaponInstance } from '$lib/data/types';
+import type { OwnedWeaponInstance, PersistedLoadoutState } from '$lib/data/types';
 
 import { user } from './auth.schema';
 
@@ -39,9 +39,9 @@ export const pixlState = pgTable('pixl_state', {
 		.notNull()
 		.default(sql`'[]'::jsonb`),
 	loadoutPlacements: jsonb('loadout_placements')
-		.$type<LoadoutPlacement[]>()
+		.$type<PersistedLoadoutState>()
 		.notNull()
-		.default(sql`'[]'::jsonb`),
+		.default(sql`'{"activeSlot":0,"slots":[[],[],[]]}'::jsonb`),
 	createdAt: timestamp('created_at').defaultNow().notNull(),
 	updatedAt: timestamp('updated_at')
 		.defaultNow()

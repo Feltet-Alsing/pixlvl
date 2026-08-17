@@ -1,8 +1,10 @@
 import { getLoadoutRotationLabel } from '$lib/game/loadout-rotation';
+import { getActiveLoadoutPlacements } from '$lib/game/loadout-slots';
 
 import type {
 	LoadoutItemDefinition,
 	LoadoutPlacement,
+	PersistedLoadoutState,
 	LoadoutRotation,
 	OwnedWeaponInstance,
 	WeaponDefinition
@@ -153,14 +155,17 @@ export function buildUnlockedStages(
 
 export function buildCurrentLoadoutRows(
 	ownedWeapons: OwnedWeaponInstance[],
-	loadoutPlacements: LoadoutPlacement[],
+	loadoutPlacements: LoadoutPlacement[] | PersistedLoadoutState,
 	weaponDefinitionById: Record<string, LoadoutItemDefinition>
 ) {
+	const activePlacements = Array.isArray(loadoutPlacements)
+		? loadoutPlacements
+		: getActiveLoadoutPlacements(loadoutPlacements);
 	const ownedWeaponById = Object.fromEntries(
 		ownedWeapons.map((weapon) => [weapon.instanceId, weapon])
 	) as Record<string, (typeof ownedWeapons)[number]>;
 
-	return loadoutPlacements
+	return activePlacements
 		.map((placement) => {
 			const ownedWeapon = ownedWeaponById[placement.weaponInstanceId];
 			const definition = ownedWeapon ? weaponDefinitionById[ownedWeapon.definitionId] : null;

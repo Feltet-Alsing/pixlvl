@@ -9,6 +9,7 @@ import {
 	isUtilityDefinition,
 	isWeaponDefinition
 } from '$lib/data';
+import { getActiveLoadoutPlacements } from '$lib/game/loadout-slots';
 import { getPlacementRotation, rotateWeaponShape } from '$lib/game/loadout-rotation';
 import { applyXpGain, createUpgradeablePixlState } from '$lib/game/upgrades';
 import type {
@@ -590,14 +591,16 @@ function buildEquippedLoadoutEntries(
 	loadoutPlacements: PersistedPixlState['loadoutPlacements'] | null | undefined,
 	loadoutColumnCount = LOADOUT_COLUMN_COUNT
 ): EquippedLoadoutEntry[] {
-	if (!Array.isArray(ownedWeapons) || !Array.isArray(loadoutPlacements)) {
+	if (!Array.isArray(ownedWeapons) || !loadoutPlacements) {
 		return [];
 	}
+
+	const activeLoadoutPlacements = getActiveLoadoutPlacements(loadoutPlacements);
 
 	const ownedWeaponMap = new Map(ownedWeapons.map((weapon) => [weapon.instanceId, weapon]));
 	const entries: EquippedLoadoutEntry[] = [];
 
-	for (const placement of loadoutPlacements) {
+	for (const placement of activeLoadoutPlacements) {
 		const ownedWeapon = ownedWeaponMap.get(placement.weaponInstanceId);
 
 		if (!ownedWeapon) {
@@ -3895,7 +3898,10 @@ export function createCampaignSketch(
 			canvas = p.createCanvas(MAX_WIDTH, BASE_HEIGHT).elt as HTMLCanvasElement;
 			syncCanvasSize();
 			if (initialResumeState) {
-				currentLevelIndex = Math.max(0, Math.min(initialResumeState.currentLevel - 1, levels.length - 1));
+				currentLevelIndex = Math.max(
+					0,
+					Math.min(initialResumeState.currentLevel - 1, levels.length - 1)
+				);
 				currentLevel = levels[currentLevelIndex];
 				status = initialResumeState.status;
 				statusTimer = initialResumeState.statusTimer;

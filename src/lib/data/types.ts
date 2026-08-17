@@ -35,11 +35,7 @@ export type WeaponSpecialAttackKind =
 	| 'stasis-field';
 
 export type WeaponTargetingKind =
-	| 'current-target'
-	| 'nearest-target'
-	| 'furthest-target'
-	| 'strongest-target'
-	| 'weakest-target';
+	'current-target' | 'nearest-target' | 'furthest-target' | 'strongest-target' | 'weakest-target';
 
 export interface PixlBaseStats {
 	health: number;
@@ -310,6 +306,15 @@ export interface LoadoutPlacement {
 	y: number;
 	rotation: LoadoutRotation;
 	targeting?: WeaponTargetingKind;
+}
+
+export type LoadoutSlotIndex = 0 | 1 | 2;
+
+export type LoadoutSlots = [LoadoutPlacement[], LoadoutPlacement[], LoadoutPlacement[]];
+
+export interface PersistedLoadoutState {
+	activeSlot: LoadoutSlotIndex;
+	slots: LoadoutSlots;
 }
 
 export interface WaveComposition {
