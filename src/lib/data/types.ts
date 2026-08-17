@@ -1,4 +1,5 @@
-export type GlitchKind = 'biter' | 'swarmer' | 'tanker' | 'shard' | 'bulwark' | 'shielder';
+export type GlitchKind =
+	'biter' | 'swarmer' | 'tanker' | 'shard' | 'bulwark' | 'shielder' | 'zerglitch';
 
 export type WeaponRarity = 'normal' | 'magic' | 'rare' | 'exotic' | 'legendary';
 
@@ -28,7 +29,10 @@ export type WeaponSpecialAttackKind =
 	| 'fork-lightning'
 	| 'flamethrower-cone'
 	| 'ice-shower'
-	| 'void-tendrils';
+	| 'void-tendrils'
+	| 'void-tunnel'
+	| 'phaseshift'
+	| 'stasis-field';
 
 export type WeaponTargetingKind = 'current-target' | 'furthest-target';
 
@@ -172,6 +176,31 @@ export interface WeaponAttackBehavior {
 				targetCount: number;
 				healPerHit: number;
 				duration: number;
+		  }
+		| {
+				type: 'void-tunnel';
+				duration: number;
+				halfWidth: number;
+				halfHeight: number;
+				pullStrength: number;
+				debuffDuration: number;
+				elementalDamageMultiplier: number;
+		  }
+		| {
+				type: 'phaseshift';
+				durationCycles: number;
+				zoneWidth: number;
+				zoneHeightRatio: number;
+				horizontalOffset: number;
+				teleportOffset: number;
+				slowDuration: number;
+				slowMultiplier: number;
+		  }
+		| {
+				type: 'stasis-field';
+				maxRadius: number;
+				expansionSpeed: number;
+				fieldDurationCycles: number;
 		  };
 	targeting: WeaponTargetingKind;
 }
@@ -284,6 +313,7 @@ export interface WaveComposition {
 	shard?: number;
 	bulwark?: number;
 	shielder?: number;
+	zerglitch?: number;
 }
 
 export interface XpPerEnemy {
@@ -293,6 +323,7 @@ export interface XpPerEnemy {
 	shard?: number;
 	bulwark?: number;
 	shielder?: number;
+	zerglitch?: number;
 }
 
 export interface CampaignLevel {
@@ -329,6 +360,7 @@ export interface CampaignBaseline {
 			shard?: string;
 			bulwark?: string;
 			shielder?: string;
+			zerglitch?: string;
 		};
 	};
 	bossEnemyMultipliers: {
@@ -342,6 +374,7 @@ export interface CampaignBaseline {
 		shard?: string;
 		bulwark?: string;
 		shielder?: string;
+		zerglitch?: string;
 	};
 }
 

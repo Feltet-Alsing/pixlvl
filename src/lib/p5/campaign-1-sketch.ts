@@ -99,17 +99,32 @@ const ENEMY_VISUALS: Record<
 		fill: [92, 156, 255],
 		stroke: [220, 236, 255],
 		shape: 'circle'
+	},
+	zerglitch: {
+		radius: 22,
+		fill: [188, 72, 72],
+		stroke: [255, 205, 205],
+		shape: 'circle'
 	}
 };
 
-const glitchOrder: GlitchKind[] = ['biter', 'swarmer', 'tanker', 'shard', 'bulwark', 'shielder'];
+const glitchOrder: GlitchKind[] = [
+	'biter',
+	'swarmer',
+	'tanker',
+	'shard',
+	'bulwark',
+	'shielder',
+	'zerglitch'
+];
 const compositionKeyByKind = {
 	biter: 'biters',
 	swarmer: 'swarmers',
 	tanker: 'tankers',
 	shard: 'shard',
 	bulwark: 'bulwark',
-	shielder: 'shielder'
+	shielder: 'shielder',
+	zerglitch: 'zerglitch'
 } as const;
 
 type WaveStatus = 'running' | 'cleared' | 'defeated' | 'complete';
@@ -130,6 +145,9 @@ interface EnemyState {
 	supportShieldTimer: number;
 	shieldPulseTimer: number;
 	shieldPulseCooldown: number;
+	confusionTimer: number;
+	voidTouchedTimer: number;
+	moveSpeedMultiplier: number;
 	damageMultiplier: number;
 }
 
@@ -214,6 +232,50 @@ interface ForceFieldState {
 	glow: boolean;
 	age: number;
 	hitEnemyIds: number[];
+}
+
+interface StasisFieldState {
+	sourceWeaponInstanceId: string;
+	centerX: number;
+	centerY: number;
+	radius: number;
+	maxRadius: number;
+	expansionSpeed: number;
+	color: string;
+	glow: boolean;
+	age: number;
+	duration: number;
+}
+
+interface VoidTunnelState {
+	sourceWeaponInstanceId: string;
+	centerX: number;
+	centerY: number;
+	halfWidth: number;
+	halfHeight: number;
+	pullStrength: number;
+	color: string;
+	glow: boolean;
+	age: number;
+	duration: number;
+	debuffDuration: number;
+	elementalDamageMultiplier: number;
+}
+
+interface PhaseshiftState {
+	sourceWeaponInstanceId: string;
+	centerX: number;
+	centerY: number;
+	zoneWidth: number;
+	halfHeight: number;
+	color: string;
+	glow: boolean;
+	age: number;
+	duration: number;
+	teleportOffset: number;
+	slowDuration: number;
+	slowMultiplier: number;
+	teleportedEnemyIds: number[];
 }
 
 interface LaserSweepState {
@@ -696,6 +758,7 @@ export function createCampaignSketch(
 		let projectiles: ProjectileState[] = [];
 		let enemyProjectiles: EnemyProjectileState[] = [];
 		let forceFields: ForceFieldState[] = [];
+		let stasisFields: StasisFieldState[] = [];
 		let laserSweeps: LaserSweepState[] = [];
 		let needleBursts: NeedleBurstState[] = [];
 		let executionLatticeStrikes: ExecutionLatticeStrikeState[] = [];
@@ -703,6 +766,8 @@ export function createCampaignSketch(
 		let flamethrowerCones: FlamethrowerConeState[] = [];
 		let iceSpikes: IceSpikeState[] = [];
 		let voidTendrils: VoidTendrilState[] = [];
+		let voidTunnels: VoidTunnelState[] = [];
+		let phaseshifts: PhaseshiftState[] = [];
 		let sniperLocks: SniperLockState[] = [];
 		let centerX = 0;
 		let centerY = 0;
@@ -976,6 +1041,7 @@ export function createCampaignSketch(
 			projectiles = [];
 			enemyProjectiles = [];
 			forceFields = [];
+			stasisFields = [];
 			laserSweeps = [];
 			needleBursts = [];
 			executionLatticeStrikes = [];
@@ -983,6 +1049,8 @@ export function createCampaignSketch(
 			flamethrowerCones = [];
 			iceSpikes = [];
 			voidTendrils = [];
+			voidTunnels = [];
+			phaseshifts = [];
 			sniperLocks = [];
 			spawnQueue = shuffleInPlace(buildSpawnQueue(currentLevel), p);
 
@@ -1043,10 +1111,17 @@ export function createCampaignSketch(
 			});
 		};
 
-		const spawnEnemy = (kind: GlitchKind) => {
-			const angle = p.random(p.TWO_PI);
-			const x = centerX + Math.cos(angle) * FIXED_SPAWN_RADIUS;
-			const y = centerY + Math.sin(angle) * FIXED_SPAWN_RADIUS;
+		const createEnemyState = (
+			kind: GlitchKind,
+			x: number,
+			y: number,
+			overrides?: Partial<
+				Pick<
+					EnemyState,
+					'holdRadius' | 'orbitDirection' | 'health' | 'maxHealth' | 'moveSpeedMultiplier'
+				>
+			>
+		): EnemyState => {
 			const stats = combatProfile.glitches[kind];
 			const preferredRange = stats.preferredRange ?? getEnemyContactRange(kind);
 			const holdRadius =
@@ -1054,24 +1129,54 @@ export function createCampaignSketch(
 			const healthMultiplier = getEnemyStageMultiplier('healthPerStage');
 			const scaledHealth = Math.max(1, Math.round(stats.health * healthMultiplier));
 
-			enemies.push({
+			return {
 				id: enemyId,
 				kind,
 				x,
 				y,
-				health: scaledHealth,
-				maxHealth: scaledHealth,
+				health: overrides?.health ?? scaledHealth,
+				maxHealth: overrides?.maxHealth ?? scaledHealth,
 				attackTimer: 1 / stats.attackSpeed,
 				hitFlash: 0,
-				orbitDirection: p.random() < 0.5 ? -1 : 1,
-				holdRadius: holdRadius,
+				orbitDirection: overrides?.orbitDirection ?? (p.random() < 0.5 ? -1 : 1),
+				holdRadius: overrides?.holdRadius ?? holdRadius,
 				supportShieldPool: 0,
 				supportShieldTimer: 0,
 				shieldPulseTimer: 0,
 				shieldPulseCooldown: p.random(0, Math.max(0.15, (stats.onHitShieldCooldown ?? 0) * 0.5)),
+				confusionTimer: 0,
+				voidTouchedTimer: 0,
+				moveSpeedMultiplier: overrides?.moveSpeedMultiplier ?? 1,
 				damageMultiplier: getEnemyStageMultiplier('damagePerStage')
-			});
+			};
+		};
 
+		const spawnEnemy = (kind: GlitchKind) => {
+			const angle = p.random(p.TWO_PI);
+			const x = centerX + Math.cos(angle) * FIXED_SPAWN_RADIUS;
+			const y = centerY + Math.sin(angle) * FIXED_SPAWN_RADIUS;
+
+			enemies.push(createEnemyState(kind, x, y));
+			enemyId += 1;
+		};
+
+		const spawnEnemyAtPosition = (
+			kind: GlitchKind,
+			x: number,
+			y: number,
+			overrides?: Partial<
+				Pick<
+					EnemyState,
+					'holdRadius' | 'orbitDirection' | 'health' | 'maxHealth' | 'moveSpeedMultiplier'
+				>
+			>
+		) => {
+			enemies.push(
+				createEnemyState(kind, x, y, {
+					holdRadius: getEnemyContactRange(kind) + p.random(-8, 12),
+					...overrides
+				})
+			);
 			enemyId += 1;
 		};
 
@@ -1196,6 +1301,19 @@ export function createCampaignSketch(
 
 			waveXp += currentLevel.xpPerEnemy[defeatedEnemy.kind] ?? 0;
 
+			if (defeatedEnemy.kind === 'zerglitch') {
+				for (let splitIndex = 0; splitIndex < 15; splitIndex += 1) {
+					const angle = (Math.PI * 2 * splitIndex) / 10 + p.random(-0.12, 0.12);
+					const distance = p.random(14, 30);
+					spawnEnemyAtPosition(
+						'swarmer',
+						defeatedEnemy.x + Math.cos(angle) * distance,
+						defeatedEnemy.y + Math.sin(angle) * distance,
+						{ moveSpeedMultiplier: 1.75 }
+					);
+				}
+			}
+
 			enemies.splice(enemyIndex, 1);
 		};
 
@@ -1261,6 +1379,14 @@ export function createCampaignSketch(
 			const stats = combatProfile.glitches[enemy.kind];
 			let remainingDamage = damage;
 			let actualDamage = 0;
+			const sourceWeapon = sourceWeaponInstanceId
+				? (equippedWeapons.find((weapon) => weapon.instanceId === sourceWeaponInstanceId)
+						?.definition ?? null)
+				: null;
+
+			if (sourceWeapon?.attack.requiredInfusion && enemy.voidTouchedTimer > 0) {
+				remainingDamage *= 1.3;
+			}
 
 			if (enemy.supportShieldPool > 0) {
 				const absorbed = Math.min(enemy.supportShieldPool, remainingDamage);
@@ -1370,6 +1496,82 @@ export function createCampaignSketch(
 					hitEnemyIds: []
 				});
 			}
+		};
+
+		const spawnStasisField = (
+			weapon: WeaponDefinition,
+			sourceWeaponInstanceId: string,
+			target: EnemyState
+		) => {
+			const special = weapon.attack.special;
+
+			if (!special || special.type !== 'stasis-field') {
+				return;
+			}
+
+			stasisFields.push({
+				sourceWeaponInstanceId,
+				centerX: target.x,
+				centerY: target.y,
+				radius: 8,
+				maxRadius: special.maxRadius,
+				expansionSpeed: special.expansionSpeed,
+				color: weapon.projectileVisual.color,
+				glow: weapon.projectileVisual.glow ?? false,
+				age: 0,
+				duration: special.fieldDurationCycles / Math.max(0.001, pixlProgression.attackSpeed)
+			});
+		};
+
+		const spawnVoidTunnel = (
+			weapon: WeaponDefinition,
+			sourceWeaponInstanceId: string,
+			target: EnemyState
+		) => {
+			const special = weapon.attack.special;
+
+			if (!special || special.type !== 'void-tunnel') {
+				return;
+			}
+
+			voidTunnels.push({
+				sourceWeaponInstanceId,
+				centerX: target.x,
+				centerY: target.y,
+				halfWidth: special.halfWidth,
+				halfHeight: special.halfHeight,
+				pullStrength: special.pullStrength,
+				color: weapon.projectileVisual.color,
+				glow: weapon.projectileVisual.glow ?? false,
+				age: 0,
+				duration: special.duration,
+				debuffDuration: special.debuffDuration,
+				elementalDamageMultiplier: special.elementalDamageMultiplier
+			});
+		};
+
+		const spawnPhaseshift = (weapon: WeaponDefinition, sourceWeaponInstanceId: string) => {
+			const special = weapon.attack.special;
+
+			if (!special || special.type !== 'phaseshift') {
+				return;
+			}
+
+			phaseshifts.push({
+				sourceWeaponInstanceId,
+				centerX: centerX + special.horizontalOffset,
+				centerY,
+				zoneWidth: special.zoneWidth,
+				halfHeight: arenaRadius * special.zoneHeightRatio,
+				color: weapon.projectileVisual.color,
+				glow: weapon.projectileVisual.glow ?? false,
+				age: 0,
+				duration: special.durationCycles / Math.max(0.001, pixlProgression.attackSpeed),
+				teleportOffset: special.teleportOffset,
+				slowDuration: special.slowDuration,
+				slowMultiplier: special.slowMultiplier,
+				teleportedEnemyIds: []
+			});
 		};
 
 		const spawnLaserSweep = (weapon: WeaponDefinition, sourceWeaponInstanceId: string) => {
@@ -1924,6 +2126,21 @@ export function createCampaignSketch(
 				return;
 			}
 
+			if (special?.type === 'stasis-field') {
+				spawnStasisField(weapon.definition, weapon.instanceId, target);
+				return;
+			}
+
+			if (special?.type === 'void-tunnel') {
+				spawnVoidTunnel(weapon.definition, weapon.instanceId, target);
+				return;
+			}
+
+			if (special?.type === 'phaseshift') {
+				spawnPhaseshift(weapon.definition, weapon.instanceId);
+				return;
+			}
+
 			if (special?.type === 'flamethrower-cone') {
 				spawnFlamethrowerCone(weapon.definition, weapon.instanceId, target);
 				return;
@@ -2190,6 +2407,40 @@ export function createCampaignSketch(
 			}
 		};
 
+		const updateStasisFields = (dt: number) => {
+			for (let index = stasisFields.length - 1; index >= 0; index -= 1) {
+				const field = stasisFields[index];
+				field.age += dt;
+				field.radius = Math.min(field.maxRadius, field.radius + field.expansionSpeed * dt);
+
+				if (field.age >= field.duration) {
+					stasisFields.splice(index, 1);
+				}
+			}
+		};
+
+		const updateVoidTunnels = (dt: number) => {
+			for (let index = voidTunnels.length - 1; index >= 0; index -= 1) {
+				const tunnel = voidTunnels[index];
+				tunnel.age += dt;
+
+				if (tunnel.age >= tunnel.duration) {
+					voidTunnels.splice(index, 1);
+				}
+			}
+		};
+
+		const updatePhaseshifts = (dt: number) => {
+			for (let index = phaseshifts.length - 1; index >= 0; index -= 1) {
+				const phaseshift = phaseshifts[index];
+				phaseshift.age += dt;
+
+				if (phaseshift.age >= phaseshift.duration) {
+					phaseshifts.splice(index, 1);
+				}
+			}
+		};
+
 		const updateLaserSweeps = (dt: number) => {
 			for (let index = laserSweeps.length - 1; index >= 0; index -= 1) {
 				const sweep = laserSweeps[index];
@@ -2266,6 +2517,8 @@ export function createCampaignSketch(
 				const contactRange = getEnemyContactRange(enemy.kind);
 				const isSiege = stats.attackPattern === 'siege';
 				enemy.hitFlash = Math.max(0, enemy.hitFlash - dt);
+				enemy.confusionTimer = Math.max(0, enemy.confusionTimer - dt);
+				enemy.voidTouchedTimer = Math.max(0, enemy.voidTouchedTimer - dt);
 				enemy.supportShieldTimer = Math.max(0, enemy.supportShieldTimer - dt);
 
 				if (enemy.supportShieldTimer <= 0) {
@@ -2275,28 +2528,80 @@ export function createCampaignSketch(
 				enemy.shieldPulseTimer = Math.max(0, enemy.shieldPulseTimer - dt);
 				enemy.shieldPulseCooldown = Math.max(0, enemy.shieldPulseCooldown - dt);
 
+				for (const phaseshift of phaseshifts) {
+					const insideLane =
+						Math.abs(enemy.y - phaseshift.centerY) <= phaseshift.halfHeight &&
+						Math.abs(enemy.x - phaseshift.centerX) <= phaseshift.zoneWidth * 0.5;
+
+					if (!insideLane || phaseshift.teleportedEnemyIds.includes(enemy.id)) {
+						continue;
+					}
+
+					const angle = Math.atan2(enemy.y - centerY, enemy.x - centerX);
+					enemy.x = centerX + Math.cos(angle) * (FIXED_SPAWN_RADIUS + phaseshift.teleportOffset);
+					enemy.y = centerY + Math.sin(angle) * (FIXED_SPAWN_RADIUS + phaseshift.teleportOffset);
+					enemy.confusionTimer = Math.max(enemy.confusionTimer, phaseshift.slowDuration);
+					phaseshift.teleportedEnemyIds = [...phaseshift.teleportedEnemyIds, enemy.id];
+				}
+
+				let immobilized = false;
+				for (const field of stasisFields) {
+					const distanceToField = Math.hypot(enemy.x - field.centerX, enemy.y - field.centerY);
+
+					if (distanceToField <= field.radius + ENEMY_VISUALS[enemy.kind].radius) {
+						immobilized = true;
+						break;
+					}
+				}
+
+				for (const tunnel of voidTunnels) {
+					const insideTunnel =
+						Math.abs(enemy.x - tunnel.centerX) <= tunnel.halfWidth &&
+						Math.abs(enemy.y - tunnel.centerY) <= tunnel.halfHeight;
+
+					if (!insideTunnel) {
+						continue;
+					}
+
+					enemy.voidTouchedTimer = Math.max(enemy.voidTouchedTimer, tunnel.debuffDuration);
+					const deltaY = tunnel.centerY - enemy.y;
+					const pullStepY = Math.min(Math.abs(deltaY), tunnel.pullStrength * dt);
+					enemy.y += Math.sign(deltaY || 1) * pullStepY;
+					const deltaX = tunnel.centerX - enemy.x;
+					const pullStepX = Math.min(Math.abs(deltaX), tunnel.pullStrength * 0.3 * dt);
+					enemy.x += Math.sign(deltaX || 1) * pullStepX;
+				}
+
 				const dx = centerX - enemy.x;
 				const dy = centerY - enemy.y;
 				const distance = Math.hypot(dx, dy) || 1;
 				const desiredRange = Math.max(contactRange + 20, enemy.holdRadius);
+				const moveSpeedMultiplier = enemy.confusionTimer > 0 ? 0.67 : 1;
+				const effectiveMoveSpeed =
+					stats.moveSpeed * moveSpeedMultiplier * enemy.moveSpeedMultiplier;
+
+				if (immobilized) {
+					continue;
+				}
 
 				if (isSiege) {
 					const distanceDelta = distance - desiredRange;
 
 					if (Math.abs(distanceDelta) > 10) {
-						const step = Math.min(Math.abs(distanceDelta), stats.moveSpeed * dt);
+						const step = Math.min(Math.abs(distanceDelta), effectiveMoveSpeed * dt);
 						const direction = distanceDelta > 0 ? 1 : -1;
 						enemy.x += (dx / distance) * step * direction;
 						enemy.y += (dy / distance) * step * direction;
 					} else {
 						const tangentX = -dy / distance;
 						const tangentY = dx / distance;
-						const orbitStep = (stats.orbitSpeed ?? 24) * dt * enemy.orbitDirection;
+						const orbitStep =
+							(stats.orbitSpeed ?? 24) * moveSpeedMultiplier * dt * enemy.orbitDirection;
 						enemy.x += tangentX * orbitStep;
 						enemy.y += tangentY * orbitStep;
 					}
 				} else if (distance > contactRange) {
-					const step = Math.min(distance - contactRange, stats.moveSpeed * dt);
+					const step = Math.min(distance - contactRange, effectiveMoveSpeed * dt);
 					enemy.x += (dx / distance) * step;
 					enemy.y += (dy / distance) * step;
 					continue;
@@ -2988,6 +3293,57 @@ export function createCampaignSketch(
 				p.circle(field.centerX, field.centerY, field.radius * 2);
 			}
 
+			for (const field of stasisFields) {
+				if (field.glow) {
+					p.noFill();
+					p.stroke(`${field.color}33`);
+					p.strokeWeight(10);
+					p.circle(field.centerX, field.centerY, field.radius * 2.2);
+				}
+
+				p.noFill();
+				p.stroke(field.color);
+				p.strokeWeight(2.8);
+				p.circle(field.centerX, field.centerY, field.radius * 2);
+			}
+
+			for (const tunnel of voidTunnels) {
+				const gapHalf = 10;
+				const left = tunnel.centerX - tunnel.halfWidth;
+				const width = tunnel.halfWidth * 2;
+				const halfHeight = tunnel.halfHeight;
+				const slabHeight = Math.max(8, halfHeight - gapHalf);
+				const alphaHex = Math.round((1 - tunnel.age / tunnel.duration) * 120)
+					.toString(16)
+					.padStart(2, '0');
+
+				p.noStroke();
+				p.fill(`${tunnel.color}${alphaHex}`);
+				p.rect(left, tunnel.centerY - halfHeight, width, slabHeight, 6);
+				p.rect(left, tunnel.centerY + gapHalf, width, slabHeight, 6);
+			}
+
+			for (const phaseshift of phaseshifts) {
+				p.noStroke();
+				p.fill(`${phaseshift.color}22`);
+				p.rect(
+					phaseshift.centerX - phaseshift.zoneWidth * 0.5,
+					phaseshift.centerY - phaseshift.halfHeight,
+					phaseshift.zoneWidth,
+					phaseshift.halfHeight * 2,
+					8
+				);
+
+				p.stroke(phaseshift.color);
+				p.strokeWeight(4);
+				p.line(
+					phaseshift.centerX,
+					phaseshift.centerY - phaseshift.halfHeight,
+					phaseshift.centerX,
+					phaseshift.centerY + phaseshift.halfHeight
+				);
+			}
+
 			for (const sweep of laserSweeps) {
 				const beamX = centerX + Math.cos(sweep.angle) * sweep.beamLength;
 				const beamY = centerY + Math.sin(sweep.angle) * sweep.beamLength;
@@ -3398,6 +3754,20 @@ export function createCampaignSketch(
 					p.circle(enemy.x, enemy.y, visual.radius * 2.85);
 				}
 
+				if (enemy.voidTouchedTimer > 0) {
+					p.noFill();
+					p.stroke('#b794ffcc');
+					p.strokeWeight(2);
+					p.circle(enemy.x, enemy.y, visual.radius * 3.2);
+				}
+
+				if (enemy.confusionTimer > 0) {
+					p.noFill();
+					p.stroke('#8be9fdcc');
+					p.strokeWeight(1.5);
+					p.circle(enemy.x, enemy.y, visual.radius * 2.45);
+				}
+
 				p.pop();
 			}
 		};
@@ -3418,6 +3788,9 @@ export function createCampaignSketch(
 			if (runMode === 'combat' && status === 'running') {
 				updateWaveFlow(dt);
 				updateForceFields(dt);
+				updateStasisFields(dt);
+				updateVoidTunnels(dt);
+				updatePhaseshifts(dt);
 				updateLaserSweeps(dt);
 				updateNeedleBursts(dt);
 				updateExecutionLatticeStrikes(dt);

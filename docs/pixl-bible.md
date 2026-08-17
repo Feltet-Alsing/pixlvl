@@ -797,3 +797,229 @@ Role separation is important here:
 - shielder is the backline support unit that protects someone else
 
 This avoids the worst stall case where a highly durable bulwark is also the primary support target.
+
+---
+
+## Next expansion: Campaign 4 direction
+
+Campaign 4 should pivot the game away from mostly solving raw target damage and toward solving enemy positioning.
+
+The core Campaign 4 identity should be:
+
+- manipulating where glitches are on the screen
+- grouping enemies into better kill windows
+- combining crowd control with loadout timing
+- making the player think much harder about trigger columns, activation order, and combo setup
+
+This means Campaign 4 should push the player to care not only about which weapons are strong on their own, but also about:
+
+- where those weapons are placed in the sweep
+- which weapons should activate earlier to group or stall enemies
+- which weapons should activate later to cash in on that grouping
+- how crowd-control tools and payoff tools can be paired inside the same cycle
+
+### Campaign 4 weapon identity
+
+Campaign 4 weapons should revolve around battlefield control and combo payoff rather than only direct stat scaling.
+
+The design intent should be:
+
+- some weapons move, pull, stall, cluster, or pin enemies
+- some weapons deal better damage when targets are grouped tightly together
+- some weapons should be tuned specifically to follow up after crowd-control setup
+- loadout ordering should matter more than it did in earlier campaigns
+
+This should make Campaign 4 feel like the first campaign where the player is actively building a control engine, not just a damage package.
+
+### Campaign 4 difficulty direction
+
+Campaign 4 should increase combat pressure dramatically, especially through spawn density.
+
+Primary difficulty rule:
+
+- overall spawn rate should be roughly `3x` to `4x` higher than in earlier campaigns
+
+This increase should be strong enough that simple single-target builds begin to fail unless the player uses grouping, crowd control, or better sweep sequencing.
+
+The intent is:
+
+- the screen should feel more crowded
+- target prioritization should become less stable by default
+- players should need tools that shape the wave, not only tools that damage it
+
+### New enemy: Zerglitch
+
+Campaign 4 should introduce a new enemy archetype: `Zerglitch`.
+
+Zerglitch rules:
+
+- it begins as a large single enemy
+- it stays in that large form until killed
+- when it dies, it bursts into `10` small enemies
+
+Design intent:
+
+- the player should have to decide whether they can safely burst the large body immediately
+- killing it at the wrong time can flood the arena with fresh pressure
+- grouping and area control should help manage the spawned swarm
+- crowd control becomes more valuable because the enemy creates a second wave on death
+
+This enemy should reinforce the Campaign 4 identity directly:
+
+- positioning matters
+- kill timing matters
+- sweep order matters
+- crowd control and grouped damage matter
+
+### Campaign 4 note status
+
+This section defines the campaign identity and pressure goals only.
+
+Weapon specifics, exact control mechanics, and final roster details should be documented in a later Campaign 4 weapon pass once the control-combo direction is locked in.
+
+### Early Campaign 4 weapon note: Void Tunnel
+
+One of the first concrete Campaign 4 weapon concepts should be `Void Tunnel`.
+
+`Void Tunnel` should act as a control-first elemental weapon that helps define the campaign's manipulation identity.
+
+Initial spec direction:
+
+- name: `Void Tunnel`
+- rarity: `rare`
+- element: `void`
+- requires `1` void infusion to activate
+- primary role: grouping and compression setup for combo weapons
+
+Proposed shape:
+
+```text
+xxxx
+----
+xxxx
+```
+
+This means:
+
+- width `4`
+- height `3`
+- full occupied top row
+- empty middle row
+- full occupied bottom row
+
+Targeting rule:
+
+- `Void Tunnel` should target the closest enemy when it activates
+
+Effect direction:
+
+- the weapon should spawn one crushing void square above the target area and one below it
+- instead of covering the full arena, the tunnel should affect a large local region around the chosen target
+- the control radius should be large, roughly approaching half the arena, but not fully global
+- enemies in that affected region should be pushed or compressed toward the middle of the tunnel
+
+The reason for this constraint is important:
+
+- full-arena compression is likely too reliable and too strong
+- local compression around a chosen target still creates a powerful combo window
+- this preserves the Campaign 4 identity without making the weapon universally dominant in every build
+
+Debuff direction:
+
+- enemies affected by `Void Tunnel` should receive `void touched`
+- `void touched` should make enemies take `+30%` elemental damage
+- duration: `3` seconds
+
+Design intent:
+
+- `Void Tunnel` should be a setup weapon first, not a pure damage weapon
+- it should reward placing follow-up elemental or area-control weapons later in the sweep
+- it should help make Campaign 4 feel like a combo-timing campaign rather than only a stat-check campaign
+
+### Early Campaign 4 weapon note: Phaseshift
+
+Another key Campaign 4 control weapon should be `Phaseshift`.
+
+`Phaseshift` should serve a different battlefield-control role than `Void Tunnel`.
+Where `Void Tunnel` compresses and groups enemies into a kill window, `Phaseshift` should function as a positional reset tool that throws enemies back out toward the arena edge.
+
+Initial spec direction:
+
+- name: `Phaseshift`
+- rarity: `legendary`
+- primary role: large-scale repositioning and wave reset control
+- shape: `6x1`
+- cycle cooldown: `5`
+- active duration: `3` cycles
+
+Effect direction:
+
+- `Phaseshift` should target a fixed position to the right of the `pixl`
+- it should spawn a large vertical teleporter line at that fixed right-side location
+- the line should be perpendicular and long, covering roughly `50%` of the arena height
+- the affected zone should also occupy a substantial horizontal slice of that right-side space, roughly `50%` of the arena width on that side
+- any glitch that collides with that line while it is active should be teleported back out toward the edge of the arena
+- the destination should be outside the normal arena boundary, roughly `50` pixels beyond the arena edge
+
+Debuff direction:
+
+- `Phaseshift` should apply `confusion` to affected glitches
+- `confusion` should reduce glitch movement speed by `33%`
+- duration: `2` seconds
+
+Design intent:
+
+- `Phaseshift` should not be a damage-first weapon
+- it should buy space by forcibly resetting enemy position
+- it should be especially strong against dense waves that are beginning to overrun the center
+- it should create new timing windows by sending part of the wave back out, effectively re-staggering enemy arrival
+
+This makes `Phaseshift` a strong Campaign 4 identity piece because it reinforces all of the campaign's spatial-control goals:
+
+- where enemies are matters
+- when enemies arrive matters
+- crowd control can be used to change wave shape, not just slow it
+- loadout sequencing can capitalize on re-approach timing after enemies are displaced
+
+Balancing note:
+
+- `Phaseshift` should feel powerful because it is `legendary`, but the `5` cycle cooldown is an important limiter
+- its strength should come from reset utility and combo timing, not from replacing direct damage weapons
+
+### Early Campaign 4 weapon note: Force Field
+
+Another important Campaign 4 control weapon should be `Force Field`.
+
+`Force Field` should act as a temporal trap weapon.
+Unlike `Void Tunnel`, which compresses enemies, or `Phaseshift`, which resets them outward, `Force Field` should lock enemies in place and create a temporary hold zone for follow-up damage.
+
+Initial spec direction:
+
+- name: `Force Field`
+- primary role: trap setup and local crowd lockdown
+- cycle cooldown: `2`
+- hold duration: `1` cycle
+
+Trigger flow:
+
+- `Force Field` should fire a small projectile at the closest enemy
+- on impact, that projectile should expand outward
+- the expansion should then create a circular force field zone
+
+Effect direction:
+
+- glitches caught in that circular zone should be stunned
+- stunned glitches should remain fixed in place while the field is active
+- the field should function like a temporary anchor that prevents those enemies from advancing
+
+Design intent:
+
+- `Force Field` should create a reliable setup window for grouped follow-up hits
+- it should reward placing payoff weapons later in the sweep so they can hit locked targets
+- it should be one of the clearest examples of Campaign 4's crowd-control-and-combo identity
+
+This makes `Force Field` distinct from the other control tools:
+
+- `Void Tunnel` groups enemies inward
+- `Phaseshift` sends enemies back out
+- `Force Field` freezes enemies in place for a short combo window

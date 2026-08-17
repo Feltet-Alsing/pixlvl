@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
+	import { resolve } from '$app/paths';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import ArenaStatsOverlay from '$lib/components/campaigns/ArenaStatsOverlay.svelte';
 	import CampaignStageDrawer from '$lib/components/campaigns/CampaignStageDrawer.svelte';
@@ -278,6 +280,73 @@
 		history.replaceState(history.state, '', `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`);
 	}
 
+	async function persistArenaStateBeforeLeaving() {
+		if (!data.gameState || !livePixlState || !liveCampaignState) {
+			return;
+		}
+
+		const mergedOwnedWeapons = Array.from(
+			new Map(
+				[...livePixlState.ownedWeapons, ...combatOverlay.waveDrops].map((weapon) => [weapon.instanceId, weapon])
+			).values()
+		);
+		const persistedCurrentLevel =
+			combatOverlay.status === 'complete'
+				? data.campaign.totalLevels
+				: combatOverlay.status === 'cleared'
+					? Math.min(data.campaign.totalLevels, combatOverlay.campaignLevel + 1)
+					: liveCampaignState.currentLevel;
+		const persistedHighestUnlockedLevel = Math.max(
+			liveCampaignState.highestUnlockedLevel,
+			persistedCurrentLevel
+		);
+		const persistedHighestClearedLevel = Math.max(
+			liveCampaignState.highestClearedLevel,
+			combatOverlay.status === 'cleared' || combatOverlay.status === 'complete'
+				? combatOverlay.campaignLevel
+				: liveCampaignState.highestClearedLevel
+		);
+		const persistedCompleted =
+			liveCampaignState.completed || combatOverlay.status === 'complete';
+
+		await fetch('/api/game/state', {
+			method: 'PATCH',
+			headers: {
+				'content-type': 'application/json'
+			},
+			body: JSON.stringify({
+				pixlState: {
+					xp: Math.max(livePixlState.xp, combatOverlay.bankedXp),
+					defence: livePixlState.defence,
+					agility: livePixlState.agility,
+					ownedWeapons: mergedOwnedWeapons
+				},
+				campaignProgress: [
+					{
+						campaignId: data.campaignId,
+						currentLevel: persistedCurrentLevel,
+						highestUnlockedLevel: persistedHighestUnlockedLevel,
+						highestClearedLevel: persistedHighestClearedLevel,
+						completed: persistedCompleted
+					}
+				]
+			})
+		});
+	}
+
+	async function handleRouteNavigation(section: 'arena' | 'loadout' | 'shop' | 'stats') {
+		if (section !== 'arena') {
+			await persistArenaStateBeforeLeaving();
+		}
+
+		const target =
+			section === 'arena'
+				? resolve(`/campaigns/${data.campaignId}`)
+				: resolve(`/campaigns/${data.campaignId}/${section}`);
+
+		await goto(target);
+	}
+
 	const purchaseUpgrade: SubmitFunction = ({ formData }) => {
 		const selectedUpgrade = formData.get('upgrade');
 
@@ -522,6 +591,7 @@
 						showCampaignMenuToggle={true}
 						showSweeperToggle={true}
 						showStatsToggle={true}
+						onNavigateSection={handleRouteNavigation}
 						onToggleCampaignMenu={() => {
 							setCampaignMenuOpen(!showStageDrawer);
 						}}

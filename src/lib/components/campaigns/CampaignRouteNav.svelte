@@ -20,6 +20,7 @@
 		showStatsToggle?: boolean;
 		statsEnabled?: boolean;
 		onToggleStats?: () => void;
+		onNavigateSection?: (section: CampaignSection) => void | Promise<void>;
 	}
 
 	let {
@@ -35,7 +36,8 @@
 		onToggleSweeper,
 		showStatsToggle = false,
 		statsEnabled = false,
-		onToggleStats
+		onToggleStats,
+		onNavigateSection
 	}: Props = $props();
 
 	let routeLinks = $derived([
@@ -55,6 +57,15 @@
 			badge: notificationCounts.stats
 		}
 	] as const);
+
+	function handleRouteClick(event: MouseEvent, section: CampaignSection) {
+		if (!onNavigateSection) {
+			return;
+		}
+
+		event.preventDefault();
+		void onNavigateSection(section);
+	}
 </script>
 
 <nav class="route-nav" aria-label="Campaign navigation">
@@ -65,6 +76,7 @@
 					class:active={active === route.key}
 					class="route-link"
 					href={resolve(`/campaigns/${campaignId}`)}
+					onclick={(event) => handleRouteClick(event, route.key)}
 				>
 					{route.label}
 					{#if route.badge > 0}
@@ -76,6 +88,7 @@
 					class:active={active === route.key}
 					class="route-link"
 					href={resolve(`/campaigns/${campaignId}/${route.key}`)}
+					onclick={(event) => handleRouteClick(event, route.key)}
 				>
 					{route.label}
 					{#if route.badge > 0}

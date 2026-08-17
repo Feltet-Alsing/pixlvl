@@ -53,6 +53,12 @@ const ENEMY_VISUALS: Record<
 		fill: [92, 156, 255],
 		stroke: [220, 236, 255],
 		shape: 'circle'
+	},
+	zerglitch: {
+		radius: 22,
+		fill: [188, 72, 72],
+		stroke: [255, 205, 205],
+		shape: 'circle'
 	}
 };
 

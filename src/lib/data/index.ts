@@ -1,11 +1,13 @@
 import { baselineCombatProfile } from './combat/baseline-v1';
 import { campaign2CombatProfile } from './combat/campaign-2-v1';
 import { campaign3CombatProfile } from './combat/campaign-3-v1';
+import { campaign4CombatProfile } from './combat/campaign-4-v1';
 import { campaign1 } from './campaigns/campaign-1';
 import { campaign2 } from './campaigns/campaign-2';
 import { campaign3 } from './campaigns/campaign-3';
+import { campaign4 } from './campaigns/campaign-4';
 import { shopWeaponDefinitions, shopWeaponPools } from './shop';
-import { campaign1Weapons, campaign2Weapons, campaign3Weapons } from './weapons';
+import { campaign1Weapons, campaign2Weapons, campaign3Weapons, campaign4Weapons } from './weapons';
 
 import type {
 	CampaignDefinition,
@@ -15,25 +17,33 @@ import type {
 	WeaponDefinition
 } from './types';
 
-export { baselineCombatProfile, campaign2CombatProfile, campaign3CombatProfile };
+export {
+	baselineCombatProfile,
+	campaign2CombatProfile,
+	campaign3CombatProfile,
+	campaign4CombatProfile
+};
 export const starterWeaponId = 'pea-shooter';
 
 export const combatProfiles = {
 	[baselineCombatProfile.id]: baselineCombatProfile,
 	[campaign2CombatProfile.id]: campaign2CombatProfile,
-	[campaign3CombatProfile.id]: campaign3CombatProfile
+	[campaign3CombatProfile.id]: campaign3CombatProfile,
+	[campaign4CombatProfile.id]: campaign4CombatProfile
 } as const;
 
 export const campaigns = {
 	[campaign1.campaign]: campaign1,
 	[campaign2.campaign]: campaign2,
-	[campaign3.campaign]: campaign3
+	[campaign3.campaign]: campaign3,
+	[campaign4.campaign]: campaign4
 } as const;
 
 export const campaignWeaponPools = {
 	[campaign1.campaign]: campaign1Weapons,
 	[campaign2.campaign]: campaign2Weapons,
-	[campaign3.campaign]: campaign3Weapons
+	[campaign3.campaign]: campaign3Weapons,
+	[campaign4.campaign]: campaign4Weapons
 } as const;
 
 export const campaignShopWeaponPools = shopWeaponPools;

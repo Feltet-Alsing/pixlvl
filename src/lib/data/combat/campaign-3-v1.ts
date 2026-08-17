@@ -66,6 +66,12 @@ export const campaign3CombatProfile: CombatProfile = {
 			allyShieldAmount: 30,
 			allyShieldDuration: 1,
 			shieldColor: '#7fb7ff'
+		},
+		zerglitch: {
+			health: 124,
+			contactDamage: 23,
+			attackSpeed: 0.38,
+			moveSpeed: 29
 		}
 	}
 };

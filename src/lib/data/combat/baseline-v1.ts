@@ -55,6 +55,12 @@ export const baselineCombatProfile: CombatProfile = {
 			allyShieldAmount: 16,
 			allyShieldDuration: 1,
 			shieldColor: '#7fb7ff'
+		},
+		zerglitch: {
+			health: 90,
+			contactDamage: 18,
+			attackSpeed: 0.4,
+			moveSpeed: 30
 		}
 	}
 };
