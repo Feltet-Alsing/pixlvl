@@ -15,6 +15,8 @@ export interface CombatOverlayState {
 	campaignLevel: number;
 	pixlHealth: number;
 	maxPixlHealth: number;
+	pixlShieldPool: number;
+	shieldColor: string;
 	bankedXp: number;
 	waveXp: number;
 	waveDrops: OwnedWeaponInstance[];
@@ -88,6 +90,8 @@ export function createInitialCombatOverlay(pageData: PageProps['data']): CombatO
 		campaignLevel: pageData.campaignState?.currentLevel ?? 1,
 		pixlHealth: maxPixlHealth,
 		maxPixlHealth,
+		pixlShieldPool: 0,
+		shieldColor: '#60a5fa',
 		bankedXp: pageData.gameState?.pixlState.xp ?? 0,
 		waveXp: 0,
 		waveDrops: [],

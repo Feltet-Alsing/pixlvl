@@ -21,6 +21,7 @@
 	import { createCampaignSketch, createLoadoutSweepPreviewSketch } from '$lib/p5/campaign-1-sketch';
 	import {
 		applyUpgradePurchase,
+		createUpgradeablePixlState,
 		createBaselineUpgradeablePixlState,
 		getXpProgress,
 		getUpgradeOptions,
@@ -68,7 +69,20 @@
 		completed: boolean;
 	}
 
+	interface ArenaResumeSnapshot {
+		campaignId: number;
+		xp: number;
+		defence: number;
+		agility: number;
+		ownedWeapons: LivePixlState['ownedWeapons'];
+		currentLevel: number;
+		highestUnlockedLevel: number;
+		highestClearedLevel: number;
+		completed: boolean;
+	}
+
 	const MOBILE_LAYOUT_BREAKPOINT = 860;
+	const getArenaResumeStorageKey = (campaignId: number) => `pixlvl-arena-resume-${campaignId}`;
 
 	let { data, form }: PageProps = $props();
 	let innerWidth = $state<number | null>(null);
@@ -158,6 +172,11 @@
 	let combatHealthRatio = $derived(
 		combatOverlay.maxPixlHealth > 0 ? combatOverlay.pixlHealth / combatOverlay.maxPixlHealth : 0
 	);
+	let combatShieldRatio = $derived(
+		combatOverlay.maxPixlHealth > 0
+			? Math.min(1, combatOverlay.pixlShieldPool / combatOverlay.maxPixlHealth)
+			: 0
+	);
 	let combatXpRatio = $derived(
 		currentXpProgress.xpNeeded > 0
 			? Math.min(1, Math.max(0, currentXpProgress.xpIntoLevel / currentXpProgress.xpNeeded))
@@ -222,6 +241,70 @@
 		showStageDrawer = defaultCampaignMenuOpen;
 		showLoadoutPreview = true;
 		skipResultsSignal = 0;
+	});
+
+	$effect(() => {
+		if (typeof sessionStorage === 'undefined') {
+			return;
+		}
+
+		const snapshotText = sessionStorage.getItem(getArenaResumeStorageKey(data.campaignId));
+
+		if (!snapshotText) {
+			return;
+		}
+
+		try {
+			const snapshot = JSON.parse(snapshotText) as ArenaResumeSnapshot;
+
+			if (snapshot.campaignId !== data.campaignId) {
+				return;
+			}
+
+			const baseXp = data.gameState?.pixlState.xp ?? 0;
+			const baseOwnedWeaponCount = data.gameState?.pixlState.ownedWeapons.length ?? 0;
+			const baseCurrentLevel = data.campaignState?.currentLevel ?? 1;
+			const baseHighestUnlockedLevel = data.campaignState?.highestUnlockedLevel ?? 1;
+			const baseHighestClearedLevel = data.campaignState?.highestClearedLevel ?? 0;
+
+			if (
+				snapshot.xp <= baseXp &&
+				snapshot.ownedWeapons.length <= baseOwnedWeaponCount &&
+				snapshot.currentLevel <= baseCurrentLevel &&
+				snapshot.highestUnlockedLevel <= baseHighestUnlockedLevel &&
+				snapshot.highestClearedLevel <= baseHighestClearedLevel
+			) {
+				return;
+			}
+
+			const resumedUpgradeState = createUpgradeablePixlState({
+				xp: snapshot.xp,
+				defence: snapshot.defence,
+				agility: snapshot.agility
+			});
+
+			pixlStateOverride = {
+				xp: snapshot.xp,
+				level: resumedUpgradeState.level,
+				perkPoints: resumedUpgradeState.perkPoints,
+				defence: snapshot.defence,
+				agility: snapshot.agility,
+				health: resumedUpgradeState.health,
+				attackSpeed: resumedUpgradeState.attackSpeed,
+				loadoutRows: resumedUpgradeState.loadoutRows,
+				loadoutColumns: resumedUpgradeState.loadoutColumns,
+				ownedWeapons: snapshot.ownedWeapons
+			};
+
+			campaignStateOverride = {
+				currentLevel: snapshot.currentLevel,
+				highestUnlockedLevel: snapshot.highestUnlockedLevel,
+				highestClearedLevel: snapshot.highestClearedLevel,
+				completed: snapshot.completed
+			};
+		} catch {
+			// Ignore malformed client-side resume snapshots.
+		}
 	});
 
 	$effect(() => {
@@ -494,9 +577,23 @@
 				<div class="combat-bar-group">
 					<div class="combat-bar-meta">
 						<span>Health</span>
-						<strong>{combatOverlay.pixlHealth} / {combatOverlay.maxPixlHealth}</strong>
+						<strong>
+							{combatOverlay.pixlHealth} / {combatOverlay.maxPixlHealth}
+							{#if combatOverlay.pixlShieldPool > 0}
+								<span class="combat-shield-label" style:--shield-color={combatOverlay.shieldColor}>
+									+{Math.ceil(combatOverlay.pixlShieldPool)} shield
+								</span>
+							{/if}
+						</strong>
 					</div>
 					<div class="combat-health">
+						{#if combatOverlay.pixlShieldPool > 0}
+							<div
+								class="combat-shield-fill"
+								style:--shield-ratio={combatShieldRatio}
+								style:--shield-color={combatOverlay.shieldColor}
+							></div>
+						{/if}
 						<div class="combat-health-fill" style:--health-ratio={combatHealthRatio}></div>
 					</div>
 				</div>
@@ -1069,17 +1166,37 @@
 	}
 
 	.combat-health {
+		position: relative;
 		height: 0.2rem;
 		border-radius: 999px;
 		background: rgba(255, 255, 255, 0.06);
 		overflow: hidden;
 	}
 
+	.combat-shield-fill {
+		position: absolute;
+		inset: 0;
+		width: calc(var(--shield-ratio) * 100%);
+		border-radius: inherit;
+		background: color-mix(in srgb, var(--shield-color) 80%, white 20%);
+		opacity: 0.8;
+	}
+
 	.combat-health-fill {
+		position: relative;
 		height: 100%;
 		width: calc(var(--health-ratio) * 100%);
 		border-radius: inherit;
 		background: #ff3434;
+	}
+
+	.combat-shield-label {
+		margin-left: 0.45rem;
+		color: color-mix(in srgb, var(--shield-color) 75%, white 25%);
+		font-size: 0.56rem;
+		font-weight: 700;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
 	}
 
 	.combat-xp {

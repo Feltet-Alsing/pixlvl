@@ -25,6 +25,9 @@
 		availableCount: number;
 		equippedCount: number;
 		representativeWeaponInstanceId: string | null;
+		latestAcquiredAt: string;
+		latestAcquiredAtMs: number;
+		isNew: boolean;
 	}
 
 	interface Props {
@@ -257,6 +260,9 @@
 								>
 									{#snippet footer()}
 										<div class="inventory-toolbox-footer">
+											{#if group.isNew}
+												<span class="inventory-new-badge">New</span>
+											{/if}
 											<span class="inventory-status">{formatGroupStatus(group)}</span>
 										</div>
 									{/snippet}
@@ -462,6 +468,22 @@
 		justify-content: space-between;
 		align-items: center;
 		gap: 0.5rem;
+	}
+
+	.inventory-new-badge {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 1.25rem;
+		padding: 0 0.45rem;
+		border-radius: 999px;
+		border: 1px solid rgba(103, 217, 111, 0.35);
+		background: rgba(103, 217, 111, 0.12);
+		color: #c9f8cc;
+		font-size: 0.62rem;
+		font-weight: 700;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
 	}
 
 	.dragging {

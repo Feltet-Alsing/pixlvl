@@ -456,6 +456,8 @@ interface CampaignSketchOptions {
 		campaignLevel: number;
 		pixlHealth: number;
 		maxPixlHealth: number;
+		pixlShieldPool: number;
+		shieldColor: string;
 		bankedXp: number;
 		waveXp: number;
 		waveDrops: OwnedWeaponInstance[];
@@ -950,6 +952,8 @@ export function createCampaignSketch(
 				campaignLevel: currentLevel.campaignLevel,
 				pixlHealth: Math.ceil(pixlHealth),
 				maxPixlHealth: pixlProgression.health,
+				pixlShieldPool: Math.ceil(pixlShieldPool),
+				shieldColor: activeShieldColor,
 				bankedXp,
 				waveXp,
 				waveDrops,

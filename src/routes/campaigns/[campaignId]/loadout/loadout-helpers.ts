@@ -49,6 +49,8 @@ export interface InventoryWeapon {
 	activationKind?: UtilityDefinition['activationKind'];
 	effectSummary: string;
 	role: string;
+	acquiredAt: string;
+	source: OwnedWeaponInstance['source'];
 	x: number | null;
 	y: number | null;
 	isEquipped: boolean;
@@ -72,6 +74,9 @@ export interface InventoryWeaponGroup {
 	availableCount: number;
 	equippedCount: number;
 	representativeWeaponInstanceId: string | null;
+	latestAcquiredAt: string;
+	latestAcquiredAtMs: number;
+	isNew: boolean;
 }
 
 export interface GridCell {
@@ -175,6 +180,8 @@ export function buildInventoryWeapons(
 			activationKind: isUtilityDefinition(definition) ? definition.activationKind : undefined,
 			effectSummary: getLoadoutItemEffectSummary(definition),
 			role: definition.role,
+			acquiredAt: weapon.acquiredAt,
+			source: weapon.source,
 			x: placement?.x ?? null,
 			y: placement?.y ?? null,
 			isEquipped: Boolean(placement)
@@ -213,7 +220,10 @@ export function buildInventoryWeaponGroups(inventoryWeapons: InventoryWeapon[]) 
 				totalCount: 1,
 				availableCount: weapon.isEquipped ? 0 : 1,
 				equippedCount: weapon.isEquipped ? 1 : 0,
-				representativeWeaponInstanceId: weapon.isEquipped ? null : weapon.weaponInstanceId
+				representativeWeaponInstanceId: weapon.isEquipped ? null : weapon.weaponInstanceId,
+				latestAcquiredAt: weapon.acquiredAt,
+				latestAcquiredAtMs: Date.parse(weapon.acquiredAt) || 0,
+				isNew: false
 			};
 			continue;
 		}
@@ -229,16 +239,29 @@ export function buildInventoryWeaponGroups(inventoryWeapons: InventoryWeapon[]) 
 				existing.representativeWeaponInstanceId = weapon.weaponInstanceId;
 			}
 		}
+
+		const acquiredAtMs = Date.parse(weapon.acquiredAt) || 0;
+		if (acquiredAtMs >= existing.latestAcquiredAtMs && weapon.source !== 'starter') {
+			existing.latestAcquiredAt = weapon.acquiredAt;
+			existing.latestAcquiredAtMs = acquiredAtMs;
+		}
 	}
 
-	return Object.values(groups).sort(
+	const groupRows = Object.values(groups).sort(
 		(left, right) =>
+			right.latestAcquiredAtMs - left.latestAcquiredAtMs ||
 			rarityOrder[left.rarity] - rarityOrder[right.rarity] ||
 			Number(left.category === 'utility') - Number(right.category === 'utility') ||
 			right.availableCount - left.availableCount ||
 			right.totalCount - left.totalCount ||
 			left.name.localeCompare(right.name)
 	);
+
+	for (const [index, group] of groupRows.entries()) {
+		group.isNew = index < 3 && group.latestAcquiredAtMs > 0;
+	}
+
+	return groupRows;
 }
 
 export function filterInventoryWeaponGroups(groups: InventoryWeaponGroup[], query: string) {
