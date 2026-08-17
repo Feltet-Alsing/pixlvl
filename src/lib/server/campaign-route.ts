@@ -25,6 +25,14 @@ import {
 	updateGameState
 } from '$lib/server/game-state';
 import {
+	getWeaponDisplayName,
+	getWeaponTotalScrapInvested,
+	getWeaponUpgradeCostForNextLevel,
+	getWeaponUpgradeLevel,
+	isUpgradeableWeaponInstance,
+	MAX_WEAPON_UPGRADE_LEVEL
+} from '$lib/game/weapon-upgrades';
+import {
 	buildShopState,
 	createShopOwnedWeaponInstance,
 	getScrapableGroupState,
@@ -648,6 +656,98 @@ export async function scrapOwnedWeaponsForUser(
 		ok: true,
 		data: {
 			loadoutSuccess: `Scrapped ${quantity} ${scrapState.name}${quantity === 1 ? '' : ' copies'} for ${scrapEarned} Scrap.`
+		}
+	};
+}
+
+export async function upgradeOwnedWeaponForUser(
+	userId: string | undefined,
+	formData: FormData
+): Promise<ActionResult<{ loadoutError?: string; loadoutSuccess?: string }>> {
+	if (!userId) {
+		return {
+			ok: false,
+			status: 401,
+			data: { loadoutError: 'Sign in to upgrade weapons.' }
+		};
+	}
+
+	const weaponInstanceId = formData.get('weaponInstanceId');
+
+	if (typeof weaponInstanceId !== 'string') {
+		return { ok: false, status: 400, data: { loadoutError: 'Invalid upgrade request.' } };
+	}
+
+	const gameState = await getOrCreateGameState(userId);
+	const ownedWeaponIndex = gameState.pixlState.ownedWeapons.findIndex(
+		(weapon) => weapon.instanceId === weaponInstanceId
+	);
+
+	if (ownedWeaponIndex < 0) {
+		return { ok: false, status: 400, data: { loadoutError: 'Unknown owned weapon instance.' } };
+	}
+
+	const ownedWeapon = gameState.pixlState.ownedWeapons[ownedWeaponIndex];
+	const definition = getLoadoutItemDefinition(ownedWeapon.definitionId);
+
+	if (!isUpgradeableWeaponInstance(ownedWeapon, definition)) {
+		return {
+			ok: false,
+			status: 400,
+			data: { loadoutError: 'That item cannot be upgraded.' }
+		};
+	}
+
+	const currentUpgradeLevel = getWeaponUpgradeLevel(ownedWeapon);
+
+	if (currentUpgradeLevel >= MAX_WEAPON_UPGRADE_LEVEL) {
+		return {
+			ok: false,
+			status: 400,
+			data: { loadoutError: 'That weapon is already at max upgrade level.' }
+		};
+	}
+
+	const upgradeCost = getWeaponUpgradeCostForNextLevel(ownedWeapon, definition.rarity);
+
+	if (upgradeCost === null) {
+		return {
+			ok: false,
+			status: 400,
+			data: { loadoutError: 'That weapon cannot be upgraded further.' }
+		};
+	}
+
+	if (gameState.pixlState.scrap < upgradeCost) {
+		return {
+			ok: false,
+			status: 400,
+			data: { loadoutError: `You need ${upgradeCost - gameState.pixlState.scrap} more Scrap.` }
+		};
+	}
+
+	const nextUpgradeLevel = currentUpgradeLevel + 1;
+	const nextOwnedWeapons = gameState.pixlState.ownedWeapons.map((weapon) =>
+		weapon.instanceId === weaponInstanceId
+			? {
+					...weapon,
+					upgradeLevel: nextUpgradeLevel,
+					totalScrapInvested: getWeaponTotalScrapInvested(weapon) + upgradeCost
+				}
+			: weapon
+	);
+
+	await updateGameState(userId, {
+		pixlState: {
+			scrap: gameState.pixlState.scrap - upgradeCost,
+			ownedWeapons: nextOwnedWeapons
+		}
+	});
+
+	return {
+		ok: true,
+		data: {
+			loadoutSuccess: `${getWeaponDisplayName(definition.name, nextUpgradeLevel)} upgraded for ${upgradeCost} Scrap.`
 		}
 	};
 }

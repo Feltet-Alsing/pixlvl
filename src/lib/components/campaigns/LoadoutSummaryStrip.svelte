@@ -3,13 +3,21 @@
 		stage: number;
 		stageLevel: number;
 		status: string;
+		scrap: number;
 		damagePerCycle: string | number;
 		projectilesPerCycle: string | number;
 		equippedCount: number;
 	}
 
-	let { stage, stageLevel, status, damagePerCycle, projectilesPerCycle, equippedCount }: Props =
-		$props();
+	let {
+		stage,
+		stageLevel,
+		status,
+		scrap,
+		damagePerCycle,
+		projectilesPerCycle,
+		equippedCount
+	}: Props = $props();
 </script>
 
 <div class="loadout-summary-strip" aria-label="Equipped loadout cycle summary">
@@ -21,6 +29,10 @@
 	<div class="loadout-summary-card">
 		<span>Damage</span>
 		<strong>{damagePerCycle}</strong>
+	</div>
+	<div class="loadout-summary-card">
+		<span>Scrap</span>
+		<strong>{scrap}</strong>
 	</div>
 	<div class="loadout-summary-card">
 		<span>Projectiles</span>
@@ -36,7 +48,7 @@
 	.loadout-summary-strip {
 		width: 100%;
 		display: grid;
-		grid-template-columns: repeat(4, minmax(0, max-content));
+		grid-template-columns: repeat(5, minmax(0, max-content));
 		justify-content: start;
 		gap: 0.4rem;
 	}

@@ -1,4 +1,5 @@
 import { campaignShopWeaponPools, getLoadoutItemDefinition, isUtilityDefinition } from '$lib/data';
+import { getWeaponUpgradeLevel } from '$lib/game/weapon-upgrades';
 import type { GameState } from '$lib/server/game-state';
 import type {
 	LoadoutPlacement,
@@ -40,6 +41,7 @@ export interface ScrapableGroupState {
 	scrapableCount: number;
 	totalCount: number;
 	equippedCount: number;
+	upgradedCount: number;
 	scrapValuePerItem: number;
 	requiresWarning: boolean;
 	rarity: WeaponRarity;
@@ -189,15 +191,20 @@ export function getScrapableGroupState(
 			: getActiveLoadoutPlacements(loadoutPlacements)
 		).map((placement) => placement.weaponInstanceId)
 	);
-	const equippedCount = groupWeapons.filter((weapon) => equippedIds.has(weapon.instanceId)).length;
-	const availableCount = groupWeapons.length - equippedCount;
-	const scrapableCount = Math.max(0, Math.min(availableCount, groupWeapons.length - 1));
+	const unupgradedWeapons = groupWeapons.filter((weapon) => getWeaponUpgradeLevel(weapon) === 0);
+	const upgradedCount = groupWeapons.length - unupgradedWeapons.length;
+	const equippedCount = unupgradedWeapons.filter((weapon) =>
+		equippedIds.has(weapon.instanceId)
+	).length;
+	const availableCount = unupgradedWeapons.length - equippedCount;
+	const scrapableCount = Math.max(0, Math.min(availableCount, unupgradedWeapons.length - 1));
 
 	return {
 		definitionId,
 		scrapableCount,
-		totalCount: groupWeapons.length,
+		totalCount: unupgradedWeapons.length,
 		equippedCount,
+		upgradedCount,
 		scrapValuePerItem: scrapValueByRarity[definition.rarity],
 		requiresWarning: definition.rarity === 'exotic' || definition.rarity === 'legendary',
 		rarity: definition.rarity,
@@ -218,7 +225,12 @@ export function removeScrappedWeapons(
 		).map((placement) => placement.weaponInstanceId)
 	);
 	const candidates = ownedWeapons
-		.filter((weapon) => weapon.definitionId === definitionId && !equippedIds.has(weapon.instanceId))
+		.filter(
+			(weapon) =>
+				weapon.definitionId === definitionId &&
+				!equippedIds.has(weapon.instanceId) &&
+				getWeaponUpgradeLevel(weapon) === 0
+		)
 		.sort(
 			(left, right) => new Date(right.acquiredAt).getTime() - new Date(left.acquiredAt).getTime()
 		);
@@ -240,6 +252,8 @@ export function createShopOwnedWeaponInstance(
 		acquiredAt: new Date().toISOString(),
 		campaignId,
 		stage: 5,
-		level: null
+		level: null,
+		upgradeLevel: 0,
+		totalScrapInvested: 0
 	};
 }

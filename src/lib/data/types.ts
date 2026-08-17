@@ -285,6 +285,8 @@ export interface OwnedWeaponInstance {
 	campaignId: number | null;
 	stage: number | null;
 	level: number | null;
+	upgradeLevel: number | null;
+	totalScrapInvested: number | null;
 }
 
 export interface ShopOffer {

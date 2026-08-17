@@ -11,6 +11,7 @@ import {
 } from '$lib/data';
 import { getActiveLoadoutPlacements } from '$lib/game/loadout-slots';
 import { getPlacementRotation, rotateWeaponShape } from '$lib/game/loadout-rotation';
+import { createUpgradedWeaponDefinition } from '$lib/game/weapon-upgrades';
 import { applyXpGain, createUpgradeablePixlState } from '$lib/game/upgrades';
 import type {
 	CampaignDefinition,
@@ -424,6 +425,7 @@ interface EquippedUtilityState {
 
 interface EquippedLoadoutEntry {
 	instanceId: string;
+	ownedWeapon: OwnedWeaponInstance;
 	definition: LoadoutItemDefinition;
 	shape: WeaponShape;
 	targeting: WeaponTargetingKind | undefined;
@@ -624,6 +626,7 @@ function buildEquippedLoadoutEntries(
 
 		entries.push({
 			instanceId: ownedWeapon.instanceId,
+			ownedWeapon,
 			definition,
 			shape,
 			targeting,
@@ -644,17 +647,21 @@ function buildEquippedWeapons(entries: EquippedLoadoutEntry[]) {
 		.filter((entry): entry is EquippedLoadoutEntry & { definition: WeaponDefinition } =>
 			isWeaponDefinition(entry.definition)
 		)
-		.map((entry) => ({
-			instanceId: entry.instanceId,
-			definition: entry.definition,
-			shape: entry.shape,
-			targeting: entry.targeting ?? entry.definition.attack.targeting,
-			triggerColumn: entry.triggerColumn,
-			placementX: entry.placementX,
-			placementY: entry.placementY,
-			cycleInterval: Math.max(1, entry.definition.attack.cycleInterval ?? 1),
-			cyclesUntilTrigger: Math.max(1, entry.definition.attack.cycleInterval ?? 1)
-		})) satisfies EquippedWeaponState[];
+		.map((entry) => {
+			const definition = createUpgradedWeaponDefinition(entry.ownedWeapon, entry.definition);
+
+			return {
+				instanceId: entry.instanceId,
+				definition,
+				shape: entry.shape,
+				targeting: entry.targeting ?? definition.attack.targeting,
+				triggerColumn: entry.triggerColumn,
+				placementX: entry.placementX,
+				placementY: entry.placementY,
+				cycleInterval: Math.max(1, definition.attack.cycleInterval ?? 1),
+				cyclesUntilTrigger: Math.max(1, definition.attack.cycleInterval ?? 1)
+			};
+		}) satisfies EquippedWeaponState[];
 }
 
 function buildEquippedUtilities(entries: EquippedLoadoutEntry[]) {
@@ -1185,7 +1192,9 @@ export function createCampaignSketch(
 						acquiredAt: new Date().toISOString(),
 						campaignId: campaign.campaign,
 						stage: currentLevel.stage,
-						level: currentLevel.campaignLevel
+						level: currentLevel.campaignLevel,
+						upgradeLevel: 0,
+						totalScrapInvested: 0
 					} satisfies OwnedWeaponInstance
 				];
 			});

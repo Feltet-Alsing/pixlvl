@@ -349,6 +349,250 @@ This means duplicate handling should evolve into:
 
 This is a stronger near-term retention feature than prestige and should happen earlier.
 
+### Weapon upgrades direction
+
+The next progression layer after duplicate scrapping should be per-instance weapon upgrading.
+
+Design intent:
+
+- duplicates should continue to matter after the player stabilizes a collection
+- Scrap should become a meaningful long-term sink rather than only a shop currency
+- upgraded items should feel like invested gear rather than fungible duplicates
+- upgrading should add more player interaction without turning the inventory into noise
+
+Core rules:
+
+- upgrades apply per weapon instance, not per weapon definition
+- only weapons can be upgraded
+- utilities cannot be upgraded
+- any zero-damage weapon should be reclassified as a utility instead of being forced into the weapon upgrade system
+- reclassified zero-damage items should still enact exactly as they do now in combat; only their category changes
+- max weapon upgrade level is `+5`
+
+Upgrade presentation:
+
+- upgraded weapons keep their original tile and visual identity
+- upgraded weapons should display their name as `Original Name +N`
+- upgraded copies should be treated as distinct items instead of being bunched together with base duplicates
+
+Duplicate and scrap rules for upgraded weapons:
+
+- upgraded weapons should never be included in bulk scrap actions
+- upgraded weapons can still be scrapped individually
+- scrapping an upgraded weapon should refund `50%` of the Scrap invested into leveling it
+- upgraded weapons should be treated as distinct inventory entries rather than duplicate-stack candidates
+
+Upgrade cost formula:
+
+- rarity multipliers:
+  - `normal = 1`
+  - `magic = 2`
+  - `rare = 3`
+  - `exotic = 4`
+  - `legendary = 5`
+- cost to upgrade from level `N` to level `N+1`:
+
+$$
+upgradeCost = 100 \times rarityMultiplier \times (N + 1)
+$$
+
+Examples:
+
+- `normal` to `+1`: `100`
+- `magic` to `+1`: `200`
+- `magic` from `+2` to `+3`: `600`
+
+Upgrade stat scaling:
+
+- every weapon upgrade level gives `+10%` damage
+- every weapon upgrade level gives `+5%` projectile speed
+
+Final upgrade capstone rule:
+
+- only weapons whose base `attack.projectileCount > 1` qualify for the final projectile capstone
+- at `+5`, qualifying multi-projectile weapons gain `+1 projectile`
+- at `+5`, single-projectile weapons gain an additional `+20%` damage on top of the normal `+10%` from that level
+
+This means:
+
+- multi-projectile weapons at `+5` end at `+50%` damage, `+25%` projectile speed, and `+1 projectile`
+- single-projectile weapons at `+5` end at `+70%` damage and `+25%` projectile speed
+
+System classification note:
+
+- category should determine upgrade eligibility, inventory grouping, and scrap rules
+- category should not by itself change combat behavior
+- this allows zero-damage former weapons to become utilities without changing how they trigger or resolve during combat
+
+Implementation warning:
+
+- some multi-projectile weapons use custom firing logic rather than the generic spread path
+- the `+1 projectile` capstone should still apply to them, but may require weapon-specific runtime handling
+- examples already in that category include `Blaster`, `Splitter`, and `Pulse Array`
+
+The intended long-term loop becomes:
+
+> drop -> equip or scrap -> save Scrap -> invest in specific weapon copies -> keep upgraded copies out of bulk scrap -> recycle bad investments at partial refund
+
+### Weapon upgrades implementation readiness
+
+The upgrade design is now specific enough to prepare implementation work.
+
+#### Systems directly affected
+
+The current codebase already shows where the upgrade system will land.
+
+Primary data and runtime surfaces:
+
+- `src/lib/data/types.ts`
+- `src/lib/server/game-state.ts`
+- `src/lib/server/db/game.schema.ts`
+- `src/lib/server/campaign-route.ts`
+- `src/lib/server/shop.ts`
+- `src/lib/p5/campaign-1-sketch.ts`
+
+Primary UI and grouping surfaces:
+
+- `src/routes/campaigns/[campaignId]/loadout/+page.svelte`
+- `src/lib/components/campaigns/LoadoutInventoryToolbox.svelte`
+- `src/lib/components/campaigns/LoadoutGridBoard.svelte`
+- `src/lib/components/campaigns/LevelResultsPopup.svelte`
+- route helpers that build reward and inventory grouping rows
+
+#### Important current implementation fact
+
+`OwnedWeaponInstance` already has a `level` field in the current type model.
+
+That means the upgrade system does not need a brand-new identity model for owned items.
+However, the meaning of that field must become explicit and persistent across the full economy and UI flow.
+
+The owned-weapon instance model should evolve to support at least:
+
+- current upgrade level
+- total Scrap invested in that specific copy
+- existing identity fields such as `instanceId`, `definitionId`, acquisition data, and ownership source
+
+`totalScrapInvested` should be stored explicitly rather than recomputed from level alone.
+
+Reason:
+
+- refund is based on invested Scrap
+- future rebalance changes to upgrade cost should not corrupt old refund values
+- explicit invested value is more robust than reverse-calculating from current rules later
+
+#### Current duplicate and scrap constraint
+
+The current scrap flow is definition-group based.
+
+Right now, duplicate scrapping works by passing a `definitionId` and a quantity through the campaign-route/server scrap path.
+This is good enough for unupgraded duplicate cleanup, but not good enough for upgraded-copy protection by itself.
+
+The upgrade system therefore requires two rule layers:
+
+- UI layer: upgraded weapons never appear in bulk scrap candidate groups
+- backend layer: bulk scrap logic must reject upgraded weapons even if a future UI bug or malformed request includes them
+
+Bulk scrap should only ever operate on unupgraded duplicate copies.
+
+#### Inventory grouping consequence
+
+Current inventory is grouped primarily by weapon definition.
+
+After upgrades:
+
+- unupgraded copies of the same weapon definition can still be grouped together
+- upgraded copies should always be broken out as distinct instance entries
+- upgraded copies should display `Original Name +N`
+- upgraded copies should not be counted toward duplicate-bulk-scrap groups
+
+This is the key inventory rule that keeps the system readable.
+
+#### Combat/runtime consequence
+
+Upgrade scaling should be applied at the owned-instance level when combat state is built, not by mutating global weapon definitions.
+
+Reason:
+
+- multiple copies of the same definition may exist at different upgrade levels
+- combat must respect per-instance scaling
+- loadout summaries and reward/inventory displays need to remain instance-accurate
+
+Runtime upgrade application should therefore happen when equipped weapon state is derived from owned instances and placements.
+
+#### Multi-projectile capstone warning
+
+The `+1 projectile` rule is design-valid, but not every qualifying weapon uses the same firing path.
+
+Some weapons already use custom runtime activation logic and will need bespoke handling for the final capstone.
+
+Current known examples:
+
+- `Blaster`
+- `Splitter`
+- `Pulse Array`
+
+The generic spread path should still support the capstone for ordinary projectile-count weapons, but custom-activation weapons will need explicit support.
+
+#### Zero-damage reclassification candidates
+
+The current clear candidates for reclassification from weapon to utility are the zero-damage campaign 4 items:
+
+- `Void Tunnel`
+- `Black Hole`
+- `Phaseshift`
+- `Force Field Trap`
+
+These should keep their current combat behavior and activation identity, but move out of the upgradeable weapon category.
+
+That means category should control:
+
+- upgrade eligibility
+- inventory grouping
+- scrap/bulk scrap behavior
+- how the item is presented in UI filters and tabs
+
+But category should not automatically change combat behavior.
+
+#### Recommended implementation phases
+
+Phase 1: data model and persistence
+
+- formalize owned-weapon upgrade fields
+- persist `totalScrapInvested`
+- migrate existing saves safely with all current items at base level and zero invested Scrap
+
+Phase 2: inventory and scrap rules
+
+- separate upgraded copies from unupgraded groups
+- exclude upgraded copies from bulk scrap in both UI and backend
+- support single-copy scrap with 50% invested Scrap refund
+
+Phase 3: combat scaling
+
+- apply damage and projectile-speed scaling per equipped instance
+- apply capstone rules at `+5`
+- handle custom multi-projectile weapons explicitly
+
+Phase 4: zero-damage reclassification
+
+- move zero-damage candidates into utility classification
+- preserve their current runtime behavior
+- confirm shop, drops, notifications, and loadout views still treat them correctly
+
+Phase 5: upgrade UI
+
+- show `+N` naming
+- show next upgrade cost
+- show refund value
+- expose upgrade actions clearly without mixing them into duplicate bulk-scrap flows
+
+#### Final implementation guardrails
+
+- upgraded copies must never be bulk-scrapped
+- refund must use stored invested Scrap, not inferred cost
+- per-instance combat scaling must not mutate shared definitions
+- zero-damage items must remain behaviorally identical after reclassification
+
 ---
 
 ## Enemy model

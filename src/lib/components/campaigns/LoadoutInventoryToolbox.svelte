@@ -8,10 +8,18 @@
 	} from '$lib/data/types';
 
 	interface InventoryWeaponGroup {
+		groupId: string;
 		definitionId: string;
 		definition: LoadoutItemDefinition;
 		category: 'weapon' | 'utility';
 		name: string;
+		upgradeLevel: number;
+		totalScrapInvested: number;
+		isUpgraded: boolean;
+		bulkScrappable: boolean;
+		isUpgradeable: boolean;
+		nextUpgradeCost: number | null;
+		isMaxUpgradeLevel: boolean;
 		rarity: WeaponDefinition['rarity'];
 		shape: WeaponShape;
 		baseDamage?: number;
@@ -89,6 +97,10 @@
 	}
 
 	function getScrapableCount(group: InventoryWeaponGroup) {
+		if (!group.bulkScrappable) {
+			return 0;
+		}
+
 		return Math.max(0, Math.min(group.availableCount, group.totalCount - 1));
 	}
 
@@ -164,7 +176,7 @@
 			event.preventDefault();
 		}
 
-		suppressedPickDefinitionId = pendingMobileDrag.group.definitionId;
+		suppressedPickDefinitionId = pendingMobileDrag.group.groupId;
 		scheduleSuppressedPickReset();
 		onGroupMobileDragStart?.(pendingMobileDrag.group, {
 			pointerId: event.pointerId,
@@ -177,7 +189,7 @@
 	function handleGroupClick(group: InventoryWeaponGroup) {
 		onSelectGroup(group);
 
-		if (suppressedPickDefinitionId === group.definitionId) {
+		if (suppressedPickDefinitionId === group.groupId) {
 			suppressedPickDefinitionId = null;
 			if (suppressedPickTimeout) {
 				clearTimeout(suppressedPickTimeout);
@@ -235,7 +247,7 @@
 		<div class="inventory-scroll">
 			{#if groups.length}
 				<div class="inventory-toolbox-grid">
-					{#each groups as group (group.definitionId)}
+					{#each groups as group (group.groupId)}
 						<div
 							class={`inventory-weapon inventory-toolbox-item rarity-${group.rarity}`}
 							role="group"
@@ -253,6 +265,7 @@
 							>
 								<CampaignItemCard
 									definition={group.definition}
+									title={group.name}
 									headerStartLabel={group.totalCount > 1 ? String(group.totalCount) : ''}
 									subtitle={group.role}
 									metaRows={buildGroupMetaRows(group)}

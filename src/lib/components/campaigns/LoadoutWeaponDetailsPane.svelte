@@ -5,6 +5,7 @@
 	}
 
 	interface SelectedWeaponDetails {
+		weaponInstanceId?: string;
 		name: string;
 		rarity: string;
 		category: 'weapon' | 'utility';
@@ -13,6 +14,11 @@
 		rotationLabel?: string;
 		targetingValue?: string;
 		summary: string;
+		isUpgradeable?: boolean;
+		upgradeLevel?: number;
+		nextUpgradeCost?: number | null;
+		isMaxUpgradeLevel?: boolean;
+		totalScrapInvested?: number;
 		stats: DetailRow[];
 		canRotate?: boolean;
 		canChangeTargeting?: boolean;
@@ -20,12 +26,19 @@
 
 	interface Props {
 		detail: SelectedWeaponDetails | null;
+		signedIn?: boolean;
 		onRotate?: () => void;
 		targetingOptions?: Array<{ value: string; label: string }>;
 		onTargetingChange?: (value: string) => void;
 	}
 
-	let { detail, onRotate, targetingOptions = [], onTargetingChange }: Props = $props();
+	let {
+		detail,
+		signedIn = false,
+		onRotate,
+		targetingOptions = [],
+		onTargetingChange
+	}: Props = $props();
 </script>
 
 <section class="details-pane panel" aria-label="Selected weapon details">
@@ -71,7 +84,10 @@
 		{#if detail.canChangeTargeting && detail.targetingValue && onTargetingChange}
 			<label class="targeting-field">
 				<span>Targeting</span>
-				<select value={detail.targetingValue} onchange={(event) => onTargetingChange((event.currentTarget as HTMLSelectElement).value)}>
+				<select
+					value={detail.targetingValue}
+					onchange={(event) => onTargetingChange((event.currentTarget as HTMLSelectElement).value)}
+				>
 					{#each targetingOptions as option (option.value)}
 						<option value={option.value}>{option.label}</option>
 					{/each}
@@ -81,6 +97,29 @@
 
 		{#if detail.canRotate && onRotate}
 			<button class="rotate-button" type="button" onclick={onRotate}>Rotate 90°</button>
+		{/if}
+
+		{#if signedIn && detail.category === 'weapon' && detail.isUpgradeable && detail.weaponInstanceId}
+			<form method="post" action="?/upgradeWeapon" class="upgrade-form">
+				<input type="hidden" name="weaponInstanceId" value={detail.weaponInstanceId} />
+
+				<div class="detail-card upgrade-card">
+					<span>Upgrade</span>
+					<strong>
+						{#if detail.isMaxUpgradeLevel}
+							Maxed at +5
+						{:else if detail.nextUpgradeCost !== null && detail.nextUpgradeCost !== undefined}
+							Next costs {detail.nextUpgradeCost} Scrap
+						{:else}
+							Not available
+						{/if}
+					</strong>
+				</div>
+
+				<button class="rotate-button" type="submit" disabled={detail.isMaxUpgradeLevel}
+					>Upgrade weapon</button
+				>
+			</form>
 		{/if}
 	{:else}
 		<p class="details-empty">Select a placed weapon or a toolbox item to inspect its full stats.</p>
@@ -188,6 +227,15 @@
 		font-size: 0.88rem;
 		font-weight: 600;
 		cursor: pointer;
+	}
+
+	.upgrade-form {
+		display: grid;
+		gap: 0.55rem;
+	}
+
+	.upgrade-card {
+		grid-column: 1 / -1;
 	}
 
 	.targeting-field select {

@@ -32,6 +32,7 @@
 		formatCycleThreshold,
 		formatAttackLabel,
 		formatInventoryGroupStatus,
+		formatUpgradeLevel,
 		getDefaultDragAnchor,
 		getDragAnchorFromGrid,
 		getGridCellKey,
@@ -82,6 +83,7 @@
 	>;
 
 	interface SelectedWeaponDetails {
+		weaponInstanceId?: string;
 		name: string;
 		rarity: string;
 		category: 'weapon' | 'utility';
@@ -90,6 +92,11 @@
 		rotationLabel?: string;
 		targetingValue?: string;
 		summary: string;
+		isUpgradeable?: boolean;
+		upgradeLevel?: number;
+		nextUpgradeCost?: number | null;
+		isMaxUpgradeLevel?: boolean;
+		totalScrapInvested?: number;
 		stats: Array<{ label: string; value: string }>;
 		canRotate?: boolean;
 		canChangeTargeting?: boolean;
@@ -404,9 +411,8 @@
 	);
 	let selectedInventoryGroup = $derived(
 		selectedInventoryDefinitionId
-			? (inventoryWeaponGroups.find(
-					(group) => group.definitionId === selectedInventoryDefinitionId
-				) ?? null)
+			? (inventoryWeaponGroups.find((group) => group.groupId === selectedInventoryDefinitionId) ??
+					null)
 			: null
 	);
 	let selectedWeaponDetails = $derived.by(() => {
@@ -415,6 +421,7 @@
 
 		if (selectedPlacedWeapon) {
 			return {
+				weaponInstanceId: selectedPlacedWeapon.weaponInstanceId,
 				name: selectedPlacedWeapon.name,
 				rarity: selectedPlacedWeapon.rarity,
 				category: selectedPlacedWeapon.category,
@@ -425,7 +432,15 @@
 					selectedPlacedWeapon.category === 'weapon'
 						? selectedPlacedWeapon.effectSummary
 						: `${selectedPlacedWeapon.activationKind === 'passive' ? 'Passive' : 'Triggered'} utility · ${selectedPlacedWeapon.effectSummary}`,
+				isUpgradeable: selectedPlacedWeapon.isUpgradeable,
+				upgradeLevel: selectedPlacedWeapon.upgradeLevel,
+				nextUpgradeCost: selectedPlacedWeapon.nextUpgradeCost,
+				isMaxUpgradeLevel: selectedPlacedWeapon.isMaxUpgradeLevel,
+				totalScrapInvested: selectedPlacedWeapon.totalScrapInvested,
 				stats: [
+					...(selectedPlacedWeapon.upgradeLevel > 0
+						? [{ label: 'Upgrade', value: formatUpgradeLevel(selectedPlacedWeapon.upgradeLevel) }]
+						: []),
 					...(selectedPlacedWeapon.category === 'weapon' && selectedPlacedWeapon.baseDamage
 						? [{ label: 'Damage', value: `${selectedPlacedWeapon.baseDamage}` }]
 						: []),
@@ -460,6 +475,7 @@
 
 		if (selectedInventoryGroup) {
 			return {
+				weaponInstanceId: selectedInventoryGroup.representativeWeaponInstanceId ?? undefined,
 				name: selectedInventoryGroup.name,
 				rarity: selectedInventoryGroup.rarity,
 				category: selectedInventoryGroup.category,
@@ -469,7 +485,15 @@
 					selectedInventoryGroup.category === 'weapon'
 						? selectedInventoryGroup.effectSummary
 						: `${selectedInventoryGroup.activationKind === 'passive' ? 'Passive' : 'Triggered'} utility · ${selectedInventoryGroup.effectSummary}`,
+				isUpgradeable: selectedInventoryGroup.isUpgradeable,
+				upgradeLevel: selectedInventoryGroup.upgradeLevel,
+				nextUpgradeCost: selectedInventoryGroup.nextUpgradeCost,
+				isMaxUpgradeLevel: selectedInventoryGroup.isMaxUpgradeLevel,
+				totalScrapInvested: selectedInventoryGroup.totalScrapInvested,
 				stats: [
+					...(selectedInventoryGroup.upgradeLevel > 0
+						? [{ label: 'Upgrade', value: formatUpgradeLevel(selectedInventoryGroup.upgradeLevel) }]
+						: []),
 					...(selectedInventoryGroup.category === 'weapon' && selectedInventoryGroup.baseDamage
 						? [{ label: 'Damage', value: `${selectedInventoryGroup.baseDamage}` }]
 						: []),
@@ -485,6 +509,9 @@
 						: []),
 					...(selectedInventoryGroup.projectileSpeed
 						? [{ label: 'Projectile speed', value: `${selectedInventoryGroup.projectileSpeed}` }]
+						: []),
+					...(selectedInventoryGroup.totalScrapInvested > 0
+						? [{ label: 'Invested scrap', value: `${selectedInventoryGroup.totalScrapInvested}` }]
 						: []),
 					...(selectedInventoryGroup.category === 'utility'
 						? [
@@ -562,6 +589,7 @@
 			}
 
 			combatResumeState = resumeState;
+			sessionStorage.removeItem(getArenaCombatResumeStorageKey(data.campaignId));
 		} catch {
 			// Ignore malformed combat resume snapshots.
 		}
@@ -610,6 +638,10 @@
 	}
 
 	function getScrapableCount(group: InventoryWeaponGroup) {
+		if (!group.bulkScrappable) {
+			return 0;
+		}
+
 		return Math.max(0, Math.min(group.availableCount, group.totalCount - 1));
 	}
 
@@ -740,6 +772,8 @@
 	}
 
 	function handleBackgroundResumeStateChange(update: CampaignCombatResumeState) {
+		combatResumeState = update;
+
 		if (typeof sessionStorage === 'undefined') {
 			return;
 		}
@@ -1208,7 +1242,7 @@
 		}
 
 		selectedPlacedWeaponInstanceId = null;
-		selectedInventoryDefinitionId = weapon.definitionId;
+		selectedInventoryDefinitionId = weapon.groupId;
 
 		scrollLoadoutGridIntoView();
 		beginWeaponDrag(
@@ -1255,7 +1289,7 @@
 		}
 
 		selectedPlacedWeaponInstanceId = null;
-		selectedInventoryDefinitionId = weapon.definitionId;
+		selectedInventoryDefinitionId = weapon.groupId;
 		isMobileItemPaneOpen = false;
 		draggedWeaponInstanceId = weapon.weaponInstanceId;
 		draggedWeaponAnchor = getDefaultDragAnchor(weapon.shape);
@@ -1294,7 +1328,7 @@
 		}
 
 		selectedPlacedWeaponInstanceId = null;
-		selectedInventoryDefinitionId = group.definitionId;
+		selectedInventoryDefinitionId = group.groupId;
 		pickWeaponForMobilePlacement(weapon.weaponInstanceId, 0);
 		isMobileItemPaneOpen = false;
 	}
@@ -1320,7 +1354,7 @@
 
 	function selectInventoryGroup(group: InventoryWeaponGroup) {
 		selectedPlacedWeaponInstanceId = null;
-		selectedInventoryDefinitionId = group.definitionId;
+		selectedInventoryDefinitionId = group.groupId;
 	}
 
 	function updatePlacedWeaponTargeting(weaponInstanceId: string, targeting: string) {
@@ -1412,6 +1446,7 @@
 						stage={liveRunStage}
 						stageLevel={liveRunStageLevel}
 						status={liveRunStatus}
+						scrap={livePixlState?.scrap ?? data.gameState?.pixlState.scrap ?? 0}
 						damagePerCycle={formatCycleAverage(equippedDamagePerCycle)}
 						projectilesPerCycle={formatCycleAverage(equippedProjectilesPerCycle)}
 						equippedCount={loadoutWeapons.length}
@@ -1517,6 +1552,7 @@
 
 				<LoadoutWeaponDetailsPane
 					detail={selectedWeaponDetails}
+					signedIn={Boolean(data.gameState)}
 					targetingOptions={TARGETING_OPTIONS}
 					onRotate={() => {
 						if (selectedPlacedWeaponInstanceId) {

@@ -6,6 +6,7 @@ import {
 	createPersistedLoadoutState,
 	normalizePersistedLoadoutState
 } from '$lib/game/loadout-slots';
+import { getWeaponTotalScrapInvested, getWeaponUpgradeLevel } from '$lib/game/weapon-upgrades';
 import { createBaselineUpgradeablePixlState, createUpgradeablePixlState } from '$lib/game/upgrades';
 import { db } from '$lib/server/db';
 import { campaignProgress, pixlState } from '$lib/server/db/schema';
@@ -51,7 +52,9 @@ function createStarterOwnedWeapons(): OwnedWeaponInstance[] {
 			acquiredAt: new Date(0).toISOString(),
 			campaignId: null,
 			stage: null,
-			level: null
+			level: null,
+			upgradeLevel: 0,
+			totalScrapInvested: 0
 		}
 	];
 }
@@ -72,15 +75,21 @@ function normalizeOwnedWeapons(ownedWeapons?: OwnedWeaponInstance[] | null) {
 		return createStarterOwnedWeapons();
 	}
 
-	const hasStarter = ownedWeapons.some(
+	const normalizedOwnedWeapons = ownedWeapons.map((weapon) => ({
+		...weapon,
+		upgradeLevel: getWeaponUpgradeLevel(weapon),
+		totalScrapInvested: getWeaponTotalScrapInvested(weapon)
+	}));
+
+	const hasStarter = normalizedOwnedWeapons.some(
 		(weapon) => weapon.instanceId === STARTER_WEAPON_INSTANCE_ID
 	);
 
 	if (hasStarter) {
-		return ownedWeapons;
+		return normalizedOwnedWeapons;
 	}
 
-	return [...createStarterOwnedWeapons(), ...ownedWeapons];
+	return [...createStarterOwnedWeapons(), ...normalizedOwnedWeapons];
 }
 
 function normalizeAcknowledgedWeaponDefinitionIds(

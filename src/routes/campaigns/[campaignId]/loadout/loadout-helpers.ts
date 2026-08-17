@@ -4,6 +4,14 @@ import {
 	getPlacementRotation,
 	rotateWeaponShape
 } from '$lib/game/loadout-rotation';
+import {
+	getWeaponDisplayName,
+	getWeaponTotalScrapInvested,
+	getWeaponUpgradeCostForNextLevel,
+	getWeaponUpgradeLevel,
+	isUpgradeableWeaponInstance,
+	MAX_WEAPON_UPGRADE_LEVEL
+} from '$lib/game/weapon-upgrades';
 
 import type {
 	LoadoutItemDefinition,
@@ -21,13 +29,19 @@ export interface LoadoutWeapon {
 	definitionId: string;
 	category: 'weapon' | 'utility';
 	name: string;
+	upgradeLevel: number;
 	rarity: WeaponDefinition['rarity'];
 	shape: WeaponShape;
 	baseDamage?: number;
 	attack?: WeaponDefinition['attack'];
+	projectileSpeed?: number;
 	activationKind?: UtilityDefinition['activationKind'];
 	effectSummary: string;
 	role: string;
+	totalScrapInvested: number;
+	isUpgradeable: boolean;
+	nextUpgradeCost: number | null;
+	isMaxUpgradeLevel: boolean;
 	x: number;
 	y: number;
 	rotation: LoadoutRotation;
@@ -35,11 +49,14 @@ export interface LoadoutWeapon {
 }
 
 export interface InventoryWeapon {
+	groupId: string;
 	weaponInstanceId: string;
 	definitionId: string;
 	definition: LoadoutItemDefinition;
 	category: 'weapon' | 'utility';
 	name: string;
+	upgradeLevel: number;
+	totalScrapInvested: number;
 	rarity: WeaponDefinition['rarity'];
 	shape: WeaponShape;
 	baseDamage?: number;
@@ -49,6 +66,9 @@ export interface InventoryWeapon {
 	activationKind?: UtilityDefinition['activationKind'];
 	effectSummary: string;
 	role: string;
+	isUpgradeable: boolean;
+	nextUpgradeCost: number | null;
+	isMaxUpgradeLevel: boolean;
 	acquiredAt: string;
 	source: OwnedWeaponInstance['source'];
 	x: number | null;
@@ -57,10 +77,18 @@ export interface InventoryWeapon {
 }
 
 export interface InventoryWeaponGroup {
+	groupId: string;
 	definitionId: string;
 	definition: LoadoutItemDefinition;
 	category: 'weapon' | 'utility';
 	name: string;
+	upgradeLevel: number;
+	totalScrapInvested: number;
+	isUpgraded: boolean;
+	bulkScrappable: boolean;
+	isUpgradeable: boolean;
+	nextUpgradeCost: number | null;
+	isMaxUpgradeLevel: boolean;
 	rarity: WeaponDefinition['rarity'];
 	shape: WeaponShape;
 	baseDamage?: number;
@@ -100,6 +128,23 @@ export const rarityOrder = {
 	normal: 4
 } as const satisfies Record<WeaponDefinition['rarity'], number>;
 
+function getUpgradeLevel(weapon: OwnedWeaponInstance) {
+	return Math.max(0, weapon.upgradeLevel ?? 0);
+}
+
+function getTotalScrapInvested(weapon: OwnedWeaponInstance) {
+	return Math.max(0, weapon.totalScrapInvested ?? 0);
+}
+
+function formatWeaponDisplayName(definitionName: string, upgradeLevel: number) {
+	return upgradeLevel > 0 ? `${definitionName} +${upgradeLevel}` : definitionName;
+}
+
+function getInventoryWeaponGroupId(weapon: OwnedWeaponInstance) {
+	const upgradeLevel = getUpgradeLevel(weapon);
+	return upgradeLevel > 0 ? `${weapon.definitionId}::${weapon.instanceId}` : weapon.definitionId;
+}
+
 export function getGridCellKey(x: number, y: number) {
 	return `${x}:${y}`;
 }
@@ -130,14 +175,22 @@ export function buildLoadoutWeapons(
 			weaponInstanceId: placement.weaponInstanceId,
 			definitionId: ownedWeapon.definitionId,
 			category: isWeaponDefinition(definition) ? 'weapon' : 'utility',
-			name: definition.name,
+			name: formatWeaponDisplayName(definition.name, getUpgradeLevel(ownedWeapon)),
+			upgradeLevel: getUpgradeLevel(ownedWeapon),
 			rarity: definition.rarity,
 			shape: rotateWeaponShape(definition.shape, getPlacementRotation(placement)),
 			baseDamage: isWeaponDefinition(definition) ? definition.baseDamage : undefined,
 			attack: isWeaponDefinition(definition) ? definition.attack : undefined,
+			projectileSpeed: isWeaponDefinition(definition) ? definition.projectileSpeed : undefined,
 			activationKind: isUtilityDefinition(definition) ? definition.activationKind : undefined,
 			effectSummary: getLoadoutItemEffectSummary(definition),
 			role: definition.role,
+			totalScrapInvested: getTotalScrapInvested(ownedWeapon),
+			isUpgradeable: isUpgradeableWeaponInstance(ownedWeapon, definition),
+			nextUpgradeCost: isWeaponDefinition(definition)
+				? getWeaponUpgradeCostForNextLevel(ownedWeapon, definition.rarity)
+				: null,
+			isMaxUpgradeLevel: getUpgradeLevel(ownedWeapon) >= MAX_WEAPON_UPGRADE_LEVEL,
 			x: placement.x,
 			y: placement.y,
 			rotation: getPlacementRotation(placement),
@@ -166,11 +219,14 @@ export function buildInventoryWeapons(
 		}
 
 		rows.push({
+			groupId: getInventoryWeaponGroupId(weapon),
 			weaponInstanceId: weapon.instanceId,
 			definitionId: weapon.definitionId,
 			definition,
 			category: isWeaponDefinition(definition) ? 'weapon' : 'utility',
-			name: definition.name,
+			name: formatWeaponDisplayName(definition.name, getUpgradeLevel(weapon)),
+			upgradeLevel: getUpgradeLevel(weapon),
+			totalScrapInvested: getTotalScrapInvested(weapon),
 			rarity: definition.rarity,
 			shape: definition.shape,
 			baseDamage: isWeaponDefinition(definition) ? definition.baseDamage : undefined,
@@ -180,6 +236,11 @@ export function buildInventoryWeapons(
 			activationKind: isUtilityDefinition(definition) ? definition.activationKind : undefined,
 			effectSummary: getLoadoutItemEffectSummary(definition),
 			role: definition.role,
+			isUpgradeable: isUpgradeableWeaponInstance(weapon, definition),
+			nextUpgradeCost: isWeaponDefinition(definition)
+				? getWeaponUpgradeCostForNextLevel(weapon, definition.rarity)
+				: null,
+			isMaxUpgradeLevel: getUpgradeLevel(weapon) >= MAX_WEAPON_UPGRADE_LEVEL,
 			acquiredAt: weapon.acquiredAt,
 			source: weapon.source,
 			x: placement?.x ?? null,
@@ -200,14 +261,22 @@ export function buildInventoryWeaponGroups(inventoryWeapons: InventoryWeapon[]) 
 	const groups: Record<string, InventoryWeaponGroup> = {};
 
 	for (const weapon of inventoryWeapons) {
-		const existing = groups[weapon.definitionId];
+		const existing = groups[weapon.groupId];
 
 		if (!existing) {
-			groups[weapon.definitionId] = {
+			groups[weapon.groupId] = {
+				groupId: weapon.groupId,
 				definitionId: weapon.definitionId,
 				definition: weapon.definition,
 				category: weapon.category,
 				name: weapon.name,
+				upgradeLevel: weapon.upgradeLevel,
+				totalScrapInvested: weapon.totalScrapInvested,
+				isUpgraded: weapon.upgradeLevel > 0,
+				bulkScrappable: weapon.upgradeLevel === 0,
+				isUpgradeable: weapon.isUpgradeable,
+				nextUpgradeCost: weapon.nextUpgradeCost,
+				isMaxUpgradeLevel: weapon.isMaxUpgradeLevel,
 				rarity: weapon.rarity,
 				shape: weapon.shape,
 				baseDamage: weapon.baseDamage,
@@ -278,6 +347,10 @@ export function filterInventoryWeaponGroups(groups: InventoryWeaponGroup[], quer
 
 		return haystack.includes(normalizedQuery);
 	});
+}
+
+export function formatUpgradeLevel(value: number) {
+	return `+${value}`;
 }
 
 export function buildGridCells(rowCount: number, columnCount: number) {
