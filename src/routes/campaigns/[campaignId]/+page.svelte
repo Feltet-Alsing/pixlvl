@@ -380,6 +380,10 @@
 
 	function handleCombatResumeStateChange(update: CampaignCombatResumeState) {
 		latestCombatResumeState = update;
+
+		if (combatResumeState?.campaignId === update.campaignId) {
+			combatResumeState = null;
+		}
 	}
 
 	function setCampaignMenuOpen(nextOpen: boolean) {
