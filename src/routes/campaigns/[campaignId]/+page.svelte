@@ -287,7 +287,10 @@
 
 		const mergedOwnedWeapons = Array.from(
 			new Map(
-				[...livePixlState.ownedWeapons, ...combatOverlay.waveDrops].map((weapon) => [weapon.instanceId, weapon])
+				[...livePixlState.ownedWeapons, ...combatOverlay.waveDrops].map((weapon) => [
+					weapon.instanceId,
+					weapon
+				])
 			).values()
 		);
 		const persistedCurrentLevel =
@@ -306,8 +309,7 @@
 				? combatOverlay.campaignLevel
 				: liveCampaignState.highestClearedLevel
 		);
-		const persistedCompleted =
-			liveCampaignState.completed || combatOverlay.status === 'complete';
+		const persistedCompleted = liveCampaignState.completed || combatOverlay.status === 'complete';
 
 		await fetch('/api/game/state', {
 			method: 'PATCH',
