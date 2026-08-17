@@ -100,9 +100,9 @@ export const campaign4Weapons: LoadoutItemDefinition[] = [
 			campaignId: 4,
 			stageStart: 2,
 			stageEnd: 5,
-			perLevelDropChance: 0.04
+			perLevelDropChance: 0
 		},
-		role: 'Legendary control weapon that opens a fixed right-side teleporter lane and throws colliding glitches back outside the arena'
+		role: 'Legendary control weapon currently disabled from the Campaign 4 drop pool while the design is being reworked'
 	},
 	{
 		id: 'force-field-trap',

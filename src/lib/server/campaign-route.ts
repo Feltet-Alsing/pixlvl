@@ -264,6 +264,14 @@ async function persistLoadoutPlacementsForUser(userId: string, placements: Loado
 }
 
 function parseLoadoutPlacementsFromFormData(formData: FormData) {
+	const validTargetingKinds = new Set([
+		'current-target',
+		'nearest-target',
+		'furthest-target',
+		'strongest-target',
+		'weakest-target'
+	]);
+
 	const rawPlacements = formData.get('loadoutPlacements');
 
 	if (typeof rawPlacements !== 'string') {
@@ -289,12 +297,18 @@ function parseLoadoutPlacementsFromFormData(formData: FormData) {
 					return null;
 				}
 
-				return {
+				const placement: LoadoutPlacement = {
 					weaponInstanceId: entry.weaponInstanceId,
 					x: entry.x,
 					y: entry.y,
 					rotation: getPlacementRotation(entry)
-				} satisfies LoadoutPlacement;
+				};
+
+				if (typeof entry.targeting === 'string' && validTargetingKinds.has(entry.targeting)) {
+					placement.targeting = entry.targeting;
+				}
+
+				return placement;
 			})
 			.filter((entry): entry is LoadoutPlacement => entry !== null);
 	} catch {
@@ -352,7 +366,8 @@ export async function placeLoadoutWeaponForUser(
 			weaponInstanceId,
 			x,
 			y,
-			rotation
+			rotation,
+			targeting: 'current-target' as const
 		}
 	];
 	const result = await persistLoadoutPlacementsForUser(userId, nextPlacements);

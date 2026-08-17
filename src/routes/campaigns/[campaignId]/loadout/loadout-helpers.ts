@@ -10,6 +10,7 @@ import type {
 	LoadoutPlacement,
 	LoadoutRotation,
 	OwnedWeaponInstance,
+	WeaponTargetingKind,
 	UtilityDefinition,
 	WeaponDefinition,
 	WeaponShape
@@ -30,6 +31,7 @@ export interface LoadoutWeapon {
 	x: number;
 	y: number;
 	rotation: LoadoutRotation;
+	targeting?: WeaponTargetingKind;
 }
 
 export interface InventoryWeapon {
@@ -133,7 +135,8 @@ export function buildLoadoutWeapons(
 			role: definition.role,
 			x: placement.x,
 			y: placement.y,
-			rotation: getPlacementRotation(placement)
+			rotation: getPlacementRotation(placement),
+			targeting: placement.targeting
 		});
 	}
 

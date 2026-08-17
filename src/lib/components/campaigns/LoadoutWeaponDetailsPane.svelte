@@ -11,17 +11,21 @@
 		role: string;
 		shapeLabel: string;
 		rotationLabel?: string;
+		targetingValue?: string;
 		summary: string;
 		stats: DetailRow[];
 		canRotate?: boolean;
+		canChangeTargeting?: boolean;
 	}
 
 	interface Props {
 		detail: SelectedWeaponDetails | null;
 		onRotate?: () => void;
+		targetingOptions?: Array<{ value: string; label: string }>;
+		onTargetingChange?: (value: string) => void;
 	}
 
-	let { detail, onRotate }: Props = $props();
+	let { detail, onRotate, targetingOptions = [], onTargetingChange }: Props = $props();
 </script>
 
 <section class="details-pane panel" aria-label="Selected weapon details">
@@ -63,6 +67,17 @@
 				</div>
 			{/each}
 		</div>
+
+		{#if detail.canChangeTargeting && detail.targetingValue && onTargetingChange}
+			<label class="targeting-field">
+				<span>Targeting</span>
+				<select value={detail.targetingValue} onchange={(event) => onTargetingChange((event.currentTarget as HTMLSelectElement).value)}>
+					{#each targetingOptions as option (option.value)}
+						<option value={option.value}>{option.label}</option>
+					{/each}
+				</select>
+			</label>
+		{/if}
 
 		{#if detail.canRotate && onRotate}
 			<button class="rotate-button" type="button" onclick={onRotate}>Rotate 90°</button>
@@ -132,6 +147,11 @@
 		gap: 0.55rem;
 	}
 
+	.targeting-field {
+		display: grid;
+		gap: 0.35rem;
+	}
+
 	.detail-card {
 		padding: 0.65rem 0.7rem;
 		border-radius: 0.8rem;
@@ -141,13 +161,15 @@
 	}
 
 	.detail-card span,
-	.rarity-pill {
+	.rarity-pill,
+	.targeting-field span {
 		font-size: 0.62rem;
 		letter-spacing: 0.1em;
 		text-transform: uppercase;
 	}
 
-	.detail-card span {
+	.detail-card span,
+	.targeting-field span {
 		color: #bdbdc3;
 	}
 
@@ -166,6 +188,17 @@
 		font-size: 0.88rem;
 		font-weight: 600;
 		cursor: pointer;
+	}
+
+	.targeting-field select {
+		min-height: 2.25rem;
+		padding: 0.55rem 0.8rem;
+		border-radius: 0.85rem;
+		border: 1px solid rgba(255, 255, 255, 0.14);
+		background: rgba(255, 255, 255, 0.08);
+		color: #f5f5f5;
+		font: inherit;
+		font-size: 0.88rem;
 	}
 
 	.rarity-pill {

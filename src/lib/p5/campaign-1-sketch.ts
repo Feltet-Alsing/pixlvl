@@ -26,6 +26,7 @@ import type {
 	WeaponProjectileShape,
 	WeaponRarity,
 	WeaponProjectileSize,
+	WeaponTargetingKind,
 	WeaponTrailStyle,
 	WeaponShape
 } from '$lib/data/types';
@@ -260,6 +261,7 @@ interface VoidTunnelState {
 	duration: number;
 	debuffDuration: number;
 	elementalDamageMultiplier: number;
+	claimedEnemyIds: number[];
 }
 
 interface PhaseshiftState {
@@ -397,6 +399,7 @@ interface EquippedWeaponState {
 	instanceId: string;
 	definition: WeaponDefinition;
 	shape: WeaponShape;
+	targeting: WeaponTargetingKind;
 	triggerColumn: number;
 	placementX: number;
 	placementY: number;
@@ -419,6 +422,7 @@ interface EquippedLoadoutEntry {
 	instanceId: string;
 	definition: LoadoutItemDefinition;
 	shape: WeaponShape;
+	targeting: WeaponTargetingKind | undefined;
 	triggerColumn: number;
 	placementX: number;
 	placementY: number;
@@ -559,43 +563,47 @@ function buildEquippedLoadoutEntries(
 	ownedWeapons: OwnedWeaponInstance[] | null | undefined,
 	loadoutPlacements: PersistedPixlState['loadoutPlacements'] | null | undefined,
 	loadoutColumnCount = LOADOUT_COLUMN_COUNT
-) {
+): EquippedLoadoutEntry[] {
 	if (!Array.isArray(ownedWeapons) || !Array.isArray(loadoutPlacements)) {
 		return [];
 	}
 
 	const ownedWeaponMap = new Map(ownedWeapons.map((weapon) => [weapon.instanceId, weapon]));
+	const entries: EquippedLoadoutEntry[] = [];
 
-	return loadoutPlacements
-		.map((placement) => {
-			const ownedWeapon = ownedWeaponMap.get(placement.weaponInstanceId);
+	for (const placement of loadoutPlacements) {
+		const ownedWeapon = ownedWeaponMap.get(placement.weaponInstanceId);
 
-			if (!ownedWeapon) {
-				return null;
-			}
+		if (!ownedWeapon) {
+			continue;
+		}
 
-			const definition = getLoadoutItemDefinition(ownedWeapon.definitionId);
-			const shape = rotateWeaponShape(definition.shape, getPlacementRotation(placement));
-			const triggerColumn = getLoadoutItemTriggerColumn(shape, placement.x);
+		const definition = getLoadoutItemDefinition(ownedWeapon.definitionId);
+		const shape = rotateWeaponShape(definition.shape, getPlacementRotation(placement));
+		const triggerColumn = getLoadoutItemTriggerColumn(shape, placement.x);
+		const targeting = isWeaponDefinition(definition)
+			? (placement.targeting ?? definition.attack.targeting)
+			: undefined;
 
-			if (triggerColumn < 0 || triggerColumn >= loadoutColumnCount) {
-				return null;
-			}
+		if (triggerColumn < 0 || triggerColumn >= loadoutColumnCount) {
+			continue;
+		}
 
-			return {
-				instanceId: ownedWeapon.instanceId,
-				definition,
-				shape,
-				triggerColumn,
-				placementX: placement.x,
-				placementY: placement.y
-			} satisfies EquippedLoadoutEntry;
-		})
-		.filter((entry): entry is EquippedLoadoutEntry => entry !== null)
-		.sort(
-			(left, right) =>
-				left.triggerColumn - right.triggerColumn || left.instanceId.localeCompare(right.instanceId)
-		);
+		entries.push({
+			instanceId: ownedWeapon.instanceId,
+			definition,
+			shape,
+			targeting,
+			triggerColumn,
+			placementX: placement.x,
+			placementY: placement.y
+		});
+	}
+
+	return entries.sort(
+		(left, right) =>
+			left.triggerColumn - right.triggerColumn || left.instanceId.localeCompare(right.instanceId)
+	);
 }
 
 function buildEquippedWeapons(entries: EquippedLoadoutEntry[]) {
@@ -607,6 +615,7 @@ function buildEquippedWeapons(entries: EquippedLoadoutEntry[]) {
 			instanceId: entry.instanceId,
 			definition: entry.definition,
 			shape: entry.shape,
+			targeting: entry.targeting ?? entry.definition.attack.targeting,
 			triggerColumn: entry.triggerColumn,
 			placementX: entry.placementX,
 			placementY: entry.placementY,
@@ -1252,6 +1261,14 @@ export function createCampaignSketch(
 		};
 
 		const getWeaponTarget = (targeting: WeaponAttackBehavior['targeting']) => {
+			if (targeting === 'strongest-target') {
+				return [...enemies].sort((left, right) => right.health - left.health)[0] ?? null;
+			}
+
+			if (targeting === 'weakest-target') {
+				return [...enemies].sort((left, right) => left.health - right.health)[0] ?? null;
+			}
+
 			if (targeting === 'furthest-target') {
 				return getFurthestEnemy();
 			}
@@ -1536,17 +1553,18 @@ export function createCampaignSketch(
 
 			voidTunnels.push({
 				sourceWeaponInstanceId,
-				centerX: target.x,
-				centerY: target.y,
-				halfWidth: special.halfWidth,
-				halfHeight: special.halfHeight,
+				centerX,
+				centerY,
+				halfWidth: Math.max(special.halfWidth, arenaRadius),
+				halfHeight: Math.max(special.halfHeight, arenaRadius),
 				pullStrength: special.pullStrength,
 				color: weapon.projectileVisual.color,
 				glow: weapon.projectileVisual.glow ?? false,
 				age: 0,
 				duration: special.duration,
 				debuffDuration: special.debuffDuration,
-				elementalDamageMultiplier: special.elementalDamageMultiplier
+				elementalDamageMultiplier: special.elementalDamageMultiplier,
+				claimedEnemyIds: []
 			});
 		};
 
@@ -2249,7 +2267,7 @@ export function createCampaignSketch(
 					elementalInfusions[requiredInfusion] -= requiredInfusionCount;
 				}
 
-				const target = getWeaponTarget(weapon.definition.attack.targeting);
+				const target = getWeaponTarget(weapon.targeting);
 
 				if (!target) {
 					continue;
@@ -2532,8 +2550,15 @@ export function createCampaignSketch(
 					const insideLane =
 						Math.abs(enemy.y - phaseshift.centerY) <= phaseshift.halfHeight &&
 						Math.abs(enemy.x - phaseshift.centerX) <= phaseshift.zoneWidth * 0.5;
+					const isOnRightSide = enemy.x >= centerX;
+					const isApproachingCenter = enemy.x > phaseshift.centerX;
 
-					if (!insideLane || phaseshift.teleportedEnemyIds.includes(enemy.id)) {
+					if (
+						!insideLane ||
+						!isOnRightSide ||
+						!isApproachingCenter ||
+						phaseshift.teleportedEnemyIds.includes(enemy.id)
+					) {
 						continue;
 					}
 
@@ -2563,13 +2588,35 @@ export function createCampaignSketch(
 						continue;
 					}
 
+					const activationDelay = tunnel.duration * 0.32;
+
+					if (tunnel.age < activationDelay) {
+						continue;
+					}
+
+					const isClaimedByTunnel = tunnel.claimedEnemyIds.includes(enemy.id);
+					const wasAlreadyVoidTouched = enemy.voidTouchedTimer > 0;
+
+					if (wasAlreadyVoidTouched && !isClaimedByTunnel) {
+						continue;
+					}
+
+					if (!isClaimedByTunnel) {
+						tunnel.claimedEnemyIds = [...tunnel.claimedEnemyIds, enemy.id];
+					}
+
 					enemy.voidTouchedTimer = Math.max(enemy.voidTouchedTimer, tunnel.debuffDuration);
-					const deltaY = tunnel.centerY - enemy.y;
-					const pullStepY = Math.min(Math.abs(deltaY), tunnel.pullStrength * dt);
-					enemy.y += Math.sign(deltaY || 1) * pullStepY;
-					const deltaX = tunnel.centerX - enemy.x;
-					const pullStepX = Math.min(Math.abs(deltaX), tunnel.pullStrength * 0.3 * dt);
+					enemy.confusionTimer = Math.max(enemy.confusionTimer, 0.5);
+					const sideOffset = tunnel.halfWidth * 0.6;
+					const targetX =
+						enemy.x <= tunnel.centerX ? tunnel.centerX - sideOffset : tunnel.centerX + sideOffset;
+					const targetY = tunnel.centerY;
+					const deltaX = targetX - enemy.x;
+					const deltaY = targetY - enemy.y;
+					const pullStepX = Math.min(Math.abs(deltaX), tunnel.pullStrength * dt);
+					const pullStepY = Math.min(Math.abs(deltaY), tunnel.pullStrength * 0.8 * dt);
 					enemy.x += Math.sign(deltaX || 1) * pullStepX;
+					enemy.y += Math.sign(deltaY || 1) * pullStepY;
 				}
 
 				const dx = centerX - enemy.x;
@@ -3308,19 +3355,27 @@ export function createCampaignSketch(
 			}
 
 			for (const tunnel of voidTunnels) {
+				const progress = Math.min(1, tunnel.age / Math.max(0.0001, tunnel.duration * 0.32));
+				const easedProgress = easeInQuad(progress);
 				const gapHalf = 10;
 				const left = tunnel.centerX - tunnel.halfWidth;
 				const width = tunnel.halfWidth * 2;
 				const halfHeight = tunnel.halfHeight;
 				const slabHeight = Math.max(8, halfHeight - gapHalf);
+				const topStartY = tunnel.centerY - halfHeight - slabHeight;
+				const topEndY = tunnel.centerY - halfHeight;
+				const bottomStartY = tunnel.centerY + halfHeight;
+				const bottomEndY = tunnel.centerY + gapHalf;
+				const topY = topStartY + (topEndY - topStartY) * easedProgress;
+				const bottomY = bottomStartY + (bottomEndY - bottomStartY) * easedProgress;
 				const alphaHex = Math.round((1 - tunnel.age / tunnel.duration) * 120)
 					.toString(16)
 					.padStart(2, '0');
 
 				p.noStroke();
 				p.fill(`${tunnel.color}${alphaHex}`);
-				p.rect(left, tunnel.centerY - halfHeight, width, slabHeight, 6);
-				p.rect(left, tunnel.centerY + gapHalf, width, slabHeight, 6);
+				p.rect(left, topY, width, slabHeight, 6);
+				p.rect(left, bottomY, width, slabHeight, 6);
 			}
 
 			for (const phaseshift of phaseshifts) {

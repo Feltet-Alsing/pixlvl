@@ -34,7 +34,12 @@ export type WeaponSpecialAttackKind =
 	| 'phaseshift'
 	| 'stasis-field';
 
-export type WeaponTargetingKind = 'current-target' | 'furthest-target';
+export type WeaponTargetingKind =
+	| 'current-target'
+	| 'nearest-target'
+	| 'furthest-target'
+	| 'strongest-target'
+	| 'weakest-target';
 
 export interface PixlBaseStats {
 	health: number;
@@ -304,6 +309,7 @@ export interface LoadoutPlacement {
 	x: number;
 	y: number;
 	rotation: LoadoutRotation;
+	targeting?: WeaponTargetingKind;
 }
 
 export interface WaveComposition {

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type {
 		LoadoutRotation,
+		WeaponTargetingKind,
 		UtilityDefinition,
 		WeaponDefinition,
 		WeaponShape
@@ -27,6 +28,7 @@
 		x: number;
 		y: number;
 		rotation: LoadoutRotation;
+		targeting?: WeaponTargetingKind;
 	}
 
 	interface Props {
@@ -67,6 +69,24 @@
 
 	function createIndexArray(length: number) {
 		return Array.from({ length }, (_, index) => index);
+	}
+
+	function getWeaponLabel(weapon: LoadoutWeapon) {
+		if (weapon.category === 'weapon') {
+			switch (weapon.targeting ?? weapon.attack?.targeting) {
+				case 'nearest-target':
+				case 'current-target':
+					return 'NT';
+				case 'furthest-target':
+					return 'FT';
+				case 'strongest-target':
+					return 'ST';
+				case 'weakest-target':
+					return 'WT';
+			}
+		}
+
+		return weapon.name.slice(0, 2).toUpperCase();
 	}
 </script>
 
@@ -118,7 +138,7 @@
 							{@const isFilled = isShapeCellFilled(weapon.shape, shapeX, shapeY)}
 							<div class="placed-weapon-cell" class:filled={isFilled} aria-hidden={!isFilled}>
 								{#if isLabelCell(weapon.shape, shapeX, shapeY)}
-									<span>{weapon.name.slice(0, 2).toUpperCase()}</span>
+									<span>{getWeaponLabel(weapon)}</span>
 								{/if}
 							</div>
 						{/each}

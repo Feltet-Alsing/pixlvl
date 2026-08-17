@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
+	import { isWeaponDefinition } from '$lib/data';
 	import LoadoutDraggedShapePreview from '$lib/components/campaigns/LoadoutDraggedShapePreview.svelte';
 	import LoadoutGridBoard from '$lib/components/campaigns/LoadoutGridBoard.svelte';
 	import LoadoutInventoryToolbox from '$lib/components/campaigns/LoadoutInventoryToolbox.svelte';
@@ -43,7 +44,12 @@
 		type LiveCombatProgress,
 		type LoadoutWeapon
 	} from './loadout-helpers';
-	import type { LoadoutItemDefinition, LoadoutPlacement, LoadoutRotation } from '$lib/data/types';
+	import type {
+		LoadoutItemDefinition,
+		LoadoutPlacement,
+		LoadoutRotation,
+		WeaponTargetingKind
+	} from '$lib/data/types';
 	import type { PageProps } from './$types';
 
 	const baselinePixlProgression = createBaselineUpgradeablePixlState();
@@ -75,9 +81,11 @@
 		role: string;
 		shapeLabel: string;
 		rotationLabel?: string;
+		targetingValue?: string;
 		summary: string;
 		stats: Array<{ label: string; value: string }>;
 		canRotate?: boolean;
+		canChangeTargeting?: boolean;
 	}
 
 	interface ScrapDialogState {
@@ -98,6 +106,12 @@
 		legendary: 5000
 	} as const;
 	const MOBILE_LAYOUT_BREAKPOINT = 860;
+	const TARGETING_OPTIONS: Array<{ value: WeaponTargetingKind; label: string }> = [
+		{ value: 'nearest-target', label: 'nearest target' },
+		{ value: 'furthest-target', label: 'furthest target' },
+		{ value: 'strongest-target', label: 'strongest target' },
+		{ value: 'weakest-target', label: 'weakest target' }
+	];
 
 	let { data, form }: PageProps = $props();
 	let innerWidth = $state<number | null>(null);
@@ -105,6 +119,7 @@
 	let draggedWeaponInstanceId = $state<string | null>(null);
 	let draggedWeaponAnchor = $state<{ x: number; y: number } | null>(null);
 	let draggedWeaponRotation = $state<LoadoutRotation>(0);
+	let draggedWeaponTargeting = $state<WeaponTargetingKind>('nearest-target');
 	let draggedWeaponPointerId = $state<number | null>(null);
 	let dragPreviewPointer = $state<{ x: number; y: number } | null>(null);
 	let hoveredGridOrigin = $state<{ x: number; y: number } | null>(null);
@@ -347,6 +362,9 @@
 			: null
 	);
 	let selectedWeaponDetails = $derived.by(() => {
+		const normalizeTargetingValue = (targeting: WeaponTargetingKind | undefined) =>
+			targeting === 'current-target' || !targeting ? 'nearest-target' : targeting;
+
 		if (selectedPlacedWeapon) {
 			return {
 				name: selectedPlacedWeapon.name,
@@ -383,7 +401,12 @@
 						: []),
 					{ label: 'Placement', value: `${selectedPlacedWeapon.x}, ${selectedPlacedWeapon.y}` }
 				],
-				canRotate: true
+				targetingValue:
+					selectedPlacedWeapon.category === 'weapon'
+						? normalizeTargetingValue(selectedPlacedWeapon.targeting)
+						: undefined,
+				canRotate: true,
+				canChangeTargeting: selectedPlacedWeapon.category === 'weapon'
 			} satisfies SelectedWeaponDetails;
 		}
 
@@ -755,7 +778,7 @@
 			...draftLoadoutPlacements.filter(
 				(placement) => placement.weaponInstanceId !== weaponInstanceId
 			),
-			{ weaponInstanceId, x, y, rotation } satisfies LoadoutPlacement
+			{ weaponInstanceId, x, y, rotation, targeting: draggedWeaponTargeting } satisfies LoadoutPlacement
 		];
 		selectedPlacedWeaponInstanceId = weaponInstanceId;
 		selectedInventoryDefinitionId = null;
@@ -785,6 +808,12 @@
 
 		draggedWeaponInstanceId = weaponInstanceId;
 		draggedWeaponRotation = rotation;
+		draggedWeaponTargeting =
+			(isWeaponDefinition(definition) && definition.attack.targeting === 'current-target'
+				? 'nearest-target'
+				: isWeaponDefinition(definition)
+					? definition.attack.targeting
+					: 'nearest-target') as WeaponTargetingKind;
 		draggedWeaponAnchor = getDefaultDragAnchor(rotateWeaponShape(definition.shape, rotation));
 		draggedWeaponPointerId = null;
 		hoveredGridOrigin = null;
@@ -806,7 +835,8 @@
 		event: PointerEvent,
 		weaponInstanceId: string,
 		anchor: { x: number; y: number },
-		rotation: LoadoutRotation
+		rotation: LoadoutRotation,
+		targeting: WeaponTargetingKind
 	) {
 		if (event.cancelable) {
 			event.preventDefault();
@@ -816,6 +846,7 @@
 		draggedWeaponInstanceId = weaponInstanceId;
 		draggedWeaponAnchor = anchor;
 		draggedWeaponRotation = rotation;
+		draggedWeaponTargeting = targeting;
 		draggedWeaponPointerId = event.pointerId;
 		hoveredGridOrigin = null;
 		isInventoryDropTargetActive = false;
@@ -915,6 +946,7 @@
 		draggedWeaponInstanceId = null;
 		draggedWeaponAnchor = null;
 		draggedWeaponRotation = 0;
+		draggedWeaponTargeting = 'nearest-target';
 		draggedWeaponPointerId = null;
 		hoveredGridOrigin = null;
 		isInventoryDropTargetActive = false;
@@ -1034,7 +1066,10 @@
 			event,
 			weapon.weaponInstanceId,
 			getPlacedWeaponDragAnchor(event, weapon.shape),
-			weapon.rotation
+			weapon.rotation,
+			(weapon.targeting === 'current-target' || !weapon.targeting
+				? 'nearest-target'
+				: weapon.targeting) as WeaponTargetingKind
 		);
 	}
 
@@ -1055,7 +1090,15 @@
 		selectedInventoryDefinitionId = weapon.definitionId;
 
 		scrollLoadoutGridIntoView();
-		beginWeaponDrag(event, weapon.weaponInstanceId, anchor, 0);
+		beginWeaponDrag(
+			event,
+			weapon.weaponInstanceId,
+			anchor,
+			0,
+			(weapon.attack?.targeting === 'current-target' || !weapon.attack?.targeting
+				? 'nearest-target'
+				: weapon.attack.targeting) as WeaponTargetingKind
+		);
 	}
 
 	function beginInventoryWeaponGroupDrag(event: PointerEvent, group: InventoryWeaponGroup) {
@@ -1096,6 +1139,10 @@
 		draggedWeaponInstanceId = weapon.weaponInstanceId;
 		draggedWeaponAnchor = getDefaultDragAnchor(weapon.shape);
 		draggedWeaponRotation = 0;
+		draggedWeaponTargeting =
+			(weapon.attack?.targeting === 'current-target' || !weapon.attack?.targeting
+				? 'nearest-target'
+				: weapon.attack.targeting) as WeaponTargetingKind;
 		draggedWeaponPointerId = gesture.pointerId;
 		dragPreviewPointer = { x: gesture.clientX, y: gesture.clientY };
 		hoveredGridOrigin = null;
@@ -1152,6 +1199,18 @@
 	function selectInventoryGroup(group: InventoryWeaponGroup) {
 		selectedPlacedWeaponInstanceId = null;
 		selectedInventoryDefinitionId = group.definitionId;
+	}
+
+	function updatePlacedWeaponTargeting(weaponInstanceId: string, targeting: string) {
+		const normalizedTargeting = TARGETING_OPTIONS.find((option) => option.value === targeting)?.value;
+
+		if (!normalizedTargeting) {
+			return;
+		}
+
+		draftLoadoutPlacements = draftLoadoutPlacements.map((entry) =>
+			entry.weaponInstanceId === weaponInstanceId ? { ...entry, targeting: normalizedTargeting } : entry
+		);
 	}
 </script>
 
@@ -1319,9 +1378,15 @@
 
 				<LoadoutWeaponDetailsPane
 					detail={selectedWeaponDetails}
+					targetingOptions={TARGETING_OPTIONS}
 					onRotate={() => {
 						if (selectedPlacedWeaponInstanceId) {
 							rotatePlacedWeapon(selectedPlacedWeaponInstanceId);
+						}
+					}}
+					onTargetingChange={(value) => {
+						if (selectedPlacedWeaponInstanceId) {
+							updatePlacedWeaponTargeting(selectedPlacedWeaponInstanceId, value);
 						}
 					}}
 				/>

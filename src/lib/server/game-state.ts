@@ -7,7 +7,7 @@ import { createBaselineUpgradeablePixlState, createUpgradeablePixlState } from '
 import { db } from '$lib/server/db';
 import { campaignProgress, pixlState } from '$lib/server/db/schema';
 
-import type { LoadoutPlacement, OwnedWeaponInstance } from '$lib/data/types';
+import type { LoadoutPlacement, OwnedWeaponInstance, WeaponTargetingKind } from '$lib/data/types';
 
 export type PersistedPixlState = InferSelectModel<typeof pixlState>;
 export type PersistedCampaignProgress = InferSelectModel<typeof campaignProgress>;
@@ -130,13 +130,24 @@ function normalizeLoadoutPlacements(
 	}
 
 	const ownedWeaponIds = new Set(ownedWeapons.map((weapon) => weapon.instanceId));
+	const validTargetingKinds = new Set<WeaponTargetingKind>([
+		'current-target',
+		'nearest-target',
+		'furthest-target',
+		'strongest-target',
+		'weakest-target'
+	]);
+
 	const validPlacements = loadoutPlacements
 		.filter((placement) => ownedWeaponIds.has(placement.weaponInstanceId))
 		.map((placement) => ({
 			weaponInstanceId: placement.weaponInstanceId,
 			x: placement.x,
 			y: placement.y,
-			rotation: normalizeLoadoutRotation(placement.rotation)
+			rotation: normalizeLoadoutRotation(placement.rotation),
+			targeting: validTargetingKinds.has(placement.targeting as WeaponTargetingKind)
+				? placement.targeting
+				: undefined
 		}));
 
 	if (validPlacements.length === 0) {
