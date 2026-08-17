@@ -27,7 +27,7 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 				[4, 4]
 			]
 		},
-		baseDamage: 14,
+		baseDamage: 30,
 		projectileSpeed: 0,
 		attack: {
 			kind: 'single',
@@ -36,7 +36,7 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 			special: {
 				type: 'force-field',
 				maxRadius: 156,
-				expansionSpeed: 220,
+				expansionSpeed: 440,
 				lineWidth: 22
 			},
 			targeting: 'current-target'
@@ -80,7 +80,7 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 			projectileCount: 1,
 			special: {
 				type: 'laser-sweep',
-				duration: 1.18,
+				duration: 1.5,
 				beamLength: 260,
 				beamWidth: 6
 			},
@@ -117,7 +117,7 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 			]
 		},
 		baseDamage: 6,
-		projectileSpeed: 430,
+		projectileSpeed: 500,
 		attack: {
 			kind: 'single',
 			projectileCount: 1,
@@ -157,12 +157,12 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 				[2, 1]
 			]
 		},
-		baseDamage: 4,
+		baseDamage: 6,
 		projectileSpeed: 420,
 		attack: {
 			kind: 'spread',
-			projectileCount: 3,
-			spreadDegrees: 14,
+			projectileCount: 4,
+			spreadDegrees: 30,
 			motion: 'wave',
 			targeting: 'current-target'
 		},
@@ -229,17 +229,16 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 			height: 3,
 			cells: [
 				[0, 0],
-				[1, 0],
 				[0, 1],
 				[0, 2],
 				[1, 2]
 			]
 		},
-		baseDamage: 3,
+		baseDamage: 6,
 		projectileSpeed: 390,
 		attack: {
 			kind: 'dual',
-			projectileCount: 2,
+			projectileCount: 3,
 			targeting: 'current-target'
 		},
 		projectileVisual: {
@@ -280,6 +279,7 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 		projectileSpeed: 360,
 		attack: {
 			kind: 'spread',
+			cycleInterval: 2,
 			projectileCount: 4,
 			spreadDegrees: 24,
 			impactRadius: 22,
@@ -299,7 +299,7 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 			stageEnd: 5,
 			perLevelDropChance: 0.09
 		},
-		role: 'Mid-campaign scatter weapon built to light up wider enemy packs'
+		role: 'Mid-campaign scatter weapon that fires three staggered four-shot pulse bursts into packed waves'
 	},
 	{
 		id: 'comet-rig',
@@ -346,7 +346,7 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 	{
 		id: 'nova-rack',
 		name: 'Nova Rack',
-		rarity: 'legendary',
+		rarity: 'rare',
 		shape: {
 			width: 4,
 			height: 4,
@@ -365,13 +365,14 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 				[2, 3]
 			]
 		},
-		baseDamage: 6,
+		baseDamage: 3,
 		projectileSpeed: 340,
 		attack: {
 			kind: 'spread',
-			projectileCount: 5,
-			spreadDegrees: 30,
+			projectileCount: 15,
+			spreadDegrees: 180,
 			impactRadius: 30,
+			pierceCount: 1,
 			targeting: 'current-target'
 		},
 		projectileVisual: {
@@ -388,7 +389,7 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 			stageEnd: 5,
 			perLevelDropChance: 0.02
 		},
-		role: 'Endgame spread battery that trades footprint for the flashiest projectile burst in the game'
+		role: 'Wide rare barrage that floods half the arena with piercing micro-nova shots'
 	},
 	{
 		id: 'shield-matrix',

@@ -51,11 +51,11 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 				[1, 2]
 			]
 		},
-		baseDamage: 5,
-		projectileSpeed: 300,
+		baseDamage: 6,
+		projectileSpeed: 500,
 		attack: {
-			kind: 'dual',
-			projectileCount: 2,
+			kind: 'single',
+			projectileCount: 3,
 			targeting: 'current-target'
 		},
 		projectileVisual: {
@@ -69,7 +69,7 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 			stageEnd: 3,
 			perLevelDropChance: 0.22
 		},
-		role: 'Early high-impact burst upgrade over the starter weapon'
+		role: 'Early high-impact burst upgrade that fires a fast three-shot line into the current target'
 	},
 	{
 		id: 'needle',
@@ -86,7 +86,7 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 				[2, 2]
 			]
 		},
-		baseDamage: 4,
+		baseDamage: 3,
 		projectileSpeed: 520,
 		attack: {
 			kind: 'single',
@@ -172,12 +172,12 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 				[3, 2]
 			]
 		},
-		baseDamage: 24,
+		baseDamage: 60,
 		projectileSpeed: 176,
 		attack: {
 			kind: 'single',
 			projectileCount: 1,
-			cycleInterval: 2,
+			cycleInterval: 4,
 			special: {
 				type: 'shrapnel-burst',
 				fragmentCount: 8,
@@ -271,7 +271,7 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 		attack: {
 			kind: 'single',
 			projectileCount: 1,
-			cycleInterval: 2,
+			cycleInterval: 1,
 			special: {
 				type: 'sniper-line',
 				chargeDuration: 0.45,

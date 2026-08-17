@@ -589,12 +589,6 @@
 		}
 	});
 
-	function getInitialLoadoutPlacements() {
-		return cloneLoadoutPlacements(
-			initialPersistedLoadoutState.slots[initialPersistedLoadoutState.activeSlot] ?? []
-		);
-	}
-
 	function buildCurrentDraftLoadoutState(): PersistedLoadoutState {
 		const slots = cloneLoadoutSlots(draftLoadoutSlots);
 		slots[activeLoadoutSlot] = cloneLoadoutPlacements(draftLoadoutPlacements);
@@ -1402,7 +1396,7 @@
 
 				<div class="loadout-toolbar-row">
 					<div class="loadout-slot-pills" aria-label="Saved loadouts">
-						{#each [0, 1, 2] as slotIndex}
+						{#each [0, 1, 2] as slotIndex, index (index)}
 							<button
 								class:active={activeLoadoutSlot === slotIndex}
 								class="loadout-slot-pill"

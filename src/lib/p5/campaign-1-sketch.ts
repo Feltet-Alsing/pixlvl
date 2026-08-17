@@ -23,11 +23,11 @@ import type {
 	WeaponAttackBehavior,
 	ElementalInfusionType,
 	WeaponDefinition,
-	WeaponProjectileMotion,
 	WeaponProjectileShape,
 	WeaponRarity,
 	WeaponProjectileSize,
 	WeaponTargetingKind,
+	WeaponProjectileMotion,
 	WeaponTrailStyle,
 	WeaponShape
 } from '$lib/data/types';
@@ -251,6 +251,9 @@ interface StasisFieldState {
 
 interface VoidTunnelState {
 	sourceWeaponInstanceId: string;
+	variant: 'void-tunnel' | 'black-hole';
+	originX: number;
+	originY: number;
 	centerX: number;
 	centerY: number;
 	halfWidth: number;
@@ -507,6 +510,7 @@ export interface CampaignCombatResumeState {
 	campaignId: number;
 	currentLevel: number;
 	status: WaveStatus;
+	levelRewardsCommitted: boolean;
 	statusTimer: number;
 	currentSweepIndex: number;
 	spawnAccumulator: number;
@@ -918,7 +922,6 @@ export function createCampaignSketch(
 				draw();
 				return;
 			}
-
 			p.push();
 			p.translate(centerX, centerY);
 			p.scale(scale);
@@ -1033,6 +1036,7 @@ export function createCampaignSketch(
 				campaignId: campaign.campaign,
 				currentLevel: currentLevel.campaignLevel,
 				status,
+				levelRewardsCommitted,
 				statusTimer,
 				currentSweepIndex,
 				spawnAccumulator,
@@ -1618,12 +1622,25 @@ export function createCampaignSketch(
 				return;
 			}
 
+			const isBlackHole = weapon.id === 'black-hole';
+			const angle = Math.atan2(target.y - centerY, target.x - centerX);
+			const spawnRadius = FIXED_SPAWN_RADIUS * 0.5;
+			const spawnX = isBlackHole ? centerX + Math.cos(angle) * spawnRadius : centerX;
+			const spawnY = isBlackHole ? centerY + Math.sin(angle) * spawnRadius : centerY;
+			const halfWidth = isBlackHole ? special.halfWidth : Math.max(special.halfWidth, arenaRadius);
+			const halfHeight = isBlackHole
+				? special.halfHeight
+				: Math.max(special.halfHeight, arenaRadius);
+
 			voidTunnels.push({
 				sourceWeaponInstanceId,
-				centerX,
-				centerY,
-				halfWidth: Math.max(special.halfWidth, arenaRadius),
-				halfHeight: Math.max(special.halfHeight, arenaRadius),
+				variant: isBlackHole ? 'black-hole' : 'void-tunnel',
+				originX: spawnX,
+				originY: spawnY,
+				centerX: spawnX,
+				centerY: spawnY,
+				halfWidth,
+				halfHeight,
 				pullStrength: special.pullStrength,
 				color: weapon.projectileVisual.color,
 				glow: weapon.projectileVisual.glow ?? false,
@@ -2095,6 +2112,64 @@ export function createCampaignSketch(
 			});
 		};
 
+		const fireLineBurst = (
+			target: EnemyState,
+			weapon: WeaponDefinition,
+			sourceWeaponInstanceId: string
+		) => {
+			const shotCount = Math.max(1, weapon.attack.projectileCount);
+			const angle = Math.atan2(target.y - centerY, target.x - centerX);
+			const directionX = Math.cos(angle);
+			const directionY = Math.sin(angle);
+			const spacing = 16;
+
+			for (let index = 0; index < shotCount; index += 1) {
+				const offset = spacing * (shotCount - 1 - index);
+				spawnProjectile({
+					sourceWeaponInstanceId,
+					originX: centerX - directionX * offset,
+					originY: centerY - directionY * offset,
+					target,
+					weapon,
+					angleRadians: angle
+				});
+			}
+		};
+
+		const firePulseArrayBurst = (
+			target: EnemyState,
+			weapon: WeaponDefinition,
+			sourceWeaponInstanceId: string
+		) => {
+			const burstCount = 3;
+			const projectileCount = Math.max(1, weapon.attack.projectileCount);
+			const totalSpreadRadians = ((weapon.attack.spreadDegrees ?? 0) * Math.PI) / 180;
+			const startOffset = -totalSpreadRadians / 2;
+			const step = projectileCount > 1 ? totalSpreadRadians / (projectileCount - 1) : 0;
+			const angle = Math.atan2(target.y - centerY, target.x - centerX);
+			const directionX = Math.cos(angle);
+			const directionY = Math.sin(angle);
+			const burstSpacing = 18;
+
+			for (let burstIndex = 0; burstIndex < burstCount; burstIndex += 1) {
+				const originOffset = burstSpacing * (burstCount - 1 - burstIndex);
+				const originX = centerX - directionX * originOffset;
+				const originY = centerY - directionY * originOffset;
+
+				for (let projectileIndex = 0; projectileIndex < projectileCount; projectileIndex += 1) {
+					spawnProjectile({
+						sourceWeaponInstanceId,
+						originX,
+						originY,
+						target,
+						weapon,
+						angleRadians: angle,
+						angleOffsetRadians: startOffset + step * projectileIndex
+					});
+				}
+			}
+		};
+
 		const spawnShrapnelBurst = (
 			projectile: ProjectileState,
 			weapon: WeaponDefinition,
@@ -2252,6 +2327,16 @@ export function createCampaignSketch(
 					fireProjectile(splitTarget, weapon.definition, weapon.instanceId);
 				}
 
+				return;
+			}
+
+			if (weapon.definition.id === 'blaster') {
+				fireLineBurst(target, weapon.definition, weapon.instanceId);
+				return;
+			}
+
+			if (weapon.definition.id === 'pulse-array') {
+				firePulseArrayBurst(target, weapon.definition, weapon.instanceId);
 				return;
 			}
 
@@ -2483,6 +2568,11 @@ export function createCampaignSketch(
 					}
 
 					field.hitEnemyIds = [...field.hitEnemyIds, enemy.id];
+					const directionX = distance > 0 ? (enemy.x - field.centerX) / distance : 1;
+					const directionY = distance > 0 ? (enemy.y - field.centerY) / distance : 0;
+					const pushDistance = field.lineWidth + enemyRadius + 12;
+					enemy.x += directionX * pushDistance;
+					enemy.y += directionY * pushDistance;
 					applyDamageToEnemy(enemyIndex, field.damage, 0.1, field.sourceWeaponInstanceId);
 				}
 
@@ -2655,9 +2745,36 @@ export function createCampaignSketch(
 						continue;
 					}
 
-					const activationDelay = tunnel.duration * 0.32;
+					const activationDelay = tunnel.variant === 'void-tunnel' ? tunnel.duration * 0.32 : 0;
 
 					if (tunnel.age < activationDelay) {
+						continue;
+					}
+
+					if (tunnel.variant === 'void-tunnel') {
+						const isClaimedByTunnel = tunnel.claimedEnemyIds.includes(enemy.id);
+						const wasAlreadyVoidTouched = enemy.voidTouchedTimer > 0;
+
+						if (wasAlreadyVoidTouched && !isClaimedByTunnel) {
+							continue;
+						}
+
+						if (!isClaimedByTunnel) {
+							tunnel.claimedEnemyIds = [...tunnel.claimedEnemyIds, enemy.id];
+						}
+
+						enemy.voidTouchedTimer = Math.max(enemy.voidTouchedTimer, tunnel.debuffDuration);
+						enemy.confusionTimer = Math.max(enemy.confusionTimer, 0.5);
+						const sideOffset = tunnel.halfWidth * 0.6;
+						const targetX =
+							enemy.x <= tunnel.centerX ? tunnel.centerX - sideOffset : tunnel.centerX + sideOffset;
+						const targetY = tunnel.centerY;
+						const deltaX = targetX - enemy.x;
+						const deltaY = targetY - enemy.y;
+						const pullStepX = Math.min(Math.abs(deltaX), tunnel.pullStrength * dt);
+						const pullStepY = Math.min(Math.abs(deltaY), tunnel.pullStrength * 0.8 * dt);
+						enemy.x += Math.sign(deltaX || 1) * pullStepX;
+						enemy.y += Math.sign(deltaY || 1) * pullStepY;
 						continue;
 					}
 
@@ -2674,14 +2791,10 @@ export function createCampaignSketch(
 
 					enemy.voidTouchedTimer = Math.max(enemy.voidTouchedTimer, tunnel.debuffDuration);
 					enemy.confusionTimer = Math.max(enemy.confusionTimer, 0.5);
-					const sideOffset = tunnel.halfWidth * 0.6;
-					const targetX =
-						enemy.x <= tunnel.centerX ? tunnel.centerX - sideOffset : tunnel.centerX + sideOffset;
-					const targetY = tunnel.centerY;
-					const deltaX = targetX - enemy.x;
-					const deltaY = targetY - enemy.y;
+					const deltaX = tunnel.centerX - enemy.x;
+					const deltaY = tunnel.centerY - enemy.y;
 					const pullStepX = Math.min(Math.abs(deltaX), tunnel.pullStrength * dt);
-					const pullStepY = Math.min(Math.abs(deltaY), tunnel.pullStrength * 0.8 * dt);
+					const pullStepY = Math.min(Math.abs(deltaY), tunnel.pullStrength * dt);
 					enemy.x += Math.sign(deltaX || 1) * pullStepX;
 					enemy.y += Math.sign(deltaY || 1) * pullStepY;
 				}
@@ -3422,27 +3535,85 @@ export function createCampaignSketch(
 			}
 
 			for (const tunnel of voidTunnels) {
-				const progress = Math.min(1, tunnel.age / Math.max(0.0001, tunnel.duration * 0.32));
-				const easedProgress = easeInQuad(progress);
-				const gapHalf = 10;
-				const left = tunnel.centerX - tunnel.halfWidth;
-				const width = tunnel.halfWidth * 2;
-				const halfHeight = tunnel.halfHeight;
-				const slabHeight = Math.max(8, halfHeight - gapHalf);
-				const topStartY = tunnel.centerY - halfHeight - slabHeight;
-				const topEndY = tunnel.centerY - halfHeight;
-				const bottomStartY = tunnel.centerY + halfHeight;
-				const bottomEndY = tunnel.centerY + gapHalf;
-				const topY = topStartY + (topEndY - topStartY) * easedProgress;
-				const bottomY = bottomStartY + (bottomEndY - bottomStartY) * easedProgress;
+				if (tunnel.variant === 'void-tunnel') {
+					const progress = Math.min(1, tunnel.age / Math.max(0.0001, tunnel.duration * 0.32));
+					const easedProgress = easeInQuad(progress);
+					const gapHalf = 10;
+					const left = tunnel.centerX - tunnel.halfWidth;
+					const width = tunnel.halfWidth * 2;
+					const halfHeight = tunnel.halfHeight;
+					const slabHeight = Math.max(8, halfHeight - gapHalf);
+					const topStartY = tunnel.centerY - halfHeight - slabHeight;
+					const topEndY = tunnel.centerY - halfHeight;
+					const bottomStartY = tunnel.centerY + halfHeight;
+					const bottomEndY = tunnel.centerY + gapHalf;
+					const topY = topStartY + (topEndY - topStartY) * easedProgress;
+					const bottomY = bottomStartY + (bottomEndY - bottomStartY) * easedProgress;
+					const alphaHex = Math.round((1 - tunnel.age / tunnel.duration) * 120)
+						.toString(16)
+						.padStart(2, '0');
+
+					p.noStroke();
+					p.fill(`${tunnel.color}${alphaHex}`);
+					p.rect(left, topY, width, slabHeight, 6);
+					p.rect(left, bottomY, width, slabHeight, 6);
+					continue;
+				}
+
+				const bloomProgress = Math.min(1, tunnel.age / Math.max(0.0001, tunnel.duration * 0.28));
+				const easedBloomProgress = easeInQuad(bloomProgress);
+				const radiusX = tunnel.halfWidth * easedBloomProgress;
+				const radiusY = tunnel.halfHeight * easedBloomProgress;
 				const alphaHex = Math.round((1 - tunnel.age / tunnel.duration) * 120)
 					.toString(16)
 					.padStart(2, '0');
 
+				if (tunnel.glow) {
+					p.noStroke();
+					p.fill(`${tunnel.color}22`);
+					p.ellipse(tunnel.centerX, tunnel.centerY, radiusX * 2.6, radiusY * 2.6);
+				}
+
+				const gridAlphaHex = Math.round((1 - tunnel.age / tunnel.duration) * 168)
+					.toString(16)
+					.padStart(2, '0');
+				const gridColor = `${tunnel.color}${gridAlphaHex}`;
+
+				p.noFill();
+				p.stroke(gridColor);
+				p.strokeWeight(1.1);
+
+				for (let ringIndex = 0; ringIndex < 8; ringIndex += 1) {
+					const ringT = ringIndex / 7;
+					const ringScale = 1 - ringT * 0.78;
+					p.ellipse(
+						tunnel.centerX,
+						tunnel.centerY,
+						Math.max(10, radiusX * 2 * ringScale),
+						Math.max(10, radiusY * 2 * ringScale)
+					);
+				}
+
+				for (let spokeIndex = 0; spokeIndex < 20; spokeIndex += 1) {
+					const angle = (spokeIndex / 20) * Math.PI * 2;
+					const outerX = tunnel.centerX + Math.cos(angle) * radiusX;
+					const outerY = tunnel.centerY + Math.sin(angle) * radiusY;
+					const innerX = tunnel.centerX + Math.cos(angle) * radiusX * 0.14;
+					const innerY = tunnel.centerY + Math.sin(angle) * radiusY * 0.14;
+					p.line(outerX, outerY, innerX, innerY);
+				}
+
 				p.noStroke();
 				p.fill(`${tunnel.color}${alphaHex}`);
-				p.rect(left, topY, width, slabHeight, 6);
-				p.rect(left, bottomY, width, slabHeight, 6);
+				p.ellipse(tunnel.centerX, tunnel.centerY, radiusX * 2, radiusY * 2);
+				p.fill('#050308cc');
+				p.ellipse(tunnel.centerX, tunnel.centerY, radiusX * 1.05, radiusY * 1.05);
+				p.fill(
+					`${tunnel.color}${Math.round((1 - tunnel.age / tunnel.duration) * 210)
+						.toString(16)
+						.padStart(2, '0')}`
+				);
+				p.ellipse(tunnel.centerX, tunnel.centerY, radiusX * 0.22, radiusY * 0.22);
 			}
 
 			for (const phaseshift of phaseshifts) {
@@ -3904,6 +4075,7 @@ export function createCampaignSketch(
 				);
 				currentLevel = levels[currentLevelIndex];
 				status = initialResumeState.status;
+				levelRewardsCommitted = initialResumeState.levelRewardsCommitted;
 				statusTimer = initialResumeState.statusTimer;
 				currentSweepIndex = initialResumeState.currentSweepIndex;
 				spawnAccumulator = initialResumeState.spawnAccumulator;

@@ -55,6 +55,64 @@ export const campaign4Weapons: LoadoutItemDefinition[] = [
 		role: 'Rare void control weapon that compresses enemies around the closest target and marks them to take more elemental damage'
 	},
 	{
+		id: 'black-hole',
+		name: 'Black Hole',
+		rarity: 'rare',
+		shape: {
+			width: 5,
+			height: 5,
+			cells: [
+				[2, 0],
+				[1, 1],
+				[2, 1],
+				[3, 1],
+				[0, 2],
+				[1, 2],
+				[2, 2],
+				[3, 2],
+				[4, 2],
+				[1, 3],
+				[2, 3],
+				[3, 3],
+				[2, 4]
+			]
+		},
+		baseDamage: 0,
+		projectileSpeed: 0,
+		attack: {
+			kind: 'single',
+			projectileCount: 1,
+			cycleInterval: 3,
+			requiredInfusion: 'void',
+			requiredInfusionCount: 1,
+			special: {
+				type: 'void-tunnel',
+				duration: 2,
+				halfWidth: 120,
+				halfHeight: 120,
+				pullStrength: 300,
+				debuffDuration: 3,
+				elementalDamageMultiplier: 1.3
+			},
+			targeting: 'furthest-target'
+		},
+		projectileVisual: {
+			color: '#a78bfa',
+			size: 'large',
+			shape: 'orb',
+			trail: 'pulse',
+			glow: true
+		},
+		drop: {
+			mode: 'drop',
+			campaignId: 4,
+			stageStart: 1,
+			stageEnd: 5,
+			perLevelDropChance: 0.12
+		},
+		role: 'Rare void control weapon that forms a local black hole around the furthest target, pulling nearby glitches inward and marking them to take more elemental damage'
+	},
+	{
 		id: 'phaseshift',
 		name: 'Phaseshift',
 		rarity: 'legendary',
