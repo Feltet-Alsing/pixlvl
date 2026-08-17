@@ -15,7 +15,10 @@
 		rotateWeaponShape
 	} from '$lib/game/loadout-rotation';
 	import { createBaselineUpgradeablePixlState } from '$lib/game/upgrades';
-	import { createCampaignSketch } from '$lib/p5/campaign-1-sketch';
+	import {
+		createCampaignSketch,
+		type CampaignCombatResumeState
+	} from '$lib/p5/campaign-1-sketch';
 	import {
 		buildGridCells,
 		buildInventoryWeaponGroups,
@@ -110,6 +113,8 @@
 		completed: boolean;
 	}
 
+	let combatResumeState = $state.raw<CampaignCombatResumeState | null>(null);
+
 	const scrapValueByRarity = {
 		normal: 5,
 		magic: 25,
@@ -119,6 +124,8 @@
 	} as const;
 	const MOBILE_LAYOUT_BREAKPOINT = 860;
 	const getArenaResumeStorageKey = (campaignId: number) => `pixlvl-arena-resume-${campaignId}`;
+	const getArenaCombatResumeStorageKey = (campaignId: number) =>
+		`pixlvl-arena-combat-resume-${campaignId}`;
 	const TARGETING_OPTIONS: Array<{ value: WeaponTargetingKind; label: string }> = [
 		{ value: 'nearest-target', label: 'nearest target' },
 		{ value: 'furthest-target', label: 'furthest target' },
@@ -334,10 +341,12 @@
 				persistPath: '/api/game/state',
 				runMode: 'combat',
 				showLoadoutSketch: false,
+				resumeState: combatResumeState,
 				pixlState: hiddenSketchPixlState,
 				campaignState: liveCampaignState ?? data.campaignState ?? null,
 				onStateChange: handleBackgroundStateChange,
-				onCombatStateChange: handleBackgroundCombatStateChange
+				onCombatStateChange: handleBackgroundCombatStateChange,
+				onResumeStateChange: handleBackgroundResumeStateChange
 			})(p);
 	});
 	let draggedInventoryWeapon = $derived(
@@ -507,6 +516,30 @@
 	});
 
 	$effect(() => {
+		if (typeof sessionStorage === 'undefined') {
+			return;
+		}
+
+		const combatResumeText = sessionStorage.getItem(getArenaCombatResumeStorageKey(data.campaignId));
+
+		if (!combatResumeText) {
+			return;
+		}
+
+		try {
+			const resumeState = JSON.parse(combatResumeText) as CampaignCombatResumeState;
+
+			if (resumeState.campaignId !== data.campaignId) {
+				return;
+			}
+
+			combatResumeState = resumeState;
+		} catch {
+			// Ignore malformed combat resume snapshots.
+		}
+	});
+
+	$effect(() => {
 		if (!scrapDialog) {
 			return;
 		}
@@ -660,6 +693,14 @@
 
 	function handleBackgroundCombatStateChange(update: LiveCombatProgress) {
 		liveCombatProgressOverride = update;
+	}
+
+	function handleBackgroundResumeStateChange(update: CampaignCombatResumeState) {
+		if (typeof sessionStorage === 'undefined') {
+			return;
+		}
+
+		sessionStorage.setItem(getArenaCombatResumeStorageKey(data.campaignId), JSON.stringify(update));
 	}
 
 	function markRotationTipSeen() {

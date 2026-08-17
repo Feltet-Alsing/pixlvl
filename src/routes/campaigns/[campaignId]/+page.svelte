@@ -18,7 +18,11 @@
 		createInitialCombatOverlay,
 		type CombatOverlayState
 	} from './arena-helpers';
-	import { createCampaignSketch, createLoadoutSweepPreviewSketch } from '$lib/p5/campaign-1-sketch';
+	import {
+		createCampaignSketch,
+		createLoadoutSweepPreviewSketch,
+		type CampaignCombatResumeState
+	} from '$lib/p5/campaign-1-sketch';
 	import {
 		applyUpgradePurchase,
 		createUpgradeablePixlState,
@@ -83,6 +87,8 @@
 
 	const MOBILE_LAYOUT_BREAKPOINT = 860;
 	const getArenaResumeStorageKey = (campaignId: number) => `pixlvl-arena-resume-${campaignId}`;
+	const getArenaCombatResumeStorageKey = (campaignId: number) =>
+		`pixlvl-arena-combat-resume-${campaignId}`;
 
 	let { data, form }: PageProps = $props();
 	let innerWidth = $state<number | null>(null);
@@ -92,6 +98,8 @@
 	let showStageDrawer = $state(false);
 	let showLoadoutPreview = $state(true);
 	let skipResultsSignal = $state(0);
+	let combatResumeState = $state.raw<CampaignCombatResumeState | null>(null);
+	let latestCombatResumeState = $state.raw<CampaignCombatResumeState | null>(null);
 	let pixlStateOverride = $state.raw<PixlStateOverride | null>(null);
 	let campaignStateOverride = $state.raw<CampaignStateOverride | null>(null);
 	let livePixlState: LivePixlState | null = $derived.by(() => {
@@ -248,6 +256,20 @@
 			return;
 		}
 
+		const combatResumeText = sessionStorage.getItem(getArenaCombatResumeStorageKey(data.campaignId));
+
+		if (combatResumeText) {
+			try {
+				const resumeState = JSON.parse(combatResumeText) as CampaignCombatResumeState;
+				if (resumeState.campaignId === data.campaignId) {
+					combatResumeState = resumeState;
+					sessionStorage.removeItem(getArenaCombatResumeStorageKey(data.campaignId));
+				}
+			} catch {
+				// Ignore malformed combat resume snapshots.
+			}
+		}
+
 		const snapshotText = sessionStorage.getItem(getArenaResumeStorageKey(data.campaignId));
 
 		if (!snapshotText) {
@@ -349,6 +371,10 @@
 		combatOverlayOverride = update;
 	}
 
+	function handleCombatResumeStateChange(update: CampaignCombatResumeState) {
+		latestCombatResumeState = update;
+	}
+
 	function setCampaignMenuOpen(nextOpen: boolean) {
 		showStageDrawer = nextOpen;
 
@@ -366,6 +392,13 @@
 	async function persistArenaStateBeforeLeaving() {
 		if (!data.gameState || !livePixlState || !liveCampaignState) {
 			return;
+		}
+
+		if (typeof sessionStorage !== 'undefined' && latestCombatResumeState) {
+			sessionStorage.setItem(
+				getArenaCombatResumeStorageKey(data.campaignId),
+				JSON.stringify(latestCombatResumeState)
+			);
 		}
 
 		const mergedOwnedWeapons = Array.from(
@@ -507,10 +540,12 @@
 				persistPath: '/api/game/state',
 				runMode,
 				showLoadoutSketch: false,
+				resumeState: combatResumeState,
 				pixlState: livePixlState ?? data.gameState?.pixlState ?? null,
 				campaignState: liveCampaignState ?? data.campaignState ?? null,
 				getSkipResultsSignal: () => skipResultsSignal,
 				onCombatStateChange: handleCombatStateChange,
+				onResumeStateChange: handleCombatResumeStateChange,
 				onStateChange: handleSketchStateChange
 			})(p);
 	});

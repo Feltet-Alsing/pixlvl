@@ -445,6 +445,7 @@ interface CampaignSketchOptions {
 	persistPath?: string;
 	runMode?: RunMode;
 	showLoadoutSketch?: boolean;
+	resumeState?: CampaignCombatResumeState | null;
 	pixlState?: SharedPixlStateInput | null;
 	campaignState?: Pick<
 		PersistedCampaignProgress,
@@ -481,6 +482,7 @@ interface CampaignSketchOptions {
 		}>;
 		status: WaveStatus;
 	}) => void;
+	onResumeStateChange?: (state: CampaignCombatResumeState) => void;
 	getSkipResultsSignal?: () => number;
 	onStateChange?: (state: {
 		xp: number;
@@ -498,6 +500,28 @@ interface CampaignSketchOptions {
 		highestClearedLevel: number;
 		completed: boolean;
 	}) => void;
+}
+
+export interface CampaignCombatResumeState {
+	campaignId: number;
+	currentLevel: number;
+	status: WaveStatus;
+	statusTimer: number;
+	currentSweepIndex: number;
+	spawnAccumulator: number;
+	sweepProgress: number;
+	bankedXp: number;
+	waveXp: number;
+	waveDrops: OwnedWeaponInstance[];
+	pixlHealth: number;
+	pixlShieldPool: number;
+	activeShieldColor: string;
+	enemyId: number;
+	spawnQueue: GlitchKind[];
+	enemies: EnemyState[];
+	highestUnlockedLevel: number;
+	highestClearedLevel: number;
+	completed: boolean;
 }
 
 function createWeaponInstanceId(randomInt: number) {
@@ -787,8 +811,11 @@ export function createCampaignSketch(
 		let highestUnlockedLevel = options.campaignState?.highestUnlockedLevel ?? currentLevelIndex + 1;
 		let completed = options.campaignState?.completed ?? false;
 		let lastCombatStateKey = '';
+		let lastResumeStateKey = '';
 		let lastSkipResultsSignal = options.getSkipResultsSignal?.() ?? 0;
 		let levelRewardsCommitted = false;
+		const initialResumeState =
+			options.resumeState?.campaignId === campaign.campaign ? options.resumeState : null;
 
 		const persistProgress = (
 			nextCurrentLevel: number,
@@ -996,6 +1023,39 @@ export function createCampaignSketch(
 
 			lastCombatStateKey = nextKey;
 			options.onCombatStateChange?.(combatState);
+		};
+
+		const emitResumeState = () => {
+			const resumeState: CampaignCombatResumeState = {
+				campaignId: campaign.campaign,
+				currentLevel: currentLevel.campaignLevel,
+				status,
+				statusTimer,
+				currentSweepIndex,
+				spawnAccumulator,
+				sweepProgress,
+				bankedXp,
+				waveXp,
+				waveDrops,
+				pixlHealth,
+				pixlShieldPool,
+				activeShieldColor,
+				enemyId,
+				spawnQueue,
+				enemies,
+				highestUnlockedLevel,
+				highestClearedLevel,
+				completed
+			};
+
+			const nextKey = JSON.stringify(resumeState);
+
+			if (nextKey === lastResumeStateKey) {
+				return;
+			}
+
+			lastResumeStateKey = nextKey;
+			options.onResumeStateChange?.(resumeState);
 		};
 
 		const getWeaponDropChance = (item: LoadoutItemDefinition) => {
@@ -3834,8 +3894,31 @@ export function createCampaignSketch(
 		p.setup = () => {
 			canvas = p.createCanvas(MAX_WIDTH, BASE_HEIGHT).elt as HTMLCanvasElement;
 			syncCanvasSize();
-			startLevel(currentLevelIndex);
+			if (initialResumeState) {
+				currentLevelIndex = Math.max(0, Math.min(initialResumeState.currentLevel - 1, levels.length - 1));
+				currentLevel = levels[currentLevelIndex];
+				status = initialResumeState.status;
+				statusTimer = initialResumeState.statusTimer;
+				currentSweepIndex = initialResumeState.currentSweepIndex;
+				spawnAccumulator = initialResumeState.spawnAccumulator;
+				sweepProgress = initialResumeState.sweepProgress;
+				bankedXp = initialResumeState.bankedXp;
+				waveXp = initialResumeState.waveXp;
+				waveDrops = [...initialResumeState.waveDrops];
+				pixlHealth = initialResumeState.pixlHealth;
+				pixlShieldPool = initialResumeState.pixlShieldPool;
+				activeShieldColor = initialResumeState.activeShieldColor;
+				enemyId = initialResumeState.enemyId;
+				spawnQueue = [...initialResumeState.spawnQueue];
+				enemies = initialResumeState.enemies.map((enemy) => ({ ...enemy }));
+				highestUnlockedLevel = initialResumeState.highestUnlockedLevel;
+				highestClearedLevel = initialResumeState.highestClearedLevel;
+				completed = initialResumeState.completed;
+			} else {
+				startLevel(currentLevelIndex);
+			}
 			emitCombatState();
+			emitResumeState();
 		};
 
 		p.draw = () => {
@@ -3891,6 +3974,7 @@ export function createCampaignSketch(
 			}
 
 			emitCombatState();
+			emitResumeState();
 
 			drawScaledArenaLayer(drawArena);
 			if (showLoadoutSketch) {
