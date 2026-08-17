@@ -128,24 +128,26 @@
 
 <style>
 	.campaign-drawer {
-		position: absolute;
-		top: 0;
-		left: 0;
-		bottom: 0;
-		z-index: 5;
-		width: min(24rem, 100vw);
+		position: static;
+		width: 100%;
+		height: 100%;
 		max-width: 100%;
+		max-height: 100%;
+		min-height: 0;
 		padding: 1rem;
 		display: grid;
+		grid-template-rows: auto auto auto auto minmax(0, 1fr);
 		align-content: start;
 		gap: 0.85rem;
+		align-self: stretch;
 		box-sizing: border-box;
-		border-right: 1px solid rgba(255, 255, 255, 0.08);
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		border-radius: 1.1rem;
 		background: rgba(10, 10, 10, 0.92);
-		box-shadow: 24px 0 60px rgba(0, 0, 0, 0.42);
+		box-shadow: 0 24px 60px rgba(0, 0, 0, 0.32);
 		backdrop-filter: blur(12px);
 		pointer-events: auto;
-		overflow: auto;
+		overflow: hidden;
 	}
 
 	.campaign-drawer-header,
@@ -160,6 +162,12 @@
 		grid-template-columns: minmax(0, 1fr) auto auto;
 		align-items: start;
 		gap: 0.75rem;
+	}
+
+	.campaign-stage-list {
+		min-height: 0;
+		overflow: auto;
+		padding-right: 0.2rem;
 	}
 
 	.compact-heading {
@@ -277,11 +285,18 @@
 			position: static;
 			inset: auto;
 			width: 100%;
+			height: auto;
+			max-height: none;
 			padding: 0.8rem;
-			border-right: 0;
-			border-radius: 1.1rem;
+			grid-template-rows: none;
+			border-right: 1px solid rgba(255, 255, 255, 0.08);
 			box-shadow: 0 24px 60px rgba(0, 0, 0, 0.32);
 			overflow: visible;
+		}
+
+		.campaign-stage-list {
+			overflow: visible;
+			padding-right: 0;
 		}
 
 		.campaign-drawer-header {

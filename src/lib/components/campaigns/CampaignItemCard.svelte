@@ -54,6 +54,7 @@
 	let resolvedSubtitle = $derived(subtitle ?? definition.role);
 	let resolvedMetaRows = $derived(metaRows?.length ? metaRows : buildDefaultMetaRows(definition));
 	let resolvedHeaderStartLabel = $derived(headerStartLabel ?? '');
+	let elementalRequirementLabel = $derived(getElementalRequirementLabel(definition));
 	let stageSize = $derived(size === 'compact' ? 94 : 118);
 	let shapeGridStyle = $derived(getShapeGridStyle(definition.shape, stageSize));
 
@@ -98,6 +99,14 @@
 	function buildDefaultMetaRows(item: LoadoutItemDefinition): MetaRow[] {
 		if (isWeaponDefinition(item)) {
 			return [
+				...(item.attack.requiredInfusion
+					? [
+							{
+								label: 'Infusion',
+								value: getElementalRequirementLabel(item) ?? 'Required'
+							}
+						]
+					: []),
 				{ label: 'Damage', value: item.baseDamage.toString() },
 				{
 					label: 'Volley',
@@ -112,6 +121,16 @@
 			{ label: 'Cycle', value: formatCycleLabel(item.cycleInterval) },
 			{ label: 'Effect', value: formatUtilityEffect(item) }
 		];
+	}
+
+	function getElementalRequirementLabel(item: LoadoutItemDefinition) {
+		if (!isWeaponDefinition(item) || !item.attack.requiredInfusion) {
+			return null;
+		}
+
+		const requiredCount = Math.max(1, item.attack.requiredInfusionCount ?? 1);
+		const infusionLabel = formatLabel(item.attack.requiredInfusion);
+		return `${requiredCount} ${infusionLabel} infusion${requiredCount === 1 ? '' : 's'}`;
 	}
 
 	function formatAttackLabel(attack: WeaponAttackBehavior) {
@@ -177,8 +196,11 @@
 			<span class="header-pill">{resolvedHeaderStartLabel}</span>
 		{/if}
 		<div class="card-heading">
-			<p class="card-eyebrow">{resolvedEyebrow}</p>
+			<p class="card-eyebrow">{elementalRequirementLabel ? 'Elemental weapon' : resolvedEyebrow}</p>
 			<strong>{resolvedTitle}</strong>
+			{#if elementalRequirementLabel}
+				<span class="elemental-pill">{elementalRequirementLabel}</span>
+			{/if}
 		</div>
 		<span class="rarity-pill">{formatLabel(definition.rarity)}</span>
 	</div>
@@ -266,7 +288,8 @@
 	.card-eyebrow,
 	.meta-cell span,
 	.header-pill,
-	.rarity-pill {
+	.rarity-pill,
+	.elemental-pill {
 		font-size: 0.66rem;
 		letter-spacing: 0.1em;
 		text-transform: uppercase;
@@ -286,6 +309,19 @@
 
 	.size-compact .card-heading strong {
 		font-size: 0.92rem;
+	}
+
+	.elemental-pill {
+		display: inline-flex;
+		justify-self: start;
+		align-items: center;
+		padding: 0.24rem 0.5rem;
+		border-radius: 999px;
+		border: 1px solid rgba(103, 217, 111, 0.38);
+		background: rgba(103, 217, 111, 0.12);
+		color: #c9f8cc;
+		font-weight: 700;
+		white-space: nowrap;
 	}
 
 	.header-pill,

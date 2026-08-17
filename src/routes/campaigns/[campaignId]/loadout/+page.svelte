@@ -37,7 +37,6 @@
 		isLabelCell,
 		isPointWithinElementBounds,
 		isShapeCellFilled,
-		setShapeGridDragImage,
 		type GridCell,
 		type InventoryWeapon,
 		type InventoryWeaponGroup,

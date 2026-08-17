@@ -4,7 +4,6 @@ import {
 	getCampaign,
 	getCampaignCombatProfile,
 	getLoadoutItemDefinition,
-	getWeaponDefinition,
 	getCampaignWeaponPool
 } from '$lib/data';
 import { applyUpgradePurchase, isUpgradeKey } from '$lib/game/upgrades';

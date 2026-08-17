@@ -201,14 +201,6 @@
 			0
 		);
 	});
-	let averageLevelDamageShare = $derived.by(() => {
-		if (combatOverlay.weaponDamageRows.length === 0) {
-			return 0;
-		}
-
-		return 100 / combatOverlay.weaponDamageRows.length;
-	});
-
 	function formatDamageValue(value: number) {
 		return Number.isInteger(value)
 			? value.toString()
@@ -453,6 +445,8 @@
 
 {#snippet transientArenaOverlays()}
 	{#if runMode === 'combat'}
+		{@render combatHudPanel()}
+
 		{#if showResultsPopup}
 			<LevelResultsPopup
 				campaignNumber={data.campaign.campaign}
@@ -475,41 +469,9 @@
 
 {#snippet loadoutPreviewPanel()}
 	<aside class="overlay loadout-preview-panel" aria-label="Loadout sweep preview">
-		<div class="loadout-preview-header compact-heading">
-			<p class="eyebrow">Loadout sweep</p>
-			<p class="upgrade-note">
-				Live preview synced to equipped weapons, attack speed, and loadout size.
-			</p>
-		</div>
-		<div class="loadout-preview-meta summary-row">
-			<span>Equipped</span>
-			<strong>{currentLoadoutRows.length}</strong>
-		</div>
-		<div class="loadout-preview-meta summary-row">
-			<span>Avg lvl share</span>
-			<strong>{formatDamageValue(averageLevelDamageShare)}%</strong>
-		</div>
-		{#if previewLoadoutRows.length > 0}
-			<div class="loadout-preview-list" aria-label="Equipped weapons sorted by rarity">
-				{#each previewLoadoutRows as weapon (weapon.weaponInstanceId)}
-					<div class={`summary-row loadout-preview-row rarity-${weapon.rarity}`}>
-						<div class="loadout-preview-copy">
-							<strong>{weapon.name}</strong>
-							<span>{weapon.rarity}</span>
-						</div>
-						<span class="loadout-preview-coords">{weapon.x},{weapon.y}</span>
-					</div>
-				{/each}
-			</div>
-		{:else}
-			<p class="loadout-preview-empty">No equipped weapons.</p>
-		{/if}
 		<div class="loadout-preview-damage-block" aria-label="Weapon damage overview">
 			<div class="loadout-preview-damage-header compact-heading">
 				<p class="eyebrow">Damage overview</p>
-				<p class="upgrade-note">
-					Showing actual damage dealt across the whole level, averaged per completed cycle.
-				</p>
 			</div>
 			{#if combatOverlay.latestCompletedCycle > 0 && combatOverlay.weaponDamageRows.length > 0}
 				<div class="loadout-preview-damage-list" role="list" aria-label="Weapon damage dealt">
@@ -561,11 +523,7 @@
 						showSweeperToggle={true}
 						showStatsToggle={true}
 						onToggleCampaignMenu={() => {
-							const nextOpen = !showStageDrawer;
-							if (nextOpen) {
-								showStatsOverlay = false;
-							}
-							setCampaignMenuOpen(nextOpen);
+							setCampaignMenuOpen(!showStageDrawer);
 						}}
 						campaignMenuEnabled={showStageDrawer}
 						onToggleSweeper={() => {
@@ -574,9 +532,6 @@
 						sweeperEnabled={showLoadoutPreview}
 						onToggleStats={() => {
 							showStatsOverlay = !showStatsOverlay;
-							if (showStatsOverlay) {
-								setCampaignMenuOpen(false);
-							}
 						}}
 						statsEnabled={showStatsOverlay}
 					/>
@@ -610,7 +565,6 @@
 			{#if !isMobileLayout && runMode === 'combat'}
 				<div class="desktop-panel-rail desktop-panel-rail-end">
 					{@render statsOverlayPanel()}
-					{@render combatHudPanel()}
 
 					{#if showLoadoutPreview}
 						{@render loadoutPreviewPanel()}
@@ -623,7 +577,6 @@
 			<div class="mobile-panel-stack">
 				{@render campaignDrawerPanel()}
 				{@render statsOverlayPanel()}
-				{@render combatHudPanel()}
 
 				{#if runMode === 'combat' && showLoadoutPreview}
 					{@render loadoutPreviewPanel()}
@@ -972,17 +925,25 @@
 	}
 
 	.combat-panel {
-		width: 100%;
-		padding: 0.52rem 0.72rem;
+		grid-column: 1;
+		grid-row: 3;
+		justify-self: center;
+		align-self: end;
+		width: min(28rem, calc(100% - 1.2rem));
+		padding: 0.38rem 0.56rem 0.42rem;
 		display: grid;
-		gap: 0.4rem;
+		gap: 0.24rem;
+		background: rgba(6, 8, 12, 0.76);
+		border-color: rgba(255, 255, 255, 0.06);
+		box-shadow: 0 12px 32px rgba(0, 0, 0, 0.24);
+		backdrop-filter: blur(10px);
 	}
 
 	.combat-title {
-		font-size: 0.72rem;
-		letter-spacing: 0.14em;
+		font-size: 0.58rem;
+		letter-spacing: 0.18em;
 		text-transform: uppercase;
-		color: #cfcfcf;
+		color: rgba(220, 224, 232, 0.84);
 	}
 
 	.combat-grid {
@@ -1006,12 +967,12 @@
 
 	.combat-bars {
 		display: grid;
-		gap: 0.28rem;
+		gap: 0.16rem;
 	}
 
 	.combat-bar-group {
 		display: grid;
-		gap: 0.12rem;
+		gap: 0.08rem;
 	}
 
 	.combat-bar-meta {
@@ -1022,23 +983,23 @@
 	}
 
 	.combat-bar-meta span {
-		font-size: 0.63rem;
+		font-size: 0.54rem;
 		font-weight: 700;
-		letter-spacing: 0.12em;
+		letter-spacing: 0.16em;
 		text-transform: uppercase;
-		color: #8abdcf;
+		color: rgba(138, 189, 207, 0.88);
 	}
 
 	.combat-bar-meta strong {
-		font-size: 0.74rem;
-		color: #dff8ff;
+		font-size: 0.64rem;
+		color: #e4f7ff;
 		text-align: right;
 	}
 
 	.combat-health {
-		height: 0.32rem;
+		height: 0.2rem;
 		border-radius: 999px;
-		background: rgba(255, 255, 255, 0.08);
+		background: rgba(255, 255, 255, 0.06);
 		overflow: hidden;
 	}
 
@@ -1050,9 +1011,9 @@
 	}
 
 	.combat-xp {
-		height: 0.3rem;
+		height: 0.18rem;
 		border-radius: 999px;
-		background: rgba(93, 210, 255, 0.14);
+		background: rgba(93, 210, 255, 0.1);
 		overflow: hidden;
 	}
 
@@ -1096,32 +1057,17 @@
 		min-height: 0;
 		padding: 0.9rem;
 		display: grid;
-		grid-template-rows: auto auto auto auto minmax(0, 1fr) minmax(12rem, 16rem);
+		grid-template-rows: minmax(14rem, 1fr) minmax(9rem, 12rem);
 		gap: 0.75rem;
-		overflow: hidden;
-	}
-
-	.loadout-preview-header {
-		display: grid;
-		gap: 0.2rem;
-	}
-
-	.loadout-preview-meta {
-		align-items: center;
-	}
-
-	.loadout-preview-list {
-		display: grid;
-		gap: 0.45rem;
-		max-height: 12rem;
 		overflow: auto;
+		height: 100%;
 	}
 
 	.loadout-preview-damage-block {
 		display: grid;
 		grid-template-rows: auto minmax(0, 1fr);
 		gap: 0.45rem;
-		min-height: 0;
+		min-height: 12rem;
 		overflow: hidden;
 		padding: 0.7rem;
 		border-radius: 1rem;
@@ -1139,11 +1085,6 @@
 		gap: 0.45rem;
 		min-height: 0;
 		overflow: auto;
-	}
-
-	.loadout-preview-row {
-		align-items: center;
-		padding: 0.55rem 0.7rem;
 	}
 
 	.loadout-preview-damage-row {
@@ -1174,16 +1115,11 @@
 
 	.loadout-preview-copy span,
 	.loadout-preview-damage-metrics span,
-	.loadout-preview-coords,
 	.loadout-preview-empty {
 		font-size: 0.72rem;
 		letter-spacing: 0.06em;
 		text-transform: uppercase;
 		color: #cfcfcf;
-	}
-
-	.loadout-preview-coords {
-		white-space: nowrap;
 	}
 
 	.loadout-preview-empty {
@@ -1192,8 +1128,9 @@
 
 	.loadout-preview-canvas-shell {
 		min-width: 0;
-		min-height: 0;
-		height: 100%;
+		min-height: 9rem;
+		height: auto;
+		max-height: 12rem;
 		padding: 0.35rem;
 		border-radius: 1rem;
 		border: 1px solid rgba(255, 255, 255, 0.08);
@@ -1413,8 +1350,9 @@
 
 		.loadout-preview-panel {
 			overflow: visible;
-			grid-template-rows: auto auto auto auto auto auto;
+			grid-template-rows: auto auto;
 			min-height: fit-content;
+			height: auto;
 		}
 
 		.loadout-preview-list,
@@ -1434,10 +1372,11 @@
 		}
 
 		.combat-panel {
-			grid-row: auto;
-			width: min(100%, 22rem);
-			max-width: 22rem;
+			grid-row: 3;
+			width: min(19rem, calc(100% - 0.6rem));
+			max-width: calc(100% - 0.6rem);
 			justify-self: center;
+			align-self: end;
 		}
 
 		.shop-panel {
@@ -1470,7 +1409,7 @@
 			min-height: 0;
 			padding: 0.75rem;
 			gap: 0.6rem;
-			grid-template-rows: auto auto auto minmax(0, 7.5rem) minmax(0, 10rem) minmax(8.5rem, 10rem);
+			grid-template-rows: minmax(10rem, auto) minmax(8.5rem, 10rem);
 		}
 
 		.loadout-preview-list {
@@ -1525,33 +1464,32 @@
 		}
 
 		.combat-panel {
-			width: min(100%, 18.6rem);
-			max-width: 18.6rem;
-			padding: 0.46rem 0.58rem;
-			gap: 0.32rem;
+			width: min(17.25rem, calc(100% - 0.5rem));
+			max-width: calc(100% - 0.5rem);
+			padding: 0.34rem 0.46rem 0.38rem;
+			gap: 0.2rem;
 		}
 
 		.combat-title {
-			font-size: 0.66rem;
-			letter-spacing: 0.1em;
+			font-size: 0.52rem;
+			letter-spacing: 0.14em;
 		}
 
 		.combat-bar-meta span {
-			font-size: 0.58rem;
-			letter-spacing: 0.08em;
+			font-size: 0.5rem;
+			letter-spacing: 0.12em;
 		}
 
 		.combat-bar-meta strong {
-			font-size: 0.68rem;
+			font-size: 0.58rem;
 		}
 
 		.loadout-preview-panel {
 			padding: 0.65rem;
 			gap: 0.5rem;
-			grid-template-rows: auto auto auto auto auto auto;
+			grid-template-rows: auto auto;
 		}
 
-		.loadout-preview-row,
 		.loadout-preview-damage-row {
 			padding: 0.42rem 0.5rem;
 		}

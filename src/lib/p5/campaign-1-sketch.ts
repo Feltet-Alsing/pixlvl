@@ -712,24 +712,31 @@ export function createCampaignSketch(
 		let completed = options.campaignState?.completed ?? false;
 		let lastCombatStateKey = '';
 		let lastSkipResultsSignal = options.getSkipResultsSignal?.() ?? 0;
+		let levelRewardsCommitted = false;
 
-		const persistProgress = (nextCurrentLevel: number) => {
-			options.onStateChange?.({
-				xp: pixlProgression.xp,
-				level: pixlProgression.level,
-				perkPoints: pixlProgression.perkPoints,
-				defence: pixlProgression.defence,
-				agility: pixlProgression.agility,
-				health: pixlProgression.health,
-				attackSpeed: pixlProgression.attackSpeed,
-				loadoutRows: pixlProgression.loadoutRows,
-				loadoutColumns: pixlProgression.loadoutColumns,
-				ownedWeapons,
-				currentLevel: nextCurrentLevel,
-				highestUnlockedLevel,
-				highestClearedLevel,
-				completed
-			});
+		const persistProgress = (
+			nextCurrentLevel: number,
+			optimisticCurrentLevel = nextCurrentLevel,
+			emitLocalState = true
+		) => {
+			if (emitLocalState) {
+				options.onStateChange?.({
+					xp: pixlProgression.xp,
+					level: pixlProgression.level,
+					perkPoints: pixlProgression.perkPoints,
+					defence: pixlProgression.defence,
+					agility: pixlProgression.agility,
+					health: pixlProgression.health,
+					attackSpeed: pixlProgression.attackSpeed,
+					loadoutRows: pixlProgression.loadoutRows,
+					loadoutColumns: pixlProgression.loadoutColumns,
+					ownedWeapons,
+					currentLevel: optimisticCurrentLevel,
+					highestUnlockedLevel,
+					highestClearedLevel,
+					completed
+				});
+			}
 
 			if (!persistenceEnabled || !options.persistPath) {
 				return;
@@ -760,6 +767,25 @@ export function createCampaignSketch(
 				})
 			}).catch(() => {
 				// Keep the simulation running even if persistence fails.
+			});
+		};
+
+		const emitProgressState = (nextCurrentLevel: number) => {
+			options.onStateChange?.({
+				xp: pixlProgression.xp,
+				level: pixlProgression.level,
+				perkPoints: pixlProgression.perkPoints,
+				defence: pixlProgression.defence,
+				agility: pixlProgression.agility,
+				health: pixlProgression.health,
+				attackSpeed: pixlProgression.attackSpeed,
+				loadoutRows: pixlProgression.loadoutRows,
+				loadoutColumns: pixlProgression.loadoutColumns,
+				ownedWeapons,
+				currentLevel: nextCurrentLevel,
+				highestUnlockedLevel,
+				highestClearedLevel,
+				completed
 			});
 		};
 
@@ -932,6 +958,7 @@ export function createCampaignSketch(
 		const startLevel = (levelIndex: number) => {
 			currentLevelIndex = levelIndex;
 			currentLevel = levels[currentLevelIndex];
+			levelRewardsCommitted = false;
 			status = 'running';
 			statusTimer = 0;
 			currentSweepIndex = 0;
@@ -2068,6 +2095,33 @@ export function createCampaignSketch(
 			waveDrops = rollLevelDrops();
 			status = currentLevelIndex === levels.length - 1 ? 'complete' : 'cleared';
 			statusTimer = status === 'complete' ? CAMPAIGN_LOOP_DELAY : LEVEL_CLEAR_DELAY;
+			commitLevelRewards();
+		};
+
+		const commitLevelRewards = () => {
+			if (levelRewardsCommitted || status === 'defeated') {
+				return;
+			}
+
+			pixlProgression = applyXpGain(pixlProgression, waveXp);
+			bankedXp = pixlProgression.xp;
+
+			if (waveDrops.length > 0) {
+				ownedWeapons = [...ownedWeapons, ...waveDrops];
+			}
+
+			highestClearedLevel = Math.max(highestClearedLevel, currentLevel.campaignLevel);
+
+			if (status === 'complete') {
+				completed = true;
+				highestUnlockedLevel = campaign.totalLevels;
+				persistProgress(campaign.totalLevels, currentLevel.campaignLevel, false);
+			} else {
+				highestUnlockedLevel = Math.max(highestUnlockedLevel, currentLevel.campaignLevel + 1);
+				persistProgress(currentLevel.campaignLevel + 1, currentLevel.campaignLevel, false);
+			}
+
+			levelRewardsCommitted = true;
 		};
 
 		const applySkipResultsSignal = () => {
@@ -3391,21 +3445,13 @@ export function createCampaignSketch(
 					if (status === 'defeated') {
 						startLevel(getCurrentStageStartLevelIndex());
 					} else {
-						pixlProgression = applyXpGain(pixlProgression, waveXp);
-						bankedXp = pixlProgression.xp;
-						if (waveDrops.length > 0) {
-							ownedWeapons = [...ownedWeapons, ...waveDrops];
-						}
-						highestClearedLevel = Math.max(highestClearedLevel, currentLevel.campaignLevel);
+						commitLevelRewards();
 
 						if (status === 'complete') {
-							completed = true;
-							highestUnlockedLevel = campaign.totalLevels;
-							persistProgress(campaign.totalLevels);
+							emitProgressState(campaign.totalLevels);
 							startLevel(0);
 						} else {
-							highestUnlockedLevel = Math.max(highestUnlockedLevel, currentLevel.campaignLevel + 1);
-							persistProgress(currentLevel.campaignLevel + 1);
+							emitProgressState(currentLevel.campaignLevel + 1);
 							startLevel(currentLevelIndex + 1);
 						}
 					}

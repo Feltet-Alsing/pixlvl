@@ -190,7 +190,7 @@ export const campaign3Weapons: LoadoutItemDefinition[] = [
 			stageEnd: 5,
 			perLevelDropChance: 0.08
 		},
-		role: 'Exotic lightning weapon that forks across every available enemy after consuming three lightning infusions'
+		role: 'Exotic lightning weapon that forks across every available enemy after consuming two lightning infusions'
 	},
 	{
 		id: 'flamethrower',

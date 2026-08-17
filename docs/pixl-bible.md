@@ -765,7 +765,7 @@ Consumption priority:
 
 Current special case:
 
-- Thor's Hammer consumes `3` lightning infusions per activation
+- Thor's Hammer consumes `2` lightning infusions per activation
 
 Design intent:
 

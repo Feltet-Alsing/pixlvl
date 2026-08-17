@@ -185,6 +185,15 @@
 
 		onGroupPick?.(group);
 	}
+
+	function handleScrapButtonPointerDown(event: PointerEvent) {
+		event.stopPropagation();
+	}
+
+	function handleScrapButtonClick(event: MouseEvent, group: InventoryWeaponGroup) {
+		event.stopPropagation();
+		onRequestScrap?.(group);
+	}
 </script>
 
 <svelte:window
@@ -255,7 +264,12 @@
 							</button>
 
 							{#if onRequestScrap && getScrapableCount(group) > 0}
-								<button class="scrap-button" type="button" onclick={() => onRequestScrap(group)}>
+								<button
+									class="scrap-button"
+									type="button"
+									onpointerdown={handleScrapButtonPointerDown}
+									onclick={(event) => handleScrapButtonClick(event, group)}
+								>
 									Scrap {getScrapableCount(group)}
 								</button>
 							{/if}
