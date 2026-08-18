@@ -849,6 +849,50 @@ Run a more deliberate tuning pass across:
 - sweep speed feel at low and mid progression
 - stage-to-stage difficulty spikes
 
+### Wave pacing update
+
+The current wave pacing direction is now explicitly tightened.
+
+Primary rule:
+
+- no level should take longer than roughly `120` seconds at the outer bound
+
+Implementation rule of thumb:
+
+- target wave pressure by increasing spawn density before increasing enemy roster complexity
+- preserve each campaign's enemy identity and roster composition style
+- avoid solving pacing by introducing new enemy types into earlier campaigns
+
+Practical tuning model:
+
+- use `totalEnemies / spawnRatePerSecond` as the first pacing proxy
+- normal levels should usually live well below the hard cap
+- bosses may run longer than normal waves, but should still remain under the same outer-bound expectation in real play
+
+Current implemented pacing decisions:
+
+- Campaign `1`
+  - early tutorial-adjacent levels now spawn significantly faster
+  - the goal is to remove low-pressure waiting without changing the roster identity
+- Campaign `2`
+  - Stage `5` levels now receive a `+50%` spawn-rate spike
+  - composition identity stays unchanged
+- Campaign `3`
+  - Stage `5` levels now receive a `+50%` spawn-rate spike
+  - composition identity stays unchanged
+- Campaign `4`
+  - spawn rate is aggressively increased across the full campaign
+  - Stage `5` still receives the additional `+50%` spawn-rate spike
+  - this campaign keeps its current enemy roster and population model, but relies on extremely high spawn density to respect the pacing cap
+
+Design intent of the update:
+
+- faster clears
+- much higher on-screen pressure
+- less dead time between threats
+- unchanged per-campaign enemy identity
+- stage `5` of every campaign should feel like a clear density escalation band
+
 ### Priority 5: combat readability and polish
 
 Improve the feel layer without changing the underlying loop.

@@ -45,7 +45,7 @@ export const campaign1: CampaignDefinition = {
 				swarmers: 0,
 				tankers: 0
 			},
-			spawnRatePerSecond: 0.3,
+			spawnRatePerSecond: 0.75,
 			xpPerEnemy: {
 				biter: 2,
 				swarmer: 3,
@@ -66,7 +66,7 @@ export const campaign1: CampaignDefinition = {
 				swarmers: 0,
 				tankers: 0
 			},
-			spawnRatePerSecond: 0.3,
+			spawnRatePerSecond: 0.75,
 			xpPerEnemy: {
 				biter: 2,
 				swarmer: 3,
@@ -87,7 +87,7 @@ export const campaign1: CampaignDefinition = {
 				swarmers: 0,
 				tankers: 0
 			},
-			spawnRatePerSecond: 0.3,
+			spawnRatePerSecond: 0.75,
 			xpPerEnemy: {
 				biter: 2,
 				swarmer: 3,
@@ -108,7 +108,7 @@ export const campaign1: CampaignDefinition = {
 				swarmers: 0,
 				tankers: 0
 			},
-			spawnRatePerSecond: 0.3,
+			spawnRatePerSecond: 0.75,
 			xpPerEnemy: {
 				biter: 2,
 				swarmer: 3,
@@ -129,7 +129,7 @@ export const campaign1: CampaignDefinition = {
 				swarmers: 2,
 				tankers: 0
 			},
-			spawnRatePerSecond: 0.3,
+			spawnRatePerSecond: 0.75,
 			xpPerEnemy: {
 				biter: 2,
 				swarmer: 3,
@@ -150,7 +150,7 @@ export const campaign1: CampaignDefinition = {
 				swarmers: 3,
 				tankers: 0
 			},
-			spawnRatePerSecond: 1,
+			spawnRatePerSecond: 1.25,
 			xpPerEnemy: {
 				biter: 2,
 				swarmer: 3,
@@ -171,7 +171,7 @@ export const campaign1: CampaignDefinition = {
 				swarmers: 3,
 				tankers: 0
 			},
-			spawnRatePerSecond: 1,
+			spawnRatePerSecond: 1.25,
 			xpPerEnemy: {
 				biter: 2,
 				swarmer: 3,
@@ -192,7 +192,7 @@ export const campaign1: CampaignDefinition = {
 				swarmers: 4,
 				tankers: 0
 			},
-			spawnRatePerSecond: 1,
+			spawnRatePerSecond: 1.25,
 			xpPerEnemy: {
 				biter: 2,
 				swarmer: 3,
@@ -213,7 +213,7 @@ export const campaign1: CampaignDefinition = {
 				swarmers: 4,
 				tankers: 1
 			},
-			spawnRatePerSecond: 1,
+			spawnRatePerSecond: 1.25,
 			xpPerEnemy: {
 				biter: 2,
 				swarmer: 3,
@@ -234,7 +234,7 @@ export const campaign1: CampaignDefinition = {
 				swarmers: 5,
 				tankers: 2
 			},
-			spawnRatePerSecond: 1,
+			spawnRatePerSecond: 1.25,
 			xpPerEnemy: {
 				biter: 2,
 				swarmer: 3,
@@ -843,7 +843,7 @@ export const campaign1: CampaignDefinition = {
 				swarmers: 15,
 				tankers: 5
 			},
-			spawnRatePerSecond: 1.5,
+			spawnRatePerSecond: 2.25,
 			xpPerEnemy: {
 				biter: 5,
 				swarmer: 6,
@@ -906,7 +906,7 @@ export const campaign1: CampaignDefinition = {
 				swarmers: 15,
 				tankers: 5
 			},
-			spawnRatePerSecond: 1.5,
+			spawnRatePerSecond: 2.25,
 			xpPerEnemy: {
 				biter: 6,
 				swarmer: 7,
@@ -927,7 +927,7 @@ export const campaign1: CampaignDefinition = {
 				swarmers: 15,
 				tankers: 5
 			},
-			spawnRatePerSecond: 1.5,
+			spawnRatePerSecond: 2.25,
 			xpPerEnemy: {
 				biter: 6,
 				swarmer: 7,
@@ -948,7 +948,7 @@ export const campaign1: CampaignDefinition = {
 				swarmers: 15,
 				tankers: 5
 			},
-			spawnRatePerSecond: 1.5,
+			spawnRatePerSecond: 2.25,
 			xpPerEnemy: {
 				biter: 6,
 				swarmer: 7,
@@ -969,7 +969,7 @@ export const campaign1: CampaignDefinition = {
 				swarmers: 16,
 				tankers: 6
 			},
-			spawnRatePerSecond: 1.5,
+			spawnRatePerSecond: 2.25,
 			xpPerEnemy: {
 				biter: 6,
 				swarmer: 7,
@@ -990,7 +990,7 @@ export const campaign1: CampaignDefinition = {
 				swarmers: 16,
 				tankers: 6
 			},
-			spawnRatePerSecond: 1.5,
+			spawnRatePerSecond: 2.25,
 			xpPerEnemy: {
 				biter: 6,
 				swarmer: 7,
@@ -1011,7 +1011,7 @@ export const campaign1: CampaignDefinition = {
 				swarmers: 17,
 				tankers: 6
 			},
-			spawnRatePerSecond: 1.5,
+			spawnRatePerSecond: 2.25,
 			xpPerEnemy: {
 				biter: 6,
 				swarmer: 7,
@@ -1032,7 +1032,7 @@ export const campaign1: CampaignDefinition = {
 				swarmers: 17,
 				tankers: 6
 			},
-			spawnRatePerSecond: 1.5,
+			spawnRatePerSecond: 2.25,
 			xpPerEnemy: {
 				biter: 6,
 				swarmer: 7,
@@ -1053,7 +1053,7 @@ export const campaign1: CampaignDefinition = {
 				swarmers: 18,
 				tankers: 6
 			},
-			spawnRatePerSecond: 1.5,
+			spawnRatePerSecond: 2.25,
 			xpPerEnemy: {
 				biter: 6,
 				swarmer: 7,
@@ -1074,7 +1074,7 @@ export const campaign1: CampaignDefinition = {
 				swarmers: 26,
 				tankers: 10
 			},
-			spawnRatePerSecond: 1.5,
+			spawnRatePerSecond: 2.25,
 			xpPerEnemy: {
 				biter: 6,
 				swarmer: 7,

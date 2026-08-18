@@ -8,6 +8,7 @@ import type {
 const stages = 5;
 const levelsPerStage = 10;
 const totalLevels = stages * levelsPerStage;
+const STAGE_FIVE_SPAWN_MULTIPLIER = 1.5;
 
 const baseline = {
 	startingEnemies: 10,
@@ -169,7 +170,7 @@ function createLevel(stage: number, stageLevel: number): CampaignLevel {
 
 	const composition = getComposition(totalEnemies, stage, stageLevel);
 	const xpPerEnemy = getXpPerEnemy(stage, stageLevel);
-	const spawnRatePerSecond = Number(
+	let spawnRatePerSecond = Number(
 		(
 			baseline.spawnRatePerSecond +
 			(stage - 1) * 0.18 +
@@ -177,6 +178,10 @@ function createLevel(stage: number, stageLevel: number): CampaignLevel {
 			(isStageBoss ? 0.1 : 0)
 		).toFixed(2)
 	);
+
+	if (stage === 5) {
+		spawnRatePerSecond = Number((spawnRatePerSecond * STAGE_FIVE_SPAWN_MULTIPLIER).toFixed(2));
+	}
 
 	return {
 		campaign: 2,
