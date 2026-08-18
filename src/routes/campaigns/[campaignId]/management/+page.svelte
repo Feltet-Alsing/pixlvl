@@ -110,7 +110,7 @@
 				<div class="route-links">
 					<a class="jump" href={resolve(`/campaigns/${data.campaignId}`)}>Return to arena</a>
 					<a class="jump" href={resolve(`/campaigns/${data.campaignId}/shop`)}>Open shop</a>
-					<a class="jump" href={resolve(`/campaigns/${data.campaignId}/stats`)}>Open stats</a>
+					<a class="jump" href={resolve(`/campaigns/${data.campaignId}?stats=open`)}>Open stats</a>
 					<a class="jump" href={resolve(`/campaigns/${data.campaignId}/loadout`)}>Open loadout</a>
 				</div>
 			</div>

@@ -54,6 +54,7 @@
 		onToggleDuplicatesOnly: () => void;
 		activeRarities: Set<WeaponDefinition['rarity']>;
 		onToggleRarity: (rarity: WeaponDefinition['rarity']) => void;
+		onIsolateRarity: (rarity: WeaponDefinition['rarity']) => void;
 		upgradedOnly: boolean;
 		onToggleUpgradedOnly: () => void;
 		isDropTargetActive: boolean;
@@ -94,6 +95,7 @@
 		onToggleDuplicatesOnly,
 		activeRarities,
 		onToggleRarity,
+		onIsolateRarity,
 		upgradedOnly,
 		onToggleUpgradedOnly,
 		isDropTargetActive,
@@ -142,14 +144,8 @@
 		return favoriteGroupIds.has(group.groupId);
 	}
 
-	function handleSortChange(event: Event) {
-		const target = event.currentTarget;
-
-		if (!(target instanceof HTMLSelectElement)) {
-			return;
-		}
-
-		onSortModeChange(target.value as InventorySortMode);
+	function selectSortMode(mode: InventorySortMode) {
+		onSortModeChange(mode);
 	}
 
 	function handleFavoriteButtonPointerDown(event: PointerEvent) {
@@ -286,16 +282,48 @@
 	</label>
 
 	<div class="toolbox-controls">
-		<label class="sort-select-wrap" for="inventory-sort-select">
-			<span>Sort</span>
-			<select id="inventory-sort-select" value={sortMode} onchange={handleSortChange}>
-				<option value="recent">Recent</option>
-				<option value="rarity">Rarity</option>
-				<option value="duplicates">Duplicates</option>
-				<option value="size">Size</option>
-				<option value="name">Name</option>
-			</select>
-		</label>
+		<div class="sort-chip-row" aria-label="Sort items">
+			<button
+				class:active-chip={sortMode === 'recent'}
+				class="filter-chip"
+				type="button"
+				onclick={() => selectSortMode('recent')}
+			>
+				Recent
+			</button>
+			<button
+				class:active-chip={sortMode === 'rarity'}
+				class="filter-chip"
+				type="button"
+				onclick={() => selectSortMode('rarity')}
+			>
+				Rarity
+			</button>
+			<button
+				class:active-chip={sortMode === 'duplicates'}
+				class="filter-chip"
+				type="button"
+				onclick={() => selectSortMode('duplicates')}
+			>
+				Dupes
+			</button>
+			<button
+				class:active-chip={sortMode === 'size'}
+				class="filter-chip"
+				type="button"
+				onclick={() => selectSortMode('size')}
+			>
+				Size
+			</button>
+			<button
+				class:active-chip={sortMode === 'name'}
+				class="filter-chip"
+				type="button"
+				onclick={() => selectSortMode('name')}
+			>
+				Name
+			</button>
+		</div>
 
 		<div class="filter-chip-row" aria-label="Inventory filters">
 			<button
@@ -331,6 +359,7 @@
 					class={`filter-chip rarity-chip rarity-${rarity}`}
 					type="button"
 					onclick={() => onToggleRarity(rarity)}
+					ondblclick={() => onIsolateRarity(rarity)}
 				>
 					{rarity}
 				</button>
@@ -484,29 +513,7 @@
 		gap: 0.55rem;
 	}
 
-	.sort-select-wrap {
-		display: grid;
-		gap: 0.35rem;
-	}
-
-	.sort-select-wrap span {
-		font-size: 0.64rem;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: #bdbdc3;
-	}
-
-	.sort-select-wrap select {
-		width: 100%;
-		min-height: 2.2rem;
-		padding: 0.55rem 0.7rem;
-		border-radius: 0.75rem;
-		border: 1px solid rgba(255, 255, 255, 0.12);
-		background: rgba(255, 255, 255, 0.04);
-		color: #f5f5f5;
-		font: inherit;
-	}
-
+	.sort-chip-row,
 	.filter-chip-row,
 	.rarity-chip-row {
 		display: flex;

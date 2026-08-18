@@ -50,11 +50,6 @@
 			key: 'loadout',
 			label: 'Loadout',
 			badge: notificationCounts.loadout
-		},
-		{
-			key: 'stats',
-			label: 'Stats',
-			badge: notificationCounts.stats
 		}
 	] as const);
 

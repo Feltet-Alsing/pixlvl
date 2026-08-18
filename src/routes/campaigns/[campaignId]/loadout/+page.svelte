@@ -1609,6 +1609,7 @@
 	function toggleInventoryRarityFilter(rarity: InventoryWeaponGroup['rarity']) {
 		if (inventoryRarityFilters.includes(rarity)) {
 			if (inventoryRarityFilters.length === 1) {
+				inventoryRarityFilters = ['normal', 'magic', 'rare', 'exotic', 'legendary'];
 				return;
 			}
 
@@ -1617,6 +1618,10 @@
 		}
 
 		inventoryRarityFilters = [...inventoryRarityFilters, rarity];
+	}
+
+	function isolateInventoryRarityFilter(rarity: InventoryWeaponGroup['rarity']) {
+		inventoryRarityFilters = [rarity];
 	}
 
 	function updatePlacedWeaponTargeting(weaponInstanceId: string, targeting: string) {
@@ -1856,6 +1861,7 @@
 					onToggleUpgradedOnly={() => (inventoryUpgradedOnly = !inventoryUpgradedOnly)}
 					activeRarities={inventoryRarityFilterSet}
 					onToggleRarity={toggleInventoryRarityFilter}
+					onIsolateRarity={isolateInventoryRarityFilter}
 					isDropTargetActive={isInventoryDropTargetActive}
 					groups={filteredInventoryWeaponGroups}
 					{draggedWeaponInstanceId}

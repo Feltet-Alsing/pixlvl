@@ -225,6 +225,7 @@
 	let resultsEmptyLabel = $derived(`No item drops. +${combatOverlay.waveXp} XP earned.`);
 	let loadoutTooltip = $derived(buildLoadoutTooltip(currentLoadoutRows));
 	let defaultCampaignMenuOpen = $derived(page.url.searchParams.get('menu') !== 'closed');
+	let defaultStatsOverlayOpen = $derived(page.url.searchParams.get('stats') === 'open');
 	let averageLevelDamageTotal = $derived.by(() => {
 		if (combatOverlay.weaponDamageRows.length === 0) {
 			return 0;
@@ -250,7 +251,7 @@
 		pixlStateOverride = null;
 		campaignStateOverride = null;
 		combatOverlayOverride = null;
-		showStatsOverlay = false;
+		showStatsOverlay = defaultStatsOverlayOpen;
 		showStageDrawer = defaultCampaignMenuOpen;
 		showLoadoutPreview = true;
 		skipResultsSignal = 0;
@@ -468,12 +469,12 @@
 			await persistArenaStateBeforeLeaving();
 		}
 
-		const target =
-			section === 'arena'
-				? resolve(`/campaigns/${data.campaignId}`)
-				: resolve(`/campaigns/${data.campaignId}/${section}`);
+		if (section === 'arena') {
+			await goto(resolve(`/campaigns/${data.campaignId}`));
+			return;
+		}
 
-		await goto(target);
+		await goto(resolve(`/campaigns/${data.campaignId}/${section}`));
 	}
 
 	const purchaseUpgrade: SubmitFunction = ({ formData }) => {
