@@ -68,10 +68,12 @@
 		grid-row: 2;
 		justify-self: center;
 		align-self: center;
-		width: min(28rem, calc(100vw - 2rem));
+		width: min(34rem, calc(100vw - 2rem));
 		max-width: 100%;
+		max-height: min(38rem, calc(100dvh - 4rem));
 		padding: 1rem;
 		display: grid;
+		grid-template-rows: auto minmax(0, 1fr) auto;
 		gap: 0.9rem;
 		text-align: left;
 		box-sizing: border-box;
@@ -93,6 +95,10 @@
 	.results-drop-list {
 		grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
 		gap: 0.65rem;
+		align-content: start;
+		overflow-y: auto;
+		padding-right: 0.25rem;
+		scrollbar-width: thin;
 	}
 
 	.compact-heading {
@@ -160,6 +166,7 @@
 			justify-self: stretch;
 			align-self: auto;
 			width: 100%;
+			max-height: min(34rem, calc(100dvh - 3rem));
 		}
 
 		.results-popup-footer {
