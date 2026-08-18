@@ -107,6 +107,18 @@ export interface InventoryWeaponGroup {
 	isNew: boolean;
 }
 
+export type InventoryGroupSortMode = 'recent' | 'rarity' | 'duplicates' | 'size' | 'name';
+
+export interface InventoryGroupFilterOptions {
+	query: string;
+	favoriteGroupIds?: Set<string>;
+	favoritesOnly?: boolean;
+	duplicatesOnly?: boolean;
+	upgradedOnly?: boolean;
+	allowedRarities?: Set<WeaponDefinition['rarity']>;
+	sortMode?: InventoryGroupSortMode;
+}
+
 export interface GridCell {
 	x: number;
 	y: number;
@@ -333,20 +345,113 @@ export function buildInventoryWeaponGroups(inventoryWeapons: InventoryWeapon[]) 
 	return groupRows;
 }
 
-export function filterInventoryWeaponGroups(groups: InventoryWeaponGroup[], query: string) {
-	const normalizedQuery = query.trim().toLowerCase();
+function compareInventoryGroups(
+	left: InventoryWeaponGroup,
+	right: InventoryWeaponGroup,
+	sortMode: InventoryGroupSortMode,
+	favoriteGroupIds: Set<string>
+) {
+	const leftFavorite = favoriteGroupIds.has(left.groupId);
+	const rightFavorite = favoriteGroupIds.has(right.groupId);
 
-	if (!normalizedQuery) {
-		return groups;
+	if (leftFavorite !== rightFavorite) {
+		return Number(rightFavorite) - Number(leftFavorite);
 	}
 
-	return groups.filter((group) => {
-		const haystack = [group.name, group.role, group.effectSummary, group.category, group.rarity]
-			.join(' ')
-			.toLowerCase();
+	switch (sortMode) {
+		case 'rarity':
+			return (
+				rarityOrder[left.rarity] - rarityOrder[right.rarity] ||
+				right.availableCount - left.availableCount ||
+				right.totalCount - left.totalCount ||
+				left.name.localeCompare(right.name)
+			);
+		case 'duplicates':
+			return (
+				right.totalCount - 1 - (left.totalCount - 1) ||
+				right.availableCount - left.availableCount ||
+				rarityOrder[left.rarity] - rarityOrder[right.rarity] ||
+				left.name.localeCompare(right.name)
+			);
+		case 'size':
+			return (
+				left.shape.cells.length - right.shape.cells.length ||
+				left.shape.width - right.shape.width ||
+				left.shape.height - right.shape.height ||
+				rarityOrder[left.rarity] - rarityOrder[right.rarity] ||
+				left.name.localeCompare(right.name)
+			);
+		case 'name':
+			return (
+				left.name.localeCompare(right.name) ||
+				rarityOrder[left.rarity] - rarityOrder[right.rarity] ||
+				right.availableCount - left.availableCount
+			);
+		case 'recent':
+		default:
+			return (
+				right.latestAcquiredAtMs - left.latestAcquiredAtMs ||
+				rarityOrder[left.rarity] - rarityOrder[right.rarity] ||
+				Number(left.category === 'utility') - Number(right.category === 'utility') ||
+				right.availableCount - left.availableCount ||
+				right.totalCount - left.totalCount ||
+				left.name.localeCompare(right.name)
+			);
+	}
+}
 
-		return haystack.includes(normalizedQuery);
-	});
+export function filterInventoryWeaponGroups(
+	groups: InventoryWeaponGroup[],
+	{
+		query,
+		favoriteGroupIds = new Set<string>(),
+		favoritesOnly = false,
+		duplicatesOnly = false,
+		upgradedOnly = false,
+		allowedRarities = new Set(Object.keys(rarityOrder) as WeaponDefinition['rarity'][]),
+		sortMode = 'recent'
+	}: InventoryGroupFilterOptions
+) {
+	const normalizedQuery = query.trim().toLowerCase();
+
+	return groups
+		.filter((group) => {
+			if (!allowedRarities.has(group.rarity)) {
+				return false;
+			}
+
+			if (favoritesOnly && !favoriteGroupIds.has(group.groupId)) {
+				return false;
+			}
+
+			if (duplicatesOnly && group.totalCount < 2) {
+				return false;
+			}
+
+			if (upgradedOnly && !group.isUpgraded) {
+				return false;
+			}
+
+			if (!normalizedQuery) {
+				return true;
+			}
+
+			const haystack = [
+				group.name,
+				group.role,
+				group.effectSummary,
+				group.category,
+				group.rarity,
+				group.totalCount > 1 ? 'duplicate duplicates' : '',
+				group.isUpgraded ? 'upgraded upgrade' : '',
+				favoriteGroupIds.has(group.groupId) ? 'favorite favourites' : ''
+			]
+				.join(' ')
+				.toLowerCase();
+
+			return haystack.includes(normalizedQuery);
+		})
+		.sort((left, right) => compareInventoryGroups(left, right, sortMode, favoriteGroupIds));
 }
 
 export function formatUpgradeLevel(value: number) {

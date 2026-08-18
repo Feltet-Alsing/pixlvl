@@ -38,10 +38,24 @@
 		isNew: boolean;
 	}
 
+	type InventorySortMode = 'recent' | 'rarity' | 'duplicates' | 'size' | 'name';
+
 	interface Props {
 		searchValue: string;
 		isMobileLayout?: boolean;
 		onSearchInput: (value: string) => void;
+		sortMode: InventorySortMode;
+		onSortModeChange: (value: InventorySortMode) => void;
+		favoriteGroupIds: Set<string>;
+		onToggleFavorite: (groupId: string) => void;
+		favoritesOnly: boolean;
+		onToggleFavoritesOnly: () => void;
+		duplicatesOnly: boolean;
+		onToggleDuplicatesOnly: () => void;
+		activeRarities: Set<WeaponDefinition['rarity']>;
+		onToggleRarity: (rarity: WeaponDefinition['rarity']) => void;
+		upgradedOnly: boolean;
+		onToggleUpgradedOnly: () => void;
 		isDropTargetActive: boolean;
 		groups: InventoryWeaponGroup[];
 		draggedWeaponInstanceId: string | null;
@@ -70,6 +84,18 @@
 		searchValue,
 		isMobileLayout = false,
 		onSearchInput,
+		sortMode,
+		onSortModeChange,
+		favoriteGroupIds,
+		onToggleFavorite,
+		favoritesOnly,
+		onToggleFavoritesOnly,
+		duplicatesOnly,
+		onToggleDuplicatesOnly,
+		activeRarities,
+		onToggleRarity,
+		upgradedOnly,
+		onToggleUpgradedOnly,
 		isDropTargetActive,
 		groups,
 		draggedWeaponInstanceId,
@@ -108,8 +134,31 @@
 		return [
 			{ label: 'Owned', value: group.totalCount.toString() },
 			{ label: 'Ready', value: group.availableCount.toString() },
-			{ label: 'Equip', value: group.equippedCount.toString() }
+			{ label: 'Dupes', value: Math.max(0, group.totalCount - 1).toString() }
 		];
+	}
+
+	function isFavorite(group: InventoryWeaponGroup) {
+		return favoriteGroupIds.has(group.groupId);
+	}
+
+	function handleSortChange(event: Event) {
+		const target = event.currentTarget;
+
+		if (!(target instanceof HTMLSelectElement)) {
+			return;
+		}
+
+		onSortModeChange(target.value as InventorySortMode);
+	}
+
+	function handleFavoriteButtonPointerDown(event: PointerEvent) {
+		event.stopPropagation();
+	}
+
+	function handleFavoriteButtonClick(event: MouseEvent, group: InventoryWeaponGroup) {
+		event.stopPropagation();
+		onToggleFavorite(group.groupId);
 	}
 
 	function scheduleSuppressedPickReset() {
@@ -236,6 +285,59 @@
 		/>
 	</label>
 
+	<div class="toolbox-controls">
+		<label class="sort-select-wrap" for="inventory-sort-select">
+			<span>Sort</span>
+			<select id="inventory-sort-select" value={sortMode} onchange={handleSortChange}>
+				<option value="recent">Recent</option>
+				<option value="rarity">Rarity</option>
+				<option value="duplicates">Duplicates</option>
+				<option value="size">Size</option>
+				<option value="name">Name</option>
+			</select>
+		</label>
+
+		<div class="filter-chip-row" aria-label="Inventory filters">
+			<button
+				class:active-chip={favoritesOnly}
+				class="filter-chip"
+				type="button"
+				onclick={onToggleFavoritesOnly}
+			>
+				Favorites
+			</button>
+			<button
+				class:active-chip={duplicatesOnly}
+				class="filter-chip"
+				type="button"
+				onclick={onToggleDuplicatesOnly}
+			>
+				Duplicates
+			</button>
+			<button
+				class:active-chip={upgradedOnly}
+				class="filter-chip"
+				type="button"
+				onclick={onToggleUpgradedOnly}
+			>
+				Upgraded
+			</button>
+		</div>
+
+		<div class="rarity-chip-row" aria-label="Rarity filters">
+			{#each ['normal', 'magic', 'rare', 'exotic', 'legendary'] as rarity (rarity)}
+				<button
+					class:active-chip={activeRarities.has(rarity)}
+					class={`filter-chip rarity-chip rarity-${rarity}`}
+					type="button"
+					onclick={() => onToggleRarity(rarity)}
+				>
+					{rarity}
+				</button>
+			{/each}
+		</div>
+	</div>
+
 	<div
 		id="loadout-inventory-drop-zone"
 		class="inventory-drop-zone"
@@ -251,12 +353,28 @@
 						<div
 							class={`inventory-weapon inventory-toolbox-item rarity-${group.rarity}`}
 							role="group"
+							class:favorite={isFavorite(group)}
 							class:equipped={group.equippedCount > 0}
 							class:unavailable={group.availableCount < 1}
 							class:mobile-scroll-card={isMobileLayout}
 							class:dragging={draggedWeaponInstanceId === group.representativeWeaponInstanceId}
 							onpointerdown={(event) => handleGroupPointerDown(event, group)}
 						>
+							<div class="inventory-card-actions">
+								<button
+									class:active={isFavorite(group)}
+									class="favorite-button"
+									type="button"
+									onpointerdown={handleFavoriteButtonPointerDown}
+									onclick={(event) => handleFavoriteButtonClick(event, group)}
+									aria-label={isFavorite(group)
+										? `Remove ${group.name} from favorites`
+										: `Add ${group.name} to favorites`}
+								>
+									★ Favorite
+								</button>
+							</div>
+
 							<button
 								class="inventory-card-button"
 								type="button"
@@ -305,7 +423,7 @@
 <style>
 	.toolbox-shell {
 		display: grid;
-		grid-template-rows: auto auto minmax(0, 1fr);
+		grid-template-rows: auto auto auto minmax(0, 1fr);
 		gap: 0.7rem;
 		height: 100%;
 		min-height: 0;
@@ -359,6 +477,87 @@
 		outline: none;
 		border-color: rgba(170, 206, 255, 0.58);
 		box-shadow: 0 0 0 3px rgba(84, 150, 255, 0.16);
+	}
+
+	.toolbox-controls {
+		display: grid;
+		gap: 0.55rem;
+	}
+
+	.sort-select-wrap {
+		display: grid;
+		gap: 0.35rem;
+	}
+
+	.sort-select-wrap span {
+		font-size: 0.64rem;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: #bdbdc3;
+	}
+
+	.sort-select-wrap select {
+		width: 100%;
+		min-height: 2.2rem;
+		padding: 0.55rem 0.7rem;
+		border-radius: 0.75rem;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		background: rgba(255, 255, 255, 0.04);
+		color: #f5f5f5;
+		font: inherit;
+	}
+
+	.filter-chip-row,
+	.rarity-chip-row {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.45rem;
+	}
+
+	.filter-chip {
+		min-height: 1.9rem;
+		padding: 0 0.7rem;
+		border-radius: 999px;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		background: rgba(255, 255, 255, 0.04);
+		color: #d6d6db;
+		font: inherit;
+		font-size: 0.72rem;
+		font-weight: 700;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		cursor: pointer;
+	}
+
+	.filter-chip.active-chip {
+		border-color: rgba(170, 206, 255, 0.45);
+		background: rgba(84, 150, 255, 0.16);
+		color: #eef5ff;
+	}
+
+	.rarity-chip.rarity-normal.active-chip {
+		border-color: rgba(185, 185, 193, 0.45);
+		background: rgba(185, 185, 193, 0.16);
+	}
+
+	.rarity-chip.rarity-magic.active-chip {
+		border-color: rgba(113, 156, 255, 0.45);
+		background: rgba(113, 156, 255, 0.16);
+	}
+
+	.rarity-chip.rarity-rare.active-chip {
+		border-color: rgba(255, 210, 92, 0.45);
+		background: rgba(255, 210, 92, 0.16);
+	}
+
+	.rarity-chip.rarity-exotic.active-chip {
+		border-color: rgba(255, 141, 64, 0.45);
+		background: rgba(255, 141, 64, 0.16);
+	}
+
+	.rarity-chip.rarity-legendary.active-chip {
+		border-color: rgba(255, 92, 184, 0.45);
+		background: rgba(255, 92, 184, 0.16);
 	}
 
 	.inventory-drop-zone {
@@ -416,6 +615,13 @@
 		touch-action: none;
 	}
 
+	.inventory-weapon.favorite :global(.campaign-item-card) {
+		border-color: rgba(255, 214, 102, 0.32);
+		background:
+			radial-gradient(circle at top, rgba(255, 214, 102, 0.12), transparent 54%),
+			linear-gradient(180deg, rgba(12, 11, 6, 0.98), rgba(8, 8, 5, 0.96));
+	}
+
 	.inventory-weapon.mobile-scroll-card {
 		cursor: default;
 		touch-action: pan-y;
@@ -457,6 +663,33 @@
 	.inventory-toolbox-item {
 		min-height: 0;
 		align-content: start;
+	}
+
+	.inventory-card-actions {
+		display: flex;
+		justify-content: flex-end;
+		align-items: center;
+	}
+
+	.favorite-button {
+		min-height: 1.9rem;
+		padding: 0 0.7rem;
+		border-radius: 999px;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		background: rgba(0, 0, 0, 0.3);
+		color: rgba(255, 255, 255, 0.45);
+		font: inherit;
+		font-size: 0.72rem;
+		font-weight: 700;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		cursor: pointer;
+	}
+
+	.favorite-button.active {
+		border-color: rgba(255, 214, 102, 0.45);
+		background: rgba(255, 214, 102, 0.16);
+		color: #ffd666;
 	}
 
 	.scrap-button {

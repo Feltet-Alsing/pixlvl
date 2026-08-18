@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { beforeNavigate } from '$app/navigation';
 	import { fade } from 'svelte/transition';
 	import { isWeaponDefinition } from '$lib/data';
 	import LoadoutDraggedShapePreview from '$lib/components/campaigns/LoadoutDraggedShapePreview.svelte';
@@ -41,6 +42,7 @@
 		getShapeGridTemplate,
 		getWeaponCycleRate,
 		getWeaponGridArea,
+		type InventoryGroupSortMode,
 		isLabelCell,
 		isPointWithinElementBounds,
 		isShapeCellFilled,
@@ -145,6 +147,10 @@
 	];
 
 	let { data, form }: PageProps = $props();
+	let inventoryPreferencesStorageKey = $derived(
+		`pixlvl-loadout-inventory-preferences-${data.campaignId}`
+	);
+	let loadoutUiStateStorageKey = $derived(`pixlvl-loadout-ui-state-${data.campaignId}`);
 	const initialPersistedLoadoutState = (() =>
 		normalizePersistedLoadoutState(
 			data.gameState?.pixlState.loadoutPlacements ?? null,
@@ -163,6 +169,18 @@
 	let hoveredGridOrigin = $state<{ x: number; y: number } | null>(null);
 	let isInventoryDropTargetActive = $state(false);
 	let inventorySearch = $state('');
+	let inventorySortMode = $state<InventoryGroupSortMode>('recent');
+	let inventoryFavoriteGroupIds = $state<string[]>([]);
+	let inventoryFavoritesOnly = $state(false);
+	let inventoryDuplicatesOnly = $state(false);
+	let inventoryRarityFilters = $state<Array<InventoryWeaponGroup['rarity']>>([
+		'normal',
+		'magic',
+		'rare',
+		'exotic',
+		'legendary'
+	]);
+	let inventoryUpgradedOnly = $state(false);
 	let showSaveWarning = $state(false);
 	let showUnsavedToast = $state(false);
 	let showRotationTip = $state(false);
@@ -170,6 +188,7 @@
 	let isMobileItemPaneOpen = $state(false);
 	let selectedPlacedWeaponInstanceId = $state<string | null>(null);
 	let selectedInventoryDefinitionId = $state<string | null>(null);
+	let selectedInventoryWeaponInstanceId = $state<string | null>(null);
 	let scrapDialog = $state<ScrapDialogState | null>(null);
 	let scrapQuantity = $state(1);
 	let confirmHighRarityScrap = $state(false);
@@ -180,6 +199,8 @@
 	let previousHasUnsavedChanges = false;
 	let unsavedToastTimeout: ReturnType<typeof setTimeout> | null = null;
 	let rotationTipTimeout: ReturnType<typeof setTimeout> | null = null;
+	let shouldBypassLeavePrompt = false;
+	let leavePromptBypassTimeout: ReturnType<typeof setTimeout> | null = null;
 	let livePixlState: LivePixlState | null = $derived.by(() => {
 		const basePixlState = data.gameState?.pixlState ?? null;
 
@@ -399,8 +420,18 @@
 			: null
 	);
 	let inventoryWeaponGroups = $derived.by(() => buildInventoryWeaponGroups(inventoryWeapons));
+	let inventoryFavoriteGroupIdSet = $derived(new Set(inventoryFavoriteGroupIds));
+	let inventoryRarityFilterSet = $derived(new Set(inventoryRarityFilters));
 	let filteredInventoryWeaponGroups = $derived.by(() =>
-		filterInventoryWeaponGroups(inventoryWeaponGroups, inventorySearch)
+		filterInventoryWeaponGroups(inventoryWeaponGroups, {
+			query: inventorySearch,
+			favoriteGroupIds: inventoryFavoriteGroupIdSet,
+			favoritesOnly: inventoryFavoritesOnly,
+			duplicatesOnly: inventoryDuplicatesOnly,
+			upgradedOnly: inventoryUpgradedOnly,
+			allowedRarities: inventoryRarityFilterSet,
+			sortMode: inventorySortMode
+		})
 	);
 	let selectedPlacedWeapon = $derived(
 		selectedPlacedWeaponInstanceId
@@ -409,12 +440,27 @@
 				) ?? null)
 			: null
 	);
-	let selectedInventoryGroup = $derived(
-		selectedInventoryDefinitionId
-			? (inventoryWeaponGroups.find((group) => group.groupId === selectedInventoryDefinitionId) ??
-					null)
-			: null
-	);
+	let selectedInventoryGroup = $derived.by(() => {
+		if (selectedInventoryDefinitionId) {
+			const directMatch =
+				inventoryWeaponGroups.find((group) => group.groupId === selectedInventoryDefinitionId) ??
+				null;
+
+			if (directMatch) {
+				return directMatch;
+			}
+		}
+
+		if (selectedInventoryWeaponInstanceId) {
+			return (
+				inventoryWeaponGroups.find(
+					(group) => group.representativeWeaponInstanceId === selectedInventoryWeaponInstanceId
+				) ?? null
+			);
+		}
+
+		return null;
+	});
 	let selectedWeaponDetails = $derived.by(() => {
 		const normalizeTargetingValue = (targeting: WeaponTargetingKind | undefined) =>
 			targeting === 'current-target' || !targeting ? 'nearest-target' : targeting;
@@ -608,6 +654,153 @@
 			return;
 		}
 
+		const raw = localStorage.getItem(inventoryPreferencesStorageKey);
+
+		if (!raw) {
+			return;
+		}
+
+		try {
+			const parsed = JSON.parse(raw) as {
+				sortMode?: InventoryGroupSortMode;
+				favoriteGroupIds?: string[];
+				favoritesOnly?: boolean;
+				duplicatesOnly?: boolean;
+				upgradedOnly?: boolean;
+				rarityFilters?: Array<InventoryWeaponGroup['rarity']>;
+			};
+
+			if (parsed.sortMode) {
+				inventorySortMode = parsed.sortMode;
+			}
+
+			if (Array.isArray(parsed.favoriteGroupIds)) {
+				inventoryFavoriteGroupIds = parsed.favoriteGroupIds;
+			}
+
+			if (typeof parsed.favoritesOnly === 'boolean') {
+				inventoryFavoritesOnly = parsed.favoritesOnly;
+			}
+
+			if (typeof parsed.duplicatesOnly === 'boolean') {
+				inventoryDuplicatesOnly = parsed.duplicatesOnly;
+			}
+
+			if (typeof parsed.upgradedOnly === 'boolean') {
+				inventoryUpgradedOnly = parsed.upgradedOnly;
+			}
+
+			if (Array.isArray(parsed.rarityFilters) && parsed.rarityFilters.length > 0) {
+				inventoryRarityFilters = parsed.rarityFilters;
+			}
+		} catch {
+			localStorage.removeItem(inventoryPreferencesStorageKey);
+		}
+	});
+
+	$effect(() => {
+		if (typeof localStorage === 'undefined') {
+			return;
+		}
+
+		localStorage.setItem(
+			inventoryPreferencesStorageKey,
+			JSON.stringify({
+				sortMode: inventorySortMode,
+				favoriteGroupIds: inventoryFavoriteGroupIds,
+				favoritesOnly: inventoryFavoritesOnly,
+				duplicatesOnly: inventoryDuplicatesOnly,
+				upgradedOnly: inventoryUpgradedOnly,
+				rarityFilters: inventoryRarityFilters
+			})
+		);
+	});
+
+	$effect(() => {
+		if (typeof sessionStorage === 'undefined') {
+			return;
+		}
+
+		const raw = sessionStorage.getItem(loadoutUiStateStorageKey);
+
+		if (!raw) {
+			return;
+		}
+
+		try {
+			const parsed = JSON.parse(raw) as {
+				inventorySearch?: string;
+				selectedPlacedWeaponInstanceId?: string | null;
+				selectedInventoryDefinitionId?: string | null;
+				selectedInventoryWeaponInstanceId?: string | null;
+			};
+
+			if (typeof parsed.inventorySearch === 'string') {
+				inventorySearch = parsed.inventorySearch;
+			}
+
+			selectedPlacedWeaponInstanceId = parsed.selectedPlacedWeaponInstanceId ?? null;
+			selectedInventoryDefinitionId = parsed.selectedInventoryDefinitionId ?? null;
+			selectedInventoryWeaponInstanceId = parsed.selectedInventoryWeaponInstanceId ?? null;
+		} catch {
+			sessionStorage.removeItem(loadoutUiStateStorageKey);
+		}
+	});
+
+	$effect(() => {
+		if (typeof sessionStorage === 'undefined') {
+			return;
+		}
+
+		sessionStorage.setItem(
+			loadoutUiStateStorageKey,
+			JSON.stringify({
+				inventorySearch,
+				selectedPlacedWeaponInstanceId,
+				selectedInventoryDefinitionId,
+				selectedInventoryWeaponInstanceId
+			})
+		);
+	});
+
+	$effect(() => {
+		if (
+			selectedPlacedWeaponInstanceId &&
+			!loadoutWeapons.some((weapon) => weapon.weaponInstanceId === selectedPlacedWeaponInstanceId)
+		) {
+			selectedPlacedWeaponInstanceId = null;
+		}
+
+		if (
+			selectedInventoryWeaponInstanceId &&
+			!inventoryWeapons.some(
+				(weapon) => weapon.weaponInstanceId === selectedInventoryWeaponInstanceId
+			)
+		) {
+			selectedInventoryWeaponInstanceId = null;
+		}
+
+		if (!selectedInventoryGroup) {
+			selectedInventoryDefinitionId = null;
+		}
+	});
+
+	$effect(() => {
+		const visibleGroupIds = new Set(inventoryWeaponGroups.map((group) => group.groupId));
+		const nextFavorites = inventoryFavoriteGroupIds.filter((groupId) =>
+			visibleGroupIds.has(groupId)
+		);
+
+		if (nextFavorites.length !== inventoryFavoriteGroupIds.length) {
+			inventoryFavoriteGroupIds = nextFavorites;
+		}
+	});
+
+	$effect(() => {
+		if (typeof localStorage === 'undefined') {
+			return;
+		}
+
 		hasSeenRotationTip = localStorage.getItem('pixlvl-loadout-rotation-tip-seen') === 'true';
 	});
 
@@ -616,6 +809,47 @@
 			isMobileItemPaneOpen = false;
 		}
 	});
+
+	beforeNavigate((navigation) => {
+		if (!hasUnsavedChanges || shouldBypassLeavePrompt) {
+			return;
+		}
+
+		if (navigation.willUnload) {
+			navigation.cancel();
+			return;
+		}
+
+		const shouldLeave = window.confirm(
+			'You have unsaved loadout changes. Leave this screen without saving?'
+		);
+
+		if (!shouldLeave) {
+			navigation.cancel();
+		}
+	});
+
+	function allowPendingFormSubmission() {
+		shouldBypassLeavePrompt = true;
+
+		if (leavePromptBypassTimeout) {
+			clearTimeout(leavePromptBypassTimeout);
+		}
+
+		leavePromptBypassTimeout = setTimeout(() => {
+			shouldBypassLeavePrompt = false;
+			leavePromptBypassTimeout = null;
+		}, 2000);
+	}
+
+	function handleWindowBeforeUnload(event: BeforeUnloadEvent) {
+		if (!hasUnsavedChanges || shouldBypassLeavePrompt) {
+			return;
+		}
+
+		event.preventDefault();
+		event.returnValue = '';
+	}
 
 	function buildCurrentDraftLoadoutState(): PersistedLoadoutState {
 		const slots = cloneLoadoutSlots(draftLoadoutSlots);
@@ -634,6 +868,7 @@
 		draftLoadoutPlacements = cloneLoadoutPlacements(currentDraftState.slots[nextSlot] ?? []);
 		selectedPlacedWeaponInstanceId = null;
 		selectedInventoryDefinitionId = null;
+		selectedInventoryWeaponInstanceId = null;
 		clearDragState();
 	}
 
@@ -822,6 +1057,7 @@
 
 	function confirmLoadoutSave() {
 		showSaveWarning = false;
+		allowPendingFormSubmission();
 		saveLoadoutForm?.requestSubmit();
 	}
 
@@ -936,6 +1172,7 @@
 		];
 		selectedPlacedWeaponInstanceId = weaponInstanceId;
 		selectedInventoryDefinitionId = null;
+		selectedInventoryWeaponInstanceId = null;
 		isMobileItemPaneOpen = false;
 		clearDragState();
 	}
@@ -1112,6 +1349,7 @@
 	function cancelMobilePlacement() {
 		clearDragState();
 		selectedInventoryDefinitionId = null;
+		selectedInventoryWeaponInstanceId = null;
 	}
 
 	function rotateDraggedWeapon() {
@@ -1243,6 +1481,7 @@
 
 		selectedPlacedWeaponInstanceId = null;
 		selectedInventoryDefinitionId = weapon.groupId;
+		selectedInventoryWeaponInstanceId = weapon.weaponInstanceId;
 
 		scrollLoadoutGridIntoView();
 		beginWeaponDrag(
@@ -1290,6 +1529,7 @@
 
 		selectedPlacedWeaponInstanceId = null;
 		selectedInventoryDefinitionId = weapon.groupId;
+		selectedInventoryWeaponInstanceId = weapon.weaponInstanceId;
 		isMobileItemPaneOpen = false;
 		draggedWeaponInstanceId = weapon.weaponInstanceId;
 		draggedWeaponAnchor = getDefaultDragAnchor(weapon.shape);
@@ -1329,6 +1569,7 @@
 
 		selectedPlacedWeaponInstanceId = null;
 		selectedInventoryDefinitionId = group.groupId;
+		selectedInventoryWeaponInstanceId = weapon.weaponInstanceId;
 		pickWeaponForMobilePlacement(weapon.weaponInstanceId, 0);
 		isMobileItemPaneOpen = false;
 	}
@@ -1350,11 +1591,32 @@
 	function selectPlacedWeapon(weapon: LoadoutWeapon) {
 		selectedPlacedWeaponInstanceId = weapon.weaponInstanceId;
 		selectedInventoryDefinitionId = null;
+		selectedInventoryWeaponInstanceId = null;
 	}
 
 	function selectInventoryGroup(group: InventoryWeaponGroup) {
 		selectedPlacedWeaponInstanceId = null;
 		selectedInventoryDefinitionId = group.groupId;
+		selectedInventoryWeaponInstanceId = group.representativeWeaponInstanceId;
+	}
+
+	function toggleFavoriteInventoryGroup(groupId: string) {
+		inventoryFavoriteGroupIds = inventoryFavoriteGroupIds.includes(groupId)
+			? inventoryFavoriteGroupIds.filter((entry) => entry !== groupId)
+			: [...inventoryFavoriteGroupIds, groupId];
+	}
+
+	function toggleInventoryRarityFilter(rarity: InventoryWeaponGroup['rarity']) {
+		if (inventoryRarityFilters.includes(rarity)) {
+			if (inventoryRarityFilters.length === 1) {
+				return;
+			}
+
+			inventoryRarityFilters = inventoryRarityFilters.filter((entry) => entry !== rarity);
+			return;
+		}
+
+		inventoryRarityFilters = [...inventoryRarityFilters, rarity];
 	}
 
 	function updatePlacedWeaponTargeting(weaponInstanceId: string, targeting: string) {
@@ -1380,6 +1642,7 @@
 
 <svelte:window
 	bind:innerWidth
+	onbeforeunload={handleWindowBeforeUnload}
 	onkeydown={handleWindowKeydown}
 	onpointermove={handlePointerMove}
 	onpointerup={finishPointerDrag}
@@ -1554,6 +1817,7 @@
 					detail={selectedWeaponDetails}
 					signedIn={Boolean(data.gameState)}
 					targetingOptions={TARGETING_OPTIONS}
+					onUpgradeSubmit={allowPendingFormSubmission}
 					onRotate={() => {
 						if (selectedPlacedWeaponInstanceId) {
 							rotatePlacedWeapon(selectedPlacedWeaponInstanceId);
@@ -1580,6 +1844,18 @@
 					searchValue={inventorySearch}
 					{isMobileLayout}
 					onSearchInput={(value) => (inventorySearch = value)}
+					sortMode={inventorySortMode}
+					onSortModeChange={(value) => (inventorySortMode = value)}
+					favoriteGroupIds={inventoryFavoriteGroupIdSet}
+					onToggleFavorite={toggleFavoriteInventoryGroup}
+					favoritesOnly={inventoryFavoritesOnly}
+					onToggleFavoritesOnly={() => (inventoryFavoritesOnly = !inventoryFavoritesOnly)}
+					duplicatesOnly={inventoryDuplicatesOnly}
+					onToggleDuplicatesOnly={() => (inventoryDuplicatesOnly = !inventoryDuplicatesOnly)}
+					upgradedOnly={inventoryUpgradedOnly}
+					onToggleUpgradedOnly={() => (inventoryUpgradedOnly = !inventoryUpgradedOnly)}
+					activeRarities={inventoryRarityFilterSet}
+					onToggleRarity={toggleInventoryRarityFilter}
 					isDropTargetActive={isInventoryDropTargetActive}
 					groups={filteredInventoryWeaponGroups}
 					{draggedWeaponInstanceId}
@@ -1660,7 +1936,12 @@
 					</p>
 				{/if}
 
-				<form method="post" action="?/scrapItems" class="scrap-form">
+				<form
+					method="post"
+					action="?/scrapItems"
+					class="scrap-form"
+					onsubmit={allowPendingFormSubmission}
+				>
 					<input type="hidden" name="definitionId" value={scrapDialog.definitionId} />
 
 					<label class="scrap-quantity-field" for="scrap-quantity-input">
@@ -1787,27 +2068,34 @@
 
 	.loadout-slot-pills {
 		display: flex;
-		flex-wrap: wrap;
-		gap: 0.45rem;
+		flex-wrap: nowrap;
+		gap: 0.2rem;
+		align-items: end;
+		padding-top: 0.15rem;
 	}
 
 	.loadout-slot-pill {
-		min-height: 2rem;
-		padding: 0 0.8rem;
-		border-radius: 999px;
+		min-height: 2.15rem;
+		padding: 0 0.95rem;
+		border-radius: 1rem 1rem 0.65rem 0.65rem;
 		border: 1px solid rgba(255, 255, 255, 0.12);
-		background: rgba(255, 255, 255, 0.04);
+		border-bottom-color: rgba(255, 255, 255, 0.04);
+		background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
 		color: #f5f5f5;
 		font: inherit;
-		font-size: 0.82rem;
+		font-size: 0.78rem;
 		font-weight: 700;
 		cursor: pointer;
+		position: relative;
+		top: 1px;
 	}
 
 	.loadout-slot-pill.active {
 		border-color: rgba(103, 217, 111, 0.42);
-		background: rgba(103, 217, 111, 0.12);
+		border-bottom-color: rgba(10, 10, 10, 0.92);
+		background: linear-gradient(180deg, rgba(103, 217, 111, 0.18), rgba(103, 217, 111, 0.08));
 		color: #c9f8cc;
+		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 	}
 
 	.draft-actions {
@@ -1815,12 +2103,32 @@
 	}
 
 	.loadout-toolbar-row {
-		align-items: flex-start;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		grid-template-areas:
+			'tabs actions'
+			'summary summary';
+		align-items: end;
+		gap: 0.85rem;
+		padding: 0.15rem 0 0.3rem;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+	}
+
+	.loadout-slot-pills {
+		grid-area: tabs;
 	}
 
 	.toolbar-actions {
+		grid-area: actions;
 		flex: 0 0 auto;
-		flex-wrap: wrap;
+		flex-wrap: nowrap;
+		align-items: center;
+		justify-content: flex-end;
+	}
+
+	:global(.loadout-summary-strip) {
+		grid-area: summary;
+		align-self: start;
 	}
 
 	.toolbar-actions form {
@@ -1855,12 +2163,13 @@
 
 	.save,
 	.ghost {
-		min-height: 1.95rem;
-		padding: 0 0.8rem;
+		min-height: 2rem;
+		padding: 0 0.9rem;
 		color: #f5f5f5;
 		font: inherit;
-		font-size: 0.9rem;
+		font-size: 0.86rem;
 		cursor: pointer;
+		white-space: nowrap;
 	}
 
 	.save {
@@ -1876,6 +2185,23 @@
 	.ghost:disabled {
 		opacity: 0.45;
 		cursor: not-allowed;
+	}
+
+	@media (max-width: 1180px) {
+		.loadout-toolbar-row {
+			grid-template-columns: 1fr;
+			grid-template-areas:
+				'tabs'
+				'summary'
+				'actions';
+			gap: 0.65rem;
+			border-bottom: 0;
+		}
+
+		.loadout-slot-pills,
+		.toolbar-actions {
+			flex-wrap: wrap;
+		}
 	}
 
 	.feedback {

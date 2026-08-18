@@ -48,14 +48,20 @@
 	.loadout-summary-strip {
 		width: 100%;
 		display: grid;
-		grid-template-columns: repeat(5, minmax(0, max-content));
+		grid-template-columns: repeat(5, minmax(4.75rem, max-content));
 		justify-content: start;
-		gap: 0.4rem;
+		gap: 0.35rem;
+		overflow-x: auto;
+		scrollbar-width: none;
+	}
+
+	.loadout-summary-strip::-webkit-scrollbar {
+		display: none;
 	}
 
 	.loadout-summary-card {
-		padding: 0.45rem 0.6rem;
-		border-radius: 0.68rem;
+		padding: 0.42rem 0.55rem;
+		border-radius: 0.8rem;
 		border: 1px solid rgba(255, 255, 255, 0.08);
 		background: rgba(255, 255, 255, 0.04);
 		display: grid;
@@ -72,7 +78,7 @@
 	}
 
 	.loadout-summary-card strong {
-		font-size: 0.96rem;
+		font-size: 0.9rem;
 		line-height: 1;
 	}
 
@@ -80,6 +86,12 @@
 		font-size: 0.58rem;
 		color: #c4c4ca;
 		line-height: 1.1;
+	}
+
+	@media (min-width: 861px) {
+		.loadout-summary-card:first-child {
+			min-width: 8.25rem;
+		}
 	}
 
 	@media (max-width: 860px) {

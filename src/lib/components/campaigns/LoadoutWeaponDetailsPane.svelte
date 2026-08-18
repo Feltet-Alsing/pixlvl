@@ -30,6 +30,7 @@
 		onRotate?: () => void;
 		targetingOptions?: Array<{ value: string; label: string }>;
 		onTargetingChange?: (value: string) => void;
+		onUpgradeSubmit?: () => void;
 	}
 
 	let {
@@ -37,7 +38,8 @@
 		signedIn = false,
 		onRotate,
 		targetingOptions = [],
-		onTargetingChange
+		onTargetingChange,
+		onUpgradeSubmit
 	}: Props = $props();
 </script>
 
@@ -100,7 +102,12 @@
 		{/if}
 
 		{#if signedIn && detail.category === 'weapon' && detail.isUpgradeable && detail.weaponInstanceId}
-			<form method="post" action="?/upgradeWeapon" class="upgrade-form">
+			<form
+				method="post"
+				action="?/upgradeWeapon"
+				class="upgrade-form"
+				onsubmit={() => onUpgradeSubmit?.()}
+			>
 				<input type="hidden" name="weaponInstanceId" value={detail.weaponInstanceId} />
 
 				<div class="detail-card upgrade-card">
