@@ -106,12 +106,15 @@
 
 	interface ScrapDialogState {
 		definitionId: string;
+		weaponInstanceId: string | null;
 		name: string;
 		rarity: InventoryWeaponGroup['rarity'];
 		totalCount: number;
 		availableCount: number;
 		equippedCount: number;
 		scrapableCount: number;
+		isUpgraded: boolean;
+		refundScrapPerItem: number;
 	}
 
 	interface ArenaResumeSnapshot {
@@ -576,10 +579,14 @@
 
 		return null;
 	});
-	let scrapValuePerItem = $derived(scrapDialog ? scrapValueByRarity[scrapDialog.rarity] : 0);
+	let scrapValuePerItem = $derived(
+		scrapDialog ? scrapValueByRarity[scrapDialog.rarity] + scrapDialog.refundScrapPerItem : 0
+	);
 	let isHighRarityScrap = $derived(
 		scrapDialog ? scrapDialog.rarity === 'exotic' || scrapDialog.rarity === 'legendary' : false
 	);
+	let isUpgradedScrap = $derived(scrapDialog ? scrapDialog.isUpgraded : false);
+	let requiresScrapConfirmation = $derived(isHighRarityScrap || isUpgradedScrap);
 	let totalScrapYield = $derived(scrapQuantity * scrapValuePerItem);
 
 	$effect(() => {
@@ -877,7 +884,7 @@
 			return 0;
 		}
 
-		return Math.max(0, Math.min(group.availableCount, group.totalCount - 1));
+		return Math.max(0, group.availableCount);
 	}
 
 	function clampScrapQuantity(value: number) {
@@ -901,12 +908,15 @@
 
 		scrapDialog = {
 			definitionId: group.definitionId,
+			weaponInstanceId: group.isUpgraded ? group.representativeWeaponInstanceId : null,
 			name: group.name,
 			rarity: group.rarity,
 			totalCount: group.totalCount,
 			availableCount: group.availableCount,
 			equippedCount: group.equippedCount,
-			scrapableCount
+			scrapableCount,
+			isUpgraded: group.isUpgraded,
+			refundScrapPerItem: Math.floor(group.totalScrapInvested * 0.5)
 		};
 		scrapQuantity = 1;
 		confirmHighRarityScrap = false;
@@ -1914,8 +1924,8 @@
 
 				<div class="scrap-stats-grid">
 					<div class="stat-card">
-						<span>Duplicates</span>
-						<strong>{Math.max(0, scrapDialog.totalCount - 1)}</strong>
+						<span>Owned</span>
+						<strong>{scrapDialog.totalCount}</strong>
 					</div>
 					<div class="stat-card">
 						<span>Scrapable now</span>
@@ -1932,9 +1942,16 @@
 				</div>
 
 				<p class="scrap-copy">
-					{formatRarityLabel(scrapDialog.rarity)} rarity copies can be scrapped from the available pool
-					only.
+					Any unequipped {formatRarityLabel(scrapDialog.rarity).toLowerCase()} item can be scrapped from
+					the available pool. Starter pea shooters remain protected.
 				</p>
+
+				{#if isUpgradedScrap}
+					<p class="feedback neutral">
+						This upgraded item refunds {scrapDialog.refundScrapPerItem} invested Scrap in addition to
+						its base scrap value.
+					</p>
+				{/if}
 
 				{#if isHighRarityScrap}
 					<p class="feedback error">
@@ -1949,6 +1966,9 @@
 					onsubmit={allowPendingFormSubmission}
 				>
 					<input type="hidden" name="definitionId" value={scrapDialog.definitionId} />
+					{#if scrapDialog.weaponInstanceId}
+						<input type="hidden" name="weaponInstanceId" value={scrapDialog.weaponInstanceId} />
+					{/if}
 
 					<label class="scrap-quantity-field" for="scrap-quantity-input">
 						<span>Quantity</span>
@@ -1987,7 +2007,7 @@
 						<strong>{totalScrapYield} Scrap</strong>
 					</div>
 
-					{#if isHighRarityScrap}
+					{#if requiresScrapConfirmation}
 						<label class="scrap-confirmation">
 							<input
 								type="checkbox"
@@ -1995,7 +2015,12 @@
 								value="yes"
 								bind:checked={confirmHighRarityScrap}
 							/>
-							<span>Confirm scrapping this {scrapDialog.rarity} item.</span>
+							<span>
+								Confirm scrapping this {scrapDialog.isUpgraded
+									? 'upgraded '
+									: ''}{scrapDialog.rarity}
+								item.
+							</span>
 						</label>
 					{/if}
 
@@ -2004,7 +2029,7 @@
 						<button
 							class="save"
 							type="submit"
-							disabled={isHighRarityScrap && !confirmHighRarityScrap}
+							disabled={requiresScrapConfirmation && !confirmHighRarityScrap}
 						>
 							Scrap for {totalScrapYield}
 						</button>

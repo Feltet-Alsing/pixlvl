@@ -1,4 +1,4 @@
-import { isUtilityDefinition, isWeaponDefinition } from '$lib/data';
+import { isUtilityDefinition, isWeaponDefinition, starterWeaponId } from '$lib/data';
 import {
 	getLoadoutRotationLabel,
 	getPlacementRotation,
@@ -285,7 +285,7 @@ export function buildInventoryWeaponGroups(inventoryWeapons: InventoryWeapon[]) 
 				upgradeLevel: weapon.upgradeLevel,
 				totalScrapInvested: weapon.totalScrapInvested,
 				isUpgraded: weapon.upgradeLevel > 0,
-				bulkScrappable: weapon.upgradeLevel === 0,
+				bulkScrappable: weapon.definitionId !== starterWeaponId,
 				isUpgradeable: weapon.isUpgradeable,
 				nextUpgradeCost: weapon.nextUpgradeCost,
 				isMaxUpgradeLevel: weapon.isMaxUpgradeLevel,

@@ -597,6 +597,7 @@ export async function scrapOwnedWeaponsForUser(
 	}
 
 	const definitionId = formData.get('definitionId');
+	const weaponInstanceId = formData.get('weaponInstanceId');
 	const quantity = parsePositiveCount(formData.get('quantity'));
 	const confirmedHighRarity = formData.get('confirmHighRarity') === 'yes';
 
@@ -608,14 +609,15 @@ export async function scrapOwnedWeaponsForUser(
 	const scrapState = getScrapableGroupState(
 		gameState.pixlState.ownedWeapons,
 		gameState.pixlState.loadoutPlacements,
-		definitionId
+		definitionId,
+		typeof weaponInstanceId === 'string' ? weaponInstanceId : null
 	);
 
 	if (!scrapState || scrapState.scrapableCount < 1) {
 		return {
 			ok: false,
 			status: 400,
-			data: { loadoutError: 'That item does not have any scrapable duplicates.' }
+			data: { loadoutError: 'That item cannot be scrapped right now.' }
 		};
 	}
 
@@ -624,7 +626,7 @@ export async function scrapOwnedWeaponsForUser(
 			ok: false,
 			status: 400,
 			data: {
-				loadoutError: `Only ${scrapState.scrapableCount} duplicate${scrapState.scrapableCount === 1 ? '' : 's'} can be scrapped right now.`
+				loadoutError: `Only ${scrapState.scrapableCount} item${scrapState.scrapableCount === 1 ? '' : 's'} can be scrapped right now.`
 			}
 		};
 	}
@@ -641,7 +643,8 @@ export async function scrapOwnedWeaponsForUser(
 		gameState.pixlState.ownedWeapons,
 		definitionId,
 		quantity,
-		gameState.pixlState.loadoutPlacements
+		gameState.pixlState.loadoutPlacements,
+		typeof weaponInstanceId === 'string' ? weaponInstanceId : null
 	);
 	const scrapEarned = quantity * scrapState.scrapValuePerItem;
 
@@ -655,7 +658,7 @@ export async function scrapOwnedWeaponsForUser(
 	return {
 		ok: true,
 		data: {
-			loadoutSuccess: `Scrapped ${quantity} ${scrapState.name}${quantity === 1 ? '' : ' copies'} for ${scrapEarned} Scrap.`
+			loadoutSuccess: `Scrapped ${quantity} ${scrapState.name}${quantity === 1 ? '' : ' items'} for ${scrapEarned} Scrap.`
 		}
 	};
 }

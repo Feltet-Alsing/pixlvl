@@ -1,5 +1,14 @@
-import { campaignShopWeaponPools, getLoadoutItemDefinition, isUtilityDefinition } from '$lib/data';
-import { getWeaponUpgradeLevel } from '$lib/game/weapon-upgrades';
+import {
+	campaignShopWeaponPools,
+	getLoadoutItemDefinition,
+	isUtilityDefinition,
+	starterWeaponId
+} from '$lib/data';
+import {
+	getWeaponDisplayName,
+	getWeaponTotalScrapInvested,
+	getWeaponUpgradeLevel
+} from '$lib/game/weapon-upgrades';
 import type { GameState } from '$lib/server/game-state';
 import type {
 	LoadoutPlacement,
@@ -38,11 +47,14 @@ export interface ShopState {
 
 export interface ScrapableGroupState {
 	definitionId: string;
+	weaponInstanceId: string | null;
 	scrapableCount: number;
 	totalCount: number;
 	equippedCount: number;
 	upgradedCount: number;
 	scrapValuePerItem: number;
+	refundScrapPerItem: number;
+	isUpgraded: boolean;
 	requiresWarning: boolean;
 	rarity: WeaponRarity;
 	name: string;
@@ -176,7 +188,8 @@ export function buildShopState(gameState: GameState, userId: string, now = Date.
 export function getScrapableGroupState(
 	ownedWeapons: OwnedWeaponInstance[],
 	loadoutPlacements: LoadoutPlacement[] | PersistedLoadoutState,
-	definitionId: string
+	definitionId: string,
+	weaponInstanceId?: string | null
 ): ScrapableGroupState | null {
 	const definition = getLoadoutItemDefinition(definitionId);
 	const groupWeapons = ownedWeapons.filter((weapon) => weapon.definitionId === definitionId);
@@ -191,21 +204,56 @@ export function getScrapableGroupState(
 			: getActiveLoadoutPlacements(loadoutPlacements)
 		).map((placement) => placement.weaponInstanceId)
 	);
+
+	if (weaponInstanceId) {
+		const targetWeapon =
+			groupWeapons.find((weapon) => weapon.instanceId === weaponInstanceId) ?? null;
+
+		if (!targetWeapon) {
+			return null;
+		}
+
+		const isEquipped = equippedIds.has(targetWeapon.instanceId);
+		const upgradeLevel = getWeaponUpgradeLevel(targetWeapon);
+		const totalScrapInvested = getWeaponTotalScrapInvested(targetWeapon);
+		const refundScrapPerItem = Math.floor(totalScrapInvested * 0.5);
+		const scrapableCount = definitionId === starterWeaponId || isEquipped ? 0 : 1;
+
+		return {
+			definitionId,
+			weaponInstanceId: targetWeapon.instanceId,
+			scrapableCount,
+			totalCount: 1,
+			equippedCount: isEquipped ? 1 : 0,
+			upgradedCount: upgradeLevel > 0 ? 1 : 0,
+			scrapValuePerItem: scrapValueByRarity[definition.rarity] + refundScrapPerItem,
+			refundScrapPerItem,
+			isUpgraded: upgradeLevel > 0,
+			requiresWarning:
+				definition.rarity === 'exotic' || definition.rarity === 'legendary' || upgradeLevel > 0,
+			rarity: definition.rarity,
+			name: getWeaponDisplayName(definition.name, upgradeLevel)
+		};
+	}
+
 	const unupgradedWeapons = groupWeapons.filter((weapon) => getWeaponUpgradeLevel(weapon) === 0);
 	const upgradedCount = groupWeapons.length - unupgradedWeapons.length;
 	const equippedCount = unupgradedWeapons.filter((weapon) =>
 		equippedIds.has(weapon.instanceId)
 	).length;
 	const availableCount = unupgradedWeapons.length - equippedCount;
-	const scrapableCount = Math.max(0, Math.min(availableCount, unupgradedWeapons.length - 1));
+	const scrapableCount = definitionId === starterWeaponId ? 0 : Math.max(0, availableCount);
 
 	return {
 		definitionId,
+		weaponInstanceId: null,
 		scrapableCount,
 		totalCount: unupgradedWeapons.length,
 		equippedCount,
 		upgradedCount,
 		scrapValuePerItem: scrapValueByRarity[definition.rarity],
+		refundScrapPerItem: 0,
+		isUpgraded: false,
 		requiresWarning: definition.rarity === 'exotic' || definition.rarity === 'legendary',
 		rarity: definition.rarity,
 		name: definition.name
@@ -216,7 +264,8 @@ export function removeScrappedWeapons(
 	ownedWeapons: OwnedWeaponInstance[],
 	definitionId: string,
 	quantity: number,
-	loadoutPlacements: LoadoutPlacement[] | PersistedLoadoutState
+	loadoutPlacements: LoadoutPlacement[] | PersistedLoadoutState,
+	weaponInstanceId?: string | null
 ) {
 	const equippedIds = new Set(
 		(Array.isArray(loadoutPlacements)
@@ -224,10 +273,22 @@ export function removeScrappedWeapons(
 			: getActiveLoadoutPlacements(loadoutPlacements)
 		).map((placement) => placement.weaponInstanceId)
 	);
+
+	if (weaponInstanceId) {
+		return ownedWeapons.filter(
+			(weapon) =>
+				weapon.instanceId !== weaponInstanceId ||
+				weapon.definitionId !== definitionId ||
+				weapon.definitionId === starterWeaponId ||
+				equippedIds.has(weapon.instanceId)
+		);
+	}
+
 	const candidates = ownedWeapons
 		.filter(
 			(weapon) =>
 				weapon.definitionId === definitionId &&
+				weapon.definitionId !== starterWeaponId &&
 				!equippedIds.has(weapon.instanceId) &&
 				getWeaponUpgradeLevel(weapon) === 0
 		)

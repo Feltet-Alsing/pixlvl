@@ -129,14 +129,14 @@
 			return 0;
 		}
 
-		return Math.max(0, Math.min(group.availableCount, group.totalCount - 1));
+		return Math.max(0, group.availableCount);
 	}
 
 	function buildGroupMetaRows(group: InventoryWeaponGroup) {
 		return [
 			{ label: 'Owned', value: group.totalCount.toString() },
 			{ label: 'Ready', value: group.availableCount.toString() },
-			{ label: 'Dupes', value: Math.max(0, group.totalCount - 1).toString() }
+			{ label: 'Equipped', value: group.equippedCount.toString() }
 		];
 	}
 
@@ -429,7 +429,7 @@
 								</CampaignItemCard>
 							</button>
 
-							{#if onRequestScrap && getScrapableCount(group) > 0}
+							{#if onRequestScrap && getScrapableCount(group) > 0 && !isFavorite(group)}
 								<button
 									class="scrap-button"
 									type="button"
