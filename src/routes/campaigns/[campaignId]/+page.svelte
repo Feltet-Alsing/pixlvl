@@ -667,6 +667,7 @@
 				campaignNumber={data.campaign.campaign}
 				stage={combatOverlay.stage}
 				stageLevel={combatOverlay.stageLevel}
+				waveXp={combatOverlay.waveXp}
 				{rewardDropRows}
 				{resultsEmptyLabel}
 				{resultsCountdownLabel}
@@ -755,23 +756,17 @@
 			{/if}
 		</div>
 
-		<div
-			class={[
-				'arena-layout',
-				!isMobileLayout && showStageDrawer ? 'drawer-enabled' : '',
-				!isMobileLayout && runMode === 'combat' ? 'combat-enabled' : ''
-			]}
-		>
-			{#if !isMobileLayout && showStageDrawer}
-				<div class="desktop-panel-rail desktop-panel-rail-start">
-					{@render campaignDrawerPanel()}
-				</div>
-			{/if}
-
+		<div class={['arena-layout', !isMobileLayout && runMode === 'combat' ? 'combat-enabled' : '']}>
 			<section class="canvas-stage">
 				{#key sketchRemountKey}
 					<P5Canvas class="canvas-frame" sketch={campaignSketch} />
 				{/key}
+
+				{#if !isMobileLayout && showStageDrawer}
+					<div class="campaign-drawer-overlay">
+						{@render campaignDrawerPanel()}
+					</div>
+				{/if}
 
 				<div class="overlay-layout">
 					{@render transientArenaOverlays()}
@@ -838,19 +833,9 @@
 		min-height: 0;
 	}
 
-	.arena-layout.drawer-enabled {
-		grid-template-areas: 'left canvas';
-		grid-template-columns: minmax(18rem, 24rem) minmax(0, 1fr);
-	}
-
 	.arena-layout.combat-enabled {
 		grid-template-areas: 'canvas right';
 		grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
-	}
-
-	.arena-layout.drawer-enabled.combat-enabled {
-		grid-template-areas: 'left canvas right';
-		grid-template-columns: minmax(18rem, 24rem) minmax(0, 1fr) minmax(18rem, 24rem);
 	}
 
 	.canvas-stage {
@@ -887,6 +872,17 @@
 
 	.desktop-panel-rail-start {
 		grid-area: left;
+	}
+
+	.campaign-drawer-overlay {
+		position: absolute;
+		left: 1rem;
+		top: 1rem;
+		bottom: 1rem;
+		z-index: 5;
+		width: min(24rem, calc(100% - 2rem));
+		max-width: 100%;
+		pointer-events: auto;
 	}
 
 	.desktop-panel-rail-end {

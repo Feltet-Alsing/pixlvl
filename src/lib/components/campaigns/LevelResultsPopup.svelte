@@ -15,6 +15,7 @@
 		campaignNumber: number;
 		stage: number;
 		stageLevel: number;
+		waveXp: number;
 		rewardDropRows: RewardDropRow[];
 		resultsEmptyLabel: string;
 		resultsCountdownLabel: string;
@@ -25,6 +26,7 @@
 		campaignNumber,
 		stage,
 		stageLevel,
+		waveXp,
 		rewardDropRows,
 		resultsEmptyLabel,
 		resultsCountdownLabel,
@@ -57,6 +59,7 @@
 	{/if}
 
 	<div class="results-popup-footer">
+		<p class="results-xp">+{waveXp} XP</p>
 		<p class="results-countdown">{resultsCountdownLabel}</p>
 		<button class="results-skip" type="button" onclick={onSkip}>Skip</button>
 	</div>
@@ -142,9 +145,16 @@
 	}
 
 	.results-popup-footer {
-		grid-template-columns: minmax(0, 1fr) auto;
+		grid-template-columns: auto minmax(0, 1fr) auto;
 		align-items: center;
 		gap: 0.75rem;
+	}
+
+	.results-xp {
+		margin: 0;
+		font-size: 0.86rem;
+		font-weight: 700;
+		color: #c9f8cc;
 	}
 
 	.results-skip {

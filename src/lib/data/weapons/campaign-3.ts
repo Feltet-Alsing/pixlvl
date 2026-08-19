@@ -144,7 +144,7 @@ export const campaign3Weapons: LoadoutItemDefinition[] = [
 	{
 		id: 'zeus-hammer',
 		name: "Thor's Hammer",
-		rarity: 'exotic',
+		rarity: 'legendary',
 		shape: {
 			width: 5,
 			height: 4,
@@ -161,14 +161,14 @@ export const campaign3Weapons: LoadoutItemDefinition[] = [
 				[2, 3]
 			]
 		},
-		baseDamage: 35,
+		baseDamage: 20,
 		projectileSpeed: 0,
 		attack: {
 			kind: 'single',
 			projectileCount: 1,
 			cycleInterval: 2,
 			requiredInfusion: 'lightning',
-			requiredInfusionCount: 2,
+			requiredInfusionCount: 3,
 			special: {
 				type: 'fork-lightning',
 				duration: 0.18,
@@ -190,7 +190,7 @@ export const campaign3Weapons: LoadoutItemDefinition[] = [
 			stageEnd: 5,
 			perLevelDropChance: 0.08
 		},
-		role: 'Exotic lightning weapon that forks across every available enemy after consuming two lightning infusions'
+		role: 'Legendary lightning weapon that forks across every available enemy after consuming three lightning infusions'
 	},
 	{
 		id: 'flamethrower',

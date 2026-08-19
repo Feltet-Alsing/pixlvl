@@ -192,6 +192,7 @@
 	let selectedPlacedWeaponInstanceId = $state<string | null>(null);
 	let selectedInventoryDefinitionId = $state<string | null>(null);
 	let selectedInventoryWeaponInstanceId = $state<string | null>(null);
+	let savedScrollY = $state(0);
 	let scrapDialog = $state<ScrapDialogState | null>(null);
 	let scrapQuantity = $state(1);
 	let confirmHighRarityScrap = $state(false);
@@ -740,6 +741,7 @@
 				selectedPlacedWeaponInstanceId?: string | null;
 				selectedInventoryDefinitionId?: string | null;
 				selectedInventoryWeaponInstanceId?: string | null;
+				scrollY?: number;
 			};
 
 			if (typeof parsed.inventorySearch === 'string') {
@@ -749,6 +751,13 @@
 			selectedPlacedWeaponInstanceId = parsed.selectedPlacedWeaponInstanceId ?? null;
 			selectedInventoryDefinitionId = parsed.selectedInventoryDefinitionId ?? null;
 			selectedInventoryWeaponInstanceId = parsed.selectedInventoryWeaponInstanceId ?? null;
+			savedScrollY = typeof parsed.scrollY === 'number' ? parsed.scrollY : 0;
+
+			if (savedScrollY > 0) {
+				requestAnimationFrame(() => {
+					window.scrollTo({ top: savedScrollY, behavior: 'auto' });
+				});
+			}
 		} catch {
 			sessionStorage.removeItem(loadoutUiStateStorageKey);
 		}
@@ -765,7 +774,8 @@
 				inventorySearch,
 				selectedPlacedWeaponInstanceId,
 				selectedInventoryDefinitionId,
-				selectedInventoryWeaponInstanceId
+				selectedInventoryWeaponInstanceId,
+				scrollY: savedScrollY
 			})
 		);
 	});
@@ -837,6 +847,7 @@
 	});
 
 	function allowPendingFormSubmission() {
+		savedScrollY = window.scrollY;
 		shouldBypassLeavePrompt = true;
 
 		if (leavePromptBypassTimeout) {
@@ -2050,17 +2061,19 @@
 	}
 
 	.loadout-live-sketch-shell {
-		position: absolute;
-		width: 1px;
-		height: 1px;
+		position: fixed;
+		left: -200vw;
+		top: 0;
+		width: 100vw;
+		height: 100vh;
 		overflow: hidden;
 		opacity: 0;
 		pointer-events: none;
 	}
 
 	:global(.loadout-live-sketch) {
-		width: 1px;
-		height: 1px;
+		width: 100%;
+		height: 100%;
 	}
 
 	.shell {

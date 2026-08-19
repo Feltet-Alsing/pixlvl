@@ -78,9 +78,10 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 		attack: {
 			kind: 'single',
 			projectileCount: 1,
+			cycleInterval: 2,
 			special: {
 				type: 'laser-sweep',
-				duration: 1.5,
+				duration: 1,
 				beamLength: 260,
 				beamWidth: 6
 			},
@@ -100,7 +101,7 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 			stageEnd: 5,
 			perLevelDropChance: 0.03
 		},
-		role: 'Legendary rotating beam that takes longer to complete a full accelerating sweep around the pixl'
+		role: 'Legendary rotating beam that sweeps for one second and only fires every two sweep cycles'
 	},
 	{
 		id: 'ricochet-zigzag',
