@@ -226,6 +226,9 @@
 	let loadoutTooltip = $derived(buildLoadoutTooltip(currentLoadoutRows));
 	let defaultCampaignMenuOpen = $derived(page.url.searchParams.get('menu') !== 'closed');
 	let defaultStatsOverlayOpen = $derived(page.url.searchParams.get('stats') === 'open');
+	let showDesktopSideRail = $derived(
+		!isMobileLayout && runMode === 'combat' && (showStatsOverlay || showLoadoutPreview)
+	);
 	let averageLevelDamageTotal = $derived.by(() => {
 		if (combatOverlay.weaponDamageRows.length === 0) {
 			return 0;
@@ -773,7 +776,7 @@
 				</div>
 			</section>
 
-			{#if !isMobileLayout && runMode === 'combat'}
+			{#if showDesktopSideRail}
 				<div class="desktop-panel-rail desktop-panel-rail-end">
 					{@render statsOverlayPanel()}
 
@@ -831,11 +834,12 @@
 		gap: 1rem;
 		min-width: 0;
 		min-height: 0;
+		position: relative;
 	}
 
 	.arena-layout.combat-enabled {
-		grid-template-areas: 'canvas right';
-		grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
+		grid-template-areas: 'canvas';
+		grid-template-columns: minmax(0, 1fr);
 	}
 
 	.canvas-stage {
@@ -886,9 +890,16 @@
 	}
 
 	.desktop-panel-rail-end {
-		grid-area: right;
+		position: absolute;
+		right: 1rem;
+		top: 1rem;
+		z-index: 5;
+		width: min(24rem, calc(100% - 2rem));
+		max-width: 100%;
+		max-height: calc(100% - 2rem);
 		overflow-y: auto;
 		padding-right: 0.2rem;
+		pointer-events: auto;
 	}
 
 	.mobile-panel-stack {
@@ -1289,17 +1300,17 @@
 		min-height: 0;
 		padding: 0.9rem;
 		display: grid;
-		grid-template-rows: minmax(14rem, 1fr) minmax(9rem, 12rem);
+		grid-template-rows: auto auto;
 		gap: 0.75rem;
-		overflow: auto;
-		height: 100%;
+		overflow: visible;
+		height: auto;
 	}
 
 	.loadout-preview-damage-block {
 		display: grid;
 		grid-template-rows: auto minmax(0, 1fr);
 		gap: 0.45rem;
-		min-height: 12rem;
+		min-height: 14rem;
 		overflow: hidden;
 		padding: 0.7rem;
 		border-radius: 1rem;
@@ -1360,9 +1371,9 @@
 
 	.loadout-preview-canvas-shell {
 		min-width: 0;
-		min-height: 9rem;
+		min-height: 12rem;
 		height: auto;
-		max-height: 12rem;
+		max-height: 16rem;
 		padding: 0.35rem;
 		border-radius: 1rem;
 		border: 1px solid rgba(255, 255, 255, 0.08);
