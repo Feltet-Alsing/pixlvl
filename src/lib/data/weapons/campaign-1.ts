@@ -67,7 +67,7 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 			campaignId: 1,
 			stageStart: 1,
 			stageEnd: 3,
-			perLevelDropChance: 0.22
+			perLevelDropChance: 0.11
 		},
 		role: 'Early high-impact burst upgrade that fires a fast three-shot line into the current target'
 	},
@@ -110,7 +110,7 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 			campaignId: 1,
 			stageStart: 1,
 			stageEnd: 5,
-			perLevelDropChance: 0.28
+			perLevelDropChance: 0.14
 		},
 		role: 'Triple needle burst that lashes out from the pixl toward different targets before snapping back'
 	},
@@ -146,7 +146,7 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 			campaignId: 1,
 			stageStart: 2,
 			stageEnd: 5,
-			perLevelDropChance: 0.14
+			perLevelDropChance: 0.07
 		},
 		role: 'Early splitter weapon that launches three projectiles at different enemies when available'
 	},
@@ -198,7 +198,7 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 			campaignId: 1,
 			stageStart: 4,
 			stageEnd: 5,
-			perLevelDropChance: 0.06
+			perLevelDropChance: 0.03
 		},
 		role: 'Legendary heavy orb that locks onto its spawned target, slowly homes in, and cracks on impact into heavy shrapnel'
 	},
@@ -245,7 +245,7 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 			campaignId: 1,
 			stageStart: 4,
 			stageEnd: 5,
-			perLevelDropChance: 0.1
+			perLevelDropChance: 0.05
 		},
 		role: 'Late-campaign rare that launches a swelling wave orb whose hit zone expands the farther it travels'
 	},
@@ -291,7 +291,7 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 			campaignId: 1,
 			stageStart: 5,
 			stageEnd: 5,
-			perLevelDropChance: 0.08
+			perLevelDropChance: 0.04
 		},
 		role: 'Late-campaign precision rifle that paints the furthest glitch with a red lock line before firing a heavy delayed shot'
 	}

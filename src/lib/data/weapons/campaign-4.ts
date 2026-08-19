@@ -50,7 +50,7 @@ export const campaign4Weapons: LoadoutItemDefinition[] = [
 			campaignId: 4,
 			stageStart: 1,
 			stageEnd: 5,
-			perLevelDropChance: 0.12
+			perLevelDropChance: 0.06
 		},
 		role: 'Rare void control weapon that compresses enemies around the closest target and marks them to take more elemental damage'
 	},
@@ -108,7 +108,7 @@ export const campaign4Weapons: LoadoutItemDefinition[] = [
 			campaignId: 4,
 			stageStart: 1,
 			stageEnd: 5,
-			perLevelDropChance: 0.12
+			perLevelDropChance: 0.06
 		},
 		role: 'Rare void control weapon that forms a local black hole around the furthest target, pulling nearby glitches inward and marking them to take more elemental damage'
 	},
@@ -204,7 +204,7 @@ export const campaign4Weapons: LoadoutItemDefinition[] = [
 			campaignId: 4,
 			stageStart: 1,
 			stageEnd: 5,
-			perLevelDropChance: 0.09
+			perLevelDropChance: 0.045
 		},
 		role: 'Rare temporal trap that locks nearby glitches in place for one cycle after striking the closest enemy'
 	}

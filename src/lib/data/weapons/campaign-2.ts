@@ -53,7 +53,7 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 			campaignId: 2,
 			stageStart: 3,
 			stageEnd: 5,
-			perLevelDropChance: 0.06
+			perLevelDropChance: 0.03
 		},
 		role: 'Expanding 360 wave that detonates outward from the pixl and pulses once every three sweep cycles'
 	},
@@ -99,7 +99,7 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 			campaignId: 2,
 			stageStart: 2,
 			stageEnd: 5,
-			perLevelDropChance: 0.03
+			perLevelDropChance: 0.015
 		},
 		role: 'Legendary rotating beam that sweeps for one second and only fires every two sweep cycles'
 	},
@@ -140,7 +140,7 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 			campaignId: 2,
 			stageStart: 2,
 			stageEnd: 5,
-			perLevelDropChance: 0.11
+			perLevelDropChance: 0.055
 		},
 		role: 'Chain-hit projectile that bounces through the nearest enemies before dissipating'
 	},
@@ -179,7 +179,7 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 			campaignId: 2,
 			stageStart: 1,
 			stageEnd: 2,
-			perLevelDropChance: 0.18
+			perLevelDropChance: 0.09
 		},
 		role: 'Early fan-fire weapon with a brighter projectile profile than the baseline campaign'
 	},
@@ -217,7 +217,7 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 			campaignId: 2,
 			stageStart: 1,
 			stageEnd: 4,
-			perLevelDropChance: 0.14
+			perLevelDropChance: 0.07
 		},
 		role: 'Fast single-shot piercer tuned for picking off priority targets in dense waves'
 	},
@@ -253,7 +253,7 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 			campaignId: 2,
 			stageStart: 1,
 			stageEnd: 5,
-			perLevelDropChance: 0.26
+			perLevelDropChance: 0.13
 		},
 		role: 'Compact twin-shot filler that keeps up with the faster sweep tempo'
 	},
@@ -298,7 +298,7 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 			campaignId: 2,
 			stageStart: 2,
 			stageEnd: 5,
-			perLevelDropChance: 0.09
+			perLevelDropChance: 0.045
 		},
 		role: 'Mid-campaign scatter weapon that fires three staggered four-shot pulse bursts into packed waves'
 	},
@@ -340,7 +340,7 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 			campaignId: 2,
 			stageStart: 3,
 			stageEnd: 5,
-			perLevelDropChance: 0.08
+			perLevelDropChance: 0.04
 		},
 		role: 'Heavy paired volley that makes the projectile animation read larger on screen'
 	},
@@ -388,7 +388,7 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 			campaignId: 2,
 			stageStart: 4,
 			stageEnd: 5,
-			perLevelDropChance: 0.02
+			perLevelDropChance: 0.01
 		},
 		role: 'Wide rare barrage that floods half the arena with piercing micro-nova shots'
 	},
@@ -423,7 +423,7 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 			campaignId: 2,
 			stageStart: 3,
 			stageEnd: 5,
-			perLevelDropChance: 0.16
+			perLevelDropChance: 0.08
 		},
 		role: 'Defensive utility that adds a 20-point shield until broken and refreshes it on the next trigger'
 	},
@@ -463,7 +463,7 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 			campaignId: 2,
 			stageStart: 4,
 			stageEnd: 5,
-			perLevelDropChance: 0.1
+			perLevelDropChance: 0.05
 		},
 		role: 'Magic shield utility that adds 35 shield until broken and replenishes it every trigger cycle'
 	},
@@ -506,7 +506,7 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 			campaignId: 2,
 			stageStart: 5,
 			stageEnd: 5,
-			perLevelDropChance: 0.06
+			perLevelDropChance: 0.03
 		},
 		role: 'Rare shield utility that adds 50 shield until broken and recharges on each trigger cycle'
 	},
@@ -536,7 +536,7 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 			campaignId: 2,
 			stageStart: 5,
 			stageEnd: 5,
-			perLevelDropChance: 0.02
+			perLevelDropChance: 0.01
 		},
 		role: 'Passive utility that reduces the cycle interval of touching weapons by 1'
 	},
@@ -573,7 +573,7 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 			campaignId: 2,
 			stageStart: 4,
 			stageEnd: 5,
-			perLevelDropChance: 0.08
+			perLevelDropChance: 0.04
 		},
 		role: 'Timed utility that boosts all weapon damage by 20% for the rest of the current cycle'
 	}

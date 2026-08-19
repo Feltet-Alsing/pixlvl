@@ -32,7 +32,7 @@ export const campaign3Weapons: LoadoutItemDefinition[] = [
 			campaignId: 3,
 			stageStart: 1,
 			stageEnd: 5,
-			perLevelDropChance: 0.16
+			perLevelDropChance: 0.08
 		},
 		role: 'Normal utility that generates one fire infusion each cycle'
 	},
@@ -67,7 +67,7 @@ export const campaign3Weapons: LoadoutItemDefinition[] = [
 			campaignId: 3,
 			stageStart: 1,
 			stageEnd: 5,
-			perLevelDropChance: 0.16
+			perLevelDropChance: 0.08
 		},
 		role: 'Normal utility that generates one lightning infusion each cycle'
 	},
@@ -102,7 +102,7 @@ export const campaign3Weapons: LoadoutItemDefinition[] = [
 			campaignId: 3,
 			stageStart: 1,
 			stageEnd: 5,
-			perLevelDropChance: 0.16
+			perLevelDropChance: 0.08
 		},
 		role: 'Normal utility that generates one cold infusion each cycle'
 	},
@@ -137,7 +137,7 @@ export const campaign3Weapons: LoadoutItemDefinition[] = [
 			campaignId: 3,
 			stageStart: 1,
 			stageEnd: 5,
-			perLevelDropChance: 0.16
+			perLevelDropChance: 0.08
 		},
 		role: 'Normal utility that generates one void infusion each cycle'
 	},
@@ -188,7 +188,7 @@ export const campaign3Weapons: LoadoutItemDefinition[] = [
 			campaignId: 3,
 			stageStart: 1,
 			stageEnd: 5,
-			perLevelDropChance: 0.08
+			perLevelDropChance: 0.04
 		},
 		role: 'Legendary lightning weapon that forks across every available enemy after consuming three lightning infusions'
 	},
@@ -240,7 +240,7 @@ export const campaign3Weapons: LoadoutItemDefinition[] = [
 			campaignId: 3,
 			stageStart: 1,
 			stageEnd: 5,
-			perLevelDropChance: 0.08
+			perLevelDropChance: 0.04
 		},
 		role: 'Exotic fire weapon that sustains a long red flame stream for two cycles after consuming one fire infusion'
 	},
@@ -294,7 +294,7 @@ export const campaign3Weapons: LoadoutItemDefinition[] = [
 			campaignId: 3,
 			stageStart: 1,
 			stageEnd: 5,
-			perLevelDropChance: 0.08
+			perLevelDropChance: 0.04
 		},
 		role: 'Exotic cold weapon that rains ten ice spikes across the arena after consuming one cold infusion'
 	},
@@ -347,7 +347,7 @@ export const campaign3Weapons: LoadoutItemDefinition[] = [
 			campaignId: 3,
 			stageStart: 1,
 			stageEnd: 5,
-			perLevelDropChance: 0.08
+			perLevelDropChance: 0.04
 		},
 		role: 'Exotic void weapon that lashes four nearby enemies and heals the pixl for each successful hit'
 	}
