@@ -275,10 +275,15 @@ export const campaign3Weapons: LoadoutItemDefinition[] = [
 			requiredInfusion: 'cold',
 			special: {
 				type: 'ice-shower',
-				spikeCount: 20,
+				spikeCount: 28,
 				durationCycles: 1,
-				fallDuration: 0.48,
-				impactRadius: 16
+				fallDuration: 0.6,
+				impactRadius: 16,
+				fullScreen: true,
+				chillAmount: 0.5,
+				freezeDuration: 2,
+				frozenDamageMultiplier: 2,
+				frozenMaxHealthDamageRatio: 0.2
 			},
 			targeting: 'current-target'
 		},
@@ -296,7 +301,7 @@ export const campaign3Weapons: LoadoutItemDefinition[] = [
 			stageEnd: 5,
 			perLevelDropChance: 0.04
 		},
-		role: 'Exotic cold weapon that rains ten ice spikes across the arena after consuming one cold infusion'
+		role: 'Exotic cold weapon that blankets the full arena in freezing pressure, applying 50% chill and freezing enemies that reach 100% chill'
 	},
 	{
 		id: 'void-tendrils',

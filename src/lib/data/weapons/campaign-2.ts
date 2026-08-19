@@ -203,6 +203,10 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 			projectileCount: 1,
 			motion: 'accelerate',
 			pierceCount: 2,
+			special: {
+				type: 'next-weapon-boost',
+				damageMultiplier: 1.1
+			},
 			targeting: 'current-target'
 		},
 		projectileVisual: {
@@ -219,7 +223,7 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 			stageEnd: 4,
 			perLevelDropChance: 0.07
 		},
-		role: 'Fast single-shot piercer tuned for picking off priority targets in dense waves'
+		role: 'Fast single-shot piercer that buffs the next triggered weapon to deal 10% more damage'
 	},
 	{
 		id: 'shiver-fork',
@@ -240,6 +244,11 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 		attack: {
 			kind: 'dual',
 			projectileCount: 3,
+			special: {
+				type: 'vulnerable-hit',
+				damageMultiplier: 1.33,
+				duration: 2
+			},
 			targeting: 'current-target'
 		},
 		projectileVisual: {
@@ -255,7 +264,7 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 			stageEnd: 5,
 			perLevelDropChance: 0.13
 		},
-		role: 'Compact twin-shot filler that keeps up with the faster sweep tempo'
+		role: 'Compact twin-shot filler that marks hit enemies as vulnerable, causing them to take 33% more damage for two seconds'
 	},
 	{
 		id: 'pulse-array',
@@ -411,7 +420,7 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 		cycleInterval: 3,
 		effect: {
 			type: 'shield-pool',
-			shieldAmount: 20
+			shieldPercent: 0.05
 		},
 		utilityVisual: {
 			color: '#60a5fa',
@@ -425,7 +434,7 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 			stageEnd: 5,
 			perLevelDropChance: 0.08
 		},
-		role: 'Defensive utility that adds a 20-point shield until broken and refreshes it on the next trigger'
+		role: 'Defensive utility that adds shield equal to 5% of max health, then starts a three-sweep recharge after it breaks'
 	},
 	{
 		id: 'shield-array',
@@ -451,7 +460,7 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 		cycleInterval: 3,
 		effect: {
 			type: 'shield-pool',
-			shieldAmount: 35
+			shieldPercent: 0.1
 		},
 		utilityVisual: {
 			color: '#7dd3fc',
@@ -465,7 +474,7 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 			stageEnd: 5,
 			perLevelDropChance: 0.05
 		},
-		role: 'Magic shield utility that adds 35 shield until broken and replenishes it every trigger cycle'
+		role: 'Magic shield utility that adds shield equal to 10% of max health, then starts a three-sweep recharge after it breaks'
 	},
 	{
 		id: 'shield-bastion',
@@ -491,10 +500,11 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 			]
 		},
 		activationKind: 'triggered',
-		cycleInterval: 3,
+		cycleInterval: 4,
+		startCharged: true,
 		effect: {
 			type: 'shield-pool',
-			shieldAmount: 50
+			shieldPercent: 0.2
 		},
 		utilityVisual: {
 			color: '#38bdf8',
@@ -508,7 +518,7 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 			stageEnd: 5,
 			perLevelDropChance: 0.03
 		},
-		role: 'Rare shield utility that adds 50 shield until broken and recharges on each trigger cycle'
+		role: 'Rare shield utility that starts with a 20% max health shield, then starts a four-sweep recharge after it breaks'
 	},
 	{
 		id: 'cycle-booster',

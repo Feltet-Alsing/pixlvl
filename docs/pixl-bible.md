@@ -905,6 +905,128 @@ Examples:
 - better death/reset messaging
 - more satisfying reward presentation
 
+### Priority 6: content expansion roadmap
+
+The next major content phase is now defined as a structured expansion pass rather than a single feature drop.
+
+This expansion pass has four connected tracks.
+
+#### Track 1: finish Campaign 4 weapons
+
+Campaign 4 still needs a final content pass on its weapon roster.
+
+This is now the immediate content priority before Campaign 5 or the dungeon-key system.
+
+Goals:
+
+- finish the remaining incomplete or weak-feeling Campaign 4 weapons
+- ensure Campaign 4 weapons solve recognizably different combat problems
+- make the final campaign roster feel like a meaningful escalation over earlier campaigns
+- re-evaluate disabled or placeholder-feeling Campaign 4 items before calling the campaign complete
+- add more persistent AOE tools that reinforce Campaign 4's positional-combo identity
+
+Implementation intent:
+
+- complete the last missing weapon concepts first
+- then rebalance the full Campaign 4 pool as one unit
+- do not treat Campaign 4 weapon work as isolated number tweaks only; the full set should be reviewed for overlap and dead slots
+
+Immediate Campaign 4 sub-goals:
+
+- finish the last missing control and combo weapons
+- ensure Campaign 4 has enough persistent-area weapons to reward enemy displacement and clustering
+- identify any Campaign 4 items that are conceptually right but numerically too weak to justify using over generic damage tools
+
+#### Track 2: add Campaign 5
+
+Campaign 5 should be the next mainline campaign expansion.
+
+Core requirement:
+
+- Campaign 5 must introduce a new boss mechanic layer rather than only adding harder numbers
+
+Current design note:
+
+- the exact Campaign 5 boss mechanic is still driven by separate design notes and needs to be formalized before implementation
+
+Campaign 5 goals:
+
+- add a new campaign with its own enemy pressure identity
+- preserve the current core loop while making boss encounters feel more mechanically distinct
+- use boss mechanics to create new build checks rather than only larger stat walls
+
+Expected work areas:
+
+- Campaign 5 level structure
+- Campaign 5 reward pool
+- Campaign 5 weapon additions if needed
+- new boss encounter scripting and readability pass
+
+#### Track 3: dungeon keys and exclusive dungeon stages
+
+Add a new side-content progression layer based on `Dungeon Keys`.
+
+Dungeon Keys direction:
+
+- Dungeon Keys drop from a specific source pool
+- each key unlocks access to a specific dungeon stage or dungeon route
+- dungeon content should use much harder enemy scaling than standard campaign levels
+- dungeon stages should reward a dungeon-exclusive loot pool rather than normal campaign drops
+
+Dungeon system goals:
+
+- create a higher-risk side progression path
+- add a source of rare or build-defining dungeon loot
+- give late-game players a reason to chase content outside the normal campaign ladder
+
+Important content requirements:
+
+- dungeon UI
+- dungeon stage structure and access flow
+- dungeon-specific enemy scaling rules
+- dungeon-exclusive reward pool
+- dungeon-specific enemies or enemy variants where needed
+
+Implementation note:
+
+- the dungeon system is not just a level flag; it needs its own progression/readability layer so players understand entry, difficulty, and reward expectations immediately
+
+#### Track 4: weapon revision and stale-gameplay pass
+
+Run a broader weapon review across the game after Campaign 4 and Campaign 5 content solidify.
+
+This pass should focus on:
+
+- identifying where combat gameplay feels stale
+- adding weapons where the current roster does not create enough meaningful decisions
+- revising weapon roles where two or more items currently overlap too much
+- rebalancing weapons whose purpose is unclear, too weak, too dominant, or not exciting to slot
+
+This is not only a balance pass.
+
+It is a purpose-and-identity pass for the weapon roster.
+
+Questions this pass should answer:
+
+- what player problem does each weapon solve?
+- which weapons are pure filler and should become more distinct?
+- where are the obvious build gaps?
+- which campaign rewards feel mandatory instead of optional?
+
+#### Recommended implementation order
+
+The current recommended order is:
+
+1. finish Campaign 4 weapon content
+2. formalize and build Campaign 5 boss mechanics and progression
+3. implement Dungeon Keys, dungeon stages, and dungeon-exclusive rewards
+4. run the broader weapon revision and stale-gameplay pass after the new content is in place
+
+Reason:
+
+- the weapon revision pass will be much stronger after the roster and progression structure are closer to their intended full shape
+- dungeon rewards and Campaign 5 mechanics may expose weapon gaps that are not visible yet
+
 ---
 
 ## Immediate next design task
@@ -1311,3 +1433,75 @@ This makes `Force Field` distinct from the other control tools:
 - `Void Tunnel` groups enemies inward
 - `Phaseshift` sends enemies back out
 - `Force Field` freezes enemies in place for a short combo window
+
+### Early Campaign 4 weapon note: Napalm Grenade
+
+Campaign 4 should also add at least one persistent-area damage weapon so the player can capitalize on displacement and clustering with longer-lived kill zones.
+
+`Napalm Grenade` is the clearest candidate for that role.
+
+Initial spec direction:
+
+- name: `Napalm Grenade`
+- rarity: `exotic`
+- primary role: persistent AOE payoff for grouped or displaced enemies
+- requires `1` fire infusion to activate
+- cycle cooldown: `3`
+- burned-ground duration: `2` cycles
+
+Effect direction:
+
+- `Napalm Grenade` should launch toward the target area and create a patch of burning ground on impact
+- the burned ground should persist for `2` full cycles
+- enemies standing in or moving through the patch should take repeated fire damage over that duration
+- the weapon should reward pulling enemies inward with `Void Tunnel`, pinning them with `Force Field`, or re-staggering them through `Phaseshift`
+
+Design intent:
+
+- Campaign 4 should not rely only on instant control plus direct burst
+- persistent AOE gives the player a reason to care about where enemies remain after they are moved
+- `Napalm Grenade` should feel like a payoff tool for a control engine rather than a generic fire weapon
+
+Identity role inside Campaign 4:
+
+- `Void Tunnel` groups enemies into the burn zone
+- `Force Field` keeps enemies standing inside the burn zone
+- `Phaseshift` can reset part of a wave while the burn zone finishes another cluster
+
+This makes `Napalm Grenade` an important missing piece in the Campaign 4 control-combo toolkit because it introduces persistent territorial damage rather than only one-moment impact.
+
+### Early Campaign 4 weapon note: The Bomb
+
+The final Campaign 4 weapon should be a delayed burst payoff piece called `The Bomb`.
+
+Unlike the earlier Campaign 4 tools, which focus on displacement, locking, or persistent area denial, `The Bomb` should represent the high-commitment finisher that cashes in after the control setup is already working.
+
+Initial spec direction:
+
+- name: `The Bomb`
+- rarity: `legendary`
+- primary role: delayed massive-damage payoff
+- cycle cooldown: `4`
+- detonation delay: `1` cycle
+
+Effect direction:
+
+- `The Bomb` should place a bomb at the target location when it fires
+- that bomb should remain in place for `1` cycle before detonating
+- when it detonates, it should deal massive damage in a meaningful local area
+- the damage should be balanced around the expectation that the player first groups or holds enemies inside the blast zone
+
+Design intent:
+
+- `The Bomb` should reward players for planning one step ahead instead of only reacting in the current cycle
+- it should feel strongest when paired with `Void Tunnel` or `Force Field`, which help keep enemies inside the future detonation area
+- it should also work as a high-risk follow-up after `Napalm Grenade`, stacking persistent burn pressure with a burst finish
+
+Identity role inside Campaign 4:
+
+- `Void Tunnel` compresses enemies into the future blast zone
+- `Force Field` can pin enemies long enough for the delayed detonation to connect
+- `Napalm Grenade` softens clustered enemies before the burst lands
+- `The Bomb` serves as the campaign's biggest payoff weapon when the full control engine is assembled
+
+This gives Campaign 4 a clearer end-state loadout fantasy: manipulate enemy position, hold them in a kill pocket, layer persistent pressure, and then cash out with a delayed explosive finisher.

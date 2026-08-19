@@ -56,6 +56,7 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 		attack: {
 			kind: 'single',
 			projectileCount: 3,
+			pierceCount: Number.POSITIVE_INFINITY,
 			targeting: 'current-target'
 		},
 		projectileVisual: {
@@ -223,6 +224,7 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 		attack: {
 			kind: 'single',
 			projectileCount: 1,
+			pierceCount: Number.POSITIVE_INFINITY,
 			impactRadius: 32,
 			special: {
 				type: 'expanding-wave',
@@ -275,7 +277,12 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 			special: {
 				type: 'sniper-line',
 				chargeDuration: 0.45,
-				lineWidth: 2
+				lineWidth: 2,
+				maxChainTargets: 5,
+				chainTargetsPerUpgrade: 2,
+				maxUpgradeChainTargets: 15,
+				bounceRange: 180,
+				rangedOnly: true
 			},
 			targeting: 'furthest-target'
 		},
@@ -293,6 +300,6 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 			stageEnd: 5,
 			perLevelDropChance: 0.04
 		},
-		role: 'Late-campaign precision rifle that paints the furthest glitch with a red lock line before firing a heavy delayed shot'
+		role: 'Late-campaign precision rifle that paints ranged threats, then chains between nearby ranged glitches to stabilize backline-heavy waves'
 	}
 ];

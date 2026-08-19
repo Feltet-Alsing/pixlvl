@@ -8,7 +8,8 @@
 		applyUpgradePurchase,
 		createBaselineUpgradeablePixlState,
 		getUpgradeOptions,
-		isUpgradeKey
+		isUpgradeKey,
+		resetUpgradeAllocations
 	} from '$lib/game/upgrades';
 	import type { PageProps } from './$types';
 
@@ -84,6 +85,30 @@
 			}
 		};
 	};
+
+	const resetUpgrades: SubmitFunction = () => {
+		return async ({ result }) => {
+			if (result.type === 'success' || result.type === 'failure') {
+				form = result.data as PageProps['form'];
+			}
+
+			if (result.type === 'success') {
+				const nextUpgradeState = resetUpgradeAllocations(upgradeState);
+
+				pixlStateOverride = {
+					xp: nextUpgradeState.xp,
+					level: nextUpgradeState.level,
+					perkPoints: nextUpgradeState.perkPoints,
+					defence: nextUpgradeState.defence,
+					agility: nextUpgradeState.agility,
+					health: nextUpgradeState.health,
+					attackSpeed: nextUpgradeState.attackSpeed,
+					loadoutRows: nextUpgradeState.loadoutRows,
+					loadoutColumns: nextUpgradeState.loadoutColumns
+				};
+			}
+		};
+	};
 </script>
 
 <svelte:head>
@@ -115,6 +140,17 @@
 					<p class="feedback error">{form.purchaseError}</p>
 				{:else if form?.purchaseSuccess}
 					<p class="feedback success">{form.purchaseSuccess}</p>
+				{/if}
+
+				{#if data.gameState}
+					<form
+						class="reset-form"
+						method="post"
+						action="?/resetUpgrades"
+						use:enhance={resetUpgrades}
+					>
+						<button class="reset-button" type="submit">Reset perk points</button>
+					</form>
 				{/if}
 
 				<div class="upgrade-grid">
@@ -209,6 +245,24 @@
 
 	.feedback.neutral {
 		background: rgba(255, 255, 255, 0.05);
+	}
+
+	.reset-form {
+		margin: 0;
+	}
+
+	.reset-button {
+		width: 100%;
+		min-height: 2rem;
+		padding: 0.45rem 0.75rem;
+		border: 1px solid rgba(255, 255, 255, 0.14);
+		border-radius: 999px;
+		background: rgba(255, 255, 255, 0.05);
+		color: #f5f5f5;
+		font: inherit;
+		font-size: 0.9rem;
+		font-weight: 600;
+		cursor: pointer;
 	}
 
 	@media (max-width: 860px) {

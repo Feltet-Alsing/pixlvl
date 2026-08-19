@@ -149,6 +149,14 @@ export function applyUpgradePurchase(
 	});
 }
 
+export function resetUpgradeAllocations(state: UpgradeablePixlState): UpgradeablePixlState {
+	return createUpgradeablePixlState({
+		xp: state.xp,
+		defence: 0,
+		agility: 0
+	});
+}
+
 export function applyXpGain(state: UpgradeablePixlState, gainedXp: number): UpgradeablePixlState {
 	const normalizedGain = Math.max(0, Math.floor(gainedXp));
 

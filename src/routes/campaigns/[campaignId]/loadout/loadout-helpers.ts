@@ -626,7 +626,7 @@ export function getLoadoutItemEffectSummary(definition: LoadoutItemDefinition) {
 
 	switch (definition.effect.type) {
 		case 'shield-pool':
-			return `Adds ${definition.effect.shieldAmount} shield until broken`;
+			return `Adds shield equal to ${Math.round(definition.effect.shieldPercent * 100)}% of max health until broken`;
 		case 'elemental-infuser':
 			return `Generates 1 ${definition.effect.element} infusion per cycle`;
 		case 'cycle-adjacency-reduction':

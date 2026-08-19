@@ -1,4 +1,6 @@
+import { getLoadoutItemDefinition } from '$lib/data';
 import { normalizeLoadoutRotation } from '$lib/game/loadout-rotation';
+import { getPlacementRotation, rotateWeaponShape } from '$lib/game/loadout-rotation';
 
 import type {
 	LoadoutPlacement,
@@ -95,15 +97,99 @@ export function normalizeLoadoutPlacements(
 		}));
 }
 
+function sanitizeLoadoutPlacements(
+	placements: LoadoutPlacement[],
+	ownedWeapons: OwnedWeaponInstance[],
+	columnCount: number,
+	rowCount: number
+) {
+	const ownedWeaponById = new Map(ownedWeapons.map((weapon) => [weapon.instanceId, weapon]));
+	const sanitizedPlacements: LoadoutPlacement[] = [];
+	const occupiedCells = new Set<string>();
+	const seenWeaponInstanceIds = new Set<string>();
+	const equippedLegendaryDefinitionIds = new Set<string>();
+
+	for (const placement of placements) {
+		if (seenWeaponInstanceIds.has(placement.weaponInstanceId)) {
+			continue;
+		}
+
+		const ownedWeapon = ownedWeaponById.get(placement.weaponInstanceId);
+
+		if (!ownedWeapon) {
+			continue;
+		}
+
+		const definition = getLoadoutItemDefinition(ownedWeapon.definitionId);
+
+		if (definition.rarity === 'legendary' && equippedLegendaryDefinitionIds.has(definition.id)) {
+			continue;
+		}
+
+		const rotation = getPlacementRotation(placement);
+		const shape = rotateWeaponShape(definition.shape, rotation);
+		const occupiedByPlacement: string[] = [];
+		let isValidPlacement = true;
+
+		for (const [cellX, cellY] of shape.cells) {
+			const gridX = placement.x + cellX;
+			const gridY = placement.y + cellY;
+			const key = `${gridX}:${gridY}`;
+
+			if (
+				gridX < 0 ||
+				gridX >= columnCount ||
+				gridY < 0 ||
+				gridY >= rowCount ||
+				occupiedCells.has(key)
+			) {
+				isValidPlacement = false;
+				break;
+			}
+
+			occupiedByPlacement.push(key);
+		}
+
+		if (!isValidPlacement) {
+			continue;
+		}
+
+		seenWeaponInstanceIds.add(placement.weaponInstanceId);
+		if (definition.rarity === 'legendary') {
+			equippedLegendaryDefinitionIds.add(definition.id);
+		}
+
+		for (const key of occupiedByPlacement) {
+			occupiedCells.add(key);
+		}
+
+		sanitizedPlacements.push({
+			...placement,
+			rotation
+		});
+	}
+
+	return sanitizedPlacements;
+}
+
 export function normalizePersistedLoadoutState(
 	value: PersistedLoadoutState | LoadoutPlacement[] | null | undefined,
 	ownedWeapons: OwnedWeaponInstance[],
-	fallbackPlacements: LoadoutPlacement[] = []
+	fallbackPlacements: LoadoutPlacement[] = [],
+	columnCount?: number,
+	rowCount?: number
 ): PersistedLoadoutState {
 	if (isPersistedLoadoutState(value)) {
 		const slots = createEmptyLoadoutSlots();
 		for (let index = 0; index < LOADOUT_SLOT_COUNT; index += 1) {
-			slots[index] = normalizeLoadoutPlacements(value.slots[index] ?? [], ownedWeapons);
+			const normalizedPlacements = normalizeLoadoutPlacements(
+				value.slots[index] ?? [],
+				ownedWeapons
+			);
+			slots[index] =
+				columnCount !== undefined && rowCount !== undefined
+					? sanitizeLoadoutPlacements(normalizedPlacements, ownedWeapons, columnCount, rowCount)
+					: normalizedPlacements;
 		}
 
 		return {
@@ -114,8 +200,12 @@ export function normalizePersistedLoadoutState(
 
 	const slots = createEmptyLoadoutSlots();
 	const normalizedPrimary = normalizeLoadoutPlacements(value ?? fallbackPlacements, ownedWeapons);
+	const sanitizedPrimary =
+		columnCount !== undefined && rowCount !== undefined
+			? sanitizeLoadoutPlacements(normalizedPrimary, ownedWeapons, columnCount, rowCount)
+			: normalizedPrimary;
 	slots[0] =
-		normalizedPrimary.length > 0 ? normalizedPrimary : cloneLoadoutPlacements(fallbackPlacements);
+		sanitizedPrimary.length > 0 ? sanitizedPrimary : cloneLoadoutPlacements(fallbackPlacements);
 
 	return {
 		activeSlot: 0,

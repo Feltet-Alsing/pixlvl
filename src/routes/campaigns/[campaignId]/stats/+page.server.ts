@@ -1,6 +1,10 @@
 import { redirect } from '@sveltejs/kit';
 
-import { toActionFailure, purchaseUpgradeForUser } from '$lib/server/campaign-route';
+import {
+	toActionFailure,
+	purchaseUpgradeForUser,
+	resetUpgradesForUser
+} from '$lib/server/campaign-route';
 
 import type { Actions, PageServerLoad } from './$types';
 
@@ -16,6 +20,12 @@ export const actions: Actions = {
 			campaignId,
 			await request.formData()
 		);
+
+		return toActionFailure(result);
+	},
+	resetUpgrades: async ({ locals, params }) => {
+		const campaignId = Number(params.campaignId);
+		const result = await resetUpgradesForUser(locals.user?.id, campaignId);
 
 		return toActionFailure(result);
 	}

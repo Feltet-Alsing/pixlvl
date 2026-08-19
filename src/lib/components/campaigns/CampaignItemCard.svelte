@@ -154,7 +154,7 @@
 	function formatUtilityEffect(item: Extract<LoadoutItemDefinition, { category: 'utility' }>) {
 		switch (item.effect.type) {
 			case 'shield-pool':
-				return `Shield ${item.effect.shieldAmount}`;
+				return `Shield ${Math.round(item.effect.shieldPercent * 100)}%`;
 			case 'elemental-infuser':
 				return `${formatLabel(item.effect.element)} infusion`;
 			case 'cycle-adjacency-reduction':

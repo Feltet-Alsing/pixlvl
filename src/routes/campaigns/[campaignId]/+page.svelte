@@ -30,7 +30,8 @@
 		createBaselineUpgradeablePixlState,
 		getXpProgress,
 		getUpgradeOptions,
-		isUpgradeKey
+		isUpgradeKey,
+		resetUpgradeAllocations
 	} from '$lib/game/upgrades';
 	import type { LoadoutItemDefinition } from '$lib/data/types';
 	import type { PageProps } from './$types';
@@ -90,6 +91,8 @@
 	const getArenaResumeStorageKey = (campaignId: number) => `pixlvl-arena-resume-${campaignId}`;
 	const getArenaCombatResumeStorageKey = (campaignId: number) =>
 		`pixlvl-arena-combat-resume-${campaignId}`;
+	const getArenaUpgradeScrollStorageKey = (campaignId: number) =>
+		`pixlvl-arena-upgrade-scroll-${campaignId}`;
 
 	let { data, form }: PageProps = $props();
 	let innerWidth = $state<number | null>(null);
@@ -346,6 +349,30 @@
 		}
 	});
 
+	$effect(() => {
+		if (typeof sessionStorage === 'undefined' || typeof window === 'undefined') {
+			return;
+		}
+
+		const storedScrollY = sessionStorage.getItem(getArenaUpgradeScrollStorageKey(data.campaignId));
+
+		if (storedScrollY === null) {
+			return;
+		}
+
+		sessionStorage.removeItem(getArenaUpgradeScrollStorageKey(data.campaignId));
+
+		const scrollY = Number(storedScrollY);
+
+		if (!Number.isFinite(scrollY)) {
+			return;
+		}
+
+		requestAnimationFrame(() => {
+			window.scrollTo({ top: scrollY, behavior: 'auto' });
+		});
+	});
+
 	function handleSketchStateChange(update: SketchStateUpdate) {
 		if (livePixlState) {
 			pixlStateOverride = {
@@ -483,6 +510,13 @@
 	const purchaseUpgrade: SubmitFunction = ({ formData }) => {
 		const selectedUpgrade = formData.get('upgrade');
 
+		if (typeof sessionStorage !== 'undefined' && typeof window !== 'undefined') {
+			sessionStorage.setItem(
+				getArenaUpgradeScrollStorageKey(data.campaignId),
+				String(window.scrollY)
+			);
+		}
+
 		return async ({ result }) => {
 			showStatsOverlay = true;
 
@@ -496,6 +530,42 @@
 				isUpgradeKey(selectedUpgrade)
 			) {
 				const nextUpgradeState = applyUpgradePurchase(selectedUpgrade, upgradeState);
+				const ownedWeapons =
+					livePixlState?.ownedWeapons ?? data.gameState?.pixlState?.ownedWeapons ?? [];
+
+				pixlStateOverride = {
+					xp: nextUpgradeState.xp,
+					level: nextUpgradeState.level,
+					perkPoints: nextUpgradeState.perkPoints,
+					defence: nextUpgradeState.defence,
+					agility: nextUpgradeState.agility,
+					health: nextUpgradeState.health,
+					attackSpeed: nextUpgradeState.attackSpeed,
+					loadoutRows: nextUpgradeState.loadoutRows,
+					loadoutColumns: nextUpgradeState.loadoutColumns,
+					ownedWeapons
+				};
+			}
+		};
+	};
+
+	const resetUpgrades: SubmitFunction = () => {
+		if (typeof sessionStorage !== 'undefined' && typeof window !== 'undefined') {
+			sessionStorage.setItem(
+				getArenaUpgradeScrollStorageKey(data.campaignId),
+				String(window.scrollY)
+			);
+		}
+
+		return async ({ result }) => {
+			showStatsOverlay = true;
+
+			if (result.type === 'success' || result.type === 'failure') {
+				form = result.data as PageProps['form'];
+			}
+
+			if (result.type === 'success') {
+				const nextUpgradeState = resetUpgradeAllocations(upgradeState);
 				const ownedWeapons =
 					livePixlState?.ownedWeapons ?? data.gameState?.pixlState?.ownedWeapons ?? [];
 
@@ -532,7 +602,6 @@
 			const targetLevel = (stage - 1) * data.campaign.levelsPerStage + 1;
 			const baseCampaignState = liveCampaignState ?? data.campaignState;
 
-			setCampaignMenuOpen(false);
 			showStatsOverlay = false;
 
 			if (!baseCampaignState || targetLevel === sketchCampaignLevel) {
@@ -607,7 +676,9 @@
 			upgradeOptions={overlayUpgradeOptions}
 			signedIn={Boolean(data.gameState)}
 			purchaseError={form?.purchaseError}
+			purchaseSuccess={form?.purchaseSuccess}
 			submit={purchaseUpgrade}
+			resetSubmit={resetUpgrades}
 		/>
 	{/if}
 {/snippet}

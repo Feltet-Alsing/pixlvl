@@ -122,6 +122,15 @@ export interface WeaponAttackBehavior {
 				bounceCount: number;
 		  }
 		| {
+				type: 'vulnerable-hit';
+				damageMultiplier: number;
+				duration: number;
+		  }
+		| {
+				type: 'next-weapon-boost';
+				damageMultiplier: number;
+		  }
+		| {
 				type: 'needle-fan';
 				duration: number;
 				maxReach: number;
@@ -138,6 +147,11 @@ export interface WeaponAttackBehavior {
 				type: 'sniper-line';
 				chargeDuration: number;
 				lineWidth: number;
+				maxChainTargets?: number;
+				chainTargetsPerUpgrade?: number;
+				maxUpgradeChainTargets?: number;
+				bounceRange?: number;
+				rangedOnly?: boolean;
 		  }
 		| {
 				type: 'shrapnel-burst';
@@ -171,6 +185,11 @@ export interface WeaponAttackBehavior {
 				durationCycles: number;
 				fallDuration: number;
 				impactRadius: number;
+				fullScreen?: boolean;
+				chillAmount?: number;
+				freezeDuration?: number;
+				frozenDamageMultiplier?: number;
+				frozenMaxHealthDamageRatio?: number;
 		  }
 		| {
 				type: 'void-tendrils';
@@ -202,6 +221,19 @@ export interface WeaponAttackBehavior {
 				maxRadius: number;
 				expansionSpeed: number;
 				fieldDurationCycles: number;
+		  }
+		| {
+				type: 'burning-ground';
+				radius: number;
+				durationCycles: number;
+				tickInterval: number;
+				impactSize: number;
+		  }
+		| {
+				type: 'delayed-bomb';
+				radius: number;
+				detonationDelayCycles: number;
+				markerSize: number;
 		  };
 	targeting: WeaponTargetingKind;
 }
@@ -236,10 +268,11 @@ export interface UtilityDefinition {
 	shape: WeaponShape;
 	activationKind: UtilityActivationKind;
 	cycleInterval?: number;
+	startCharged?: boolean;
 	effect:
 		| {
 				type: 'shield-pool';
-				shieldAmount: number;
+				shieldPercent: number;
 		  }
 		| {
 				type: 'elemental-infuser';

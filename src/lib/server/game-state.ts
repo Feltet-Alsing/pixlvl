@@ -223,10 +223,17 @@ async function ensureGameState(userId: string) {
 	}
 
 	const normalizedOwnedWeapons = normalizeOwnedWeapons(storedPixlState.ownedWeapons);
+	const normalizedProgression = createUpgradeablePixlState({
+		xp: storedPixlState.xp,
+		defence: storedPixlState.defence,
+		agility: storedPixlState.agility
+	});
 	const normalizedLoadoutPlacements = normalizePersistedLoadoutState(
 		storedPixlState.loadoutPlacements,
 		normalizedOwnedWeapons,
-		createStarterLoadoutPlacements()
+		createStarterLoadoutPlacements(),
+		normalizedProgression.loadoutColumns,
+		normalizedProgression.loadoutRows
 	);
 	const normalizedAcknowledgedPerkPoints = normalizeAcknowledgedPerkPoints(
 		storedPixlState.acknowledgedPerkPoints
@@ -236,12 +243,6 @@ async function ensureGameState(userId: string) {
 		normalizedOwnedWeapons
 	);
 	const normalizedScrap = normalizeScrap(storedPixlState.scrap);
-
-	const normalizedProgression = createUpgradeablePixlState({
-		xp: storedPixlState.xp,
-		defence: storedPixlState.defence,
-		agility: storedPixlState.agility
-	});
 
 	if (
 		normalizedProgression.xp !== storedPixlState.xp ||
@@ -343,7 +344,9 @@ export async function updateGameState(userId: string, patch: GameStatePatch): Pr
 				? normalizePersistedLoadoutState(
 						patch.pixlState.loadoutPlacements as PersistedLoadoutState | LoadoutPlacement[],
 						ownedWeapons ?? normalizeOwnedWeapons(storedPixlState.ownedWeapons),
-						createStarterLoadoutPlacements()
+						createStarterLoadoutPlacements(),
+						normalizedProgression.loadoutColumns,
+						normalizedProgression.loadoutRows
 					)
 				: undefined;
 

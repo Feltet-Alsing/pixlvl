@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import type { UpgradeOption } from '$lib/game/upgrades';
 	import CampaignStatCard from '$lib/components/campaigns/CampaignStatCard.svelte';
@@ -14,10 +15,20 @@
 		upgradeOptions: UpgradeOption[];
 		signedIn: boolean;
 		purchaseError?: string;
+		purchaseSuccess?: string;
 		submit?: SubmitFunction;
+		resetSubmit?: SubmitFunction;
 	}
 
-	let { stats, upgradeOptions, signedIn, purchaseError, submit }: Props = $props();
+	let {
+		stats,
+		upgradeOptions,
+		signedIn,
+		purchaseError,
+		purchaseSuccess,
+		submit,
+		resetSubmit
+	}: Props = $props();
 </script>
 
 <div class="stats-overlay" aria-label="Arena stats">
@@ -28,6 +39,8 @@
 
 	{#if purchaseError}
 		<p class="feedback error">{purchaseError}</p>
+	{:else if purchaseSuccess}
+		<p class="feedback success">{purchaseSuccess}</p>
 	{/if}
 
 	<div class="stats-overlay-grid compact-stats">
@@ -38,6 +51,9 @@
 
 	<div class="upgrade-grid overlay-upgrade-grid">
 		{#if signedIn}
+			<form class="reset-form" method="post" action="?/resetUpgrades" use:enhance={resetSubmit}>
+				<button class="reset-button" type="submit">Reset perk points</button>
+			</form>
 			{#each upgradeOptions as option (option.key)}
 				<UpgradeOptionCard {option} enabledLabel="Spend perk point" variant="compact" {submit} />
 			{/each}
@@ -114,6 +130,30 @@
 		border-color: rgba(255, 96, 96, 0.35);
 		color: #ffb3b3;
 		background: rgba(255, 96, 96, 0.08);
+	}
+
+	.feedback.success {
+		border-color: rgba(255, 255, 255, 0.12);
+		color: #f5f5f5;
+		background: rgba(255, 255, 255, 0.05);
+	}
+
+	.reset-form {
+		margin: 0;
+	}
+
+	.reset-button {
+		width: 100%;
+		min-height: 2rem;
+		padding: 0.45rem 0.75rem;
+		border: 1px solid rgba(255, 255, 255, 0.14);
+		border-radius: 999px;
+		background: rgba(255, 255, 255, 0.05);
+		color: #f5f5f5;
+		font: inherit;
+		font-size: 0.9rem;
+		font-weight: 600;
+		cursor: pointer;
 	}
 
 	@media (max-width: 860px) {

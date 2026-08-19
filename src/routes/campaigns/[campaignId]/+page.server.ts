@@ -17,6 +17,7 @@ import {
 	getOrCreateGameState,
 	updateGameState
 } from '$lib/server/game-state';
+import { resetUpgradesForUser } from '$lib/server/campaign-route';
 import { getPlacementRotation, rotateWeaponShape } from '$lib/game/loadout-rotation';
 
 import type { LoadoutItemDefinition, LoadoutPlacement, OwnedWeaponInstance } from '$lib/data/types';
@@ -353,5 +354,15 @@ export const actions: Actions = {
 				purchaseError: err instanceof Error ? err.message : 'Upgrade purchase failed.'
 			});
 		}
+	},
+	resetUpgrades: async ({ locals, params }) => {
+		const campaignId = Number(params.campaignId);
+		const result = await resetUpgradesForUser(locals.user?.id, campaignId);
+
+		if (result.ok) {
+			return result.data;
+		}
+
+		return fail(result.status, result.data);
 	}
 };

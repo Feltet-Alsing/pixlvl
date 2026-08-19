@@ -94,6 +94,18 @@ export function createUpgradedWeaponDefinition(
 		return definition;
 	}
 
+	const special = definition.attack.special;
+	const upgradedSpecial =
+		definition.id === 'redline-sniper' && special?.type === 'sniper-line'
+			? {
+					...special,
+					maxChainTargets: Math.min(
+						special.maxUpgradeChainTargets ?? special.maxChainTargets ?? 1,
+						(special.maxChainTargets ?? 1) + upgradeLevel * (special.chainTargetsPerUpgrade ?? 0)
+					)
+				}
+			: special;
+
 	return {
 		...definition,
 		name: getWeaponDisplayName(definition.name, upgradeLevel),
@@ -101,6 +113,7 @@ export function createUpgradedWeaponDefinition(
 		projectileSpeed: definition.projectileSpeed * getWeaponProjectileSpeedMultiplier(weapon),
 		attack: {
 			...definition.attack,
+			special: upgradedSpecial,
 			projectileCount:
 				definition.attack.projectileCount + getWeaponCapstoneProjectileBonus(weapon, definition)
 		}

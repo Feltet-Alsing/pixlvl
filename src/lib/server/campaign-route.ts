@@ -15,7 +15,7 @@ import {
 	normalizePersistedLoadoutState,
 	setActiveLoadoutPlacements
 } from '$lib/game/loadout-slots';
-import { applyUpgradePurchase, isUpgradeKey } from '$lib/game/upgrades';
+import { applyUpgradePurchase, isUpgradeKey, resetUpgradeAllocations } from '$lib/game/upgrades';
 import {
 	acknowledgePerkNotificationsForUser,
 	acknowledgeWeaponNotificationsForUser,
@@ -613,29 +613,15 @@ export async function scrapOwnedWeaponsForUser(
 		typeof weaponInstanceId === 'string' ? weaponInstanceId : null
 	);
 
-	if (!scrapState || scrapState.scrapableCount < 1) {
-		return {
-			ok: false,
-			status: 400,
-			data: { loadoutError: 'That item cannot be scrapped right now.' }
-		};
-	}
-
-	if (quantity > scrapState.scrapableCount) {
-		return {
-			ok: false,
-			status: 400,
-			data: {
-				loadoutError: `Only ${scrapState.scrapableCount} item${scrapState.scrapableCount === 1 ? '' : 's'} can be scrapped right now.`
-			}
-		};
+	if (!scrapState || quantity > scrapState.scrapableCount) {
+		return { ok: false, status: 400, data: { loadoutError: 'Not enough scrapable items.' } };
 	}
 
 	if (scrapState.requiresWarning && !confirmedHighRarity) {
 		return {
 			ok: false,
 			status: 400,
-			data: { loadoutError: `Confirm scrapping ${scrapState.rarity} items before continuing.` }
+			data: { loadoutError: `Confirm scrapping ${scrapState.name} before continuing.` }
 		};
 	}
 
@@ -908,6 +894,34 @@ export async function purchaseUpgradeForUser(
 			}
 		};
 	}
+}
+
+export async function resetUpgradesForUser(
+	userId: string | undefined,
+	campaignId: number
+): Promise<ActionResult<{ purchaseError?: string; purchaseSuccess?: string }>> {
+	if (!userId) {
+		return { ok: false, status: 401, data: { purchaseError: 'Sign in to reset perk points.' } };
+	}
+
+	try {
+		getCampaign(campaignId);
+	} catch {
+		return { ok: false, status: 404, data: { purchaseError: 'Campaign not found.' } };
+	}
+
+	const gameState = await getOrCreateGameState(userId);
+	const nextPixlState = resetUpgradeAllocations(gameState.pixlState);
+
+	await updateGameState(userId, {
+		pixlState: {
+			xp: nextPixlState.xp,
+			defence: nextPixlState.defence,
+			agility: nextPixlState.agility
+		}
+	});
+
+	return { ok: true, data: { purchaseSuccess: 'Perk points reset.' } };
 }
 
 export async function resetPixlForUser(

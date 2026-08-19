@@ -57,24 +57,21 @@ export const campaign4Weapons: LoadoutItemDefinition[] = [
 	{
 		id: 'black-hole',
 		name: 'Black Hole',
-		rarity: 'rare',
+		rarity: 'legendary',
 		shape: {
-			width: 5,
-			height: 5,
+			width: 4,
+			height: 4,
 			cells: [
+				[1, 0],
 				[2, 0],
+				[0, 1],
 				[1, 1],
 				[2, 1],
 				[3, 1],
-				[0, 2],
 				[1, 2],
 				[2, 2],
-				[3, 2],
-				[4, 2],
 				[1, 3],
-				[2, 3],
-				[3, 3],
-				[2, 4]
+				[2, 3]
 			]
 		},
 		baseDamage: 0,
@@ -82,14 +79,14 @@ export const campaign4Weapons: LoadoutItemDefinition[] = [
 		attack: {
 			kind: 'single',
 			projectileCount: 1,
-			cycleInterval: 3,
+			cycleInterval: 2,
 			requiredInfusion: 'void',
-			requiredInfusionCount: 1,
+			requiredInfusionCount: 2,
 			special: {
 				type: 'void-tunnel',
 				duration: 2,
-				halfWidth: 120,
-				halfHeight: 120,
+				halfWidth: 190,
+				halfHeight: 190,
 				pullStrength: 300,
 				debuffDuration: 3,
 				elementalDamageMultiplier: 1.3
@@ -110,7 +107,7 @@ export const campaign4Weapons: LoadoutItemDefinition[] = [
 			stageEnd: 5,
 			perLevelDropChance: 0.06
 		},
-		role: 'Rare void control weapon that forms a local black hole around the furthest target, pulling nearby glitches inward and marking them to take more elemental damage'
+		role: 'Legendary void control weapon that consumes two void infusions to form a large black hole around the furthest target, pulling nearby glitches inward, marking them to take more elemental damage, and healing the pixl for damage dealt inside the field'
 	},
 	{
 		id: 'phaseshift',
@@ -163,6 +160,58 @@ export const campaign4Weapons: LoadoutItemDefinition[] = [
 		role: 'Legendary control weapon currently disabled from the Campaign 4 drop pool while the design is being reworked'
 	},
 	{
+		id: 'napalm-grenade',
+		name: 'Napalm Grenade',
+		rarity: 'exotic',
+		shape: {
+			width: 4,
+			height: 3,
+			cells: [
+				[1, 0],
+				[2, 0],
+				[0, 1],
+				[1, 1],
+				[2, 1],
+				[3, 1],
+				[1, 2],
+				[2, 2]
+			]
+		},
+		baseDamage: 9,
+		projectileSpeed: 280,
+		attack: {
+			kind: 'single',
+			projectileCount: 1,
+			cycleInterval: 2,
+			motion: 'accelerate',
+			requiredInfusion: 'fire',
+			requiredInfusionCount: 1,
+			special: {
+				type: 'burning-ground',
+				radius: 74,
+				durationCycles: 2,
+				tickInterval: 0.35,
+				impactSize: 18
+			},
+			targeting: 'current-target'
+		},
+		projectileVisual: {
+			color: '#fb923c',
+			size: 'large',
+			shape: 'orb',
+			trail: 'pulse',
+			glow: true
+		},
+		drop: {
+			mode: 'drop',
+			campaignId: 4,
+			stageStart: 2,
+			stageEnd: 5,
+			perLevelDropChance: 0.03
+		},
+		role: 'Exotic fire payoff weapon that leaves a persistent burn patch for two cycles after consuming one fire infusion'
+	},
+	{
 		id: 'force-field-trap',
 		name: 'Force Field',
 		rarity: 'rare',
@@ -207,5 +256,53 @@ export const campaign4Weapons: LoadoutItemDefinition[] = [
 			perLevelDropChance: 0.045
 		},
 		role: 'Rare temporal trap that locks nearby glitches in place for one cycle after striking the closest enemy'
+	},
+	{
+		id: 'the-bomb',
+		name: 'The Bomb',
+		rarity: 'legendary',
+		shape: {
+			width: 2,
+			height: 4,
+			cells: [
+				[0, 0],
+				[1, 0],
+				[0, 1],
+				[1, 1],
+				[0, 2],
+				[1, 2],
+				[0, 3],
+				[1, 3]
+			]
+		},
+		baseDamage: 150,
+		projectileSpeed: 0,
+		attack: {
+			kind: 'single',
+			projectileCount: 1,
+			cycleInterval: 3,
+			special: {
+				type: 'delayed-bomb',
+				radius: 96,
+				detonationDelayCycles: 1,
+				markerSize: 28
+			},
+			targeting: 'current-target'
+		},
+		projectileVisual: {
+			color: '#facc15',
+			size: 'large',
+			shape: 'orb',
+			trail: 'pulse',
+			glow: true
+		},
+		drop: {
+			mode: 'drop',
+			campaignId: 4,
+			stageStart: 3,
+			stageEnd: 5,
+			perLevelDropChance: 0.015
+		},
+		role: 'Legendary delayed finisher that plants a bomb for one cycle before detonating for massive local damage'
 	}
 ];
