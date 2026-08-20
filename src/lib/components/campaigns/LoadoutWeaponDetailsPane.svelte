@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
+	import type { SubmitFunction } from '@sveltejs/kit';
+
 	interface DetailRow {
 		label: string;
 		value: string;
@@ -31,6 +34,7 @@
 		targetingOptions?: Array<{ value: string; label: string }>;
 		onTargetingChange?: (value: string) => void;
 		onUpgradeSubmit?: () => void;
+		onUpgradeComplete?: () => void;
 	}
 
 	let {
@@ -39,8 +43,18 @@
 		onRotate,
 		targetingOptions = [],
 		onTargetingChange,
-		onUpgradeSubmit
+		onUpgradeSubmit,
+		onUpgradeComplete
 	}: Props = $props();
+
+	const handleUpgradeSubmit: SubmitFunction = () => {
+		onUpgradeSubmit?.();
+
+		return async ({ update }) => {
+			await update();
+			onUpgradeComplete?.();
+		};
+	};
 </script>
 
 <section class="details-pane panel" aria-label="Selected weapon details">
@@ -106,7 +120,7 @@
 				method="post"
 				action="?/upgradeWeapon"
 				class="upgrade-form"
-				onsubmit={() => onUpgradeSubmit?.()}
+				use:enhance={handleUpgradeSubmit}
 			>
 				<input type="hidden" name="weaponInstanceId" value={detail.weaponInstanceId} />
 

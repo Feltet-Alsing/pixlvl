@@ -1162,6 +1162,16 @@ export function createCampaignSketch(
 			}
 		};
 
+		const addPixlShieldFromSource = (sourceId: string, amount: number, color: string) => {
+			if (amount <= 0) {
+				return;
+			}
+
+			pixlShieldSources[sourceId] = (pixlShieldSources[sourceId] ?? 0) + amount;
+			activeShieldColor = color;
+			recalculatePixlShieldPool();
+		};
+
 		const resetUtilityCooldowns = () => {
 			for (const utility of triggeredUtilities) {
 				utility.cyclesUntilTrigger = utility.cycleInterval;
@@ -1782,6 +1792,13 @@ export function createCampaignSketch(
 			if (remainingDamage <= 0) {
 				enemy.hitFlash = Math.max(enemy.hitFlash, hitFlash);
 				recordWeaponDamage(sourceWeaponInstanceId, actualDamage);
+				if (sourceWeapon?.attack.special?.type === 'shield-steal' && sourceWeaponInstanceId) {
+					addPixlShieldFromSource(
+						`${sourceWeaponInstanceId}-shield-steal`,
+						actualDamage * sourceWeapon.attack.special.shieldRatio,
+						sourceWeapon.projectileVisual.color
+					);
+				}
 				applyBlackHoleLifeSteal(enemy, actualDamage);
 				return { defeated: false, actualDamage };
 			}
@@ -1811,6 +1828,13 @@ export function createCampaignSketch(
 			enemy.health -= totalDamage;
 			enemy.hitFlash = Math.max(enemy.hitFlash, hitFlash);
 			recordWeaponDamage(sourceWeaponInstanceId, actualDamage);
+			if (sourceWeapon?.attack.special?.type === 'shield-steal' && sourceWeaponInstanceId) {
+				addPixlShieldFromSource(
+					`${sourceWeaponInstanceId}-shield-steal`,
+					actualDamage * sourceWeapon.attack.special.shieldRatio,
+					sourceWeapon.projectileVisual.color
+				);
+			}
 			applyBlackHoleLifeSteal(enemy, actualDamage);
 
 			if (sourceWeapon?.attack.special?.type === 'vulnerable-hit') {
@@ -4952,9 +4976,10 @@ export function createCampaignSketch(
 					initialResumeState.pendingNextWeaponDamageMultiplier ?? 1;
 				weaponDamageMultiplierByInstanceId = initialResumeState.weaponDamageMultiplierByInstanceId
 					? { ...initialResumeState.weaponDamageMultiplierByInstanceId }
-					: (Object.fromEntries(
-							equippedWeapons.map((weapon) => [weapon.instanceId, 1])
-						) as Record<string, number>);
+					: (Object.fromEntries(equippedWeapons.map((weapon) => [weapon.instanceId, 1])) as Record<
+							string,
+							number
+						>);
 				recalculatePixlShieldPool();
 				activeShieldColor = initialResumeState.activeShieldColor;
 				enemyId = initialResumeState.enemyId;

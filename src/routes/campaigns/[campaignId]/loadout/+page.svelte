@@ -848,6 +848,20 @@
 
 	function allowPendingFormSubmission() {
 		savedScrollY = window.scrollY;
+
+		if (typeof sessionStorage !== 'undefined') {
+			sessionStorage.setItem(
+				loadoutUiStateStorageKey,
+				JSON.stringify({
+					inventorySearch,
+					selectedPlacedWeaponInstanceId,
+					selectedInventoryDefinitionId,
+					selectedInventoryWeaponInstanceId,
+					scrollY: savedScrollY
+				})
+			);
+		}
+
 		shouldBypassLeavePrompt = true;
 
 		if (leavePromptBypassTimeout) {
@@ -858,6 +872,16 @@
 			shouldBypassLeavePrompt = false;
 			leavePromptBypassTimeout = null;
 		}, 2000);
+	}
+
+	function restoreSavedScrollPosition() {
+		if (savedScrollY <= 0) {
+			return;
+		}
+
+		requestAnimationFrame(() => {
+			window.scrollTo({ top: savedScrollY, behavior: 'auto' });
+		});
 	}
 
 	function handleWindowBeforeUnload(event: BeforeUnloadEvent) {
@@ -1844,6 +1868,7 @@
 					signedIn={Boolean(data.gameState)}
 					targetingOptions={TARGETING_OPTIONS}
 					onUpgradeSubmit={allowPendingFormSubmission}
+					onUpgradeComplete={restoreSavedScrollPosition}
 					onRotate={() => {
 						if (selectedPlacedWeaponInstanceId) {
 							rotatePlacedWeapon(selectedPlacedWeaponInstanceId);

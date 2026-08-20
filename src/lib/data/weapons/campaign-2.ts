@@ -165,6 +165,10 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 			projectileCount: 4,
 			spreadDegrees: 30,
 			motion: 'wave',
+			special: {
+				type: 'shield-steal',
+				shieldRatio: 1
+			},
 			targeting: 'current-target'
 		},
 		projectileVisual: {
@@ -181,7 +185,7 @@ export const campaign2Weapons: LoadoutItemDefinition[] = [
 			stageEnd: 2,
 			perLevelDropChance: 0.09
 		},
-		role: 'Early fan-fire weapon with a brighter projectile profile than the baseline campaign'
+		role: 'Early fan-fire weapon that converts damage dealt into shield at a 100% rate'
 	},
 	{
 		id: 'ember-lance',

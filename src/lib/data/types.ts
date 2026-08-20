@@ -122,6 +122,10 @@ export interface WeaponAttackBehavior {
 				bounceCount: number;
 		  }
 		| {
+				type: 'shield-steal';
+				shieldRatio: number;
+		  }
+		| {
 				type: 'vulnerable-hit';
 				damageMultiplier: number;
 				duration: number;

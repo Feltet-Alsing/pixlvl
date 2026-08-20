@@ -5,6 +5,7 @@ import {
 	rotateWeaponShape
 } from '$lib/game/loadout-rotation';
 import {
+	createUpgradedWeaponDefinition,
 	getWeaponDisplayName,
 	getWeaponTotalScrapInvested,
 	getWeaponUpgradeCostForNextLevel,
@@ -183,20 +184,29 @@ export function buildLoadoutWeapons(
 			continue;
 		}
 
+		const displayDefinition =
+			isWeaponDefinition(definition) && isUpgradeableWeaponInstance(ownedWeapon, definition)
+				? createUpgradedWeaponDefinition(ownedWeapon, definition)
+				: definition;
+
 		rows.push({
 			weaponInstanceId: placement.weaponInstanceId,
 			definitionId: ownedWeapon.definitionId,
-			category: isWeaponDefinition(definition) ? 'weapon' : 'utility',
-			name: formatWeaponDisplayName(definition.name, getUpgradeLevel(ownedWeapon)),
+			category: isWeaponDefinition(displayDefinition) ? 'weapon' : 'utility',
+			name: displayDefinition.name,
 			upgradeLevel: getUpgradeLevel(ownedWeapon),
-			rarity: definition.rarity,
-			shape: rotateWeaponShape(definition.shape, getPlacementRotation(placement)),
-			baseDamage: isWeaponDefinition(definition) ? definition.baseDamage : undefined,
-			attack: isWeaponDefinition(definition) ? definition.attack : undefined,
-			projectileSpeed: isWeaponDefinition(definition) ? definition.projectileSpeed : undefined,
-			activationKind: isUtilityDefinition(definition) ? definition.activationKind : undefined,
-			effectSummary: getLoadoutItemEffectSummary(definition),
-			role: definition.role,
+			rarity: displayDefinition.rarity,
+			shape: rotateWeaponShape(displayDefinition.shape, getPlacementRotation(placement)),
+			baseDamage: isWeaponDefinition(displayDefinition) ? displayDefinition.baseDamage : undefined,
+			attack: isWeaponDefinition(displayDefinition) ? displayDefinition.attack : undefined,
+			projectileSpeed: isWeaponDefinition(displayDefinition)
+				? displayDefinition.projectileSpeed
+				: undefined,
+			activationKind: isUtilityDefinition(displayDefinition)
+				? displayDefinition.activationKind
+				: undefined,
+			effectSummary: getLoadoutItemEffectSummary(displayDefinition),
+			role: displayDefinition.role,
 			totalScrapInvested: getTotalScrapInvested(ownedWeapon),
 			isUpgradeable: isUpgradeableWeaponInstance(ownedWeapon, definition),
 			nextUpgradeCost: isWeaponDefinition(definition)
@@ -230,24 +240,35 @@ export function buildInventoryWeapons(
 			continue;
 		}
 
+		const displayDefinition =
+			isWeaponDefinition(definition) && isUpgradeableWeaponInstance(weapon, definition)
+				? createUpgradedWeaponDefinition(weapon, definition)
+				: definition;
+
 		rows.push({
 			groupId: getInventoryWeaponGroupId(weapon),
 			weaponInstanceId: weapon.instanceId,
 			definitionId: weapon.definitionId,
-			definition,
-			category: isWeaponDefinition(definition) ? 'weapon' : 'utility',
-			name: formatWeaponDisplayName(definition.name, getUpgradeLevel(weapon)),
+			definition: displayDefinition,
+			category: isWeaponDefinition(displayDefinition) ? 'weapon' : 'utility',
+			name: displayDefinition.name,
 			upgradeLevel: getUpgradeLevel(weapon),
 			totalScrapInvested: getTotalScrapInvested(weapon),
-			rarity: definition.rarity,
-			shape: definition.shape,
-			baseDamage: isWeaponDefinition(definition) ? definition.baseDamage : undefined,
-			projectileSpeed: isWeaponDefinition(definition) ? definition.projectileSpeed : undefined,
-			attack: isWeaponDefinition(definition) ? definition.attack : undefined,
-			projectileVisual: isWeaponDefinition(definition) ? definition.projectileVisual : undefined,
-			activationKind: isUtilityDefinition(definition) ? definition.activationKind : undefined,
-			effectSummary: getLoadoutItemEffectSummary(definition),
-			role: definition.role,
+			rarity: displayDefinition.rarity,
+			shape: displayDefinition.shape,
+			baseDamage: isWeaponDefinition(displayDefinition) ? displayDefinition.baseDamage : undefined,
+			projectileSpeed: isWeaponDefinition(displayDefinition)
+				? displayDefinition.projectileSpeed
+				: undefined,
+			attack: isWeaponDefinition(displayDefinition) ? displayDefinition.attack : undefined,
+			projectileVisual: isWeaponDefinition(displayDefinition)
+				? displayDefinition.projectileVisual
+				: undefined,
+			activationKind: isUtilityDefinition(displayDefinition)
+				? displayDefinition.activationKind
+				: undefined,
+			effectSummary: getLoadoutItemEffectSummary(displayDefinition),
+			role: displayDefinition.role,
 			isUpgradeable: isUpgradeableWeaponInstance(weapon, definition),
 			nextUpgradeCost: isWeaponDefinition(definition)
 				? getWeaponUpgradeCostForNextLevel(weapon, definition.rarity)
