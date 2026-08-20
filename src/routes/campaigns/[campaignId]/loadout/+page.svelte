@@ -34,13 +34,14 @@
 		formatAttackLabel,
 		formatInventoryGroupStatus,
 		formatUpgradeLevel,
+		getEstimatedWeaponDamagePerCycle,
+		getEstimatedWeaponProjectilesPerCycle,
 		getDefaultDragAnchor,
 		getDragAnchorFromGrid,
 		getGridCellKey,
 		getPlacedWeaponDragAnchor,
 		getShapeLabel,
 		getShapeGridTemplate,
-		getWeaponCycleRate,
 		getWeaponGridArea,
 		type InventoryGroupSortMode,
 		isLabelCell,
@@ -357,7 +358,7 @@
 			(total, weapon) =>
 				total +
 				(weapon.category === 'weapon' && weapon.baseDamage && weapon.attack
-					? weapon.baseDamage * weapon.attack.projectileCount * getWeaponCycleRate(weapon)
+					? getEstimatedWeaponDamagePerCycle(weapon, progressionState.attackSpeed)
 					: 0),
 			0
 		)
@@ -367,7 +368,7 @@
 			(total, weapon) =>
 				total +
 				(weapon.category === 'weapon' && weapon.attack
-					? weapon.attack.projectileCount * getWeaponCycleRate(weapon)
+					? getEstimatedWeaponProjectilesPerCycle(weapon, progressionState.attackSpeed)
 					: 0),
 			0
 		)

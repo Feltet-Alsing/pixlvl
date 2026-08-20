@@ -640,6 +640,147 @@ export function getWeaponCycleRate(weapon: Pick<LoadoutWeapon, 'attack'>) {
 	return 1 / Math.max(1, weapon.attack.cycleInterval ?? 1);
 }
 
+function getEstimatedRepeatingTicks(durationCycles: number, tickInterval: number, attackSpeed: number) {
+	if (durationCycles <= 0 || tickInterval <= 0 || attackSpeed <= 0) {
+		return 0;
+	}
+
+	return (durationCycles / attackSpeed) / tickInterval;
+}
+
+export function getEstimatedWeaponProjectilesPerActivation(
+	weapon: Pick<LoadoutWeapon, 'definitionId' | 'attack'>,
+	attackSpeed: number
+) {
+	if (!weapon.attack) {
+		return 0;
+	}
+
+	const projectileCount = Math.max(1, weapon.attack.projectileCount);
+	const special = weapon.attack.special;
+
+	if (weapon.definitionId === 'pulse-array') {
+		return projectileCount * 3;
+	}
+
+	if (special?.type === 'force-field') {
+		return Math.max(1, special.burstCount ?? 1);
+	}
+
+	if (special?.type === 'execution-lattice') {
+		return Math.max(1, special.targetCount);
+	}
+
+	if (special?.type === 'ice-shower') {
+		return Math.max(1, special.spikeCount);
+	}
+
+	if (special?.type === 'void-tendrils') {
+		return Math.max(1, special.targetCount);
+	}
+
+	if (special?.type === 'flamethrower-cone') {
+		const emissionInterval = Math.max(0.012, special.tickInterval * 0.06);
+		return Math.min(
+			400,
+			getEstimatedRepeatingTicks(special.durationCycles, emissionInterval, attackSpeed) * 2
+		);
+	}
+
+	if (special?.type === 'shrapnel-burst') {
+		return projectileCount + Math.max(0, special.fragmentCount);
+	}
+
+	return projectileCount;
+}
+
+export function getEstimatedWeaponDamagePerActivation(
+	weapon: Pick<LoadoutWeapon, 'definitionId' | 'baseDamage' | 'attack'>,
+	attackSpeed: number
+) {
+	if (!weapon.attack || !weapon.baseDamage) {
+		return 0;
+	}
+
+	const projectileCount = Math.max(1, weapon.attack.projectileCount);
+	const baseDamage = weapon.baseDamage;
+	const special = weapon.attack.special;
+
+	if (weapon.definitionId === 'pulse-array') {
+		return baseDamage * projectileCount * 3;
+	}
+
+	if (special?.type === 'force-field') {
+		return baseDamage * Math.max(1, special.burstCount ?? 1);
+	}
+
+	if (special?.type === 'ricochet') {
+		return baseDamage * (1 + Math.max(0, special.bounceCount));
+	}
+
+	if (special?.type === 'sniper-line') {
+		return baseDamage * Math.max(1, special.maxChainTargets ?? 1);
+	}
+
+	if (special?.type === 'shrapnel-burst') {
+		return baseDamage * projectileCount + baseDamage * special.fragmentDamageMultiplier * special.fragmentCount;
+	}
+
+	if (special?.type === 'execution-lattice') {
+		return baseDamage * Math.max(1, special.targetCount);
+	}
+
+	if (special?.type === 'fork-lightning') {
+		return baseDamage * 6;
+	}
+
+	if (special?.type === 'flamethrower-cone') {
+		return (
+			(baseDamage / 10) *
+			getEstimatedWeaponProjectilesPerActivation(
+				{ definitionId: weapon.definitionId, attack: weapon.attack },
+				attackSpeed
+			)
+		);
+	}
+
+	if (special?.type === 'ice-shower') {
+		return baseDamage * Math.max(1, special.spikeCount);
+	}
+
+	if (special?.type === 'void-tendrils') {
+		return baseDamage * Math.max(1, special.targetCount);
+	}
+
+	if (special?.type === 'burning-ground') {
+		return baseDamage * getEstimatedRepeatingTicks(special.durationCycles, special.tickInterval, attackSpeed);
+	}
+
+	if (
+		special?.type === 'void-tunnel' ||
+		special?.type === 'phaseshift' ||
+		special?.type === 'stasis-field'
+	) {
+		return 0;
+	}
+
+	return baseDamage * projectileCount;
+}
+
+export function getEstimatedWeaponDamagePerCycle(
+	weapon: Pick<LoadoutWeapon, 'definitionId' | 'baseDamage' | 'attack'>,
+	attackSpeed: number
+) {
+	return getEstimatedWeaponDamagePerActivation(weapon, attackSpeed) * getWeaponCycleRate(weapon);
+}
+
+export function getEstimatedWeaponProjectilesPerCycle(
+	weapon: Pick<LoadoutWeapon, 'definitionId' | 'attack'>,
+	attackSpeed: number
+) {
+	return getEstimatedWeaponProjectilesPerActivation(weapon, attackSpeed) * getWeaponCycleRate(weapon);
+}
+
 export function getLoadoutItemEffectSummary(definition: LoadoutItemDefinition) {
 	if (isWeaponDefinition(definition)) {
 		return formatAttackLabel(definition.attack.kind);
