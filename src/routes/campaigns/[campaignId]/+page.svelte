@@ -12,7 +12,6 @@
 	import { getActiveLoadoutPlacements } from '$lib/game/loadout-slots';
 	import {
 		buildCurrentLoadoutRows,
-		buildLoadoutTooltip,
 		buildOverlayStatCards,
 		buildRewardDropRows,
 		buildUnlockedStages,
@@ -244,7 +243,6 @@
 		return `Auto-continue in ${secondsRemaining}s`;
 	});
 	let resultsEmptyLabel = $derived(`No item drops. +${combatOverlay.waveXp} XP earned.`);
-	let loadoutTooltip = $derived(buildLoadoutTooltip(currentLoadoutRows));
 	let loadoutChangeLogStorageKey = $derived(getLoadoutChangeLogStorageKey(data.campaignId));
 	let defaultCampaignMenuOpen = $derived(page.url.searchParams.get('menu') !== 'closed');
 	let defaultStatsOverlayOpen = $derived(page.url.searchParams.get('stats') === 'open');

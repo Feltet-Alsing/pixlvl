@@ -39,8 +39,6 @@
 
 	{#if purchaseError}
 		<p class="feedback error">{purchaseError}</p>
-	{:else if purchaseSuccess}
-		<p class="feedback success">{purchaseSuccess}</p>
 	{/if}
 
 	<div class="stats-overlay-grid compact-stats">
@@ -130,12 +128,6 @@
 		border-color: rgba(255, 96, 96, 0.35);
 		color: #ffb3b3;
 		background: rgba(255, 96, 96, 0.08);
-	}
-
-	.feedback.success {
-		border-color: rgba(255, 255, 255, 0.12);
-		color: #f5f5f5;
-		background: rgba(255, 255, 255, 0.05);
 	}
 
 	.reset-form {
