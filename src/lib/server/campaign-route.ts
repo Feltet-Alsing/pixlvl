@@ -39,7 +39,10 @@ import {
 	removeScrappedWeapons
 } from '$lib/server/shop';
 
-import { getCampaignRouteNotificationCounts } from '$lib/game/notifications';
+import {
+	getCampaignRouteNotificationCounts,
+	type NotificationSnapshot
+} from '$lib/game/notifications';
 import { getPlacementRotation, rotateWeaponShape } from '$lib/game/loadout-rotation';
 
 import type {
@@ -71,6 +74,18 @@ export async function loadCampaignRouteData(
 	const gameState = userId ? await getOrCreateGameState(userId) : null;
 	const campaignState = userId ? await getCampaignProgressForUser(userId, campaignId) : null;
 	const shopState = userId && gameState ? buildShopState(gameState, userId) : null;
+	const notificationSnapshot: NotificationSnapshot | null = gameState
+		? {
+				perkPoints: gameState.pixlState.perkPoints,
+				acknowledgedPerkPoints: gameState.pixlState.acknowledgedPerkPoints,
+				ownedWeapons: gameState.pixlState.ownedWeapons,
+				acknowledgedWeaponDefinitionIds: gameState.pixlState.acknowledgedWeaponDefinitionIds,
+				rewardPacks: gameState.rewardPacks.map((pack) => ({
+					campaignId: pack.campaignId,
+					status: pack.status
+				}))
+			}
+		: null;
 
 	return {
 		campaignId,
@@ -86,7 +101,7 @@ export async function loadCampaignRouteData(
 		gameState,
 		campaignState,
 		shopState,
-		notificationCounts: getCampaignRouteNotificationCounts(gameState?.pixlState)
+		notificationCounts: getCampaignRouteNotificationCounts(notificationSnapshot, campaignId)
 	};
 }
 
@@ -940,7 +955,7 @@ export async function resetPixlForUser(
 
 	await resetGameStateForUser(userId);
 
-	return { ok: true, data: { resetSuccess: 'Pixl reset to defaults.' } };
+	return { ok: true, data: { resetSuccess: 'All pixl data deleted.' } };
 }
 
 export function toActionFailure<T>(result: ActionResult<T>) {

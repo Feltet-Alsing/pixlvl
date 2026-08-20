@@ -716,6 +716,416 @@ They drive:
 
 This two-layer reward structure is good and should remain the base of the game.
 
+#### Drop cadence and roll model
+
+The reward cadence should stay tied to full level completion.
+
+Design rule:
+
+- a pack drop check happens only when a level is fully cleared
+- rewards should not roll per enemy kill
+- the player should receive a card-pack style reward instead of isolated item drops
+
+The current independent-per-item drop model creates too many rewards once the player reaches mid and late progression.
+
+That high frequency is helpful in the early game, but it makes build growth too fast after the player already has a stable inventory base.
+
+The intended replacement model is:
+
+1. clear a full level
+2. run one controlled pack-drop evaluation for that level
+3. if the level awards a pack, determine which campaign pack and pack rarity dropped
+4. open the pack through a card-reveal sequence
+5. generate the contents of that pack from the current campaign's eligible item pool
+
+Current first-pass pack-drop rules:
+
+- Campaign `1` levels have a base `10%` chance to drop one Campaign `1` pack on clear
+- Campaign `2+` levels have a base `5%` chance to drop one pack from their own campaign on clear
+- the final level of each campaign acts as that campaign's current boss-stage reward spike
+- the final level of Campaign `1` increases pack-drop chance to `20%`
+- the final level of Campaign `2+` increases pack-drop chance to `10%`
+- there are currently no guaranteed pack drops
+- new accounts should start with `1` unopened Campaign `1` pack
+
+This means the system should move from:
+
+> every eligible weapon rolls its own chance
+
+to:
+
+> the level rolls one bounded pack outcome
+
+#### Pack identity and campaign ownership
+
+Each campaign should award its own themed packs.
+
+Design intent:
+
+- a pack that drops from Campaign `1` should open into Campaign `1` content
+- a pack that drops from Campaign `4` should open into Campaign `4` content
+- each campaign currently has `2` pack types: `normal` and `legendary`
+- stages `1-3` roll `normal` packs and stages `4-5` roll `legendary` packs
+- the reward should feel like opening a themed set of cards rather than receiving one loose weapon instance
+- the presentation should lean into the existing collectible-card feel of the item art and UI
+
+This gives tighter control over reward identity and progression pacing:
+
+- campaigns retain a stronger loot identity
+- later campaigns can feel more exciting through better packs rather than only more frequent rewards
+- opening rewards becomes a more satisfying event than silently appending another item to inventory
+
+#### Pack rarity and contents
+
+Each pack should currently contain `5` cards.
+
+Pack structure:
+
+- `normal` packs roll all `5` cards from the campaign pool using the standard rarity weights
+- `legendary` packs roll `4` standard cards plus `1` guaranteed high-rarity slot
+
+Core rule for the guaranteed slot:
+
+- only `legendary` packs guarantee `1` `exotic` or `legendary` card
+- the guaranteed slot currently splits `50 / 50` between `exotic` and `legendary`
+
+This guaranteed high-rarity slot is important because `legendary` pack openings should feel like a distinct reward spike.
+
+Both pack types can still include lower-rarity items or duplicates, and `normal` packs can still randomly roll any campaign weapon.
+
+Design intent:
+
+- the pack itself is the top-level reward outcome
+- the contents are then generated from the campaign's eligible item pool
+- the guaranteed `exotic` / `legendary` slot should define the emotional floor of the reward
+
+#### Pack opening surface
+
+Pack rewards should not open as a tiny inline popup.
+
+The game should add a dedicated `Packs` route or tab where unopened packs can be viewed and opened intentionally.
+
+Design intent:
+
+- unopened packs should accumulate as inventory objects until the player chooses to open them
+- the player should be able to see which campaign a pack belongs to
+- pack opening should feel like a discrete reward ritual rather than background admin
+- the route should support opening one pack at a time with clear reveal pacing
+
+This means pack rewards create a new management surface:
+
+- combat earns packs
+- the `Packs` tab stores and presents unopened packs
+- opening a pack converts that reward object into owned item cards
+
+#### Preferred persistence model
+
+The preferred implementation model is:
+
+- packs are stored as sealed reward objects in persistence
+- pack contents are rolled at pack drop time, not at pack open time
+- opening a pack reveals already-determined contents rather than generating new outcomes
+
+This is preferred because it:
+
+- prevents reroll exploits
+- keeps reward generation server-authoritative
+- preserves historical reward integrity if balance tables change later
+- makes pack opening a presentation step rather than a second randomization step
+
+Preferred pack record fields:
+
+- `id`
+- `ownerUserId`
+- `campaignId`
+- `sourceCampaignLevel`
+- `droppedAt`
+- `openedAt` or `null`
+- `status`: `unopened` or `opened`
+- `cardCount`
+- `guaranteedSlotIndex`
+- `contentVersion`
+- `cards`: resolved sealed card results
+
+Preferred stored card fields:
+
+- `slotIndex`
+- `definitionId`
+- `rarity`
+- `isGuaranteedSlot`
+
+Important rule:
+
+- store the fully resolved card outcomes, not just the pack odds or rarity requests
+
+That means an unopened pack should already know exactly which cards it contains.
+
+#### Preferred open transaction model
+
+The preferred open flow is:
+
+1. the player chooses an unopened pack in the `Packs` tab
+2. the server verifies that the pack belongs to that user and is still unopened
+3. the server grants all sealed card rewards to inventory in one atomic transaction
+4. the server marks the pack as opened
+5. the client receives the sealed contents for the reveal sequence and final summary
+
+This means the items become owned at open time, not at drop time.
+
+That is preferred because it:
+
+- keeps unopened packs meaningful as unopened rewards
+- avoids cluttering inventory with items the player has not revealed yet
+- makes `new` markers easier to reason about during the reveal flow
+- avoids edge cases where inventory and unopened pack state disagree
+
+Important implementation rules:
+
+- pack generation should be server-side only
+- pack opening should be idempotent
+- repeated open requests must not duplicate rewards
+- unopened packs should keep their original sealed contents even if future balance patches change drop rules
+
+#### Pack opening presentation
+
+Pack opening should include a short reveal animation.
+
+The goal is not to create a long skippable cutscene.
+The goal is to make each pack feel ceremonial, readable, and worth anticipation.
+
+Presentation rules:
+
+- opening should begin with a pack-focused animation or burst
+- cards should reveal one by one
+- each click should shuffle to the next card reveal
+- the guaranteed `exotic` / `legendary` slot should be visually saved for a stronger beat in the sequence
+- rarity should be obvious before or during full card reveal through color, glow, frame treatment, or motion
+- the sequence should be short enough to remain satisfying when opening multiple packs in a session
+- explicit skipping is not a separate control; advancing is done by clicking through the sequence
+- after the final card reveal, the player should see a summary of all opened cards before closing
+- cards that the player has never owned before should receive a `new` marker in the reveal and summary flow
+
+Design intent:
+
+- keep the collectible-card fantasy front and center
+- make the high-rarity slot emotionally legible
+- turn reward pacing into a positive moment instead of a silent inventory append
+- avoid making repeated pack opening feel tedious
+
+#### Eligible item selection
+
+Pack contents should still come from the current campaign's eligible pool.
+
+Eligibility should continue to respect:
+
+- campaign membership
+- stage gates where relevant
+- item availability rules such as disabled or placeholder content
+
+Current content rules:
+
+- a Campaign `1` pack can only open into Campaign `1` weapons
+- a Campaign `4` pack can only open into Campaign `4` weapons
+- pack contents are rolled at pack drop time, not at pack open time
+- duplicate cards inside a pack are currently allowed
+- duplicate protection is not part of the first implementation
+- the `4` normal slots can roll any rarity
+- the `4` normal slots should use rarity weighting so lower rarities appear more often than higher rarities
+
+Current normal-slot rarity weighting direction:
+
+- `normal`: `5x`
+- `magic`: `4x`
+- `rare`: `3x`
+- `exotic`: `2x`
+- `legendary`: `1x`
+
+This means normal slots are still capable of producing exciting outcomes, but the pack's guaranteed high-rarity slot remains the main excitement anchor.
+
+Selection should then use authored per-item chances or weights inside the pack-generation rules.
+
+This means the main balancing knobs become:
+
+- whether a level awards a pack at all
+- how many cards appear in a pack
+- how the guaranteed `exotic` / `legendary` slot is resolved
+- how likely each specific item is inside its eligible campaign pool
+
+This keeps reward rolls stable while allowing fine-grained tuning at both the pack level and the item level.
+
+#### Frequency control goals
+
+The new pack model should explicitly target lower overall reward frequency than the current system.
+
+Goals:
+
+- early levels should still provide enough rewards to teach the loot loop quickly
+- mid game should stop flooding the player with constant item injections
+- late game should feel paced by pack excitement and build choices, not inventory bloat
+- progression should become harder to brute-force through raw reward frequency alone
+
+The key balancing lever should be:
+
+- one controlled level-clear pack roll with authored pack odds and authored item odds inside the eligible campaign pool
+
+not:
+
+- many simultaneous item-specific rolls every time a level ends
+
+#### Remaining open questions
+
+These points still need explicit definition before implementation:
+
+- whether stage gating inside a campaign should remove some weapons from early pack openings
+- how unopened packs are represented in persistence and inventory UI
+- whether the `Packs` tab should support opening multiple packs in sequence after closing the current summary
+
+#### Implementation plan
+
+The preferred implementation order is:
+
+##### Phase 1: data model and persistence
+
+Goal:
+
+- add a persistent sealed-pack model without disturbing the existing owned-weapon flow first
+
+Preferred implementation shape:
+
+- use a dedicated persisted pack record rather than embedding unopened packs inside `pixl_state.owned_weapons`
+- keep pack records server-authored and separate from inventory items
+
+Primary code surfaces:
+
+- `src/lib/data/types.ts`
+- `src/lib/server/db/game.schema.ts`
+- `src/lib/server/game-state.ts`
+
+Implementation tasks:
+
+- add types for persisted packs and persisted pack cards
+- add database storage for unopened and opened pack records
+- add starter-account logic that seeds `1` unopened Campaign `1` pack for new users
+- add game-state helpers for listing packs and opening a pack atomically
+
+Preferred outcome:
+
+- packs exist as first-class persisted reward objects before the UI tries to render them
+
+##### Phase 2: pack reward generation
+
+Goal:
+
+- replace the current direct item-drop reward generation with pack reward generation at level clear
+
+Primary code surfaces:
+
+- `src/lib/p5/campaign-1-sketch.ts`
+- `src/lib/data/index.ts`
+- campaign weapon definition files under `src/lib/data/weapons/`
+
+Implementation tasks:
+
+- remove direct level-end owned-weapon reward creation from the combat clear flow
+- add pack-drop chance evaluation by campaign and boss-stage level rules
+- generate sealed pack contents at drop time using the agreed `5` card structure
+- resolve the guaranteed slot as `50 / 50` `exotic` or `legendary`
+- resolve the `4` normal slots using the current rarity weights
+- store the dropped pack instead of immediately adding revealed cards to inventory
+
+Preferred outcome:
+
+- combat clear now awards sealed packs instead of raw weapon instances
+
+##### Phase 3: Packs route and pack list UI
+
+Goal:
+
+- create the management surface where players can inspect and open unopened packs
+
+Primary code surfaces:
+
+- `src/routes/campaigns/[campaignId]/+layout.svelte`
+- `src/lib/components/campaigns/CampaignRouteNav.svelte`
+- new route under `src/routes/campaigns/[campaignId]/packs/`
+
+Implementation tasks:
+
+- add a `Packs` route/tab to the campaign route navigation
+- list unopened packs first
+- show campaign identity and basic pack metadata without revealing contents
+- show whether any unopened pack contains newly dropped rewards waiting to be opened
+
+Preferred outcome:
+
+- pack inventory becomes a normal route surface alongside Arena, Loadout, Shop, and Stats
+
+##### Phase 4: open flow and reveal sequence
+
+Goal:
+
+- open one sealed pack through a short card-by-card reveal sequence and summary screen
+
+Primary code surfaces:
+
+- new `packs` route component(s)
+- `src/lib/server/game-state.ts` or dedicated pack server helpers
+
+Implementation tasks:
+
+- implement the atomic open action
+- grant the stored card rewards to inventory at open time
+- mark the pack as opened in the same transaction
+- reveal cards one by one on click
+- save the guaranteed high-rarity slot for the strongest beat
+- show a final summary screen with `new` markers
+
+Preferred outcome:
+
+- opening a pack is presentation over a fixed server result, not another roll
+
+##### Phase 5: notifications, migration, and cleanup
+
+Goal:
+
+- integrate packs cleanly with the rest of the campaign flow and remove old drop assumptions
+
+Primary code surfaces:
+
+- `src/lib/game/notifications.ts`
+- `src/lib/server/campaign-route.ts`
+- `src/routes/campaigns/[campaignId]/+page.svelte`
+- `src/routes/campaigns/[campaignId]/loadout/+page.svelte`
+
+Implementation tasks:
+
+- replace direct new-weapon notification assumptions with unopened-pack or opened-pack aware logic
+- decide whether the Recent feed logs sealed pack drops, revealed cards, or both
+- update any route-level badges to reflect unopened packs if needed
+- remove dead code paths from the old direct drop model
+- rebalance authored weapon chances to work inside the pack generator rather than as direct end-of-level rewards
+
+Preferred outcome:
+
+- the game no longer behaves like a direct item-drop system in UI or persistence
+
+##### Phase 6: balance pass after implementation
+
+Goal:
+
+- verify that pack frequency and item gain actually slow down mid and late game progression
+
+Implementation tasks:
+
+- measure pack drop feel in Campaign `1` early progression
+- verify the `5% / 10%` and `10% / 20%` campaign rules are sparse enough
+- check whether the guaranteed high-rarity slot overfeeds `legendary` inventory because of the current `50 / 50` split
+- tune per-item authored chances after real playtests
+
+Preferred outcome:
+
+- pack rewards feel exciting without restoring the old reward flood problem
+
 ---
 
 ## Failure model
@@ -740,6 +1150,7 @@ Current route surfaces:
 
 - `Arena`: live combat and overlays
 - `Loadout`: shape-based build editing with live run continuity
+- `Packs`: unopened pack inventory and pack opening sequences
 - `Stats`: persistent progression and perk spending
 - `Management`: campaign overview and stage-level progression context
 
@@ -750,6 +1161,10 @@ Important V1 UI behaviors already achieved:
 - stage selection can be opened from the arena
 - loadout editing can coexist with a continuing run preview
 - nav badges surface unread perk points and newly acquired weapon types
+
+Important next-step UI behavior:
+
+- pack rewards should live on their own route surface rather than interrupting arena flow immediately
 
 ---
 
@@ -788,66 +1203,140 @@ These are acceptable V1 limitations.
 
 ---
 
-## V2 priorities
+## Milestone overview
 
 The next phase should build depth on top of the stable loop, not replace it.
 
-### Priority 1: enemy depth
+This roadmap is ordered by implementation priority, not by brainstorm category.
 
-Add one more layer of enemy differentiation.
+### Milestone 0: V1 foundation complete
 
-Best candidates:
+This milestone is already proven in the current build.
+
+What is already working:
+
+- centered idle arena combat
+- local level-reset failure
+- permanent XP progression with perk spending
+- shape-based loadout building
+- route-based management surfaces
+- stage selection from the arena flow
+- live overlay-driven arena UI
+
+This means the project no longer needs base-loop rediscovery work.
+
+### Milestone 1: finish Campaign 4
+
+This is the current active milestone and immediate content priority.
+
+Goal:
+
+- make Campaign 4 feel complete as the control-combo campaign
+
+Required outcomes:
+
+- finish the remaining incomplete or weak-feeling Campaign 4 weapons
+- ensure Campaign 4 weapons solve recognizably different combat problems
+- add enough persistent AOE and positional-payoff tools to complete the control loop
+- rebalance the full Campaign 4 pool as one unit instead of isolated weapon tweaks
+
+Exit criteria:
+
+- the Campaign 4 roster has no obvious placeholder-feeling weapons
+- the campaign supports a full manipulation-and-payoff loadout fantasy
+- weak or overlapping Campaign 4 weapons have been reviewed and resolved
+
+### Milestone 2: build Campaign 5
+
+Campaign 5 is the next mainline expansion after Campaign 4 is complete.
+
+Goal:
+
+- add a new campaign whose difficulty comes from a new boss mechanic layer, not only bigger numbers
+
+Required outcomes:
+
+- formalize the Campaign 5 boss mechanic direction
+- define Campaign 5 level structure and reward pool
+- add any missing Campaign 5 weapons required by that content
+- deliver a boss readability pass so the new mechanic is understandable in play
+
+Exit criteria:
+
+- Campaign 5 has a distinct pressure identity
+- boss encounters create new build checks instead of pure stat walls
+
+### Milestone 3: dungeon side progression
+
+Dungeon Keys and dungeon-exclusive stages come after the next mainline campaign is stable.
+
+Goal:
+
+- add a higher-risk side progression path with exclusive rewards
+
+Required outcomes:
+
+- dungeon key acquisition source
+- dungeon access flow and UI
+- dungeon-specific scaling rules
+- dungeon-exclusive loot pool
+- dungeon-specific enemies or variants where needed
+
+Exit criteria:
+
+- dungeon content is clearly legible as separate progression
+- dungeon rewards feel meaningfully different from campaign rewards
+
+### Milestone 4: weapon revision pass
+
+This happens after Campaign 4, Campaign 5, and dungeons expose the real roster gaps.
+
+Goal:
+
+- run a purpose-and-identity pass across the full weapon roster
+
+Required outcomes:
+
+- identify stale or overlapping weapons
+- add weapons where the current game lacks meaningful decisions
+- rebalance unclear, weak, dominant, or filler-feeling items
+- answer which weapons are mandatory, optional, or redundant
+
+Exit criteria:
+
+- each weapon has a clearer gameplay purpose
+- obvious filler and overlap have been reduced
+
+### Milestone 5: broader systems depth
+
+These are important expansion pillars, but they should layer onto the content roadmap above rather than replace it.
+
+System priorities inside this milestone:
+
+- enemy depth
+- weapon identity and synergy
+- long-term goals and progression loops
+- balance pass
+- combat readability and polish
+
+Key directions:
 
 - ranged enemies
 - support enemies
 - split-on-death enemies
 - elite variants
 - boss mechanics beyond simple stat spikes
-
-This is likely the strongest next lever because the combat shell is already solid.
-
-### Priority 2: weapon identity and synergy
-
-Increase the difference between weapons beyond raw shape and numbers.
-
-Good directions:
-
 - on-hit effects
 - piercing
 - chain attacks
 - splash
-- column-based synergy
-- adjacency bonuses
-- utility items versus pure weapons
-
-### Priority 3: long-term goals
-
-Add stronger reasons to keep playing after the first stable climb.
-
-Candidates:
-
-- duplicate scrapping into a persistent Scrap currency
-- a Scrap shop with curated unique items
-- campaign-specific unlocks
-- weapon collection goals
-- achievement-like milestones
-- prestige or rebirth later
-- build presets and saved loadouts
+- adjacency or column-based synergies
+- stronger duplicate economy and shop loops
+- pacing and reward readability improvements
 
 Near-term note:
 
 - prestige is still a valid long-term system, but it should come after the game has a stronger duplicate economy and shop loop
-
-### Priority 4: balance pass
-
-Run a more deliberate tuning pass across:
-
-- early-wave pacing
-- time-to-first-level
-- time-to-first-drop excitement
-- health scaling versus enemy contact pressure
-- sweep speed feel at low and mid progression
-- stage-to-stage difficulty spikes
 
 ### Wave pacing update
 
@@ -893,127 +1382,7 @@ Design intent of the update:
 - unchanged per-campaign enemy identity
 - stage `5` of every campaign should feel like a clear density escalation band
 
-### Priority 5: combat readability and polish
-
-Improve the feel layer without changing the underlying loop.
-
-Examples:
-
-- stronger hit feedback
-- better projectile readability
-- clearer stage/boss transitions
-- better death/reset messaging
-- more satisfying reward presentation
-
-### Priority 6: content expansion roadmap
-
-The next major content phase is now defined as a structured expansion pass rather than a single feature drop.
-
-This expansion pass has four connected tracks.
-
-#### Track 1: finish Campaign 4 weapons
-
-Campaign 4 still needs a final content pass on its weapon roster.
-
-This is now the immediate content priority before Campaign 5 or the dungeon-key system.
-
-Goals:
-
-- finish the remaining incomplete or weak-feeling Campaign 4 weapons
-- ensure Campaign 4 weapons solve recognizably different combat problems
-- make the final campaign roster feel like a meaningful escalation over earlier campaigns
-- re-evaluate disabled or placeholder-feeling Campaign 4 items before calling the campaign complete
-- add more persistent AOE tools that reinforce Campaign 4's positional-combo identity
-
-Implementation intent:
-
-- complete the last missing weapon concepts first
-- then rebalance the full Campaign 4 pool as one unit
-- do not treat Campaign 4 weapon work as isolated number tweaks only; the full set should be reviewed for overlap and dead slots
-
-Immediate Campaign 4 sub-goals:
-
-- finish the last missing control and combo weapons
-- ensure Campaign 4 has enough persistent-area weapons to reward enemy displacement and clustering
-- identify any Campaign 4 items that are conceptually right but numerically too weak to justify using over generic damage tools
-
-#### Track 2: add Campaign 5
-
-Campaign 5 should be the next mainline campaign expansion.
-
-Core requirement:
-
-- Campaign 5 must introduce a new boss mechanic layer rather than only adding harder numbers
-
-Current design note:
-
-- the exact Campaign 5 boss mechanic is still driven by separate design notes and needs to be formalized before implementation
-
-Campaign 5 goals:
-
-- add a new campaign with its own enemy pressure identity
-- preserve the current core loop while making boss encounters feel more mechanically distinct
-- use boss mechanics to create new build checks rather than only larger stat walls
-
-Expected work areas:
-
-- Campaign 5 level structure
-- Campaign 5 reward pool
-- Campaign 5 weapon additions if needed
-- new boss encounter scripting and readability pass
-
-#### Track 3: dungeon keys and exclusive dungeon stages
-
-Add a new side-content progression layer based on `Dungeon Keys`.
-
-Dungeon Keys direction:
-
-- Dungeon Keys drop from a specific source pool
-- each key unlocks access to a specific dungeon stage or dungeon route
-- dungeon content should use much harder enemy scaling than standard campaign levels
-- dungeon stages should reward a dungeon-exclusive loot pool rather than normal campaign drops
-
-Dungeon system goals:
-
-- create a higher-risk side progression path
-- add a source of rare or build-defining dungeon loot
-- give late-game players a reason to chase content outside the normal campaign ladder
-
-Important content requirements:
-
-- dungeon UI
-- dungeon stage structure and access flow
-- dungeon-specific enemy scaling rules
-- dungeon-exclusive reward pool
-- dungeon-specific enemies or enemy variants where needed
-
-Implementation note:
-
-- the dungeon system is not just a level flag; it needs its own progression/readability layer so players understand entry, difficulty, and reward expectations immediately
-
-#### Track 4: weapon revision and stale-gameplay pass
-
-Run a broader weapon review across the game after Campaign 4 and Campaign 5 content solidify.
-
-This pass should focus on:
-
-- identifying where combat gameplay feels stale
-- adding weapons where the current roster does not create enough meaningful decisions
-- revising weapon roles where two or more items currently overlap too much
-- rebalancing weapons whose purpose is unclear, too weak, too dominant, or not exciting to slot
-
-This is not only a balance pass.
-
-It is a purpose-and-identity pass for the weapon roster.
-
-Questions this pass should answer:
-
-- what player problem does each weapon solve?
-- which weapons are pure filler and should become more distinct?
-- where are the obvious build gaps?
-- which campaign rewards feel mandatory instead of optional?
-
-#### Recommended implementation order
+### Recommended implementation order
 
 The current recommended order is:
 
@@ -1021,11 +1390,13 @@ The current recommended order is:
 2. formalize and build Campaign 5 boss mechanics and progression
 3. implement Dungeon Keys, dungeon stages, and dungeon-exclusive rewards
 4. run the broader weapon revision and stale-gameplay pass after the new content is in place
+5. expand deeper systemic layers once the larger content roadmap has exposed the real gaps
 
 Reason:
 
 - the weapon revision pass will be much stronger after the roster and progression structure are closer to their intended full shape
 - dungeon rewards and Campaign 5 mechanics may expose weapon gaps that are not visible yet
+- system-depth work is easier to prioritize once the content spine is stable
 
 ---
 
@@ -1033,9 +1404,9 @@ Reason:
 
 The immediate design task after this document should be:
 
-> decide which V2 pillar gets built first, then document that pillar with the same level of clarity before expanding the codebase too broadly.
+> fully define the remaining Campaign 4 completion work with the same level of clarity before expanding the codebase into Campaign 5 or dungeon systems.
 
-The best current candidate is enemy depth, because it adds meaningful gameplay variety without disrupting the proven V1 progression and loadout structure.
+That is the clearest next step because Campaign 4 is the current active milestone and the rest of the roadmap depends on it being meaningfully complete.
 
 ---
 
@@ -1059,9 +1430,11 @@ The next step is to deepen it.
 
 ---
 
-## Next expansion: utilities and Campaign 3
+## Future design backlog: utilities and Campaign 3
 
-The next major gameplay layer should add utility items and a third campaign that builds on the Campaign 2 roster rather than replacing it.
+This section remains a useful future design note, but it is not the current milestone order.
+
+Utilities and Campaign 3 ideas should be treated as backlog material to revisit when they fit the active roadmap again.
 
 ### Utilities
 

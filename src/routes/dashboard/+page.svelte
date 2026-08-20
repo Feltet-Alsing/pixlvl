@@ -1,7 +1,14 @@
 <script lang="ts">
+	import { markPixlvlSaveWiped } from '$lib/game/client-storage';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
+
+	$effect(() => {
+		if (form?.resetSuccess) {
+			markPixlvlSaveWiped();
+		}
+	});
 </script>
 
 <svelte:head>
@@ -44,10 +51,10 @@
 
 		<section class="danger-zone">
 			<header class="danger-header">
-				<h2>Reset pixl</h2>
+				<h2>Delete pixl data</h2>
 				<p>
-					Reset XP, perks, owned weapons, loadout, and campaign progression back to the default
-					state.
+					Delete all saved pixl progression, weapons, packs, loadouts, and campaign progress for
+					this account.
 				</p>
 			</header>
 
@@ -60,7 +67,7 @@
 			<form class="danger-form" method="post" action="?/resetPixl">
 				<label for="reset-confirmation">Type DELETE to confirm</label>
 				<input id="reset-confirmation" name="confirmation" type="text" autocomplete="off" />
-				<button class="danger-button" type="submit">Reset pixl</button>
+				<button class="danger-button" type="submit">Delete pixl data</button>
 			</form>
 		</section>
 	</section>

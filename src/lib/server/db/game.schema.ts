@@ -11,7 +11,11 @@ import {
 	timestamp
 } from 'drizzle-orm/pg-core';
 
-import type { OwnedWeaponInstance, PersistedLoadoutState } from '$lib/data/types';
+import type {
+	OwnedWeaponInstance,
+	PersistedLoadoutState,
+	PersistedRewardPackCard
+} from '$lib/data/types';
 
 import { user } from './auth.schema';
 
@@ -73,6 +77,34 @@ export const campaignProgress = pgTable(
 	]
 );
 
+export const rewardPack = pgTable(
+	'reward_pack',
+	{
+		id: text('id').primaryKey(),
+		ownerUserId: text('owner_user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		campaignId: integer('campaign_id').notNull(),
+		sourceCampaignLevel: integer('source_campaign_level').notNull(),
+		droppedAt: timestamp('dropped_at').defaultNow().notNull(),
+		openedAt: timestamp('opened_at'),
+		status: text('status').notNull().default('unopened'),
+		cardCount: integer('card_count').notNull(),
+		guaranteedSlotIndex: integer('guaranteed_slot_index').notNull(),
+		contentVersion: integer('content_version').notNull().default(1),
+		cards: jsonb('cards').$type<PersistedRewardPackCard[]>().notNull(),
+		createdAt: timestamp('created_at').defaultNow().notNull(),
+		updatedAt: timestamp('updated_at')
+			.defaultNow()
+			.$onUpdate(() => new Date())
+			.notNull()
+	},
+	(table) => [
+		index('reward_pack_owner_user_id_idx').on(table.ownerUserId),
+		index('reward_pack_owner_status_idx').on(table.ownerUserId, table.status)
+	]
+);
+
 export const pixlStateRelations = relations(pixlState, ({ one }) => ({
 	user: one(user, {
 		fields: [pixlState.userId],
@@ -83,6 +115,13 @@ export const pixlStateRelations = relations(pixlState, ({ one }) => ({
 export const campaignProgressRelations = relations(campaignProgress, ({ one }) => ({
 	user: one(user, {
 		fields: [campaignProgress.userId],
+		references: [user.id]
+	})
+}));
+
+export const rewardPackRelations = relations(rewardPack, ({ one }) => ({
+	user: one(user, {
+		fields: [rewardPack.ownerUserId],
 		references: [user.id]
 	})
 }));

@@ -27,7 +27,12 @@ export const PATCH: RequestHandler = async ({ locals, request }) => {
 		return json({ message: 'Invalid JSON body' }, { status: 400 });
 	}
 
-	if (!body || (body.pixlState === undefined && body.campaignProgress === undefined)) {
+	if (
+		!body ||
+		(body.pixlState === undefined &&
+			body.rewardPacks === undefined &&
+			body.campaignProgress === undefined)
+	) {
 		return json({ message: 'No game-state changes provided' }, { status: 400 });
 	}
 

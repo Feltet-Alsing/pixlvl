@@ -4,6 +4,7 @@ import { getActiveLoadoutPlacements } from '$lib/game/loadout-slots';
 import type {
 	LoadoutItemDefinition,
 	LoadoutPlacement,
+	PersistedRewardPack,
 	PersistedLoadoutState,
 	LoadoutRotation,
 	OwnedWeaponInstance,
@@ -22,6 +23,7 @@ export interface CombatOverlayState {
 	bankedXp: number;
 	waveXp: number;
 	waveDrops: OwnedWeaponInstance[];
+	rewardPacks: PersistedRewardPack[];
 	statusTimerRemaining: number;
 	remainingEnemies: number;
 	composition: {
@@ -48,6 +50,14 @@ export interface RewardDropRow {
 	name: string;
 	rarity: WeaponDefinition['rarity'];
 	isNew: boolean;
+}
+
+export interface RewardPackRow {
+	id: string;
+	campaignId: number;
+	sourceCampaignLevel: number;
+	cardCount: number;
+	guaranteedSlotLabel: 'Exotic / Legendary';
 }
 
 export interface LoadoutRow {
@@ -97,6 +107,7 @@ export function createInitialCombatOverlay(pageData: PageProps['data']): CombatO
 		bankedXp: pageData.gameState?.pixlState.xp ?? 0,
 		waveXp: 0,
 		waveDrops: [],
+		rewardPacks: [],
 		statusTimerRemaining: 0,
 		remainingEnemies: composition.biters + composition.swarmers + composition.tankers,
 		composition,
@@ -104,6 +115,16 @@ export function createInitialCombatOverlay(pageData: PageProps['data']): CombatO
 		weaponDamageRows: [],
 		status: 'running'
 	};
+}
+
+export function buildRewardPackRows(rewardPacks: PersistedRewardPack[]) {
+	return rewardPacks.map((pack) => ({
+		id: pack.id,
+		campaignId: pack.campaignId,
+		sourceCampaignLevel: pack.sourceCampaignLevel,
+		cardCount: pack.cardCount,
+		guaranteedSlotLabel: 'Exotic / Legendary'
+	})) satisfies RewardPackRow[];
 }
 
 export function buildOverlayStatCards(upgradeState: {

@@ -9,6 +9,7 @@
 	import CampaignRouteNav from '$lib/components/campaigns/CampaignRouteNav.svelte';
 	import LevelResultsPopup from '$lib/components/campaigns/LevelResultsPopup.svelte';
 	import P5Canvas from '$lib/components/P5Canvas.svelte';
+	import { applyPendingPixlvlSaveWipe } from '$lib/game/client-storage';
 	import { getActiveLoadoutPlacements } from '$lib/game/loadout-slots';
 	import {
 		buildCurrentLoadoutRows,
@@ -322,6 +323,11 @@
 		showStageDrawer = defaultCampaignMenuOpen;
 		showLoadoutPreview = true;
 		skipResultsSignal = 0;
+	});
+
+	$effect(() => {
+		void data.campaignId;
+		applyPendingPixlvlSaveWipe();
 	});
 
 	$effect(() => {
@@ -654,7 +660,7 @@
 		});
 	}
 
-	async function handleRouteNavigation(section: 'arena' | 'loadout' | 'shop' | 'stats') {
+	async function handleRouteNavigation(section: 'arena' | 'loadout' | 'shop' | 'stats' | 'packs') {
 		if (section !== 'arena') {
 			await persistArenaStateBeforeLeaving();
 		}

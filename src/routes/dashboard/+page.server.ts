@@ -39,7 +39,7 @@ export const actions: Actions = {
 		await resetGameStateForUser(locals.user.id);
 
 		return {
-			resetSuccess: 'Pixl reset to defaults.'
+			resetSuccess: 'All pixl data deleted.'
 		};
 	}
 };

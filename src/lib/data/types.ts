@@ -317,13 +317,36 @@ export type LoadoutItemDefinition = WeaponDefinition | UtilityDefinition;
 export interface OwnedWeaponInstance {
 	instanceId: string;
 	definitionId: string;
-	source: 'starter' | 'drop' | 'shop';
+	source: 'starter' | 'drop' | 'shop' | 'pack';
 	acquiredAt: string;
 	campaignId: number | null;
 	stage: number | null;
 	level: number | null;
 	upgradeLevel: number | null;
 	totalScrapInvested: number | null;
+}
+
+export type RewardPackStatus = 'unopened' | 'opened';
+
+export interface PersistedRewardPackCard {
+	slotIndex: number;
+	definitionId: string;
+	rarity: WeaponRarity;
+	isGuaranteedSlot: boolean;
+}
+
+export interface PersistedRewardPack {
+	id: string;
+	ownerUserId: string;
+	campaignId: number;
+	sourceCampaignLevel: number;
+	droppedAt: string;
+	openedAt: string | null;
+	status: RewardPackStatus;
+	cardCount: number;
+	guaranteedSlotIndex: number;
+	contentVersion: number;
+	cards: PersistedRewardPackCard[];
 }
 
 export interface ShopOffer {

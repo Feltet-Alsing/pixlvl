@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 
-	type CampaignSection = 'arena' | 'loadout' | 'shop' | 'stats';
+	type CampaignSection = 'arena' | 'loadout' | 'shop' | 'stats' | 'packs';
 
 	interface Props {
 		campaignId: number;
@@ -9,6 +9,7 @@
 		notificationCounts?: {
 			stats: number;
 			loadout: number;
+			packs: number;
 		};
 		showCampaignMenuToggle?: boolean;
 		campaignMenuEnabled?: boolean;
@@ -29,7 +30,7 @@
 	let {
 		campaignId,
 		active,
-		notificationCounts = { stats: 0, loadout: 0 },
+		notificationCounts = { stats: 0, loadout: 0, packs: 0 },
 		showCampaignMenuToggle = false,
 		campaignMenuEnabled = false,
 		onToggleCampaignMenu,
@@ -56,6 +57,11 @@
 			key: 'loadout',
 			label: 'Loadout',
 			badge: notificationCounts.loadout
+		},
+		{
+			key: 'packs',
+			label: 'Packs',
+			badge: notificationCounts.packs
 		}
 	] as const);
 

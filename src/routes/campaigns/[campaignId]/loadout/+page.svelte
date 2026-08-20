@@ -10,6 +10,7 @@
 	import LoadoutSummaryStrip from '$lib/components/campaigns/LoadoutSummaryStrip.svelte';
 	import LoadoutWeaponDetailsPane from '$lib/components/campaigns/LoadoutWeaponDetailsPane.svelte';
 	import P5Canvas from '$lib/components/P5Canvas.svelte';
+	import { applyPendingPixlvlSaveWipe } from '$lib/game/client-storage';
 	import {
 		cloneLoadoutSlots,
 		createPersistedLoadoutState,
@@ -59,6 +60,7 @@
 		LoadoutPlacement,
 		LoadoutRotation,
 		LoadoutSlotIndex,
+		OwnedWeaponInstance,
 		PersistedLoadoutState,
 		WeaponTargetingKind
 	} from '$lib/data/types';
@@ -466,7 +468,21 @@
 				) ?? null)
 			: null
 	);
+	let selectedInventoryWeapon = $derived(
+		selectedInventoryWeaponInstanceId
+			? (inventoryWeapons.find(
+					(weapon) => weapon.weaponInstanceId === selectedInventoryWeaponInstanceId
+				) ?? null)
+			: null
+	);
 	let selectedInventoryGroup = $derived.by(() => {
+		if (selectedInventoryWeapon) {
+			return (
+				inventoryWeaponGroups.find((group) => group.groupId === selectedInventoryWeapon.groupId) ??
+				null
+			);
+		}
+
 		if (selectedInventoryDefinitionId) {
 			const directMatch =
 				inventoryWeaponGroups.find((group) => group.groupId === selectedInventoryDefinitionId) ??
@@ -475,14 +491,6 @@
 			if (directMatch) {
 				return directMatch;
 			}
-		}
-
-		if (selectedInventoryWeaponInstanceId) {
-			return (
-				inventoryWeaponGroups.find(
-					(group) => group.representativeWeaponInstanceId === selectedInventoryWeaponInstanceId
-				) ?? null
-			);
 		}
 
 		return null;
@@ -611,6 +619,11 @@
 	let isUpgradedScrap = $derived(scrapDialog ? scrapDialog.isUpgraded : false);
 	let requiresScrapConfirmation = $derived(isHighRarityScrap || isUpgradedScrap);
 	let totalScrapYield = $derived(scrapQuantity * scrapValuePerItem);
+
+	$effect(() => {
+		void data.campaignId;
+		applyPendingPixlvlSaveWipe();
+	});
 
 	$effect(() => {
 		if (typeof sessionStorage === 'undefined' || hasLoadedChangeLogState) {
@@ -967,13 +980,16 @@
 			selectedPlacedWeaponInstanceId = null;
 		}
 
-		if (
-			selectedInventoryWeaponInstanceId &&
-			!inventoryWeapons.some(
-				(weapon) => weapon.weaponInstanceId === selectedInventoryWeaponInstanceId
-			)
-		) {
+		if (selectedInventoryWeaponInstanceId && !selectedInventoryWeapon) {
 			selectedInventoryWeaponInstanceId = null;
+		}
+
+		if (selectedInventoryWeaponInstanceId && selectedInventoryGroup) {
+			if (selectedInventoryDefinitionId !== selectedInventoryGroup.groupId) {
+				selectedInventoryDefinitionId = selectedInventoryGroup.groupId;
+			}
+
+			return;
 		}
 
 		if (!selectedInventoryGroup) {
@@ -1197,6 +1213,42 @@
 		return value[0].toUpperCase() + value.slice(1);
 	}
 
+	function getOwnedWeaponUpgradeLevel(weapon: OwnedWeaponInstance) {
+		return Math.max(0, weapon.upgradeLevel ?? 0);
+	}
+
+	function getOwnedWeaponTotalScrapInvested(weapon: OwnedWeaponInstance) {
+		return Math.max(0, weapon.totalScrapInvested ?? 0);
+	}
+
+	function mergeBackgroundOwnedWeapons(
+		currentVisibleWeapons: LivePixlState['ownedWeapons'],
+		backgroundOwnedWeapons: LivePixlState['ownedWeapons']
+	) {
+		const mergedOwnedWeapons = new Map(
+			backgroundOwnedWeapons.map((weapon) => [weapon.instanceId, weapon])
+		);
+
+		for (const currentWeapon of currentVisibleWeapons) {
+			const backgroundWeapon = mergedOwnedWeapons.get(currentWeapon.instanceId);
+
+			if (!backgroundWeapon) {
+				mergedOwnedWeapons.set(currentWeapon.instanceId, currentWeapon);
+				continue;
+			}
+
+			if (
+				getOwnedWeaponUpgradeLevel(currentWeapon) > getOwnedWeaponUpgradeLevel(backgroundWeapon) ||
+				getOwnedWeaponTotalScrapInvested(currentWeapon) >
+					getOwnedWeaponTotalScrapInvested(backgroundWeapon)
+			) {
+				mergedOwnedWeapons.set(currentWeapon.instanceId, currentWeapon);
+			}
+		}
+
+		return Array.from(mergedOwnedWeapons.values());
+	}
+
 	function handleScrapBackdropKeydown(event: KeyboardEvent) {
 		if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'Escape') {
 			return;
@@ -1222,6 +1274,8 @@
 		highestClearedLevel: number;
 		completed: boolean;
 	}) {
+		const mergedOwnedWeapons = mergeBackgroundOwnedWeapons(ownedWeapons, update.ownedWeapons);
+
 		if (livePixlState) {
 			pixlStateOverride = {
 				xp: update.xp,
@@ -1233,7 +1287,7 @@
 				attackSpeed: update.attackSpeed,
 				loadoutRows: update.loadoutRows,
 				loadoutColumns: update.loadoutColumns,
-				ownedWeapons: update.ownedWeapons
+				ownedWeapons: mergedOwnedWeapons
 			};
 		}
 
@@ -1252,7 +1306,7 @@
 				xp: update.xp,
 				defence: update.defence,
 				agility: update.agility,
-				ownedWeapons: update.ownedWeapons,
+				ownedWeapons: mergedOwnedWeapons,
 				currentLevel: update.currentLevel,
 				highestUnlockedLevel: update.highestUnlockedLevel,
 				highestClearedLevel: update.highestClearedLevel,
