@@ -608,15 +608,6 @@
 				JSON.stringify(latestCombatResumeState)
 			);
 		}
-
-		const mergedOwnedWeapons = Array.from(
-			new Map(
-				[...livePixlState.ownedWeapons, ...combatOverlay.waveDrops].map((weapon) => [
-					weapon.instanceId,
-					weapon
-				])
-			).values()
-		);
 		const persistedCurrentLevel =
 			combatOverlay.status === 'complete'
 				? data.campaign.totalLevels
@@ -644,8 +635,7 @@
 				pixlState: {
 					xp: Math.max(livePixlState.xp, combatOverlay.bankedXp),
 					defence: livePixlState.defence,
-					agility: livePixlState.agility,
-					ownedWeapons: mergedOwnedWeapons
+					agility: livePixlState.agility
 				},
 				campaignProgress: [
 					{
