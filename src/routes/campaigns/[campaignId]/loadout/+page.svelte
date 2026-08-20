@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { beforeNavigate } from '$app/navigation';
 	import { fade } from 'svelte/transition';
-	import { isWeaponDefinition } from '$lib/data';
+	import CampaignRouteNav from '$lib/components/campaigns/CampaignRouteNav.svelte';
+	import { isWeaponDefinition, starterWeaponId } from '$lib/data';
 	import LoadoutDraggedShapePreview from '$lib/components/campaigns/LoadoutDraggedShapePreview.svelte';
 	import LoadoutGridBoard from '$lib/components/campaigns/LoadoutGridBoard.svelte';
 	import LoadoutInventoryToolbox from '$lib/components/campaigns/LoadoutInventoryToolbox.svelte';
@@ -130,6 +131,15 @@
 		completed: boolean;
 	}
 
+	interface ChangeLogEntry {
+		id: string;
+		title: string;
+		detail: string;
+		timestamp: number;
+		tone: 'neutral' | 'positive';
+		rarity?: LoadoutItemDefinition['rarity'];
+	}
+
 	let combatResumeState = $state.raw<CampaignCombatResumeState | null>(null);
 
 	const scrapValueByRarity = {
@@ -140,9 +150,12 @@
 		legendary: 5000
 	} as const;
 	const MOBILE_LAYOUT_BREAKPOINT = 860;
+	const MAX_CHANGE_LOG_ENTRIES = 12;
 	const getArenaResumeStorageKey = (campaignId: number) => `pixlvl-arena-resume-${campaignId}`;
 	const getArenaCombatResumeStorageKey = (campaignId: number) =>
 		`pixlvl-arena-combat-resume-${campaignId}`;
+	const getLoadoutChangeLogStorageKey = (campaignId: number) =>
+		`pixlvl-loadout-change-log-${campaignId}`;
 	const TARGETING_OPTIONS: Array<{ value: WeaponTargetingKind; label: string }> = [
 		{ value: 'nearest-target', label: 'nearest target' },
 		{ value: 'furthest-target', label: 'furthest target' },
@@ -155,6 +168,7 @@
 		`pixlvl-loadout-inventory-preferences-${data.campaignId}`
 	);
 	let loadoutUiStateStorageKey = $derived(`pixlvl-loadout-ui-state-${data.campaignId}`);
+	let loadoutChangeLogStorageKey = $derived(getLoadoutChangeLogStorageKey(data.campaignId));
 	const initialPersistedLoadoutState = (() =>
 		normalizePersistedLoadoutState(
 			data.gameState?.pixlState.loadoutPlacements ?? null,
@@ -188,6 +202,7 @@
 	let showSaveWarning = $state(false);
 	let showUnsavedToast = $state(false);
 	let showRotationTip = $state(false);
+	let showChangeLogPopup = $state(false);
 	let hasSeenRotationTip = $state(false);
 	let isMobileItemPaneOpen = $state(false);
 	let selectedPlacedWeaponInstanceId = $state<string | null>(null);
@@ -201,11 +216,17 @@
 	let pixlStateOverride = $state.raw<PixlStateOverride | null>(null);
 	let campaignStateOverride = $state.raw<CampaignStateOverride | null>(null);
 	let liveCombatProgressOverride = $state<LiveCombatProgress | null>(null);
+	let changeLogEntries = $state.raw<ChangeLogEntry[]>([]);
+	let unreadChangeLogCount = $state(0);
 	let previousHasUnsavedChanges = false;
+	let lastProcessedLoadoutSuccessForm = $state.raw<typeof form>(null);
 	let unsavedToastTimeout: ReturnType<typeof setTimeout> | null = null;
 	let rotationTipTimeout: ReturnType<typeof setTimeout> | null = null;
 	let shouldBypassLeavePrompt = false;
 	let leavePromptBypassTimeout: ReturnType<typeof setTimeout> | null = null;
+	let hasLoadedChangeLogState = false;
+	let seenOwnedWeaponInstanceIds = new Set<string>();
+	let hasInitializedOwnedWeaponTracking = false;
 	let livePixlState: LivePixlState | null = $derived.by(() => {
 		const basePixlState = data.gameState?.pixlState ?? null;
 
@@ -592,6 +613,66 @@
 	let totalScrapYield = $derived(scrapQuantity * scrapValuePerItem);
 
 	$effect(() => {
+		if (typeof sessionStorage === 'undefined' || hasLoadedChangeLogState) {
+			return;
+		}
+
+		hasLoadedChangeLogState = true;
+
+		const raw = sessionStorage.getItem(loadoutChangeLogStorageKey);
+
+		if (!raw) {
+			return;
+		}
+
+		try {
+			const parsed = JSON.parse(raw) as {
+				entries?: ChangeLogEntry[];
+				unreadCount?: number;
+			};
+
+			if (Array.isArray(parsed.entries)) {
+				changeLogEntries = parsed.entries
+					.filter(
+						(entry) =>
+							typeof entry.id === 'string' &&
+							typeof entry.title === 'string' &&
+							typeof entry.detail === 'string' &&
+							typeof entry.timestamp === 'number' &&
+							(entry.tone === 'neutral' || entry.tone === 'positive') &&
+							(entry.rarity === undefined ||
+								entry.rarity === 'normal' ||
+								entry.rarity === 'magic' ||
+								entry.rarity === 'rare' ||
+								entry.rarity === 'exotic' ||
+								entry.rarity === 'legendary')
+					)
+					.slice(0, MAX_CHANGE_LOG_ENTRIES);
+			}
+
+			if (typeof parsed.unreadCount === 'number' && Number.isFinite(parsed.unreadCount)) {
+				unreadChangeLogCount = Math.max(0, Math.floor(parsed.unreadCount));
+			}
+		} catch {
+			sessionStorage.removeItem(loadoutChangeLogStorageKey);
+		}
+	});
+
+	$effect(() => {
+		if (typeof sessionStorage === 'undefined' || !hasLoadedChangeLogState) {
+			return;
+		}
+
+		sessionStorage.setItem(
+			loadoutChangeLogStorageKey,
+			JSON.stringify({
+				entries: changeLogEntries,
+				unreadCount: unreadChangeLogCount
+			})
+		);
+	});
+
+	$effect(() => {
 		const shouldShowToast =
 			hasUnsavedChanges &&
 			!previousHasUnsavedChanges &&
@@ -621,6 +702,102 @@
 		}
 
 		previousHasUnsavedChanges = hasUnsavedChanges;
+	});
+
+	$effect(() => {
+		const successForm = form?.loadoutSuccess ? form : null;
+
+		if (!successForm || successForm === lastProcessedLoadoutSuccessForm) {
+			return;
+		}
+
+		lastProcessedLoadoutSuccessForm = successForm;
+		const successMessage = successForm.loadoutSuccess;
+
+		if (!successMessage) {
+			return;
+		}
+
+		if (successMessage === 'Loadout saved') {
+			pushChangeLogEntry(
+				`Saved loadout ${activeLoadoutSlot + 1}`,
+				`${draftLoadoutPlacements.length} equipped item${draftLoadoutPlacements.length === 1 ? '' : 's'} committed.`,
+				'positive'
+			);
+			return;
+		}
+
+		if (successMessage.startsWith('Scrapped ')) {
+			pushChangeLogEntry('Scrap complete', successMessage, 'positive');
+			return;
+		}
+
+		if (successMessage.includes('upgraded for ')) {
+			pushChangeLogEntry('Upgrade complete', successMessage, 'positive');
+			return;
+		}
+
+		pushChangeLogEntry('Inventory updated', successMessage, 'positive');
+	});
+
+	$effect(() => {
+		if (!hasLoadedChangeLogState || !ownedWeapons.length) {
+			return;
+		}
+
+		if (!hasInitializedOwnedWeaponTracking) {
+			hasInitializedOwnedWeaponTracking = true;
+			seenOwnedWeaponInstanceIds = new Set(ownedWeapons.map((weapon) => weapon.instanceId));
+
+			if (changeLogEntries.length > 0) {
+				return;
+			}
+
+			const seededEntries = [...ownedWeapons]
+				.filter((weapon) => weapon.definitionId !== starterWeaponId)
+				.sort(
+					(left, right) =>
+						new Date(right.acquiredAt).getTime() - new Date(left.acquiredAt).getTime()
+				)
+				.slice(0, 4)
+				.map((weapon) => {
+					const definition = weaponDefinitionById[weapon.definitionId];
+
+					return {
+						id: `seed-${weapon.instanceId}`,
+						title: `Pickup · ${definition?.name ?? 'Weapon'}`,
+						detail: `${weapon.source} reward`,
+						timestamp: new Date(weapon.acquiredAt).getTime() || Date.now(),
+						tone: 'neutral',
+						rarity: definition?.rarity
+					} satisfies ChangeLogEntry;
+				});
+
+			if (seededEntries.length > 0) {
+				changeLogEntries = seededEntries;
+			}
+
+			return;
+		}
+
+		const newWeapons = ownedWeapons
+			.filter((weapon) => !seenOwnedWeaponInstanceIds.has(weapon.instanceId))
+			.sort(
+				(left, right) => new Date(left.acquiredAt).getTime() - new Date(right.acquiredAt).getTime()
+			);
+
+		seenOwnedWeaponInstanceIds = new Set(ownedWeapons.map((weapon) => weapon.instanceId));
+
+		for (const weapon of newWeapons) {
+			const definition = weaponDefinitionById[weapon.definitionId];
+			pushChangeLogEntry(
+				`New drop · ${definition?.name ?? 'Weapon'}`,
+				`${weapon.source} reward added to inventory.`,
+				'positive',
+				new Date(weapon.acquiredAt).getTime() || Date.now(),
+				definition?.rarity
+			);
+		}
 	});
 
 	$effect(() => {
@@ -883,6 +1060,42 @@
 		requestAnimationFrame(() => {
 			window.scrollTo({ top: savedScrollY, behavior: 'auto' });
 		});
+	}
+
+	function getLoadoutItemName(weaponInstanceId: string) {
+		return (
+			loadoutWeapons.find((weapon) => weapon.weaponInstanceId === weaponInstanceId)?.name ??
+			inventoryWeapons.find((weapon) => weapon.weaponInstanceId === weaponInstanceId)?.name ??
+			(() => {
+				const ownedWeapon = ownedWeaponByInstanceId[weaponInstanceId];
+				const definition = ownedWeapon ? weaponDefinitionById[ownedWeapon.definitionId] : null;
+				return definition?.name ?? 'Weapon';
+			})()
+		);
+	}
+
+	function pushChangeLogEntry(
+		title: string,
+		detail: string,
+		tone: ChangeLogEntry['tone'] = 'neutral',
+		timestamp = Date.now(),
+		rarity?: ChangeLogEntry['rarity']
+	) {
+		changeLogEntries = [
+			{
+				id: `${timestamp}-${Math.random().toString(36).slice(2, 8)}`,
+				title,
+				detail,
+				timestamp,
+				tone,
+				rarity
+			},
+			...changeLogEntries
+		].slice(0, MAX_CHANGE_LOG_ENTRIES);
+
+		if (!showChangeLogPopup) {
+			unreadChangeLogCount += 1;
+		}
 	}
 
 	function handleWindowBeforeUnload(event: BeforeUnloadEvent) {
@@ -1200,6 +1413,11 @@
 		y: number,
 		rotation = draggedWeaponRotation
 	) {
+		const hadPlacement = draftLoadoutPlacements.some(
+			(placement) => placement.weaponInstanceId === weaponInstanceId
+		);
+		const weaponName = getLoadoutItemName(weaponInstanceId);
+
 		if (!canPlaceWeaponAt(weaponInstanceId, x, y, rotation)) {
 			return;
 		}
@@ -1220,16 +1438,34 @@
 		selectedInventoryDefinitionId = null;
 		selectedInventoryWeaponInstanceId = null;
 		isMobileItemPaneOpen = false;
+		pushChangeLogEntry(
+			hadPlacement ? `Moved ${weaponName}` : `Equipped ${weaponName}`,
+			`Loadout ${activeLoadoutSlot + 1} · cell ${x + 1}, ${y + 1}`,
+			'neutral'
+		);
 		clearDragState();
 	}
 
 	function removeDraftPlacement(weaponInstanceId: string) {
+		const weaponName = getLoadoutItemName(weaponInstanceId);
+		const hadPlacement = draftLoadoutPlacements.some(
+			(placement) => placement.weaponInstanceId === weaponInstanceId
+		);
+
 		draftLoadoutPlacements = draftLoadoutPlacements.filter(
 			(placement) => placement.weaponInstanceId !== weaponInstanceId
 		);
 
 		if (selectedPlacedWeaponInstanceId === weaponInstanceId) {
 			selectedPlacedWeaponInstanceId = null;
+		}
+
+		if (hadPlacement) {
+			pushChangeLogEntry(
+				`Removed ${weaponName}`,
+				`Returned to inventory from loadout ${activeLoadoutSlot + 1}.`,
+				'neutral'
+			);
 		}
 
 		clearDragState();
@@ -1261,11 +1497,22 @@
 
 	function resetDraftLoadout() {
 		draftLoadoutPlacements = cloneLoadoutPlacements(savedLoadoutPlacements);
+		pushChangeLogEntry(
+			`Reset draft ${activeLoadoutSlot + 1}`,
+			'Restored the last saved layout for this slot.',
+			'neutral'
+		);
 		clearDragState();
 	}
 
 	function clearDraftLoadout() {
+		const removedCount = draftLoadoutPlacements.length;
 		draftLoadoutPlacements = [];
+		pushChangeLogEntry(
+			`Cleared loadout ${activeLoadoutSlot + 1}`,
+			`Removed ${removedCount} equipped item${removedCount === 1 ? '' : 's'} from the draft.`,
+			'neutral'
+		);
 		clearDragState();
 	}
 
@@ -1430,6 +1677,7 @@
 		const placement = placementByWeaponInstanceId[weaponInstanceId];
 		const ownedWeapon = ownedWeaponByInstanceId[weaponInstanceId];
 		const definition = ownedWeapon ? weaponDefinitionById[ownedWeapon.definitionId] : null;
+		const weaponName = getLoadoutItemName(weaponInstanceId);
 
 		if (!placement || !definition) {
 			return;
@@ -1450,10 +1698,20 @@
 		);
 		selectedPlacedWeaponInstanceId = weaponInstanceId;
 		selectedInventoryDefinitionId = null;
+		pushChangeLogEntry(
+			`Rotated ${weaponName}`,
+			`Draft orientation updated in loadout ${activeLoadoutSlot + 1}.`,
+			'neutral'
+		);
 		markRotationTipSeen();
 	}
 
 	function handleWindowKeydown(event: KeyboardEvent) {
+		if (event.key === 'Escape' && showChangeLogPopup) {
+			showChangeLogPopup = false;
+			return;
+		}
+
 		if ((event.key === 'r' || event.key === 'R') && draggedWeaponInstanceId) {
 			event.preventDefault();
 			rotateDraggedWeapon();
@@ -1674,8 +1932,11 @@
 		const normalizedTargeting = TARGETING_OPTIONS.find(
 			(option) => option.value === targeting
 		)?.value;
+		const currentPlacement = draftLoadoutPlacements.find(
+			(entry) => entry.weaponInstanceId === weaponInstanceId
+		);
 
-		if (!normalizedTargeting) {
+		if (!normalizedTargeting || currentPlacement?.targeting === normalizedTargeting) {
 			return;
 		}
 
@@ -1683,6 +1944,12 @@
 			entry.weaponInstanceId === weaponInstanceId
 				? { ...entry, targeting: normalizedTargeting }
 				: entry
+		);
+		pushChangeLogEntry(
+			`Retargeted ${getLoadoutItemName(weaponInstanceId)}`,
+			TARGETING_OPTIONS.find((option) => option.value === normalizedTargeting)?.label ??
+				normalizedTargeting,
+			'neutral'
 		);
 	}
 </script>
@@ -1710,6 +1977,18 @@
 	{/if}
 
 	<div class="shell">
+		<div class="route-topbar-wrap">
+			<div class="route-topbar-shell">
+				<div class="route-topbar">
+					<CampaignRouteNav
+						campaignId={data.campaignId}
+						active="loadout"
+						notificationCounts={data.notificationCounts}
+					/>
+				</div>
+			</div>
+		</div>
+
 		<section class="layout-stack">
 			<div class="panel grid-panel">
 				{#if form?.loadoutError}
@@ -2112,6 +2391,23 @@
 		gap: 0.75rem;
 	}
 
+	.route-topbar-wrap {
+		position: relative;
+		z-index: 2;
+	}
+
+	.route-topbar-shell {
+		width: 100%;
+	}
+
+	.route-topbar {
+		display: flex;
+		justify-content: flex-end;
+		align-items: center;
+		gap: 0.85rem;
+		flex-wrap: wrap;
+	}
+
 	.panel,
 	.feedback,
 	.save,
@@ -2258,6 +2554,11 @@
 	}
 
 	@media (max-width: 1180px) {
+		.route-topbar {
+			justify-content: stretch;
+			align-items: stretch;
+		}
+
 		.loadout-toolbar-row {
 			grid-template-columns: 1fr;
 			grid-template-areas:

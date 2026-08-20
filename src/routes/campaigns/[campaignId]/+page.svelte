@@ -87,12 +87,24 @@
 		completed: boolean;
 	}
 
+	interface ChangeLogEntry {
+		id: string;
+		title: string;
+		detail: string;
+		timestamp: number;
+		tone: 'neutral' | 'positive';
+		rarity?: LoadoutItemDefinition['rarity'];
+	}
+
 	const MOBILE_LAYOUT_BREAKPOINT = 860;
+	const MAX_CHANGE_LOG_ENTRIES = 12;
 	const getArenaResumeStorageKey = (campaignId: number) => `pixlvl-arena-resume-${campaignId}`;
 	const getArenaCombatResumeStorageKey = (campaignId: number) =>
 		`pixlvl-arena-combat-resume-${campaignId}`;
 	const getArenaUpgradeScrollStorageKey = (campaignId: number) =>
 		`pixlvl-arena-upgrade-scroll-${campaignId}`;
+	const getLoadoutChangeLogStorageKey = (campaignId: number) =>
+		`pixlvl-loadout-change-log-${campaignId}`;
 
 	let { data, form }: PageProps = $props();
 	let innerWidth = $state<number | null>(null);
@@ -101,9 +113,16 @@
 	let showStatsOverlay = $state(false);
 	let showStageDrawer = $state(false);
 	let showLoadoutPreview = $state(true);
+	let showChangeLogPopup = $state(false);
 	let skipResultsSignal = $state(0);
 	let combatResumeState = $state.raw<CampaignCombatResumeState | null>(null);
 	let latestCombatResumeState = $state.raw<CampaignCombatResumeState | null>(null);
+	let changeLogEntries = $state.raw<ChangeLogEntry[]>([]);
+	let unreadChangeLogCount = $state(0);
+	let hasLoadedChangeLogState = false;
+	let lastPersistedChangeLogJson = '';
+	let seenArenaDropInstanceIds = new Set<string>();
+	let hasInitializedArenaDropTracking = false;
 	let pixlStateOverride = $state.raw<PixlStateOverride | null>(null);
 	let campaignStateOverride = $state.raw<CampaignStateOverride | null>(null);
 	let livePixlState: LivePixlState | null = $derived.by(() => {
@@ -227,6 +246,7 @@
 	});
 	let resultsEmptyLabel = $derived(`No item drops. +${combatOverlay.waveXp} XP earned.`);
 	let loadoutTooltip = $derived(buildLoadoutTooltip(currentLoadoutRows));
+	let loadoutChangeLogStorageKey = $derived(getLoadoutChangeLogStorageKey(data.campaignId));
 	let defaultCampaignMenuOpen = $derived(page.url.searchParams.get('menu') !== 'closed');
 	let defaultStatsOverlayOpen = $derived(page.url.searchParams.get('stats') === 'open');
 	let showDesktopSideRail = $derived(
@@ -249,6 +269,49 @@
 					minimumFractionDigits: 0,
 					maximumFractionDigits: 2
 				});
+	}
+
+	function pushChangeLogEntry(
+		title: string,
+		detail: string,
+		tone: ChangeLogEntry['tone'] = 'neutral',
+		timestamp = Date.now(),
+		rarity?: ChangeLogEntry['rarity']
+	) {
+		changeLogEntries = [
+			{
+				id: `${timestamp}-${Math.random().toString(36).slice(2, 8)}`,
+				title,
+				detail,
+				timestamp,
+				tone,
+				rarity
+			},
+			...changeLogEntries
+		].slice(0, MAX_CHANGE_LOG_ENTRIES);
+
+		if (!showChangeLogPopup) {
+			unreadChangeLogCount += 1;
+		}
+	}
+
+	function toggleChangeLogPopup() {
+		showChangeLogPopup = !showChangeLogPopup;
+
+		if (showChangeLogPopup) {
+			unreadChangeLogCount = 0;
+		}
+	}
+
+	function closeChangeLogPopup() {
+		showChangeLogPopup = false;
+	}
+
+	function formatChangeLogTime(timestamp: number) {
+		return new Date(timestamp).toLocaleTimeString([], {
+			hour: '2-digit',
+			minute: '2-digit'
+		});
 	}
 
 	$effect(() => {
@@ -340,6 +403,104 @@
 			};
 		} catch {
 			// Ignore malformed client-side resume snapshots.
+		}
+	});
+
+	$effect(() => {
+		if (typeof sessionStorage === 'undefined' || hasLoadedChangeLogState) {
+			return;
+		}
+
+		hasLoadedChangeLogState = true;
+		const raw = sessionStorage.getItem(loadoutChangeLogStorageKey);
+
+		if (!raw) {
+			lastPersistedChangeLogJson = JSON.stringify({ entries: [], unreadCount: 0 });
+			return;
+		}
+
+		try {
+			const parsed = JSON.parse(raw) as {
+				entries?: ChangeLogEntry[];
+				unreadCount?: number;
+			};
+
+			if (Array.isArray(parsed.entries)) {
+				changeLogEntries = parsed.entries
+					.filter(
+						(entry) =>
+							typeof entry.id === 'string' &&
+							typeof entry.title === 'string' &&
+							typeof entry.detail === 'string' &&
+							typeof entry.timestamp === 'number' &&
+							(entry.tone === 'neutral' || entry.tone === 'positive') &&
+							(entry.rarity === undefined ||
+								entry.rarity === 'normal' ||
+								entry.rarity === 'magic' ||
+								entry.rarity === 'rare' ||
+								entry.rarity === 'exotic' ||
+								entry.rarity === 'legendary')
+					)
+					.slice(0, MAX_CHANGE_LOG_ENTRIES);
+			}
+
+			if (typeof parsed.unreadCount === 'number' && Number.isFinite(parsed.unreadCount)) {
+				unreadChangeLogCount = Math.max(0, Math.floor(parsed.unreadCount));
+			}
+		} catch {
+			sessionStorage.removeItem(loadoutChangeLogStorageKey);
+		}
+
+		lastPersistedChangeLogJson = JSON.stringify({
+			entries: changeLogEntries,
+			unreadCount: unreadChangeLogCount
+		});
+	});
+
+	$effect(() => {
+		if (typeof sessionStorage === 'undefined' || !hasLoadedChangeLogState) {
+			return;
+		}
+
+		const payload = JSON.stringify({
+			entries: changeLogEntries,
+			unreadCount: unreadChangeLogCount
+		});
+
+		if (payload === lastPersistedChangeLogJson) {
+			return;
+		}
+
+		lastPersistedChangeLogJson = payload;
+		sessionStorage.setItem(loadoutChangeLogStorageKey, payload);
+	});
+
+	$effect(() => {
+		if (!hasLoadedChangeLogState) {
+			return;
+		}
+
+		if (!hasInitializedArenaDropTracking) {
+			hasInitializedArenaDropTracking = true;
+			seenArenaDropInstanceIds = new Set(combatOverlay.waveDrops.map((drop) => drop.instanceId));
+			return;
+		}
+
+		const newDrops = combatOverlay.waveDrops.filter(
+			(drop) => !seenArenaDropInstanceIds.has(drop.instanceId)
+		);
+
+		seenArenaDropInstanceIds = new Set(combatOverlay.waveDrops.map((drop) => drop.instanceId));
+
+		for (const drop of newDrops) {
+			const definition = weaponDefinitionById[drop.definitionId];
+			pushChangeLogEntry(
+				`New drop · ${definition?.name ?? 'Weapon'}`,
+				`${drop.source} reward added to this run.`,
+				'positive',
+				new Date(drop.acquiredAt).getTime() || Date.now(),
+				definition?.rarity
+			);
 		}
 	});
 
@@ -809,9 +970,13 @@
 						active="arena"
 						notificationCounts={data.notificationCounts}
 						{loadoutTooltip}
+						showRecentToggle={true}
+						recentOpen={showChangeLogPopup}
+						recentUnreadCount={unreadChangeLogCount}
 						showCampaignMenuToggle={true}
 						showSweeperToggle={true}
 						showStatsToggle={true}
+						onToggleRecent={toggleChangeLogPopup}
 						onNavigateSection={handleRouteNavigation}
 						onToggleCampaignMenu={() => {
 							setCampaignMenuOpen(!showStageDrawer);
@@ -829,6 +994,67 @@
 				</div>
 			{/if}
 		</div>
+
+		{#if showChangeLogPopup}
+			<div
+				class="change-log-overlay"
+				role="button"
+				tabindex="0"
+				aria-label="Close recent changes"
+				onclick={closeChangeLogPopup}
+				onkeydown={(event) => {
+					if (event.key === 'Enter' || event.key === ' ' || event.key === 'Escape') {
+						event.preventDefault();
+						closeChangeLogPopup();
+					}
+				}}
+				in:fade={{ duration: 140 }}
+				out:fade={{ duration: 180 }}
+			>
+				<div
+					class="change-log-popover"
+					aria-label="Recent campaign changes"
+					role="dialog"
+					aria-modal="true"
+					tabindex="-1"
+					onclick={(event) => event.stopPropagation()}
+					onkeydown={(event) => event.stopPropagation()}
+				>
+					<div class="change-log-head">
+						<div>
+							<p class="change-log-eyebrow">Recent changes</p>
+						</div>
+						<button
+							class="purchase slim-toggle change-log-close"
+							type="button"
+							onclick={closeChangeLogPopup}>Close</button
+						>
+					</div>
+
+					{#if changeLogEntries.length > 0}
+						<div class="change-log-list">
+							{#each changeLogEntries as entry (entry.id)}
+								<article
+									class={[
+										'change-log-entry',
+										`tone-${entry.tone}`,
+										entry.rarity ? `rarity-${entry.rarity}` : ''
+									]}
+								>
+									<div class="change-log-entry-head">
+										<strong>{entry.title}</strong>
+										<time>{formatChangeLogTime(entry.timestamp)}</time>
+									</div>
+									<p>{entry.detail}</p>
+								</article>
+							{/each}
+						</div>
+					{:else}
+						<p class="change-log-empty">Loadout changes and fresh drops show up here.</p>
+					{/if}
+				</div>
+			</div>
+		{/if}
 
 		<div class={['arena-layout', !isMobileLayout && runMode === 'combat' ? 'combat-enabled' : '']}>
 			<section class="canvas-stage">
@@ -981,6 +1207,156 @@
 		gap: 0.75rem;
 		align-content: start;
 		justify-items: stretch;
+	}
+
+	.change-log-overlay {
+		position: fixed;
+		inset: 0;
+		z-index: 30;
+		display: grid;
+		place-items: center;
+		padding: 1rem;
+		background: rgba(3, 5, 8, 0.46);
+		backdrop-filter: blur(18px) saturate(1.1);
+	}
+
+	.change-log-popover {
+		width: min(30rem, calc(100vw - 2rem));
+		max-height: min(38rem, calc(100vh - 2rem));
+		padding: 1rem;
+		border-radius: 1.25rem;
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		background:
+			radial-gradient(circle at top, rgba(103, 217, 111, 0.12), transparent 38%),
+			rgba(10, 10, 10, 0.96);
+		box-shadow: 0 32px 90px rgba(0, 0, 0, 0.45);
+		display: grid;
+		gap: 0.8rem;
+		overflow: hidden;
+	}
+
+	.change-log-head,
+	.change-log-entry-head {
+		display: flex;
+		justify-content: space-between;
+		align-items: start;
+		gap: 0.75rem;
+	}
+
+	.change-log-head h3,
+	.change-log-head p,
+	.change-log-entry p,
+	.change-log-entry strong,
+	.change-log-entry time {
+		margin: 0;
+	}
+
+	.change-log-eyebrow {
+		text-transform: uppercase;
+		letter-spacing: 0.12em;
+		font-size: 0.68rem;
+		font-weight: 700;
+		color: #9d9d9d;
+		margin-bottom: 0.2rem;
+	}
+
+	.change-log-list {
+		display: grid;
+		gap: 0.55rem;
+		max-height: min(28rem, calc(100vh - 12rem));
+		overflow-y: auto;
+		padding-right: 0.15rem;
+	}
+
+	.change-log-entry {
+		padding: 0.7rem 0.75rem;
+		border-radius: 0.9rem;
+		border: 1px solid rgba(255, 255, 255, 0.06);
+		background: rgba(255, 255, 255, 0.03);
+		display: grid;
+		gap: 0.28rem;
+	}
+
+	.change-log-entry.tone-positive {
+		border-color: rgba(103, 217, 111, 0.22);
+		background: rgba(103, 217, 111, 0.07);
+	}
+
+	.change-log-entry.rarity-normal strong {
+		color: #f1f1f1;
+	}
+
+	.change-log-entry.rarity-magic {
+		border-color: rgba(84, 150, 255, 0.28);
+		background: rgba(84, 150, 255, 0.08);
+	}
+
+	.change-log-entry.rarity-magic strong {
+		color: #9ec2ff;
+	}
+
+	.change-log-entry.rarity-rare {
+		border-color: rgba(255, 210, 74, 0.28);
+		background: rgba(255, 210, 74, 0.08);
+	}
+
+	.change-log-entry.rarity-rare strong {
+		color: #ffe08f;
+	}
+
+	.change-log-entry.rarity-exotic {
+		border-color: rgba(224, 74, 74, 0.28);
+		background: rgba(224, 74, 74, 0.09);
+	}
+
+	.change-log-entry.rarity-exotic strong {
+		color: #ffb08f;
+	}
+
+	.change-log-entry.rarity-legendary {
+		border-color: rgba(170, 104, 48, 0.34);
+		background: rgba(170, 104, 48, 0.11);
+	}
+
+	.change-log-entry.rarity-legendary strong {
+		color: #e09c5c;
+	}
+
+	.change-log-entry p,
+	.change-log-empty,
+	.change-log-entry time {
+		color: #c4c4c4;
+		font-size: 0.82rem;
+	}
+
+	.change-log-entry strong {
+		font-size: 0.88rem;
+	}
+
+	.change-log-entry time {
+		white-space: nowrap;
+	}
+
+	.change-log-empty {
+		margin: 0;
+		line-height: 1.45;
+	}
+
+	@media (max-width: 860px) {
+		.change-log-overlay {
+			padding: 0.75rem;
+		}
+
+		.change-log-popover {
+			width: min(100%, 32rem);
+			max-height: calc(100vh - 1.5rem);
+			padding: 0.9rem;
+			border-radius: 1rem;
+		}
+
+		.change-log-list {
+			max-height: calc(100vh - 11rem);
+		}
 	}
 
 	.overlay {

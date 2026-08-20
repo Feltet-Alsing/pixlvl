@@ -10,7 +10,6 @@
 			stats: number;
 			loadout: number;
 		};
-		loadoutTooltip?: string;
 		showCampaignMenuToggle?: boolean;
 		campaignMenuEnabled?: boolean;
 		onToggleCampaignMenu?: () => void;
@@ -20,6 +19,10 @@
 		showStatsToggle?: boolean;
 		statsEnabled?: boolean;
 		onToggleStats?: () => void;
+		showRecentToggle?: boolean;
+		recentOpen?: boolean;
+		recentUnreadCount?: number;
+		onToggleRecent?: () => void;
 		onNavigateSection?: (section: CampaignSection) => void | Promise<void>;
 	}
 
@@ -27,7 +30,6 @@
 		campaignId,
 		active,
 		notificationCounts = { stats: 0, loadout: 0 },
-		loadoutTooltip = '',
 		showCampaignMenuToggle = false,
 		campaignMenuEnabled = false,
 		onToggleCampaignMenu,
@@ -37,6 +39,10 @@
 		showStatsToggle = false,
 		statsEnabled = false,
 		onToggleStats,
+		showRecentToggle = false,
+		recentOpen = false,
+		recentUnreadCount = 0,
+		onToggleRecent,
 		onNavigateSection
 	}: Props = $props();
 
@@ -125,6 +131,20 @@
 				{statsEnabled ? 'Hide Stats' : 'Show Stats'}
 			</button>
 		{/if}
+
+		{#if showRecentToggle}
+			<button
+				class:active={recentOpen}
+				class="route-link toggle-pill"
+				type="button"
+				onclick={onToggleRecent}
+			>
+				Recent
+				{#if recentUnreadCount > 0}
+					<span class="route-badge recent-badge">{Math.min(99, recentUnreadCount)}</span>
+				{/if}
+			</button>
+		{/if}
 	</div>
 </nav>
 
@@ -184,6 +204,11 @@
 		font-size: 0.68rem;
 		font-weight: 700;
 		line-height: 1;
+	}
+
+	.recent-badge {
+		background: #67d96f;
+		color: #081108;
 	}
 
 	@media (max-width: 860px) {
