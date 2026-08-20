@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import type { SubmitFunction } from '@sveltejs/kit';
+	import { fade } from 'svelte/transition';
 	import ArenaStatsOverlay from '$lib/components/campaigns/ArenaStatsOverlay.svelte';
 	import CampaignStageDrawer from '$lib/components/campaigns/CampaignStageDrawer.svelte';
 	import CampaignRouteNav from '$lib/components/campaigns/CampaignRouteNav.svelte';
