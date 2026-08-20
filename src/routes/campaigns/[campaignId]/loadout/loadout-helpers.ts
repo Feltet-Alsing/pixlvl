@@ -640,12 +640,16 @@ export function getWeaponCycleRate(weapon: Pick<LoadoutWeapon, 'attack'>) {
 	return 1 / Math.max(1, weapon.attack.cycleInterval ?? 1);
 }
 
-function getEstimatedRepeatingTicks(durationCycles: number, tickInterval: number, attackSpeed: number) {
+function getEstimatedRepeatingTicks(
+	durationCycles: number,
+	tickInterval: number,
+	attackSpeed: number
+) {
 	if (durationCycles <= 0 || tickInterval <= 0 || attackSpeed <= 0) {
 		return 0;
 	}
 
-	return (durationCycles / attackSpeed) / tickInterval;
+	return durationCycles / attackSpeed / tickInterval;
 }
 
 export function getEstimatedWeaponProjectilesPerActivation(
@@ -723,7 +727,10 @@ export function getEstimatedWeaponDamagePerActivation(
 	}
 
 	if (special?.type === 'shrapnel-burst') {
-		return baseDamage * projectileCount + baseDamage * special.fragmentDamageMultiplier * special.fragmentCount;
+		return (
+			baseDamage * projectileCount +
+			baseDamage * special.fragmentDamageMultiplier * special.fragmentCount
+		);
 	}
 
 	if (special?.type === 'execution-lattice') {
@@ -753,7 +760,10 @@ export function getEstimatedWeaponDamagePerActivation(
 	}
 
 	if (special?.type === 'burning-ground') {
-		return baseDamage * getEstimatedRepeatingTicks(special.durationCycles, special.tickInterval, attackSpeed);
+		return (
+			baseDamage *
+			getEstimatedRepeatingTicks(special.durationCycles, special.tickInterval, attackSpeed)
+		);
 	}
 
 	if (
@@ -778,7 +788,9 @@ export function getEstimatedWeaponProjectilesPerCycle(
 	weapon: Pick<LoadoutWeapon, 'definitionId' | 'attack'>,
 	attackSpeed: number
 ) {
-	return getEstimatedWeaponProjectilesPerActivation(weapon, attackSpeed) * getWeaponCycleRate(weapon);
+	return (
+		getEstimatedWeaponProjectilesPerActivation(weapon, attackSpeed) * getWeaponCycleRate(weapon)
+	);
 }
 
 export function getLoadoutItemEffectSummary(definition: LoadoutItemDefinition) {
