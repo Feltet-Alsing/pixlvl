@@ -367,6 +367,41 @@
 		});
 	}
 
+	function getOwnedWeaponUpgradeLevel(weapon: LivePixlState['ownedWeapons'][number]) {
+		return Math.max(0, weapon.upgradeLevel ?? 0);
+	}
+
+	function getOwnedWeaponTotalScrapInvested(weapon: LivePixlState['ownedWeapons'][number]) {
+		return Math.max(0, weapon.totalScrapInvested ?? 0);
+	}
+
+	function hasNewerOwnedWeaponProgress(
+		baseOwnedWeapons: LivePixlState['ownedWeapons'],
+		snapshotOwnedWeapons: LivePixlState['ownedWeapons']
+	) {
+		if (snapshotOwnedWeapons.length > baseOwnedWeapons.length) {
+			return true;
+		}
+
+		const baseOwnedWeaponByInstanceId = new Map(
+			baseOwnedWeapons.map((weapon) => [weapon.instanceId, weapon])
+		);
+
+		return snapshotOwnedWeapons.some((snapshotWeapon) => {
+			const baseWeapon = baseOwnedWeaponByInstanceId.get(snapshotWeapon.instanceId);
+
+			if (!baseWeapon) {
+				return true;
+			}
+
+			return (
+				getOwnedWeaponUpgradeLevel(snapshotWeapon) > getOwnedWeaponUpgradeLevel(baseWeapon) ||
+				getOwnedWeaponTotalScrapInvested(snapshotWeapon) >
+					getOwnedWeaponTotalScrapInvested(baseWeapon)
+			);
+		});
+	}
+
 	$effect(() => {
 		void data.campaignId;
 
@@ -431,14 +466,18 @@
 			}
 
 			const baseXp = data.gameState?.pixlState.xp ?? 0;
-			const baseOwnedWeaponCount = data.gameState?.pixlState.ownedWeapons.length ?? 0;
+			const baseOwnedWeapons = data.gameState?.pixlState.ownedWeapons ?? [];
 			const baseCurrentLevel = data.campaignState?.currentLevel ?? 1;
 			const baseHighestUnlockedLevel = data.campaignState?.highestUnlockedLevel ?? 1;
 			const baseHighestClearedLevel = data.campaignState?.highestClearedLevel ?? 0;
+			const snapshotHasNewerOwnedWeaponProgress = hasNewerOwnedWeaponProgress(
+				baseOwnedWeapons,
+				snapshot.ownedWeapons
+			);
 
 			if (
 				snapshot.xp <= baseXp &&
-				snapshot.ownedWeapons.length <= baseOwnedWeaponCount &&
+				!snapshotHasNewerOwnedWeaponProgress &&
 				snapshot.currentLevel <= baseCurrentLevel &&
 				snapshot.highestUnlockedLevel <= baseHighestUnlockedLevel &&
 				snapshot.highestClearedLevel <= baseHighestClearedLevel
