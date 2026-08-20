@@ -11,12 +11,22 @@
 		isNew: boolean;
 	}
 
+	interface RewardPackRow {
+		id: string;
+		campaignId: number;
+		sourceCampaignLevel: number;
+		cardCount: number;
+		guaranteedSlotLabel: string | null;
+		isSpecial: boolean;
+	}
+
 	interface Props {
 		campaignNumber: number;
 		stage: number;
 		stageLevel: number;
 		waveXp: number;
 		rewardDropRows: RewardDropRow[];
+		rewardPackRows: RewardPackRow[];
 		resultsEmptyLabel: string;
 		resultsCountdownLabel: string;
 		onSkip: () => void;
@@ -28,6 +38,7 @@
 		stageLevel,
 		waveXp,
 		rewardDropRows,
+		rewardPackRows,
 		resultsEmptyLabel,
 		resultsCountdownLabel,
 		onSkip
@@ -40,7 +51,7 @@
 		<p class="results-context">Campaign {campaignNumber} · Stage {stage} · Level {stageLevel}</p>
 	</div>
 
-	{#if rewardDropRows.length > 0}
+	{#if rewardDropRows.length > 0 || rewardPackRows.length > 0}
 		<div class="results-drop-list">
 			{#each rewardDropRows as drop (drop.instanceId)}
 				<CampaignItemCard definition={drop.definition} size="compact">
@@ -52,6 +63,25 @@
 						</div>
 					{/snippet}
 				</CampaignItemCard>
+			{/each}
+
+			{#each rewardPackRows as pack (pack.id)}
+				<article class:results-pack-special={pack.isSpecial} class="results-pack-card">
+					<div class="results-pack-topline">
+						<p class="results-pack-kicker">{pack.isSpecial ? 'Special pack' : 'Reward pack'}</p>
+						<strong>{pack.cardCount} cards</strong>
+					</div>
+					<p class="results-pack-context">
+						Campaign {campaignNumber} · Lv {pack.sourceCampaignLevel}
+					</p>
+					<p class="results-pack-note">
+						{#if pack.guaranteedSlotLabel}
+							Guaranteed {pack.guaranteedSlotLabel} slot
+						{:else}
+							Open it from the packs shelf after the run.
+						{/if}
+					</p>
+				</article>
 			{/each}
 		</div>
 	{:else}
@@ -134,6 +164,52 @@
 	.results-drop-footer {
 		display: flex;
 		justify-content: flex-end;
+	}
+
+	.results-pack-card {
+		display: grid;
+		gap: 0.45rem;
+		padding: 0.9rem;
+		border-radius: 0.9rem;
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		background:
+			linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
+			rgba(17, 17, 17, 0.96);
+	}
+
+	.results-pack-special {
+		border-color: rgba(224, 156, 92, 0.42);
+		box-shadow: inset 0 0 0 1px rgba(224, 156, 92, 0.08);
+	}
+
+	.results-pack-topline {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+	}
+
+	.results-pack-kicker,
+	.results-pack-context,
+	.results-pack-note {
+		margin: 0;
+	}
+
+	.results-pack-kicker {
+		font-size: 0.74rem;
+		font-weight: 700;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: #9d9d9d;
+	}
+
+	.results-pack-context,
+	.results-pack-note {
+		color: #cfcfcf;
+	}
+
+	.results-pack-note {
+		font-size: 0.84rem;
 	}
 
 	.results-tag {

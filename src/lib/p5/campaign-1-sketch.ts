@@ -544,7 +544,6 @@ interface CampaignSketchOptions {
 		bankedXp: number;
 		waveXp: number;
 		waveDrops: OwnedWeaponInstance[];
-		rewardPacks: PersistedRewardPack[];
 		statusTimerRemaining: number;
 		remainingEnemies: number;
 		composition: {
@@ -597,7 +596,6 @@ export interface CampaignCombatResumeState {
 	bankedXp: number;
 	waveXp: number;
 	waveDrops: OwnedWeaponInstance[];
-	rewardPacks?: PersistedRewardPack[];
 	pixlHealth: number;
 	pixlShieldPool: number;
 	pixlShieldSources?: Record<string, number>;
@@ -610,14 +608,6 @@ export interface CampaignCombatResumeState {
 	highestUnlockedLevel: number;
 	highestClearedLevel: number;
 	completed: boolean;
-}
-
-function createWeaponInstanceId(randomInt: number) {
-	if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-		return crypto.randomUUID();
-	}
-
-	return `drop-${Date.now()}-${randomInt}`;
 }
 
 function createRewardPackId(randomInt: number) {
@@ -874,11 +864,10 @@ export function createCampaignSketch(
 		let spawnAccumulator = 0;
 		let sweepProgress = 0;
 		let bankedXp = pixlProgression.xp;
-		let ownedWeapons = [...(options.pixlState?.ownedWeapons ?? [])];
+		const ownedWeapons = [...(options.pixlState?.ownedWeapons ?? [])];
 		let waveXp = 0;
 		let waveDrops: OwnedWeaponInstance[] = [];
-		let rewardPacks: PersistedRewardPack[] = [];
-		let cumulativeDamageByWeaponInstanceId = Object.fromEntries(
+		const cumulativeDamageByWeaponInstanceId = Object.fromEntries(
 			equippedWeapons.map((weapon) => [weapon.instanceId, 0])
 		) as Record<string, number>;
 		let publishedAverageDamageByWeaponInstanceId = Object.fromEntries(
@@ -1098,7 +1087,6 @@ export function createCampaignSketch(
 				bankedXp,
 				waveXp,
 				waveDrops,
-				rewardPacks,
 				statusTimerRemaining: status === 'running' ? 0 : Math.max(0, statusTimer),
 				remainingEnemies: enemies.length + spawnQueue.length,
 				composition: {
@@ -1153,7 +1141,6 @@ export function createCampaignSketch(
 				bankedXp,
 				waveXp,
 				waveDrops,
-				rewardPacks,
 				pixlHealth,
 				pixlShieldPool,
 				pixlShieldSources,
@@ -1229,9 +1216,11 @@ export function createCampaignSketch(
 			return campaign.campaign === 1 ? 0.1 : 0.05;
 		};
 
-		const isLegendaryPackStage = () => currentLevel.stage >= 4 && currentLevel.stage <= 5;
+		const getNormalPackDropChance = () => Math.min(1, getLevelPackDropChance() * 3);
 
-		const getCampaignPackDefinitions = () => {
+		const isSpecialPackStage = () => currentLevel.stage >= 4 && currentLevel.stage <= 5;
+
+		const getEligiblePackDefinitions = () => {
 			return weaponPool.filter((item) => {
 				if (item.drop.mode !== 'drop') {
 					return false;
@@ -1241,12 +1230,31 @@ export function createCampaignSketch(
 					return false;
 				}
 
+				if (item.drop.stageStart && currentLevel.stage < item.drop.stageStart) {
+					return false;
+				}
+
+				if (item.drop.stageEnd && currentLevel.stage > item.drop.stageEnd) {
+					return false;
+				}
+
 				return true;
 			});
 		};
 
-		const getGuaranteedPackDefinitions = (candidates: LoadoutItemDefinition[]) =>
-			candidates.filter((item) => item.rarity === 'exotic' || item.rarity === 'legendary');
+		const getGuaranteedPackDefinitions = () => {
+			return weaponPool.filter((item) => {
+				if (item.drop.mode !== 'drop') {
+					return false;
+				}
+
+				if (item.drop.campaignId && item.drop.campaignId !== campaign.campaign) {
+					return false;
+				}
+
+				return item.rarity === 'exotic' || item.rarity === 'legendary';
+			});
+		};
 
 		const chooseRandomPackDefinition = (
 			candidates: LoadoutItemDefinition[],
@@ -1302,6 +1310,95 @@ export function createCampaignSketch(
 			isGuaranteedSlot
 		});
 
+		const createRewardPack = (
+			cards: PersistedRewardPackCard[],
+			guaranteedSlotIndex: number
+		): PersistedRewardPack => ({
+			id: createRewardPackId(Math.floor(p.random(1_000_000_000))),
+			ownerUserId: '',
+			campaignId: campaign.campaign,
+			sourceCampaignLevel: currentLevel.campaignLevel,
+			droppedAt: new Date().toISOString(),
+			openedAt: null,
+			status: 'unopened',
+			cardCount: cards.length,
+			guaranteedSlotIndex,
+			contentVersion: 1,
+			cards
+		});
+
+		const createNormalRewardPack = (eligibleDefinitions: LoadoutItemDefinition[]) => {
+			const cards: PersistedRewardPackCard[] = [];
+
+			for (let slotIndex = 0; slotIndex < PACK_CARD_COUNT; slotIndex += 1) {
+				const rarity = chooseWeightedNormalSlotRarity(eligibleDefinitions);
+
+				if (!rarity) {
+					return null;
+				}
+
+				const definition = chooseRandomPackDefinition(eligibleDefinitions, rarity, [
+					'normal',
+					'magic',
+					'rare',
+					'exotic',
+					'legendary'
+				]);
+
+				if (!definition) {
+					return null;
+				}
+
+				cards.push(createRewardPackCard(slotIndex, definition, false));
+			}
+
+			return createRewardPack(cards, NO_GUARANTEED_PACK_SLOT_INDEX);
+		};
+
+		const createSpecialRewardPack = (
+			eligibleDefinitions: LoadoutItemDefinition[],
+			guaranteedDefinitions: LoadoutItemDefinition[]
+		) => {
+			const guaranteedRarity = p.random() < 0.5 ? 'exotic' : 'legendary';
+			const guaranteedDefinition = chooseRandomPackDefinition(
+				guaranteedDefinitions,
+				guaranteedRarity,
+				[guaranteedRarity === 'legendary' ? 'exotic' : 'legendary']
+			);
+
+			if (!guaranteedDefinition) {
+				return null;
+			}
+
+			const cards: PersistedRewardPackCard[] = [];
+
+			for (let slotIndex = 0; slotIndex < PACK_CARD_COUNT - 1; slotIndex += 1) {
+				const rarity = chooseWeightedNormalSlotRarity(eligibleDefinitions);
+
+				if (!rarity) {
+					return null;
+				}
+
+				const definition = chooseRandomPackDefinition(eligibleDefinitions, rarity, [
+					'normal',
+					'magic',
+					'rare',
+					'exotic',
+					'legendary'
+				]);
+
+				if (!definition) {
+					return null;
+				}
+
+				cards.push(createRewardPackCard(slotIndex, definition, false));
+			}
+
+			cards.push(createRewardPackCard(GUARANTEED_PACK_SLOT_INDEX, guaranteedDefinition, true));
+
+			return createRewardPack(cards, GUARANTEED_PACK_SLOT_INDEX);
+		};
+
 		const syncCanvasSize = () => {
 			if (!canvas) {
 				return;
@@ -1344,7 +1441,6 @@ export function createCampaignSketch(
 			sweepProgress = 0;
 			waveXp = 0;
 			waveDrops = [];
-			rewardPacks = [];
 			pixlHealth = pixlProgression.health;
 			pixlShieldPool = 0;
 			pixlShieldSources = {};
@@ -1405,77 +1501,43 @@ export function createCampaignSketch(
 		};
 
 		const rollLevelRewardPacks = () => {
-			const eligibleDefinitions = getCampaignPackDefinitions();
-			const isLegendaryPack = isLegendaryPackStage();
-			const guaranteedDefinitions = isLegendaryPack
-				? getGuaranteedPackDefinitions(eligibleDefinitions)
-				: [];
+			const eligibleDefinitions = getEligiblePackDefinitions();
 
-			if (eligibleDefinitions.length === 0 || p.random() >= getLevelPackDropChance()) {
+			if (eligibleDefinitions.length === 0) {
 				return [] as PersistedRewardPack[];
 			}
 
-			if (isLegendaryPack && guaranteedDefinitions.length === 0) {
-				return [] as PersistedRewardPack[];
+			const rewardPacks: PersistedRewardPack[] = [];
+
+			if (p.random() < getNormalPackDropChance()) {
+				const normalPack = createNormalRewardPack(eligibleDefinitions);
+
+				if (normalPack) {
+					rewardPacks.push(normalPack);
+				}
 			}
 
-			const cards: PersistedRewardPackCard[] = [];
-			const standardSlotCount = isLegendaryPack ? PACK_CARD_COUNT - 1 : PACK_CARD_COUNT;
-
-			for (let slotIndex = 0; slotIndex < standardSlotCount; slotIndex += 1) {
-				const rarity = chooseWeightedNormalSlotRarity(eligibleDefinitions);
-
-				if (!rarity) {
-					return [] as PersistedRewardPack[];
-				}
-
-				const definition = chooseRandomPackDefinition(eligibleDefinitions, rarity, [
-					'normal',
-					'magic',
-					'rare',
-					'exotic',
-					'legendary'
-				]);
-
-				if (!definition) {
-					return [] as PersistedRewardPack[];
-				}
-
-				cards.push(createRewardPackCard(slotIndex, definition, false));
+			if (!isSpecialPackStage()) {
+				return rewardPacks;
 			}
 
-			if (isLegendaryPack) {
-				const guaranteedRarity = p.random() < 0.5 ? 'exotic' : 'legendary';
-				const guaranteedDefinition = chooseRandomPackDefinition(
-					guaranteedDefinitions,
-					guaranteedRarity,
-					[guaranteedRarity === 'legendary' ? 'exotic' : 'legendary']
-				);
+			const guaranteedDefinitions = getGuaranteedPackDefinitions();
 
-				if (!guaranteedDefinition) {
-					return [] as PersistedRewardPack[];
-				}
-
-				cards.push(createRewardPackCard(GUARANTEED_PACK_SLOT_INDEX, guaranteedDefinition, true));
+			if (guaranteedDefinitions.length === 0) {
+				return rewardPacks;
 			}
 
-			return [
-				{
-					id: createRewardPackId(Math.floor(p.random(1_000_000_000))),
-					ownerUserId: '',
-					campaignId: campaign.campaign,
-					sourceCampaignLevel: currentLevel.campaignLevel,
-					droppedAt: new Date().toISOString(),
-					openedAt: null,
-					status: 'unopened',
-					cardCount: cards.length,
-					guaranteedSlotIndex: isLegendaryPack
-						? GUARANTEED_PACK_SLOT_INDEX
-						: NO_GUARANTEED_PACK_SLOT_INDEX,
-					contentVersion: 1,
-					cards
-				} satisfies PersistedRewardPack
-			];
+			if (p.random() >= getLevelPackDropChance()) {
+				return rewardPacks;
+			}
+
+			const specialPack = createSpecialRewardPack(eligibleDefinitions, guaranteedDefinitions);
+
+			if (specialPack) {
+				rewardPacks.push(specialPack);
+			}
+
+			return rewardPacks;
 		};
 
 		const createEnemyState = (
@@ -2176,14 +2238,6 @@ export function createCampaignSketch(
 				age: 0,
 				duration: special.durationCycles / Math.max(0.001, pixlProgression.attackSpeed)
 			});
-		};
-
-		const spawnBurningGround = (
-			weapon: WeaponDefinition,
-			sourceWeaponInstanceId: string,
-			target: EnemyState
-		) => {
-			spawnBurningGroundAt(weapon, sourceWeaponInstanceId, target.x, target.y);
 		};
 
 		const spawnDelayedBomb = (
@@ -3120,7 +3174,7 @@ export function createCampaignSketch(
 		};
 
 		const markCleared = () => {
-			rewardPacks = rollLevelRewardPacks();
+			const rewardPacks = rollLevelRewardPacks();
 			waveDrops = [];
 			status = currentLevelIndex === levels.length - 1 ? 'complete' : 'cleared';
 			statusTimer = status === 'complete' ? CAMPAIGN_LOOP_DELAY : LEVEL_CLEAR_DELAY;
@@ -3808,7 +3862,6 @@ export function createCampaignSketch(
 
 					const baseAngle = cone.angle;
 					const volleyCount = Math.min(2, totalFlameParticles - cone.projectilesReleased);
-					const coneSpan = cone.halfAngleRadians * 2.9;
 					const initialConeSpan = cone.halfAngleRadians * 0.28;
 					const perProjectileDamage = Math.max(0.1, cone.damagePerTick / 10);
 
@@ -5102,7 +5155,6 @@ export function createCampaignSketch(
 				bankedXp = initialResumeState.bankedXp;
 				waveXp = initialResumeState.waveXp;
 				waveDrops = [...initialResumeState.waveDrops];
-				rewardPacks = [...(initialResumeState.rewardPacks ?? [])];
 				pixlHealth = initialResumeState.pixlHealth;
 				pixlShieldSources = initialResumeState.pixlShieldSources
 					? { ...initialResumeState.pixlShieldSources }

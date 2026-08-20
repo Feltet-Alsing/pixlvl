@@ -15,6 +15,7 @@
 		buildCurrentLoadoutRows,
 		buildOverlayStatCards,
 		buildRewardDropRows,
+		buildRewardPackRows,
 		buildUnlockedStages,
 		createInitialCombatOverlay,
 		type CombatOverlayState
@@ -33,7 +34,7 @@
 		isUpgradeKey,
 		resetUpgradeAllocations
 	} from '$lib/game/upgrades';
-	import type { LoadoutItemDefinition } from '$lib/data/types';
+	import type { LoadoutItemDefinition, PersistedRewardPack } from '$lib/data/types';
 	import type { PageProps } from './$types';
 
 	type LocalRunMode = 'management' | 'combat';
@@ -96,6 +97,10 @@
 		rarity?: LoadoutItemDefinition['rarity'];
 	}
 
+	type CombatOverlayStateUpdate = Parameters<
+		NonNullable<NonNullable<Parameters<typeof createCampaignSketch>[2]>['onCombatStateChange']>
+	>[0] & { rewardPacks?: CombatOverlayState['rewardPacks'] };
+
 	const MOBILE_LAYOUT_BREAKPOINT = 860;
 	const MAX_CHANGE_LOG_ENTRIES = 12;
 	const getArenaResumeStorageKey = (campaignId: number) => `pixlvl-arena-resume-${campaignId}`;
@@ -119,9 +124,11 @@
 	let latestCombatResumeState = $state.raw<CampaignCombatResumeState | null>(null);
 	let changeLogEntries = $state.raw<ChangeLogEntry[]>([]);
 	let unreadChangeLogCount = $state(0);
+	let livePackNotificationCount = $state(0);
 	let hasLoadedChangeLogState = false;
 	let lastPersistedChangeLogJson = '';
 	let seenArenaDropInstanceIds = new Set<string>();
+	let seenArenaRewardPackIds = new Set<string>();
 	let hasInitializedArenaDropTracking = false;
 	let pixlStateOverride = $state.raw<PixlStateOverride | null>(null);
 	let campaignStateOverride = $state.raw<CampaignStateOverride | null>(null);
@@ -236,6 +243,17 @@
 			ownedDefinitionIdsBeforeDrops
 		)
 	);
+	let rewardPackRows = $derived.by(() =>
+		buildRewardPackRows(combatOverlay.rewardPacks).map((pack) => ({
+			...pack,
+			isSpecial: hasGuaranteedPackSlot(
+				combatOverlay.rewardPacks.find((entry) => entry.id === pack.id) ?? null
+			),
+			guaranteedSlotLabel: getGuaranteedPackLabel(
+				combatOverlay.rewardPacks.find((entry) => entry.id === pack.id) ?? null
+			)
+		}))
+	);
 	let showResultsPopup = $derived(
 		combatOverlay.status === 'cleared' || combatOverlay.status === 'complete'
 	);
@@ -243,8 +261,12 @@
 		const secondsRemaining = Math.max(0, Math.ceil(combatOverlay.statusTimerRemaining));
 		return `Auto-continue in ${secondsRemaining}s`;
 	});
-	let resultsEmptyLabel = $derived(`No item drops. +${combatOverlay.waveXp} XP earned.`);
+	let resultsEmptyLabel = $derived(`No drops or packs. +${combatOverlay.waveXp} XP earned.`);
 	let loadoutChangeLogStorageKey = $derived(getLoadoutChangeLogStorageKey(data.campaignId));
+	let routeNotificationCounts = $derived({
+		...data.notificationCounts,
+		packs: livePackNotificationCount
+	});
 	let defaultCampaignMenuOpen = $derived(page.url.searchParams.get('menu') !== 'closed');
 	let defaultStatsOverlayOpen = $derived(page.url.searchParams.get('stats') === 'open');
 	let showDesktopSideRail = $derived(
@@ -267,6 +289,38 @@
 					minimumFractionDigits: 0,
 					maximumFractionDigits: 2
 				});
+	}
+
+	function formatPackLabel(value: string) {
+		return value
+			.split(/[-\s/]+/)
+			.filter(Boolean)
+			.map((segment) => segment[0]?.toUpperCase() + segment.slice(1))
+			.join(' / ');
+	}
+
+	function hasGuaranteedPackSlot(pack: PersistedRewardPack | null) {
+		if (!pack) {
+			return false;
+		}
+
+		return pack.guaranteedSlotIndex >= 0 || pack.cards.some((card) => card.isGuaranteedSlot);
+	}
+
+	function getGuaranteedPackLabel(pack: PersistedRewardPack | null) {
+		if (!pack || !hasGuaranteedPackSlot(pack)) {
+			return null;
+		}
+
+		const guaranteedRarities = [
+			...new Set(pack.cards.filter((card) => card.isGuaranteedSlot).map((card) => card.rarity))
+		];
+
+		if (guaranteedRarities.length === 0) {
+			return 'Guaranteed slot';
+		}
+
+		return guaranteedRarities.map((rarity) => formatPackLabel(rarity)).join(' / ');
 	}
 
 	function pushChangeLogEntry(
@@ -319,10 +373,22 @@
 		pixlStateOverride = null;
 		campaignStateOverride = null;
 		combatOverlayOverride = null;
+		livePackNotificationCount = data.notificationCounts.packs;
+		hasInitializedArenaDropTracking = false;
+		seenArenaDropInstanceIds = new Set();
+		seenArenaRewardPackIds = new Set();
 		showStatsOverlay = defaultStatsOverlayOpen;
 		showStageDrawer = defaultCampaignMenuOpen;
 		showLoadoutPreview = true;
 		skipResultsSignal = 0;
+	});
+
+	$effect(() => {
+		const serverPackCount = data.notificationCounts.packs;
+
+		if (serverPackCount > livePackNotificationCount) {
+			livePackNotificationCount = serverPackCount;
+		}
 	});
 
 	$effect(() => {
@@ -487,14 +553,23 @@
 		if (!hasInitializedArenaDropTracking) {
 			hasInitializedArenaDropTracking = true;
 			seenArenaDropInstanceIds = new Set(combatOverlay.waveDrops.map((drop) => drop.instanceId));
+			seenArenaRewardPackIds = new Set(combatOverlay.rewardPacks.map((pack) => pack.id));
 			return;
 		}
 
 		const newDrops = combatOverlay.waveDrops.filter(
 			(drop) => !seenArenaDropInstanceIds.has(drop.instanceId)
 		);
+		const newRewardPacks = combatOverlay.rewardPacks.filter(
+			(pack) => !seenArenaRewardPackIds.has(pack.id)
+		);
 
 		seenArenaDropInstanceIds = new Set(combatOverlay.waveDrops.map((drop) => drop.instanceId));
+		seenArenaRewardPackIds = new Set(combatOverlay.rewardPacks.map((pack) => pack.id));
+
+		if (newRewardPacks.length > 0) {
+			livePackNotificationCount += newRewardPacks.length;
+		}
 
 		for (const drop of newDrops) {
 			const definition = weaponDefinitionById[drop.definitionId];
@@ -504,6 +579,20 @@
 				'positive',
 				new Date(drop.acquiredAt).getTime() || Date.now(),
 				definition?.rarity,
+				true
+			);
+		}
+
+		for (const pack of newRewardPacks) {
+			const guaranteedSlotLabel = getGuaranteedPackLabel(pack);
+			pushChangeLogEntry(
+				`${guaranteedSlotLabel ? 'Special pack' : 'Reward pack'} · ${pack.cardCount} cards`,
+				guaranteedSlotLabel
+					? `Campaign ${pack.campaignId} Lv ${pack.sourceCampaignLevel} pack added with a guaranteed ${guaranteedSlotLabel} slot.`
+					: `Campaign ${pack.campaignId} Lv ${pack.sourceCampaignLevel} pack added to this run.`,
+				'positive',
+				new Date(pack.droppedAt).getTime() || Date.now(),
+				undefined,
 				true
 			);
 		}
@@ -571,8 +660,12 @@
 		};
 	}
 
-	function handleCombatStateChange(update: CombatOverlayState) {
-		combatOverlayOverride = update;
+	function handleCombatStateChange(update: CombatOverlayStateUpdate) {
+		combatOverlayOverride = {
+			...combatOverlay,
+			...update,
+			rewardPacks: update.rewardPacks ?? combatOverlay.rewardPacks
+		};
 	}
 
 	function handleCombatResumeStateChange(update: CampaignCombatResumeState) {
@@ -899,6 +992,7 @@
 				stageLevel={combatOverlay.stageLevel}
 				waveXp={combatOverlay.waveXp}
 				{rewardDropRows}
+				{rewardPackRows}
 				{resultsEmptyLabel}
 				{resultsCountdownLabel}
 				onSkip={() => (skipResultsSignal += 1)}
@@ -963,7 +1057,7 @@
 					<CampaignRouteNav
 						campaignId={data.campaignId}
 						active="arena"
-						notificationCounts={data.notificationCounts}
+						notificationCounts={routeNotificationCounts}
 						showRecentToggle={true}
 						recentOpen={showChangeLogPopup}
 						recentUnreadCount={unreadChangeLogCount}
