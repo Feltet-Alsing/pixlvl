@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { beforeNavigate } from '$app/navigation';
 	import { fade } from 'svelte/transition';
+	import type { SubmitFunction } from '@sveltejs/kit';
 	import CampaignRouteNav from '$lib/components/campaigns/CampaignRouteNav.svelte';
 	import { isWeaponDefinition, starterWeaponId } from '$lib/data';
 	import LoadoutDraggedShapePreview from '$lib/components/campaigns/LoadoutDraggedShapePreview.svelte';
@@ -24,6 +25,7 @@
 	} from '$lib/game/loadout-rotation';
 	import { createBaselineUpgradeablePixlState } from '$lib/game/upgrades';
 	import { createCampaignSketch, type CampaignCombatResumeState } from '$lib/p5/campaign-1-sketch';
+	import { getWeaponUpgradeCostForNextLevel } from '$lib/game/weapon-upgrades';
 	import {
 		buildGridCells,
 		buildInventoryWeaponGroups,
@@ -75,6 +77,7 @@
 		| 'xp'
 		| 'level'
 		| 'perkPoints'
+		| 'scrap'
 		| 'defence'
 		| 'agility'
 		| 'health'
@@ -220,6 +223,12 @@
 	let liveCombatProgressOverride = $state<LiveCombatProgress | null>(null);
 	let changeLogEntries = $state.raw<ChangeLogEntry[]>([]);
 	let unreadChangeLogCount = $state(0);
+	let pendingUpgradeWeaponInstanceId = $state<string | null>(null);
+	let upgradeFeedback = $state.raw<{
+		weaponInstanceId: string;
+		tone: 'success' | 'error';
+		message: string;
+	} | null>(null);
 	let previousHasUnsavedChanges = false;
 	let lastProcessedLoadoutSuccessForm = $state.raw<typeof form>(null);
 	let unsavedToastTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -1220,6 +1229,82 @@
 		return Math.max(0, weapon.totalScrapInvested ?? 0);
 	}
 
+	function persistArenaResumeSnapshot(ownedWeaponsSnapshot: LivePixlState['ownedWeapons']) {
+		if (typeof sessionStorage === 'undefined') {
+			return;
+		}
+
+		const basePixlState = livePixlState ?? data.gameState?.pixlState ?? null;
+		const baseCampaignState = liveCampaignState ?? data.campaignState ?? null;
+
+		if (!basePixlState || !baseCampaignState) {
+			return;
+		}
+
+		const snapshot: ArenaResumeSnapshot = {
+			campaignId: data.campaignId,
+			xp: basePixlState.xp,
+			defence: basePixlState.defence,
+			agility: basePixlState.agility,
+			ownedWeapons: ownedWeaponsSnapshot,
+			currentLevel: baseCampaignState.currentLevel,
+			highestUnlockedLevel: baseCampaignState.highestUnlockedLevel,
+			highestClearedLevel: baseCampaignState.highestClearedLevel,
+			completed: baseCampaignState.completed
+		};
+
+		sessionStorage.setItem(getArenaResumeStorageKey(data.campaignId), JSON.stringify(snapshot));
+	}
+
+	function applyUpgradedWeaponToVisibleState(weaponInstanceId: string) {
+		const basePixlState = livePixlState ?? data.gameState?.pixlState ?? null;
+		const ownedWeapon = ownedWeapons.find((weapon) => weapon.instanceId === weaponInstanceId);
+
+		if (!basePixlState || !ownedWeapon) {
+			return false;
+		}
+
+		const definition = weaponDefinitionById[ownedWeapon.definitionId];
+
+		if (!definition || !isWeaponDefinition(definition)) {
+			return false;
+		}
+
+		const upgradeCost = getWeaponUpgradeCostForNextLevel(ownedWeapon, definition.rarity);
+
+		if (upgradeCost === null) {
+			return false;
+		}
+
+		const nextOwnedWeapons = ownedWeapons.map((weapon) =>
+			weapon.instanceId === weaponInstanceId
+				? {
+					...weapon,
+					upgradeLevel: getOwnedWeaponUpgradeLevel(weapon) + 1,
+					totalScrapInvested: getOwnedWeaponTotalScrapInvested(weapon) + upgradeCost
+				}
+				: weapon
+		);
+
+		pixlStateOverride = {
+			xp: basePixlState.xp,
+			level: basePixlState.level,
+			perkPoints: basePixlState.perkPoints,
+			scrap: Math.max(0, basePixlState.scrap - upgradeCost),
+			defence: basePixlState.defence,
+			agility: basePixlState.agility,
+			health: basePixlState.health,
+			attackSpeed: basePixlState.attackSpeed,
+			loadoutRows: basePixlState.loadoutRows,
+			loadoutColumns: basePixlState.loadoutColumns,
+			ownedWeapons: nextOwnedWeapons
+		};
+
+		persistArenaResumeSnapshot(nextOwnedWeapons);
+
+		return true;
+	}
+
 	function mergeBackgroundOwnedWeapons(
 		currentVisibleWeapons: LivePixlState['ownedWeapons'],
 		backgroundOwnedWeapons: LivePixlState['ownedWeapons']
@@ -1280,6 +1365,7 @@
 				xp: update.xp,
 				level: update.level,
 				perkPoints: update.perkPoints,
+				scrap: livePixlState.scrap,
 				defence: update.defence,
 				agility: update.agility,
 				health: update.health,
@@ -1319,6 +1405,44 @@
 	function handleBackgroundCombatStateChange(update: LiveCombatProgress) {
 		liveCombatProgressOverride = update;
 	}
+
+	const handleUpgradeSubmit = () => {
+		allowPendingFormSubmission();
+		pendingUpgradeWeaponInstanceId = selectedWeaponDetails?.weaponInstanceId ?? null;
+		upgradeFeedback = null;
+	};
+
+	const handleUpgradeComplete = (result: {
+		type: string;
+		data?: { loadoutError?: string; loadoutSuccess?: string };
+	}) => {
+		restoreSavedScrollPosition();
+
+		const upgradedWeaponInstanceId = pendingUpgradeWeaponInstanceId;
+		pendingUpgradeWeaponInstanceId = null;
+
+		if (!upgradedWeaponInstanceId) {
+			return;
+		}
+
+		if (result.type === 'success') {
+			applyUpgradedWeaponToVisibleState(upgradedWeaponInstanceId);
+			upgradeFeedback = {
+				weaponInstanceId: upgradedWeaponInstanceId,
+				tone: 'success',
+				message: result.data?.loadoutSuccess ?? 'Upgrade complete.'
+			};
+			return;
+		}
+
+		if (result.type === 'failure') {
+			upgradeFeedback = {
+				weaponInstanceId: upgradedWeaponInstanceId,
+				tone: 'error',
+				message: result.data?.loadoutError ?? 'Upgrade failed.'
+			};
+		}
+	};
 
 	function handleBackgroundResumeStateChange(update: CampaignCombatResumeState) {
 		combatResumeState = update;
@@ -2202,8 +2326,17 @@
 					detail={selectedWeaponDetails}
 					signedIn={Boolean(data.gameState)}
 					targetingOptions={TARGETING_OPTIONS}
-					onUpgradeSubmit={allowPendingFormSubmission}
-					onUpgradeComplete={restoreSavedScrollPosition}
+					onUpgradeSubmit={handleUpgradeSubmit}
+					onUpgradeComplete={handleUpgradeComplete}
+					upgradeFeedback={
+						upgradeFeedback &&
+						selectedWeaponDetails?.weaponInstanceId === upgradeFeedback.weaponInstanceId
+							? {
+								tone: upgradeFeedback.tone,
+								message: upgradeFeedback.message
+							}
+							: null
+					}
 					onRotate={() => {
 						if (selectedPlacedWeaponInstanceId) {
 							rotatePlacedWeapon(selectedPlacedWeaponInstanceId);

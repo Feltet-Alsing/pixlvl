@@ -2,6 +2,11 @@
 	import { enhance } from '$app/forms';
 	import type { SubmitFunction } from '@sveltejs/kit';
 
+	type UpgradeFeedback = {
+		tone: 'success' | 'error';
+		message: string;
+	};
+
 	interface DetailRow {
 		label: string;
 		value: string;
@@ -34,7 +39,11 @@
 		targetingOptions?: Array<{ value: string; label: string }>;
 		onTargetingChange?: (value: string) => void;
 		onUpgradeSubmit?: () => void;
-		onUpgradeComplete?: () => void;
+		onUpgradeComplete?: (result: {
+			type: string;
+			data?: { loadoutError?: string; loadoutSuccess?: string };
+		}) => void;
+		upgradeFeedback?: UpgradeFeedback | null;
 	}
 
 	let {
@@ -44,15 +53,22 @@
 		targetingOptions = [],
 		onTargetingChange,
 		onUpgradeSubmit,
-		onUpgradeComplete
+		onUpgradeComplete,
+		upgradeFeedback = null
 	}: Props = $props();
 
 	const handleUpgradeSubmit: SubmitFunction = () => {
 		onUpgradeSubmit?.();
 
-		return async ({ update }) => {
+		return async ({ result, update }) => {
 			await update();
-			onUpgradeComplete?.();
+			onUpgradeComplete?.({
+				type: result.type,
+				data:
+					result.type === 'success' || result.type === 'failure'
+						? ((result.data as { loadoutError?: string; loadoutSuccess?: string } | null) ?? undefined)
+						: undefined
+			});
 		};
 	};
 </script>
@@ -140,6 +156,12 @@
 				<button class="rotate-button" type="submit" disabled={detail.isMaxUpgradeLevel}
 					>Upgrade weapon</button
 				>
+
+				{#if upgradeFeedback}
+					<p class={`upgrade-feedback ${upgradeFeedback.tone}`}>
+						{upgradeFeedback.message}
+					</p>
+				{/if}
 			</form>
 		{/if}
 	{:else}
@@ -253,6 +275,20 @@
 	.upgrade-form {
 		display: grid;
 		gap: 0.55rem;
+	}
+
+	.upgrade-feedback {
+		margin: 0;
+		font-size: 0.84rem;
+		line-height: 1.4;
+	}
+
+	.upgrade-feedback.success {
+		color: #c9f8cc;
+	}
+
+	.upgrade-feedback.error {
+		color: #ff9b9b;
 	}
 
 	.upgrade-card {
