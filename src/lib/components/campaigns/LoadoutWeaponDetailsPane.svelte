@@ -66,7 +66,8 @@
 				type: result.type,
 				data:
 					result.type === 'success' || result.type === 'failure'
-						? ((result.data as { loadoutError?: string; loadoutSuccess?: string } | null) ?? undefined)
+						? ((result.data as { loadoutError?: string; loadoutSuccess?: string } | null) ??
+							undefined)
 						: undefined
 			});
 		};

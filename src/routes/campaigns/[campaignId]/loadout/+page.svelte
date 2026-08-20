@@ -1279,10 +1279,10 @@
 		const nextOwnedWeapons = ownedWeapons.map((weapon) =>
 			weapon.instanceId === weaponInstanceId
 				? {
-					...weapon,
-					upgradeLevel: getOwnedWeaponUpgradeLevel(weapon) + 1,
-					totalScrapInvested: getOwnedWeaponTotalScrapInvested(weapon) + upgradeCost
-				}
+						...weapon,
+						upgradeLevel: getOwnedWeaponUpgradeLevel(weapon) + 1,
+						totalScrapInvested: getOwnedWeaponTotalScrapInvested(weapon) + upgradeCost
+					}
 				: weapon
 		);
 
@@ -2328,15 +2328,13 @@
 					targetingOptions={TARGETING_OPTIONS}
 					onUpgradeSubmit={handleUpgradeSubmit}
 					onUpgradeComplete={handleUpgradeComplete}
-					upgradeFeedback={
-						upgradeFeedback &&
-						selectedWeaponDetails?.weaponInstanceId === upgradeFeedback.weaponInstanceId
-							? {
+					upgradeFeedback={upgradeFeedback &&
+					selectedWeaponDetails?.weaponInstanceId === upgradeFeedback.weaponInstanceId
+						? {
 								tone: upgradeFeedback.tone,
 								message: upgradeFeedback.message
 							}
-							: null
-					}
+						: null}
 					onRotate={() => {
 						if (selectedPlacedWeaponInstanceId) {
 							rotatePlacedWeapon(selectedPlacedWeaponInstanceId);
