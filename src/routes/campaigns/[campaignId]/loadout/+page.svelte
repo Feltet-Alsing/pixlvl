@@ -420,7 +420,6 @@
 	let backgroundCampaignSketch = $derived.by(() => {
 		return (p: import('p5').default) =>
 			createCampaignSketch(data.campaign, data.combatProfile, {
-				persistPath: '/api/game/state',
 				runMode: 'combat',
 				showLoadoutSketch: false,
 				resumeState: combatResumeState,
