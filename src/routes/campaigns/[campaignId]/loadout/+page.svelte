@@ -795,7 +795,8 @@
 				`${weapon.source} reward added to inventory.`,
 				'positive',
 				new Date(weapon.acquiredAt).getTime() || Date.now(),
-				definition?.rarity
+				definition?.rarity,
+				true
 			);
 		}
 	});
@@ -1079,7 +1080,8 @@
 		detail: string,
 		tone: ChangeLogEntry['tone'] = 'neutral',
 		timestamp = Date.now(),
-		rarity?: ChangeLogEntry['rarity']
+		rarity?: ChangeLogEntry['rarity'],
+		notify = false
 	) {
 		changeLogEntries = [
 			{
@@ -1093,7 +1095,7 @@
 			...changeLogEntries
 		].slice(0, MAX_CHANGE_LOG_ENTRIES);
 
-		if (!showChangeLogPopup) {
+		if (notify && !showChangeLogPopup) {
 			unreadChangeLogCount += 1;
 		}
 	}
