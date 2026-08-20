@@ -867,6 +867,7 @@ export function createCampaignSketch(
 		const ownedWeapons = [...(options.pixlState?.ownedWeapons ?? [])];
 		let waveXp = 0;
 		let waveDrops: OwnedWeaponInstance[] = [];
+		let rewardPacks: PersistedRewardPack[] = [];
 		const cumulativeDamageByWeaponInstanceId = Object.fromEntries(
 			equippedWeapons.map((weapon) => [weapon.instanceId, 0])
 		) as Record<string, number>;
@@ -1087,6 +1088,7 @@ export function createCampaignSketch(
 				bankedXp,
 				waveXp,
 				waveDrops,
+				rewardPacks,
 				statusTimerRemaining: status === 'running' ? 0 : Math.max(0, statusTimer),
 				remainingEnemies: enemies.length + spawnQueue.length,
 				composition: {
@@ -1441,6 +1443,7 @@ export function createCampaignSketch(
 			sweepProgress = 0;
 			waveXp = 0;
 			waveDrops = [];
+			rewardPacks = [];
 			pixlHealth = pixlProgression.health;
 			pixlShieldPool = 0;
 			pixlShieldSources = {};
@@ -3174,7 +3177,7 @@ export function createCampaignSketch(
 		};
 
 		const markCleared = () => {
-			const rewardPacks = rollLevelRewardPacks();
+			rewardPacks = rollLevelRewardPacks();
 			waveDrops = [];
 			status = currentLevelIndex === levels.length - 1 ? 'complete' : 'cleared';
 			statusTimer = status === 'complete' ? CAMPAIGN_LOOP_DELAY : LEVEL_CLEAR_DELAY;
