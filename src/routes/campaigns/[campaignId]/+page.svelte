@@ -14,7 +14,6 @@
 		buildCurrentLoadoutRows,
 		buildLoadoutTooltip,
 		buildOverlayStatCards,
-		buildPreviewLoadoutRows,
 		buildRewardDropRows,
 		buildUnlockedStages,
 		createInitialCombatOverlay,
@@ -188,7 +187,6 @@
 	let currentLoadoutRows = $derived.by(() =>
 		buildCurrentLoadoutRows(ownedWeapons, loadoutPlacements, weaponDefinitionById)
 	);
-	let previewLoadoutRows = $derived.by(() => buildPreviewLoadoutRows(currentLoadoutRows));
 	let loadoutSignature = $derived(
 		currentLoadoutRows
 			.map((weapon) => `${weapon.weaponInstanceId}:${weapon.x}:${weapon.y}:${weapon.rotation}`)
@@ -970,7 +968,6 @@
 						campaignId={data.campaignId}
 						active="arena"
 						notificationCounts={data.notificationCounts}
-						{loadoutTooltip}
 						showRecentToggle={true}
 						recentOpen={showChangeLogPopup}
 						recentUnreadCount={unreadChangeLogCount}
@@ -1244,7 +1241,6 @@
 		gap: 0.75rem;
 	}
 
-	.change-log-head h3,
 	.change-log-head p,
 	.change-log-entry p,
 	.change-log-entry strong,
