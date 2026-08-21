@@ -8,7 +8,7 @@ export const load: LayoutServerLoad = async ({ params, locals, url }) => {
 	const campaignId = Number(params.campaignId);
 	const acknowledgeRoute = url.pathname.endsWith('/stats')
 		? 'stats'
-		: url.pathname.endsWith('/loadout')
+		: url.pathname.includes('/loadout')
 			? 'loadout'
 			: null;
 

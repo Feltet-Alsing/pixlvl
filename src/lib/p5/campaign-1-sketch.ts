@@ -627,6 +627,7 @@ interface CampaignSketchOptions {
 		loadoutRows: number;
 		loadoutColumns: number;
 		ownedWeapons: OwnedWeaponInstance[];
+		rewardPacks: PersistedRewardPack[];
 		currentLevel: number;
 		highestUnlockedLevel: number;
 		highestClearedLevel: number;
@@ -1135,6 +1136,7 @@ export function createCampaignSketch(
 					loadoutRows: pixlProgression.loadoutRows,
 					loadoutColumns: pixlProgression.loadoutColumns,
 					ownedWeapons,
+					rewardPacks,
 					currentLevel: optimisticCurrentLevel,
 					highestUnlockedLevel,
 					highestClearedLevel,
@@ -1187,6 +1189,7 @@ export function createCampaignSketch(
 				loadoutRows: pixlProgression.loadoutRows,
 				loadoutColumns: pixlProgression.loadoutColumns,
 				ownedWeapons,
+				rewardPacks: [],
 				currentLevel: nextCurrentLevel,
 				highestUnlockedLevel,
 				highestClearedLevel,

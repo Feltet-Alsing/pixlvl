@@ -1,8 +1,6 @@
 <script lang="ts">
 	import { beforeNavigate } from '$app/navigation';
 	import { fade } from 'svelte/transition';
-	import type { SubmitFunction } from '@sveltejs/kit';
-	import CampaignRouteNav from '$lib/components/campaigns/CampaignRouteNav.svelte';
 	import { isWeaponDefinition, starterWeaponId } from '$lib/data';
 	import LoadoutDraggedShapePreview from '$lib/components/campaigns/LoadoutDraggedShapePreview.svelte';
 	import LoadoutGridBoard from '$lib/components/campaigns/LoadoutGridBoard.svelte';
@@ -25,7 +23,6 @@
 	} from '$lib/game/loadout-rotation';
 	import { createBaselineUpgradeablePixlState } from '$lib/game/upgrades';
 	import { createCampaignSketch, type CampaignCombatResumeState } from '$lib/p5/campaign-1-sketch';
-	import { getWeaponUpgradeCostForNextLevel } from '$lib/game/weapon-upgrades';
 	import {
 		buildGridCells,
 		buildInventoryWeaponGroups,
@@ -223,12 +220,6 @@
 	let liveCombatProgressOverride = $state<LiveCombatProgress | null>(null);
 	let changeLogEntries = $state.raw<ChangeLogEntry[]>([]);
 	let unreadChangeLogCount = $state(0);
-	let pendingUpgradeWeaponInstanceId = $state<string | null>(null);
-	let upgradeFeedback = $state.raw<{
-		weaponInstanceId: string;
-		tone: 'success' | 'error';
-		message: string;
-	} | null>(null);
 	let previousHasUnsavedChanges = false;
 	let lastProcessedLoadoutSuccessForm = $state.raw<typeof form>(null);
 	let unsavedToastTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -1077,16 +1068,6 @@
 		}, 2000);
 	}
 
-	function restoreSavedScrollPosition() {
-		if (savedScrollY <= 0) {
-			return;
-		}
-
-		requestAnimationFrame(() => {
-			window.scrollTo({ top: savedScrollY, behavior: 'auto' });
-		});
-	}
-
 	function getLoadoutItemName(weaponInstanceId: string) {
 		return (
 			loadoutWeapons.find((weapon) => weapon.weaponInstanceId === weaponInstanceId)?.name ??
@@ -1154,14 +1135,6 @@
 		clearDragState();
 	}
 
-	function getScrapableCount(group: InventoryWeaponGroup) {
-		if (!group.bulkScrappable) {
-			return 0;
-		}
-
-		return Math.max(0, group.availableCount);
-	}
-
 	function clampScrapQuantity(value: number) {
 		if (!scrapDialog) {
 			return 1;
@@ -1172,29 +1145,6 @@
 		}
 
 		return Math.max(1, Math.min(Math.floor(value), scrapDialog.scrapableCount));
-	}
-
-	function openScrapDialog(group: InventoryWeaponGroup) {
-		const scrapableCount = getScrapableCount(group);
-
-		if (scrapableCount < 1) {
-			return;
-		}
-
-		scrapDialog = {
-			definitionId: group.definitionId,
-			weaponInstanceId: group.isUpgraded ? group.representativeWeaponInstanceId : null,
-			name: group.name,
-			rarity: group.rarity,
-			totalCount: group.totalCount,
-			availableCount: group.availableCount,
-			equippedCount: group.equippedCount,
-			scrapableCount,
-			isUpgraded: group.isUpgraded,
-			refundScrapPerItem: Math.floor(group.totalScrapInvested * 0.5)
-		};
-		scrapQuantity = 1;
-		confirmHighRarityScrap = false;
 	}
 
 	function closeScrapDialog() {
@@ -1229,95 +1179,19 @@
 		return Math.max(0, weapon.totalScrapInvested ?? 0);
 	}
 
-	function persistArenaResumeSnapshot(ownedWeaponsSnapshot: LivePixlState['ownedWeapons']) {
-		if (typeof sessionStorage === 'undefined') {
-			return;
-		}
-
-		const basePixlState = livePixlState ?? data.gameState?.pixlState ?? null;
-		const baseCampaignState = liveCampaignState ?? data.campaignState ?? null;
-
-		if (!basePixlState || !baseCampaignState) {
-			return;
-		}
-
-		const snapshot: ArenaResumeSnapshot = {
-			campaignId: data.campaignId,
-			xp: basePixlState.xp,
-			defence: basePixlState.defence,
-			agility: basePixlState.agility,
-			ownedWeapons: ownedWeaponsSnapshot,
-			currentLevel: baseCampaignState.currentLevel,
-			highestUnlockedLevel: baseCampaignState.highestUnlockedLevel,
-			highestClearedLevel: baseCampaignState.highestClearedLevel,
-			completed: baseCampaignState.completed
-		};
-
-		sessionStorage.setItem(getArenaResumeStorageKey(data.campaignId), JSON.stringify(snapshot));
-	}
-
-	function applyUpgradedWeaponToVisibleState(weaponInstanceId: string) {
-		const basePixlState = livePixlState ?? data.gameState?.pixlState ?? null;
-		const ownedWeapon = ownedWeapons.find((weapon) => weapon.instanceId === weaponInstanceId);
-
-		if (!basePixlState || !ownedWeapon) {
-			return false;
-		}
-
-		const definition = weaponDefinitionById[ownedWeapon.definitionId];
-
-		if (!definition || !isWeaponDefinition(definition)) {
-			return false;
-		}
-
-		const upgradeCost = getWeaponUpgradeCostForNextLevel(ownedWeapon, definition.rarity);
-
-		if (upgradeCost === null) {
-			return false;
-		}
-
-		const nextOwnedWeapons = ownedWeapons.map((weapon) =>
-			weapon.instanceId === weaponInstanceId
-				? {
-						...weapon,
-						upgradeLevel: getOwnedWeaponUpgradeLevel(weapon) + 1,
-						totalScrapInvested: getOwnedWeaponTotalScrapInvested(weapon) + upgradeCost
-					}
-				: weapon
-		);
-
-		pixlStateOverride = {
-			xp: basePixlState.xp,
-			level: basePixlState.level,
-			perkPoints: basePixlState.perkPoints,
-			scrap: Math.max(0, basePixlState.scrap - upgradeCost),
-			defence: basePixlState.defence,
-			agility: basePixlState.agility,
-			health: basePixlState.health,
-			attackSpeed: basePixlState.attackSpeed,
-			loadoutRows: basePixlState.loadoutRows,
-			loadoutColumns: basePixlState.loadoutColumns,
-			ownedWeapons: nextOwnedWeapons
-		};
-
-		persistArenaResumeSnapshot(nextOwnedWeapons);
-
-		return true;
-	}
-
 	function mergeBackgroundOwnedWeapons(
 		currentVisibleWeapons: LivePixlState['ownedWeapons'],
 		backgroundOwnedWeapons: LivePixlState['ownedWeapons']
 	) {
-		const mergedOwnedWeapons = new Map(
+		const mergedOwnedWeapons = Object.fromEntries(
 			backgroundOwnedWeapons.map((weapon) => [weapon.instanceId, weapon])
-		);
+		) as Record<string, LivePixlState['ownedWeapons'][number]>;
 
 		for (const currentWeapon of currentVisibleWeapons) {
-			const backgroundWeapon = mergedOwnedWeapons.get(currentWeapon.instanceId);
+			const backgroundWeapon = mergedOwnedWeapons[currentWeapon.instanceId];
 
 			if (!backgroundWeapon) {
-				mergedOwnedWeapons.set(currentWeapon.instanceId, currentWeapon);
+				mergedOwnedWeapons[currentWeapon.instanceId] = currentWeapon;
 				continue;
 			}
 
@@ -1326,11 +1200,11 @@
 				getOwnedWeaponTotalScrapInvested(currentWeapon) >
 					getOwnedWeaponTotalScrapInvested(backgroundWeapon)
 			) {
-				mergedOwnedWeapons.set(currentWeapon.instanceId, currentWeapon);
+				mergedOwnedWeapons[currentWeapon.instanceId] = currentWeapon;
 			}
 		}
 
-		return Array.from(mergedOwnedWeapons.values());
+		return Object.values(mergedOwnedWeapons);
 	}
 
 	function handleScrapBackdropKeydown(event: KeyboardEvent) {
@@ -1405,44 +1279,6 @@
 	function handleBackgroundCombatStateChange(update: LiveCombatProgress) {
 		liveCombatProgressOverride = update;
 	}
-
-	const handleUpgradeSubmit = () => {
-		allowPendingFormSubmission();
-		pendingUpgradeWeaponInstanceId = selectedWeaponDetails?.weaponInstanceId ?? null;
-		upgradeFeedback = null;
-	};
-
-	const handleUpgradeComplete = (result: {
-		type: string;
-		data?: { loadoutError?: string; loadoutSuccess?: string };
-	}) => {
-		restoreSavedScrollPosition();
-
-		const upgradedWeaponInstanceId = pendingUpgradeWeaponInstanceId;
-		pendingUpgradeWeaponInstanceId = null;
-
-		if (!upgradedWeaponInstanceId) {
-			return;
-		}
-
-		if (result.type === 'success') {
-			applyUpgradedWeaponToVisibleState(upgradedWeaponInstanceId);
-			upgradeFeedback = {
-				weaponInstanceId: upgradedWeaponInstanceId,
-				tone: 'success',
-				message: result.data?.loadoutSuccess ?? 'Upgrade complete.'
-			};
-			return;
-		}
-
-		if (result.type === 'failure') {
-			upgradeFeedback = {
-				weaponInstanceId: upgradedWeaponInstanceId,
-				tone: 'error',
-				message: result.data?.loadoutError ?? 'Upgrade failed.'
-			};
-		}
-	};
 
 	function handleBackgroundResumeStateChange(update: CampaignCombatResumeState) {
 		combatResumeState = update;
@@ -2156,18 +1992,6 @@
 	{/if}
 
 	<div class="shell">
-		<div class="route-topbar-wrap">
-			<div class="route-topbar-shell">
-				<div class="route-topbar">
-					<CampaignRouteNav
-						campaignId={data.campaignId}
-						active="loadout"
-						notificationCounts={data.notificationCounts}
-					/>
-				</div>
-			</div>
-		</div>
-
 		<section class="layout-stack">
 			<div class="panel grid-panel">
 				{#if form?.loadoutError}
@@ -2326,15 +2150,7 @@
 					detail={selectedWeaponDetails}
 					signedIn={Boolean(data.gameState)}
 					targetingOptions={TARGETING_OPTIONS}
-					onUpgradeSubmit={handleUpgradeSubmit}
-					onUpgradeComplete={handleUpgradeComplete}
-					upgradeFeedback={upgradeFeedback &&
-					selectedWeaponDetails?.weaponInstanceId === upgradeFeedback.weaponInstanceId
-						? {
-								tone: upgradeFeedback.tone,
-								message: upgradeFeedback.message
-							}
-						: null}
+					showUpgradeControls={false}
 					onRotate={() => {
 						if (selectedPlacedWeaponInstanceId) {
 							rotatePlacedWeapon(selectedPlacedWeaponInstanceId);
@@ -2378,7 +2194,6 @@
 					groups={filteredInventoryWeaponGroups}
 					{draggedWeaponInstanceId}
 					onSelectGroup={selectInventoryGroup}
-					onRequestScrap={openScrapDialog}
 					onGroupPointerDown={beginInventoryWeaponGroupDrag}
 					onGroupMobileDragStart={beginInventoryWeaponGroupMobileDrag}
 					onGroupPick={handleMobileGroupPick}
@@ -2577,23 +2392,6 @@
 		gap: 0.75rem;
 	}
 
-	.route-topbar-wrap {
-		position: relative;
-		z-index: 2;
-	}
-
-	.route-topbar-shell {
-		width: 100%;
-	}
-
-	.route-topbar {
-		display: flex;
-		justify-content: flex-end;
-		align-items: center;
-		gap: 0.85rem;
-		flex-wrap: wrap;
-	}
-
 	.panel,
 	.feedback,
 	.save,
@@ -2740,11 +2538,6 @@
 	}
 
 	@media (max-width: 1180px) {
-		.route-topbar {
-			justify-content: stretch;
-			align-items: stretch;
-		}
-
 		.loadout-toolbar-row {
 			grid-template-columns: 1fr;
 			grid-template-areas:

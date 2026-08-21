@@ -70,6 +70,7 @@
 		loadoutRows: number;
 		loadoutColumns: number;
 		ownedWeapons: LivePixlState['ownedWeapons'];
+		rewardPacks: PersistedRewardPack[];
 		currentLevel: number;
 		highestUnlockedLevel: number;
 		highestClearedLevel: number;
@@ -125,6 +126,7 @@
 	let changeLogEntries = $state.raw<ChangeLogEntry[]>([]);
 	let unreadChangeLogCount = $state(0);
 	let livePackNotificationCount = $state(0);
+	let pendingRewardPacks = $state.raw<PersistedRewardPack[]>([]);
 	let hasLoadedChangeLogState = false;
 	let lastPersistedChangeLogJson = '';
 	let seenArenaDropInstanceIds = new Set<string>();
@@ -323,6 +325,31 @@
 		return guaranteedRarities.map((rarity) => formatPackLabel(rarity)).join(' / ');
 	}
 
+	function mergeRewardPacks(
+		existing: PersistedRewardPack[] | null | undefined,
+		incoming: PersistedRewardPack[] | null | undefined
+	) {
+		const safeExisting = existing ?? [];
+		const safeIncoming = incoming ?? [];
+
+		if (safeIncoming.length === 0) {
+			return safeExisting;
+		}
+
+		const packById = Object.fromEntries(safeExisting.map((pack) => [pack.id, pack])) as Record<
+			string,
+			PersistedRewardPack
+		>;
+
+		for (const pack of safeIncoming) {
+			packById[pack.id] = pack;
+		}
+
+		return Object.values(packById).sort(
+			(left, right) => new Date(right.droppedAt).getTime() - new Date(left.droppedAt).getTime()
+		);
+	}
+
 	function pushChangeLogEntry(
 		title: string,
 		detail: string,
@@ -409,6 +436,7 @@
 		campaignStateOverride = null;
 		combatOverlayOverride = null;
 		livePackNotificationCount = data.notificationCounts.packs;
+		pendingRewardPacks = [];
 		hasInitializedArenaDropTracking = false;
 		seenArenaDropInstanceIds = new Set();
 		seenArenaRewardPackIds = new Set();
@@ -668,6 +696,8 @@
 	});
 
 	function handleSketchStateChange(update: SketchStateUpdate) {
+		pendingRewardPacks = mergeRewardPacks(pendingRewardPacks, update.rewardPacks);
+
 		if (livePixlState) {
 			pixlStateOverride = {
 				xp: update.xp,
@@ -695,15 +725,21 @@
 		combatOverlayOverride = {
 			...combatOverlay,
 			bankedXp: update.xp,
-			campaignLevel: update.currentLevel
+			campaignLevel: update.currentLevel,
+			rewardPacks: mergeRewardPacks(combatOverlay.rewardPacks, update.rewardPacks)
 		};
 	}
 
 	function handleCombatStateChange(update: CombatOverlayStateUpdate) {
+		pendingRewardPacks = mergeRewardPacks(pendingRewardPacks, update.rewardPacks ?? []);
+
 		combatOverlayOverride = {
 			...combatOverlay,
 			...update,
-			rewardPacks: update.rewardPacks ?? combatOverlay.rewardPacks
+			rewardPacks:
+				update.rewardPacks && update.rewardPacks.length > 0
+					? mergeRewardPacks(combatOverlay.rewardPacks, update.rewardPacks)
+					: combatOverlay.rewardPacks
 		};
 	}
 
@@ -769,6 +805,7 @@
 					defence: livePixlState.defence,
 					agility: livePixlState.agility
 				},
+				rewardPacks: pendingRewardPacks.length > 0 ? pendingRewardPacks : combatOverlay.rewardPacks,
 				campaignProgress: [
 					{
 						campaignId: data.campaignId,

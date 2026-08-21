@@ -9,16 +9,16 @@
 	type CampaignSection = 'arena' | 'shop' | 'stats' | 'loadout' | 'packs';
 
 	let activeSection = $derived.by((): CampaignSection => {
+		if (page.url.pathname.includes('/loadout')) {
+			return 'loadout';
+		}
+
 		if (page.url.pathname.endsWith('/shop')) {
 			return 'shop';
 		}
 
 		if (page.url.pathname.endsWith('/stats')) {
 			return 'stats';
-		}
-
-		if (page.url.pathname.endsWith('/loadout')) {
-			return 'loadout';
 		}
 
 		if (page.url.pathname.endsWith('/packs')) {

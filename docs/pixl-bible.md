@@ -35,12 +35,42 @@ The current V1 loop is:
 1. Enter the arena for a specific campaign level.
 2. Watch glitches spawn from the outer arena and advance toward the center.
 3. The `pixl` automatically attacks using equipped weapons.
-4. Clearing enemies awards XP and can award weapon drops.
+4. Clearing a full level awards XP and can award sealed reward packs.
 5. If the `pixl` dies, the current level resets locally.
 6. Between or alongside combat, the player improves stats and loadout.
 7. The player pushes higher levels or revisits unlocked stages with a stronger build.
 
 This loop is now implemented, playable, and persistent.
+
+---
+
+## Current implementation snapshot
+
+The current project state is materially larger than the original V1 foundation.
+
+Current implemented content counts:
+
+- `4` defined campaigns
+- `50` levels per campaign
+- `59` unique loadout definitions in the live registry
+- `46` weapons
+- `13` utilities
+- `44` definitions in the shared reward-pack pool
+
+Current per-campaign definition counts:
+
+- Campaign `1`: `16` definitions (`12` weapons, `4` utilities)
+- Campaign `2`: `14` definitions (`9` weapons, `5` utilities)
+- Campaign `3`: `8` definitions (`4` weapons, `4` utilities)
+- Campaign `4`: `6` definitions (`6` weapons, `0` utilities)
+
+Current rarity distribution across unique definitions:
+
+- `16` normal
+- `7` magic
+- `16` rare
+- `9` exotic
+- `11` legendary
 
 ---
 
@@ -1186,19 +1216,18 @@ The intended replacement model is:
 
 1. clear a full level
 2. run one controlled pack-drop evaluation for that level
-3. if the level awards a pack, determine which campaign pack and pack rarity dropped
-4. open the pack through a card-reveal sequence
-5. generate the contents of that pack from the current campaign's eligible item pool
+3. if the level awards a pack, store the sealed pack immediately
+4. open the pack later through the dedicated `Packs` route
+5. grant the already-rolled contents to inventory in one atomic open transaction
 
 Current first-pass pack-drop rules:
 
-- Campaign `1` levels have a base `10%` chance to drop one Campaign `1` pack on clear
-- Campaign `2+` levels have a base `5%` chance to drop one pack from their own campaign on clear
-- the final level of each campaign acts as that campaign's current boss-stage reward spike
-- the final level of Campaign `1` increases pack-drop chance to `20%`
-- the final level of Campaign `2+` increases pack-drop chance to `10%`
-- there are currently no guaranteed pack drops
-- new accounts should start with `1` unopened Campaign `1` pack
+- ordinary clears currently roll a `15%` chance for one standard pack
+- boss clears currently roll a `30%` chance for one standard pack
+- stages `4-5` also roll a second special-pack check
+- that special-pack check uses a `5%` base chance on ordinary clears and `10%` on boss clears
+- special packs guarantee `1` `exotic` or `legendary` slot
+- new accounts currently start with `1` unopened starter pack
 
 This means the system should move from:
 
@@ -1208,23 +1237,23 @@ to:
 
 > the level rolls one bounded pack outcome
 
-#### Pack identity and campaign ownership
+#### Pack identity and shared ownership
 
-Each campaign should award its own themed packs.
+Packs are now account-wide reward objects, not campaign-owned loot containers.
 
-Design intent:
+Current design rules:
 
-- a pack that drops from Campaign `1` should open into Campaign `1` content
-- a pack that drops from Campaign `4` should open into Campaign `4` content
-- each campaign currently has `2` pack types: `normal` and `legendary`
-- stages `1-3` roll `normal` packs and stages `4-5` roll `legendary` packs
+- every pack now opens from the same shared reward pool
+- the reward pool is no longer filtered by the active campaign route
+- unopened packs are visible from the `Packs` route regardless of where they dropped
+- packs still retain `sourceCampaignLevel` for provenance and presentation
 - the reward should feel like opening a themed set of cards rather than receiving one loose weapon instance
 - the presentation should lean into the existing collectible-card feel of the item art and UI
 
-This gives tighter control over reward identity and progression pacing:
+This gives stronger variety and removes the old campaign-silo duplication problem:
 
-- campaigns retain a stronger loot identity
-- later campaigns can feel more exciting through better packs rather than only more frequent rewards
+- late campaigns stop flooding the player with the same narrow campaign-local card sets
+- shared archetype packages can actually surface often enough to matter
 - opening rewards becomes a more satisfying event than silently appending another item to inventory
 
 #### Pack rarity and contents
@@ -1233,22 +1262,22 @@ Each pack should currently contain `5` cards.
 
 Pack structure:
 
-- `normal` packs roll all `5` cards from the campaign pool using the standard rarity weights
-- `legendary` packs roll `4` standard cards plus `1` guaranteed high-rarity slot
+- standard packs roll all `5` cards from the shared eligible pool using the current rarity weights
+- special packs roll `4` standard cards plus `1` guaranteed high-rarity slot
 
 Core rule for the guaranteed slot:
 
-- only `legendary` packs guarantee `1` `exotic` or `legendary` card
+- only special packs guarantee `1` `exotic` or `legendary` card
 - the guaranteed slot currently splits `50 / 50` between `exotic` and `legendary`
 
-This guaranteed high-rarity slot is important because `legendary` pack openings should feel like a distinct reward spike.
+This guaranteed high-rarity slot is important because special pack openings should feel like a distinct reward spike.
 
-Both pack types can still include lower-rarity items or duplicates, and `normal` packs can still randomly roll any campaign weapon.
+Both pack types can still include lower-rarity items or duplicates, and standard packs can still randomly roll any eligible shared-pool definition.
 
 Design intent:
 
 - the pack itself is the top-level reward outcome
-- the contents are then generated from the campaign's eligible item pool
+- the contents are then generated from the current shared eligible item pool
 - the guaranteed `exotic` / `legendary` slot should define the emotional floor of the reward
 
 #### Pack opening surface
@@ -1260,9 +1289,9 @@ The game should add a dedicated `Packs` route or tab where unopened packs can be
 Design intent:
 
 - unopened packs should accumulate as inventory objects until the player chooses to open them
-- the player should be able to see which campaign a pack belongs to
+- the player should be able to batch-open selected packs as well as reveal single packs
 - pack opening should feel like a discrete reward ritual rather than background admin
-- the route should support opening one pack at a time with clear reveal pacing
+- the route should support both one-by-one reveal pacing and bulk-open summaries
 
 This means pack rewards create a new management surface:
 
@@ -1289,7 +1318,7 @@ Preferred pack record fields:
 
 - `id`
 - `ownerUserId`
-- `campaignId`
+- `campaignId` (currently retained as legacy source metadata, but no longer used for access or pool selection)
 - `sourceCampaignLevel`
 - `droppedAt`
 - `openedAt` or `null`
@@ -1642,11 +1671,11 @@ The current game is coherent, but still intentionally narrow.
 
 Known limitations of V1:
 
-- only one campaign is effectively defined
-- enemy behavior is still melee-only and fairly simple
-- there are no advanced status effects or synergies yet
+- Campaign `4` is still incomplete as a full control-combo roster
+- enemy behavior is broader than the original melee-only baseline, but encounter logic is still fairly simple
+- status packages and named synergies now exist, but only a few of them have real roster density
 - targeting behavior is not yet a player-controlled system
-- build diversity is mostly weapon-shape-driven rather than rule-system-driven
+- build diversity is now partly rule-system-driven, but several archetypes still need deeper support
 - long-term motivation beyond clearing harder content is still limited
 - duplicate overflow does not yet convert into a meaningful secondary economy
 - balance is functional but still early

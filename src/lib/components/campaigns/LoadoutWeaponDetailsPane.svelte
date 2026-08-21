@@ -44,6 +44,7 @@
 			data?: { loadoutError?: string; loadoutSuccess?: string };
 		}) => void;
 		upgradeFeedback?: UpgradeFeedback | null;
+		showUpgradeControls?: boolean;
 	}
 
 	let {
@@ -54,7 +55,8 @@
 		onTargetingChange,
 		onUpgradeSubmit,
 		onUpgradeComplete,
-		upgradeFeedback = null
+		upgradeFeedback = null,
+		showUpgradeControls = true
 	}: Props = $props();
 
 	const handleUpgradeSubmit: SubmitFunction = () => {
@@ -132,7 +134,7 @@
 			<button class="rotate-button" type="button" onclick={onRotate}>Rotate 90°</button>
 		{/if}
 
-		{#if signedIn && detail.category === 'weapon' && detail.isUpgradeable && detail.weaponInstanceId}
+		{#if showUpgradeControls && signedIn && detail.category === 'weapon' && detail.isUpgradeable && detail.weaponInstanceId}
 			<form
 				method="post"
 				action="?/upgradeWeapon"
