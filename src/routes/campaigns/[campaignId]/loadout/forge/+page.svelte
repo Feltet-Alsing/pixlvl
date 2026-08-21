@@ -672,7 +672,7 @@
 								<span>Upgrade hammer</span>
 								<strong>
 									{#if activeForgeGroup.isMaxUpgradeLevel}
-										Fully tempered
+										Fully upgraded
 									{:else if activeForgeGroup.nextUpgradeCost !== null}
 										Next tier for {activeForgeGroup.nextUpgradeCost} Scrap
 									{:else}

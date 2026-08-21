@@ -429,6 +429,48 @@
 		});
 	}
 
+	function mergeOwnedWeaponProgress(
+		baseOwnedWeapons: LivePixlState['ownedWeapons'],
+		snapshotOwnedWeapons: LivePixlState['ownedWeapons']
+	) {
+		const snapshotOwnedWeaponByInstanceId = new Map(
+			snapshotOwnedWeapons.map((weapon) => [weapon.instanceId, weapon])
+		);
+		const mergedOwnedWeapons = baseOwnedWeapons.map((baseWeapon) => {
+			const snapshotWeapon = snapshotOwnedWeaponByInstanceId.get(baseWeapon.instanceId);
+
+			if (!snapshotWeapon) {
+				return baseWeapon;
+			}
+
+			const baseUpgradeLevel = getOwnedWeaponUpgradeLevel(baseWeapon);
+			const snapshotUpgradeLevel = getOwnedWeaponUpgradeLevel(snapshotWeapon);
+
+			if (snapshotUpgradeLevel > baseUpgradeLevel) {
+				return snapshotWeapon;
+			}
+
+			if (snapshotUpgradeLevel < baseUpgradeLevel) {
+				return baseWeapon;
+			}
+
+			const baseScrapInvested = getOwnedWeaponTotalScrapInvested(baseWeapon);
+			const snapshotScrapInvested = getOwnedWeaponTotalScrapInvested(snapshotWeapon);
+
+			return snapshotScrapInvested > baseScrapInvested ? snapshotWeapon : baseWeapon;
+		});
+
+		const knownInstanceIds = new Set(baseOwnedWeapons.map((weapon) => weapon.instanceId));
+
+		for (const snapshotWeapon of snapshotOwnedWeapons) {
+			if (!knownInstanceIds.has(snapshotWeapon.instanceId)) {
+				mergedOwnedWeapons.push(snapshotWeapon);
+			}
+		}
+
+		return mergedOwnedWeapons;
+	}
+
 	$effect(() => {
 		void data.campaignId;
 
@@ -498,9 +540,13 @@
 			const baseCurrentLevel = data.campaignState?.currentLevel ?? 1;
 			const baseHighestUnlockedLevel = data.campaignState?.highestUnlockedLevel ?? 1;
 			const baseHighestClearedLevel = data.campaignState?.highestClearedLevel ?? 0;
-			const snapshotHasNewerOwnedWeaponProgress = hasNewerOwnedWeaponProgress(
+			const mergedSnapshotOwnedWeapons = mergeOwnedWeaponProgress(
 				baseOwnedWeapons,
 				snapshot.ownedWeapons
+			);
+			const snapshotHasNewerOwnedWeaponProgress = hasNewerOwnedWeaponProgress(
+				baseOwnedWeapons,
+				mergedSnapshotOwnedWeapons
 			);
 
 			if (
@@ -529,7 +575,7 @@
 				attackSpeed: resumedUpgradeState.attackSpeed,
 				loadoutRows: resumedUpgradeState.loadoutRows,
 				loadoutColumns: resumedUpgradeState.loadoutColumns,
-				ownedWeapons: snapshot.ownedWeapons
+				ownedWeapons: mergedSnapshotOwnedWeapons
 			};
 
 			campaignStateOverride = {
