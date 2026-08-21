@@ -29,6 +29,7 @@
 	let duplicatesOnly = $state(false);
 	let upgradedOnly = $state(false);
 	let activeForgeWeaponInstanceIdState = $state<string | null>(null);
+	let activeForgeDefinitionIdState = $state<string | null>(null);
 	let draggedWeaponInstanceId = $state<string | null>(null);
 	let isForgeDropActive = $state(false);
 	let scrapDialog = $state<{
@@ -116,9 +117,19 @@
 				)
 			: null;
 
-		return activeInventoryWeapon
-			? (forgeGroups.find((group) => group.groupId === activeInventoryWeapon.groupId) ?? null)
-			: null;
+		if (activeInventoryWeapon) {
+			return forgeGroups.find((group) => group.groupId === activeInventoryWeapon.groupId) ?? null;
+		}
+
+		if (!activeForgeDefinitionIdState) {
+			return null;
+		}
+
+		const fallbackGroups = forgeGroups.filter(
+			(group) => group.definitionId === activeForgeDefinitionIdState
+		);
+
+		return fallbackGroups.find((group) => group.isUpgraded) ?? fallbackGroups[0] ?? null;
 	});
 	let forgeUpgradeInstanceIds = $derived.by(
 		() =>
@@ -166,22 +177,28 @@
 		return forgeUpgradeInstanceIds[groupId] ?? null;
 	}
 
+	function getPreferredWeaponInstanceId(group: InventoryWeaponGroup) {
+		return group.representativeWeaponInstanceId ?? getWeaponInstanceId(group.groupId);
+	}
+
 	function isFavorite(groupId: string) {
 		return favoriteGroupIdSet.has(groupId);
 	}
 
 	function selectForgeGroup(group: InventoryWeaponGroup) {
-		activeForgeWeaponInstanceIdState = getWeaponInstanceId(group.groupId);
+		activeForgeDefinitionIdState = group.definitionId;
+		activeForgeWeaponInstanceIdState = getPreferredWeaponInstanceId(group);
 	}
 
 	function handleWeaponDragStart(event: DragEvent, group: InventoryWeaponGroup) {
-		const weaponInstanceId = getWeaponInstanceId(group.groupId);
+		const weaponInstanceId = getPreferredWeaponInstanceId(group);
 
 		if (!weaponInstanceId) {
 			return;
 		}
 
 		draggedWeaponInstanceId = weaponInstanceId;
+		activeForgeDefinitionIdState = group.definitionId;
 		activeForgeWeaponInstanceIdState = weaponInstanceId;
 
 		if (event.dataTransfer) {
@@ -215,6 +232,11 @@
 			event.dataTransfer?.getData('text/plain') || draggedWeaponInstanceId;
 
 		if (droppedWeaponInstanceId) {
+			const droppedWeapon = inventoryWeapons.find(
+				(weapon) => weapon.weaponInstanceId === droppedWeaponInstanceId
+			);
+
+			activeForgeDefinitionIdState = droppedWeapon?.definitionId ?? activeForgeDefinitionIdState;
 			activeForgeWeaponInstanceIdState = droppedWeaponInstanceId;
 		}
 
@@ -308,15 +330,22 @@
 		};
 	};
 
-	const handleUpgradeSubmit = (weaponInstanceId: string): SubmitFunction => {
-		return () => {
-			return async ({ result, update }) => {
-				await update();
+	const handleUpgradeSubmit: SubmitFunction = ({ formData }) => {
+		const weaponInstanceId = formData.get('weaponInstanceId');
 
-				if (result.type === 'success') {
-					activeForgeWeaponInstanceIdState = weaponInstanceId;
-				}
-			};
+		return async ({ result, update }) => {
+			await update();
+
+			if (result.type !== 'success' || typeof weaponInstanceId !== 'string') {
+				return;
+			}
+
+			const upgradedWeapon = inventoryWeapons.find(
+				(weapon) => weapon.weaponInstanceId === weaponInstanceId
+			);
+
+			activeForgeDefinitionIdState = upgradedWeapon?.definitionId ?? activeForgeDefinitionIdState;
+			activeForgeWeaponInstanceIdState = weaponInstanceId;
 		};
 	};
 </script>
@@ -656,7 +685,7 @@
 										method="post"
 										action="?/upgradeWeapon"
 										class="forge-upgrade-form"
-										use:enhance={handleUpgradeSubmit(activeForgeWeaponInstanceId)}
+										use:enhance={handleUpgradeSubmit}
 									>
 										<input
 											type="hidden"
