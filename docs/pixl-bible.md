@@ -593,6 +593,439 @@ Phase 5: upgrade UI
 - per-instance combat scaling must not mutate shared definitions
 - zero-damage items must remain behaviorally identical after reclassification
 
+### Cross-campaign weapon expansion direction
+
+The current campaign-local weapon pools are not large enough on their own to guarantee satisfying variety, especially once pack rewards begin rolling multiple cards at once.
+
+The next weapon-expansion pass should therefore introduce a shared cross-campaign pool of build-defining weapons and utilities.
+
+These should not erase campaign identity.
+They should fill tactical gaps, deepen synergy options, and prevent later pools from collapsing into the same few repeated high-rarity outcomes.
+
+#### Shared-pool design goals
+
+- low-damage weapons must never become dead items that are simply outscaled by later raw DPS
+- every weapon should solve a recognizable problem such as swarm pressure, ranged pressure, elite cleanup, leak prevention, or tempo control
+- the most interesting items should create synergy packages rather than stand alone as generic stat sticks
+- strong weapons should define or reshape a build archetype, not just add more damage
+- shared-pool additions should make single-target, control, and support styles remain relevant in later campaigns
+
+#### Core rules for future shared weapons
+
+- normals should usually solve one specific tactical problem rather than being generic weak fillers
+- magics should improve consistency or bridge two systems together
+- rares should introduce a clear tactical pattern or payoff window
+- exotics should create strong synergy hooks that encourage build planning
+- legendaries should change how the player wants to construct the whole board
+- no low-damage weapon should exist without at least one lasting source of value such as vulnerability, slow, freeze, grouping, team amplification, reach extension, sustain, sweep manipulation, or percent-health pressure
+
+#### Primary cross-campaign archetype packages
+
+The first shared-pool pass should intentionally support a small set of repeatable archetypes:
+
+- mark and focus-fire
+- execute and cleanup
+- swarm control and chip conversion
+- range access and backline pressure
+- sweep-order and trigger-column synergy
+- status setup and payoff
+- control-heavy single-target conversion
+
+The goal is to let players recognize a build shell across campaigns while still using campaign-specific headliners and visuals.
+
+#### Refined concept shortlist
+
+The following concepts are worth preserving as the first serious shared-pool design set.
+
+##### Target Painter
+
+- rarity: `normal`
+- type: `weapon`
+- cadence: `2` cycles
+- role: focus-fire relay and priority-target setup
+
+Behavior:
+
+- exactly one enemy should remain marked at all times while enemies are alive
+- the mark increases damage taken from all direct attacks
+- if the marked enemy dies, the mark immediately bounces to a nearby enemy
+- in dense swarms the mark should be able to jump repeatedly between kills
+
+Design purpose:
+
+- keeps single-target builds efficient during long waves instead of overkilling only one enemy at a time
+- scales through the rest of the build rather than through its own base damage
+
+Best fit:
+
+- snipers
+- heavy single-hit weapons
+- execute weapons
+- fork-lightning or bounce-adjacent hit chains
+
+##### Kill Switch
+
+- rarity: `rare`
+- type: `weapon`
+- cadence: `3` to `4` cycles
+- role: cleanup and anti-clog execution tool
+
+Behavior:
+
+- emits a very thin pulse wave outward from the `pixl`
+- any enemy struck by the pulse and already below `15%` health is executed instantly
+- enemies above that threshold should take negligible or no direct effect
+
+Design purpose:
+
+- converts chip damage, burns, chills, and partial wave damage into actual cleanup
+- gives supportive or control-heavy builds a way to close waves cleanly
+
+Best fit:
+
+- burn packages
+- chill and freeze setups
+- swarm chip builds
+- mark and vulnerability shells
+
+##### Oathbreaker Sigil
+
+- rarity: `legendary`
+- type: `utility`
+- cadence: `4` cycles
+- shape: large
+- role: single-target conversion keystone
+
+Behavior:
+
+- emits a broad half-circle pulse covering roughly `50%` of the visible screen in front of the `pixl`
+- all enemies hit by that pulse are chained together for a short duration
+- chained enemies are slowed by `80%`
+- while chained, direct weapon-hit damage dealt to any one chained enemy is shared across all chained enemies hit by the pulse
+- only direct weapon hits are shared
+- burn ticks, damage-over-time, execute effects, field damage, and other indirect effects must not duplicate through the chain
+
+Design purpose:
+
+- keeps single-target weapons relevant in later campaigns by converting focused damage into temporary wave damage
+- creates a real late-game archetype where precision damage can scale into dense formations without simply inflating all single-target numbers
+
+Best fit:
+
+- snipers
+- mark builds
+- heavy projectile hitters
+- any direct-hit weapon that otherwise struggles into density
+
+##### Support concepts worth keeping for the same pool
+
+These remain good candidates for the first shared-pool pass even if their exact tuning changes later:
+
+- `Scrap Flinger`: anti-swarm chip plus light knockback support
+- `Static Net`: multi-target slow and chain-pressure support
+- `Tempo Coil`: left-to-right sweep payoff setup
+- `Gravity Pin`: grouping and anti-rush control
+- `Corrosion Sprayer`: sustained resistance shred or effective-health erosion
+- `Arc Javelin`: distance-scaling backline pressure
+- `Frostbrand Array`: broad chill spread support
+- `Ash Cycler`: hit-count to burn-burst conversion
+- `Event Horizon`: large-scale control anchor for void and area builds
+- `Last Word`: right-edge sweep finisher payoff
+- `Amplifier Node`: next-weapon sweep amplifier utility
+- `Infusion Battery`: elemental timing smoother
+- `Shock Router`: lightning propagation bridge utility
+- `Cryo Condenser`: freeze-threshold support utility
+- `Cinder Bellows`: burn and control crossover utility
+
+#### Bleed package direction
+
+Bleed should become the main physical status package for later content.
+
+It should not just be another generic damage-over-time label.
+Its job is to let precise direct-hit weapons store delayed kill pressure and then convert that pressure into controlled wave damage later.
+
+##### Bleed identity
+
+- damage family: `physical status`
+- primary fantasy: wounds that keep draining after the hit lands
+- best friends: fast multihit weapons, crit-like heavy hits, execute tools, and rupture payoffs
+- weakness by default: poor native AOE unless another weapon or utility converts it
+
+Bleed should therefore begin as a mostly single-target status and only become an AOE engine when the player assembles the correct later-campaign package.
+
+##### Bleed scaling rule
+
+Bleed should scale from stored direct-hit damage, not from enemy max health.
+
+Recommended base rule:
+
+- when a bleed-applying direct hit lands, it adds `stored bleed` equal to a percentage of that hit's final direct damage
+- that stored bleed is then paid out over time as periodic physical damage
+- reapplying bleed adds more stored bleed and refreshes the duration rather than creating many unrelated timers
+
+Recommended first-pass numbers:
+
+- base conversion: `35%` to `45%` of final direct-hit damage becomes stored bleed
+- default duration: `3` cycles
+- default tick rate: `1` tick per cycle
+- default stack model: additive stored-damage pool with duration refresh
+
+This means bleed naturally scales when:
+
+- the source weapon's direct-hit damage scales
+- the source weapon fires more often
+- vulnerability, mark, or other direct-hit amplifiers are already online before the bleed is applied
+- upgrade levels improve the original hit size
+
+This is the correct scaling direction because it keeps bleed attached to the existing weapon ecosystem.
+
+##### Bleed guardrails
+
+- indirect damage should not recursively create bleed unless a very explicit legendary says otherwise
+- bleed should not scale primarily from enemy max health because that risks making it the default best answer to every boss and elite
+- baseline bleed should stay poor at full-screen swarm clear so it preserves a reason to build into rupture, grouping, or spread tools
+- bleed stacks should be readable as one pooled wound state per enemy, not many tiny hidden debuffs
+
+##### How bleed becomes AOE later
+
+Later-campaign bleed AOE should come from `rupture`, not from giving every bleed source free splash.
+
+Rupture is the key conversion rule:
+
+- a rupture effect consumes some or all stored bleed on one enemy
+- that consumed amount deals an immediate local burst in a radius, or seeds nearby enemies with new stored bleed, or both
+- the conversion should require either enough stored bleed, a kill, or a dedicated payoff activation window
+
+This keeps the build path legible:
+
+1. apply wounds to priority targets
+2. build stored bleed through repeated direct hits
+3. convert that stored pressure into local wave damage through rupture tools
+
+That is a much healthier model than making bleed itself automatically chain across the whole screen.
+
+##### Recommended rupture patterns
+
+The later campaign can mix these patterns, but they should remain distinct:
+
+- `on-kill rupture`: when a bleeding enemy dies, part of its stored bleed bursts in a small radius
+- `threshold rupture`: when stored bleed reaches a threshold, the next direct hit detonates a local burst
+- `active rupture`: a weapon or utility periodically detonates the most wounded enemy in range
+- `spread rupture`: consuming one target's stored bleed applies reduced fresh bleed to nearby enemies instead of full raw burst damage
+
+The safest first implementation is `on-kill rupture` because it rewards setup and wave sequencing without letting a single early proc wipe everything.
+
+##### Recommended later-campaign keystone
+
+The cleanest first AOE payoff is a dedicated shared-pool or later-campaign item built around rupture.
+
+Working concept:
+
+- name: `Bloodletter Bloom`
+- rarity: `exotic` or `legendary`
+- type: `utility` or low-damage payoff weapon
+- role: converts single-target bleed into controlled local AOE
+
+Effect direction:
+
+- every `3` to `4` cycles, target the enemy in range with the highest stored bleed
+- consume `50%` to `100%` of that stored bleed
+- create a medium-radius bloodburst around that enemy
+- enemies caught in the burst take immediate physical damage based on the consumed amount
+- optionally apply a smaller fresh bleed to enemies hit by the burst
+
+Design purpose:
+
+- gives physical direct-hit builds a real density answer without invalidating dedicated splash or control builds
+- makes target prioritization and buildup matter before the payoff happens
+- opens a later-campaign archetype where precise wound application turns into wave shredding only after enough setup
+
+##### Bleed package ecosystem roles
+
+If bleed becomes a serious package, the roster should eventually contain:
+
+- one normal or magic bleed applier
+- one rare fast-stack builder
+- one exotic or legendary rupture payoff
+- one support utility that improves bleed duration, tick rate, or wound retention during retargeting
+
+That gives bleed the same kind of internal structure now being defined for mark, execute, burn, chill, and control packages.
+
+##### First concrete bleed package
+
+The first actual bleed package should be built as a named synergy ladder instead of a loose collection of unrelated status items.
+
+The package should currently consist of:
+
+- `The Knife`: base bleed applier
+- `Hemorrhage Burst`: threshold rupture utility
+- `Fan of Knives`: radial stack builder
+- `Blood Catalyst`: bleed multiplier utility
+- `Siphoning Knife`: legendary finisher modifier
+
+The intended play pattern is:
+
+1. `The Knife` establishes early single-target wound pressure
+2. `Fan of Knives` multiplies wound application once the build has enough support
+3. `Blood Catalyst` scales all stored bleed into serious kill pressure
+4. `Hemorrhage Burst` converts overstacked bleed into local AOE clears
+5. `Siphoning Knife` turns the completed knife shell into a sustain-and-burst endgame package
+
+##### The Knife
+
+- rarity: `normal`
+- type: `weapon`
+- base damage: `5`
+- role: baseline wound applier
+
+Attack direction:
+
+- follows `Splitter`-style targeting rules
+- throws `3` knife projectiles toward distinct enemies when available
+- it should not send multiple knives into the same target unless there are not enough valid targets in range
+- visual should read as a clean knife throw, not a spread shotgun blast
+
+Damage direction:
+
+- the direct hit deals low blunt physical damage
+- each successful direct hit applies bleed equal to `250%` of that hit's final modified direct-hit damage
+- that bleed pays out over `10` seconds
+
+Design note:
+
+- `The Knife` is intentionally weak as raw damage
+- its purpose is to seed heavy stored bleed early and let later pieces convert that pressure into payoff
+
+##### Hemorrhage Burst
+
+- rarity: `magic`
+- type: `utility`
+- role: bleed threshold rupture conversion
+
+Effect direction:
+
+- if an enemy's stored bleed exceeds its current maximum health, that enemy bursts
+- the burst creates a blood explosion around the target
+- the explosion deals AOE damage equal to all stored bleed consumed at the moment of rupture
+
+Rule direction:
+
+- the rupture consumes all stored bleed on the target when it explodes
+- the explosion should be a meaningfully large local radius, roughly `15%` to `20%` of the visible screen
+- the explosion itself should not recursively trigger further hemorrhage bursts unless a later legendary explicitly adds that behavior
+
+Design purpose:
+
+- gives the bleed package its first real density answer
+- rewards overstacking wounds on elites or frontliners and then cashing them out into nearby packs
+
+##### Fan of Knives
+
+- rarity: `rare`
+- type: `weapon`
+- cadence: `2` cycles
+- role: radial bleed stack builder
+
+Activation rule:
+
+- gains its full payoff behavior when combined with `The Knife`
+
+Attack direction:
+
+- throws `12` knives in a circle around the `pixl`
+- the visual should fan outward clearly rather than reading as an instant ring pop
+- the animation should sell a radial knife burst with outward motion and slight spread timing if needed
+
+Design purpose:
+
+- converts the bleed package from one-target setup into real multi-target wound coverage
+- still relies on other pieces for actual AOE cashout, keeping the archetype staged rather than self-contained too early
+
+##### Blood Catalyst
+
+- rarity: `exotic`
+- type: `utility`
+- role: bleed scaling amplifier
+
+Effect direction:
+
+- doubles all bleed damage dealt by the build
+- multiple copies can stack
+- total amplification must cap at `x6`
+
+Design purpose:
+
+- provides the vertical scaling layer that makes bleed worth building around in later content
+- should be the main reason bleed can remain relevant into higher-health waves without moving the scaling onto enemy max-health formulas
+
+Implementation note:
+
+- each copy doubles final bleed damage dealt by the build, but the total final bleed multiplier clamps at `x6`
+- this must remain readable in UI because additive and multiplicative interpretations produce very different outcomes
+
+##### Siphoning Knife
+
+- rarity: `legendary`
+- type: `weapon` or `utility-keystone`
+- role: completed knife-package finisher
+
+Activation rule:
+
+- gains its defining effect when combined with both `Fan of Knives` and `The Knife`
+
+Effect direction:
+
+- `Fan of Knives` projectiles gain life leech equal to `50%` of damage dealt
+- `Fan of Knives` direct raw damage gains an additional `x2` multiplier
+
+Design purpose:
+
+- turns the radial knife shell from pure setup into a self-sustaining late-game payoff engine
+- creates a satisfying final package where the same radial burst both stacks bleed and helps the `pixl` survive sustained pressure
+
+##### Bleed-package dependency rule
+
+This package introduces a new type of named loadout dependency.
+
+Current direction:
+
+- `combined with` should mean the named item must connect through the named anchor in the active loadout when the package calls one out explicitly
+- for the knife package, `The Knife` is the anchor: `Fan of Knives` and `Siphoning Knife` each need to touch `The Knife`, but do not need to touch each other
+- the dependent item should still function at a baseline without the combo piece unless explicitly marked otherwise
+- the combo bonus should be visible in the loadout UI so the player can tell when the condition is active
+
+This needs to be treated as an explicit system rule, not hidden flavor text.
+
+##### Bleed readability direction
+
+- enemies with stored bleed should visibly fill with red to show wound pressure building over time
+- that red fill should reflect stored bleed as a proportion of the enemy's max health
+- at a glance, the player should be able to tell when a target is approaching hemorrhage-burst threshold
+- the fill should read as an internal blood charge, not as a replacement for the normal health bar
+
+Locked rule interpretation:
+
+- `The Knife` bleed scales from final modified direct-hit damage
+- `Hemorrhage Burst` consumes all currently stored bleed on rupture
+- hemorrhage explosion size should be tuned around `15%` to `20%` of visible screen space
+- `Blood Catalyst` doubles bleed damage per copy but clamps at `x6` total final multiplier
+- `Siphoning Knife` grants `50%` life leech to `Fan of Knives` damage only
+- combo conditions require adjacency in the loadout, not just simultaneous equip
+
+#### Shared-pool implementation philosophy
+
+The first implementation pass should not attempt to add every concept at once.
+
+The best near-term target is a tightly curated shared pool of roughly `12` to `16` items that:
+
+- fill weak rarity bands across campaigns
+- support recognizable archetypes
+- increase pack variety
+- reduce repeated outcomes from overly small high-rarity pools
+- keep campaign-specific signature weapons special
+
+Shared-pool additions should act as connective tissue between campaigns, not as a replacement for campaign identity.
+
 ---
 
 ## Enemy model

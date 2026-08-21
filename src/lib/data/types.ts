@@ -7,7 +7,7 @@ export type WeaponAttackKind = 'single' | 'dual' | 'spread';
 
 export type WeaponProjectileSize = 'small' | 'medium' | 'large';
 
-export type WeaponProjectileShape = 'square' | 'diamond' | 'orb' | 'spark';
+export type WeaponProjectileShape = 'square' | 'diamond' | 'orb' | 'spark' | 'knife';
 
 export type WeaponTrailStyle = 'none' | 'streak' | 'pulse';
 
@@ -129,6 +129,17 @@ export interface WeaponAttackBehavior {
 				type: 'vulnerable-hit';
 				damageMultiplier: number;
 				duration: number;
+		  }
+		| {
+				type: 'bleed-hit';
+				damageRatio: number;
+				duration: number;
+		  }
+		| {
+				type: 'fan-knives';
+				projectileCount: number;
+				radiusFactor: number;
+				burstArcDegrees: number;
 		  }
 		| {
 				type: 'next-weapon-boost';
@@ -291,6 +302,21 @@ export interface UtilityDefinition {
 				type: 'cycle-damage-boost';
 				damageMultiplier: number;
 				duration: 'rest-of-cycle';
+		  }
+		| {
+				type: 'hemorrhage-burst';
+				thresholdRatio: number;
+				radiusFactor: number;
+		  }
+		| {
+				type: 'bleed-catalyst';
+				multiplier: number;
+				maxTotalMultiplier: number;
+		  }
+		| {
+				type: 'knife-siphon';
+				lifeStealRatio: number;
+				damageMultiplier: number;
 		  };
 	utilityVisual?: UtilityVisual;
 	drop: WeaponDropConfig;

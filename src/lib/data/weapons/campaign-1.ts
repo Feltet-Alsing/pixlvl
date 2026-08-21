@@ -2,6 +2,46 @@ import type { LoadoutItemDefinition } from '$lib/data/types';
 
 export const campaign1Weapons: LoadoutItemDefinition[] = [
 	{
+		id: 'the-knife',
+		name: 'The Knife',
+		rarity: 'normal',
+		shape: {
+			width: 2,
+			height: 3,
+			cells: [
+				[0, 0],
+				[1, 0],
+				[0, 1],
+				[0, 2]
+			]
+		},
+		baseDamage: 5,
+		projectileSpeed: 560,
+		attack: {
+			kind: 'single',
+			projectileCount: 3,
+			special: {
+				type: 'bleed-hit',
+				damageRatio: 2.5,
+				duration: 10
+			},
+			targeting: 'current-target'
+		},
+		projectileVisual: {
+			color: '#f1f5f9',
+			size: 'small',
+			shape: 'knife',
+			trail: 'streak'
+		},
+		drop: {
+			mode: 'drop',
+			stageStart: 1,
+			stageEnd: 5,
+			perLevelDropChance: 0.13
+		},
+		role: 'Starter-tier bleed weapon that throws three splitter-style knives at distinct enemies and converts each hit into a heavy ten-second wound'
+	},
+	{
 		id: 'pea-shooter',
 		name: 'Pea Shooter',
 		rarity: 'normal',
@@ -152,6 +192,41 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 		role: 'Early splitter weapon that launches three projectiles at different enemies when available'
 	},
 	{
+		id: 'hemorrhage-burst',
+		name: 'Hemorrhage Burst',
+		category: 'utility',
+		rarity: 'magic',
+		shape: {
+			width: 2,
+			height: 3,
+			cells: [
+				[0, 0],
+				[1, 0],
+				[0, 1],
+				[1, 1],
+				[0, 2]
+			]
+		},
+		activationKind: 'passive',
+		effect: {
+			type: 'hemorrhage-burst',
+			thresholdRatio: 1,
+			radiusFactor: 0.18
+		},
+		utilityVisual: {
+			color: '#dc2626',
+			shape: 'ring',
+			glow: true
+		},
+		drop: {
+			mode: 'drop',
+			stageStart: 2,
+			stageEnd: 5,
+			perLevelDropChance: 0.08
+		},
+		role: 'Passive rupture utility that detonates enemies whose stored bleed exceeds max health, cashing the whole wound out into a large blood explosion'
+	},
+	{
 		id: 'heavy-orb',
 		name: 'Heavy Orb',
 		rarity: 'legendary',
@@ -204,6 +279,50 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 		role: 'Legendary heavy orb that locks onto its spawned target, slowly homes in, and cracks on impact into heavy shrapnel'
 	},
 	{
+		id: 'fan-of-knives',
+		name: 'Fan of Knives',
+		rarity: 'rare',
+		shape: {
+			width: 3,
+			height: 3,
+			cells: [
+				[1, 0],
+				[0, 1],
+				[1, 1],
+				[2, 1],
+				[1, 2]
+			]
+		},
+		baseDamage: 4,
+		projectileSpeed: 430,
+		attack: {
+			kind: 'single',
+			projectileCount: 18,
+			cycleInterval: 2,
+			special: {
+				type: 'fan-knives',
+				projectileCount: 18,
+				radiusFactor: 0.56,
+				burstArcDegrees: 360
+			},
+			targeting: 'current-target'
+		},
+		projectileVisual: {
+			color: '#fca5a5',
+			size: 'small',
+			shape: 'diamond',
+			trail: 'streak',
+			glow: true
+		},
+		drop: {
+			mode: 'drop',
+			stageStart: 3,
+			stageEnd: 5,
+			perLevelDropChance: 0.06
+		},
+		role: 'Rare radial knife burst that fans twelve blades out from the pixl and becomes a bleed spreader when adjacent to The Knife'
+	},
+	{
 		id: 'tide-caster',
 		name: 'Tide Caster',
 		rarity: 'rare',
@@ -250,6 +369,43 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 			perLevelDropChance: 0.05
 		},
 		role: 'Late-campaign rare that launches a swelling wave orb whose hit zone expands the farther it travels'
+	},
+	{
+		id: 'blood-catalyst',
+		name: 'Blood Catalyst',
+		category: 'utility',
+		rarity: 'exotic',
+		shape: {
+			width: 2,
+			height: 4,
+			cells: [
+				[0, 0],
+				[1, 0],
+				[0, 1],
+				[1, 1],
+				[0, 2],
+				[1, 2],
+				[0, 3]
+			]
+		},
+		activationKind: 'passive',
+		effect: {
+			type: 'bleed-catalyst',
+			multiplier: 2,
+			maxTotalMultiplier: 6
+		},
+		utilityVisual: {
+			color: '#ef4444',
+			shape: 'column-glow',
+			glow: true
+		},
+		drop: {
+			mode: 'drop',
+			stageStart: 4,
+			stageEnd: 5,
+			perLevelDropChance: 0.03
+		},
+		role: 'Exotic passive that doubles all bleed damage dealt by the build, stacking up to a total six-times multiplier'
 	},
 	{
 		id: 'redline-sniper',
@@ -301,5 +457,43 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 			perLevelDropChance: 0.04
 		},
 		role: 'Late-campaign precision rifle that paints ranged threats, then chains between nearby ranged glitches to stabilize backline-heavy waves'
+	},
+	{
+		id: 'siphoning-knife',
+		name: 'Siphoning Knife',
+		category: 'utility',
+		rarity: 'legendary',
+		shape: {
+			width: 3,
+			height: 4,
+			cells: [
+				[1, 0],
+				[0, 1],
+				[1, 1],
+				[2, 1],
+				[0, 2],
+				[1, 2],
+				[2, 2],
+				[1, 3]
+			]
+		},
+		activationKind: 'passive',
+		effect: {
+			type: 'knife-siphon',
+			lifeStealRatio: 0.5,
+			damageMultiplier: 2
+		},
+		utilityVisual: {
+			color: '#7f1d1d',
+			shape: 'column-glow',
+			glow: true
+		},
+		drop: {
+			mode: 'drop',
+			stageStart: 5,
+			stageEnd: 5,
+			perLevelDropChance: 0.015
+		},
+		role: 'Legendary passive that empowers Fan of Knives when it sits adjacent to both The Knife and this relic, adding heavy lifesteal and a raw damage spike'
 	}
 ];

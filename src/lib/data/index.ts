@@ -39,11 +39,21 @@ export const campaigns = {
 	[campaign4.campaign]: campaign4
 } as const;
 
+const sharedBleedDefinitionIds = new Set([
+	'the-knife',
+	'hemorrhage-burst',
+	'fan-of-knives',
+	'blood-catalyst',
+	'siphoning-knife'
+]);
+
+const sharedBleedWeapons = campaign1Weapons.filter((item) => sharedBleedDefinitionIds.has(item.id));
+
 export const campaignWeaponPools = {
 	[campaign1.campaign]: campaign1Weapons,
-	[campaign2.campaign]: campaign2Weapons,
-	[campaign3.campaign]: campaign3Weapons,
-	[campaign4.campaign]: campaign4Weapons
+	[campaign2.campaign]: [...sharedBleedWeapons, ...campaign2Weapons],
+	[campaign3.campaign]: [...sharedBleedWeapons, ...campaign3Weapons],
+	[campaign4.campaign]: [...sharedBleedWeapons, ...campaign4Weapons]
 } as const;
 
 export const campaignShopWeaponPools = shopWeaponPools;

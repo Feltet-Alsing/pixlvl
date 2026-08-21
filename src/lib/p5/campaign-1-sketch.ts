@@ -153,6 +153,10 @@ interface EnemyState {
 	y: number;
 	health: number;
 	maxHealth: number;
+	bleedStoredDamage: number;
+	bleedDurationRemaining: number;
+	bleedSourceWeaponInstanceId: string | null;
+	bleedLifeStealRatio: number;
 	attackTimer: number;
 	hitFlash: number;
 	orbitDirection: 1 | -1;
@@ -430,6 +434,22 @@ interface FlamethrowerConeState {
 	expiresAfterSweepIndex: number;
 }
 
+interface FanKnifeBurstState {
+	sourceWeaponInstanceId: string;
+	baseAngle: number;
+	angleStep: number;
+	spinRate: number;
+	projectileCount: number;
+	projectilesReleased: number;
+	projectilesPerEmission: number;
+	emissionInterval: number;
+	emissionTimer: number;
+	damage: number;
+	color: string;
+	glow: boolean;
+	age: number;
+}
+
 interface IceSpikeState {
 	sourceWeaponInstanceId: string;
 	enemyId: number | null;
@@ -474,6 +494,15 @@ interface VoidTendrilState {
 	color: string;
 	glow: boolean;
 	hasHit: boolean;
+}
+
+interface HemorrhageBurstState {
+	centerX: number;
+	centerY: number;
+	radius: number;
+	age: number;
+	duration: number;
+	color: string;
 }
 
 interface EquippedWeaponState {
@@ -781,6 +810,13 @@ function doCellsTouchByEdge(
 	return false;
 }
 
+function doLoadoutEntriesTouch(left: EquippedLoadoutEntry, right: EquippedLoadoutEntry) {
+	return doCellsTouchByEdge(
+		getPlacedShapeCells(left.shape, left.placementX, left.placementY),
+		getPlacedShapeCells(right.shape, right.placementX, right.placementY)
+	);
+}
+
 function createEmptyElementalInfusions(): Record<ElementalInfusionType, number> {
 	return {
 		fire: 0,
@@ -810,8 +846,58 @@ export function createCampaignSketch(
 			options.pixlState?.loadoutPlacements,
 			pixlProgression.loadoutColumns
 		);
+		const adjacentInstanceIdsByInstanceId = new Map<string, Set<string>>();
+
+		for (const entry of equippedLoadoutEntries) {
+			adjacentInstanceIdsByInstanceId.set(entry.instanceId, new Set<string>());
+		}
+
+		for (let leftIndex = 0; leftIndex < equippedLoadoutEntries.length; leftIndex += 1) {
+			for (
+				let rightIndex = leftIndex + 1;
+				rightIndex < equippedLoadoutEntries.length;
+				rightIndex += 1
+			) {
+				const leftEntry = equippedLoadoutEntries[leftIndex];
+				const rightEntry = equippedLoadoutEntries[rightIndex];
+
+				if (!doLoadoutEntriesTouch(leftEntry, rightEntry)) {
+					continue;
+				}
+
+				adjacentInstanceIdsByInstanceId.get(leftEntry.instanceId)?.add(rightEntry.instanceId);
+				adjacentInstanceIdsByInstanceId.get(rightEntry.instanceId)?.add(leftEntry.instanceId);
+			}
+		}
+
+		const loadoutEntryByInstanceId = new Map(
+			equippedLoadoutEntries.map((entry) => [entry.instanceId, entry])
+		);
+		const getAdjacentEntries = (instanceId: string) => {
+			const adjacentInstanceIds = adjacentInstanceIdsByInstanceId.get(instanceId);
+
+			if (!adjacentInstanceIds) {
+				return [] as EquippedLoadoutEntry[];
+			}
+
+			return [...adjacentInstanceIds]
+				.map((adjacentInstanceId) => loadoutEntryByInstanceId.get(adjacentInstanceId))
+				.filter((entry): entry is EquippedLoadoutEntry => Boolean(entry));
+		};
+		const hasAdjacentDefinition = (instanceId: string, definitionId: string) => {
+			for (const entry of getAdjacentEntries(instanceId)) {
+				if (entry.definition.id === definitionId) {
+					return true;
+				}
+			}
+
+			return false;
+		};
 		const equippedWeapons = buildEquippedWeapons(equippedLoadoutEntries);
 		const equippedUtilities = buildEquippedUtilities(equippedLoadoutEntries);
+		const equippedWeaponByInstanceId = new Map(
+			equippedWeapons.map((weapon) => [weapon.instanceId, weapon])
+		);
 		const passiveUtilities = equippedUtilities.filter(
 			(utility) => utility.definition.activationKind === 'passive'
 		);
@@ -839,6 +925,58 @@ export function createCampaignSketch(
 
 			weapon.cycleInterval = Math.max(1, weapon.cycleInterval - cycleReduction);
 			weapon.cyclesUntilTrigger = weapon.cycleInterval;
+		}
+
+		const bleedCatalystMultiplier = passiveUtilities.reduce((multiplier, utility) => {
+			if (utility.definition.effect.type !== 'bleed-catalyst') {
+				return multiplier;
+			}
+
+			return Math.min(
+				utility.definition.effect.maxTotalMultiplier,
+				multiplier * utility.definition.effect.multiplier
+			);
+		}, 1);
+		const hemorrhageBurstUtility = passiveUtilities.find(
+			(utility) => utility.definition.effect.type === 'hemorrhage-burst'
+		);
+		const hemorrhageBurstEffect =
+			hemorrhageBurstUtility?.definition.effect.type === 'hemorrhage-burst'
+				? hemorrhageBurstUtility.definition.effect
+				: null;
+		const knifeSiphonUtilityByFanInstanceId = new Map<
+			string,
+			{ damageMultiplier: number; lifeStealRatio: number }
+		>();
+		const fanOfKnivesBleedEnabledInstanceIds = new Set<string>();
+
+		for (const weapon of equippedWeapons) {
+			if (weapon.definition.id !== 'fan-of-knives') {
+				continue;
+			}
+
+			const touchesKnife = hasAdjacentDefinition(weapon.instanceId, 'the-knife');
+
+			if (touchesKnife) {
+				fanOfKnivesBleedEnabledInstanceIds.add(weapon.instanceId);
+			}
+
+			for (const utility of passiveUtilities) {
+				if (utility.definition.effect.type !== 'knife-siphon') {
+					continue;
+				}
+
+				const siphonTouchesKnife = hasAdjacentDefinition(utility.instanceId, 'the-knife');
+
+				if (!touchesKnife || !siphonTouchesKnife) {
+					continue;
+				}
+
+				knifeSiphonUtilityByFanInstanceId.set(weapon.instanceId, {
+					damageMultiplier: utility.definition.effect.damageMultiplier,
+					lifeStealRatio: utility.definition.effect.lifeStealRatio
+				});
+			}
 		}
 		const equippedWeaponColumns = [
 			...new Set(
@@ -898,6 +1036,7 @@ export function createCampaignSketch(
 		let executionLatticeStrikes: ExecutionLatticeStrikeState[] = [];
 		let forkLightningBursts: ForkLightningState[] = [];
 		let flamethrowerCones: FlamethrowerConeState[] = [];
+		let fanKnifeBursts: FanKnifeBurstState[] = [];
 		let iceSpikes: IceSpikeState[] = [];
 		let blizzardStorms: BlizzardStormState[] = [];
 		let voidTendrils: VoidTendrilState[] = [];
@@ -905,6 +1044,7 @@ export function createCampaignSketch(
 		let phaseshifts: PhaseshiftState[] = [];
 		let burningGrounds: BurningGroundState[] = [];
 		let delayedBombs: DelayedBombState[] = [];
+		let hemorrhageBursts: HemorrhageBurstState[] = [];
 		let sniperLocks: SniperLockState[] = [];
 		let sniperChainBursts: SniperChainBurstState[] = [];
 		let centerX = 0;
@@ -1468,6 +1608,7 @@ export function createCampaignSketch(
 			executionLatticeStrikes = [];
 			forkLightningBursts = [];
 			flamethrowerCones = [];
+			fanKnifeBursts = [];
 			iceSpikes = [];
 			blizzardStorms = [];
 			voidTendrils = [];
@@ -1475,6 +1616,7 @@ export function createCampaignSketch(
 			phaseshifts = [];
 			burningGrounds = [];
 			delayedBombs = [];
+			hemorrhageBursts = [];
 			sniperLocks = [];
 			sniperChainBursts = [];
 			spawnQueue = shuffleInPlace(buildSpawnQueue(currentLevel), p);
@@ -1571,6 +1713,10 @@ export function createCampaignSketch(
 				y,
 				health: overrides?.health ?? scaledHealth,
 				maxHealth: overrides?.maxHealth ?? scaledHealth,
+				bleedStoredDamage: 0,
+				bleedDurationRemaining: 0,
+				bleedSourceWeaponInstanceId: null,
+				bleedLifeStealRatio: 0,
 				attackTimer: initialAttackTimer,
 				hitFlash: 0,
 				orbitDirection: overrides?.orbitDirection ?? (p.random() < 0.5 ? -1 : 1),
@@ -1600,6 +1746,77 @@ export function createCampaignSketch(
 				enemy.chillAmount = 1;
 				enemy.frozenTimer = Math.max(enemy.frozenTimer, freezeDuration);
 			}
+		};
+
+		const getKnifeBleedSpec = () => {
+			const knifeSpecial = getWeaponDefinition('the-knife').attack.special;
+
+			if (knifeSpecial?.type === 'bleed-hit') {
+				return knifeSpecial;
+			}
+
+			return {
+				type: 'bleed-hit' as const,
+				damageRatio: 2.5,
+				duration: 10
+			};
+		};
+
+		const resolveBleedSourceSpec = (
+			sourceWeapon: WeaponDefinition | null,
+			sourceWeaponInstanceId: string | undefined
+		) => {
+			if (!sourceWeapon || !sourceWeaponInstanceId) {
+				return null;
+			}
+
+			if (sourceWeapon.attack.special?.type === 'bleed-hit') {
+				return sourceWeapon.attack.special;
+			}
+
+			if (
+				sourceWeapon.id === 'fan-of-knives' &&
+				fanOfKnivesBleedEnabledInstanceIds.has(sourceWeaponInstanceId)
+			) {
+				return getKnifeBleedSpec();
+			}
+
+			return null;
+		};
+
+		const applyBleedToEnemy = (
+			enemyIndex: number,
+			baseStoredDamage: number,
+			duration: number,
+			sourceWeaponInstanceId: string,
+			lifeStealRatio: number
+		) => {
+			const enemy = enemies[enemyIndex];
+
+			if (!enemy) {
+				return 0;
+			}
+
+			if (baseStoredDamage <= 0 || duration <= 0) {
+				return 0;
+			}
+
+			const existingSourceHasSiphon = enemy.bleedSourceWeaponInstanceId
+				? knifeSiphonUtilityByFanInstanceId.has(enemy.bleedSourceWeaponInstanceId)
+				: false;
+			const nextSourceHasSiphon = knifeSiphonUtilityByFanInstanceId.has(sourceWeaponInstanceId);
+
+			enemy.bleedStoredDamage += baseStoredDamage;
+			enemy.bleedDurationRemaining = Math.max(enemy.bleedDurationRemaining, duration);
+			enemy.bleedLifeStealRatio = Math.max(enemy.bleedLifeStealRatio, lifeStealRatio);
+
+			if (!enemy.bleedSourceWeaponInstanceId || nextSourceHasSiphon || !existingSourceHasSiphon) {
+				enemy.bleedSourceWeaponInstanceId = sourceWeaponInstanceId;
+			}
+
+			triggerHemorrhageBurst(enemyIndex);
+
+			return baseStoredDamage / duration;
 		};
 
 		const spawnEnemy = (kind: GlitchKind) => {
@@ -1849,6 +2066,119 @@ export function createCampaignSketch(
 			}
 		};
 
+		const triggerHemorrhageBurst = (enemyIndex: number) => {
+			if (!hemorrhageBurstEffect) {
+				return false;
+			}
+
+			const enemy = enemies[enemyIndex];
+
+			if (!enemy) {
+				return false;
+			}
+
+			const effectiveStoredBleed = enemy.bleedStoredDamage * bleedCatalystMultiplier;
+			const threshold = enemy.maxHealth * hemorrhageBurstEffect.thresholdRatio;
+
+			if (effectiveStoredBleed < threshold) {
+				return false;
+			}
+
+			const burstDamage = effectiveStoredBleed;
+			const burstCenterX = enemy.x;
+			const burstCenterY = enemy.y;
+			const burstRadius = Math.min(p.width, p.height) * hemorrhageBurstEffect.radiusFactor * 0.33;
+
+			enemy.bleedStoredDamage = 0;
+			enemy.bleedDurationRemaining = 0;
+			enemy.bleedSourceWeaponInstanceId = null;
+			enemy.bleedLifeStealRatio = 0;
+			hemorrhageBursts.push({
+				centerX: burstCenterX,
+				centerY: burstCenterY,
+				radius: burstRadius,
+				age: 0,
+				duration: 0.42,
+				color: '#dc2626'
+			});
+
+			for (let targetIndex = enemies.length - 1; targetIndex >= 0; targetIndex -= 1) {
+				const targetEnemy = enemies[targetIndex];
+				const distance = Math.hypot(targetEnemy.x - burstCenterX, targetEnemy.y - burstCenterY);
+
+				if (distance > burstRadius + ENEMY_VISUALS[targetEnemy.kind].radius) {
+					continue;
+				}
+
+				applyDamageToEnemy(targetIndex, burstDamage, 0.14, undefined, {
+					applyWeaponHitEffects: false,
+					allowContextHealing: false
+				});
+			}
+
+			return true;
+		};
+
+		const updateBleedOnEnemy = (enemyIndex: number, dt: number) => {
+			const enemy = enemies[enemyIndex];
+
+			if (!enemy) {
+				return true;
+			}
+
+			if (triggerHemorrhageBurst(enemyIndex)) {
+				return !enemies[enemyIndex] || enemies[enemyIndex].id !== enemy.id;
+			}
+
+			if (enemy.bleedStoredDamage <= 0 || enemy.bleedDurationRemaining <= 0) {
+				enemy.bleedStoredDamage = 0;
+				enemy.bleedDurationRemaining = 0;
+				enemy.bleedSourceWeaponInstanceId = null;
+				enemy.bleedLifeStealRatio = 0;
+				return false;
+			}
+
+			const baseDamageConsumed = Math.min(
+				enemy.bleedStoredDamage,
+				(enemy.bleedStoredDamage / Math.max(enemy.bleedDurationRemaining, dt)) * dt
+			);
+
+			enemy.bleedStoredDamage = Math.max(0, enemy.bleedStoredDamage - baseDamageConsumed);
+			enemy.bleedDurationRemaining = Math.max(0, enemy.bleedDurationRemaining - dt);
+
+			if (baseDamageConsumed > 0) {
+				const bleedTickResult = applyDamageToEnemy(
+					enemyIndex,
+					baseDamageConsumed * bleedCatalystMultiplier,
+					0.03,
+					enemy.bleedSourceWeaponInstanceId ?? undefined,
+					{
+						applyWeaponHitEffects: false,
+						allowContextHealing: false
+					}
+				);
+
+				if (enemy.bleedLifeStealRatio > 0 && bleedTickResult.actualDamage > 0) {
+					healPixl(bleedTickResult.actualDamage * enemy.bleedLifeStealRatio);
+				}
+			}
+
+			const nextEnemy = enemies[enemyIndex];
+
+			if (!nextEnemy || nextEnemy.id !== enemy.id) {
+				return true;
+			}
+
+			if (nextEnemy.bleedStoredDamage <= 0 || nextEnemy.bleedDurationRemaining <= 0) {
+				nextEnemy.bleedStoredDamage = 0;
+				nextEnemy.bleedDurationRemaining = 0;
+				nextEnemy.bleedSourceWeaponInstanceId = null;
+				nextEnemy.bleedLifeStealRatio = 0;
+			}
+
+			return false;
+		};
+
 		const easeInQuad = (progress: number) => {
 			const clamped = Math.max(0, Math.min(1, progress));
 			return clamped * clamped;
@@ -1952,7 +2282,11 @@ export function createCampaignSketch(
 			enemyIndex: number,
 			damage: number,
 			hitFlash = 0.08,
-			sourceWeaponInstanceId?: string
+			sourceWeaponInstanceId?: string,
+			options: {
+				applyWeaponHitEffects?: boolean;
+				allowContextHealing?: boolean;
+			} = {}
 		) => {
 			const enemy = enemies[enemyIndex];
 
@@ -1963,9 +2297,10 @@ export function createCampaignSketch(
 			const stats = combatProfile.glitches[enemy.kind];
 			let remainingDamage = damage;
 			let actualDamage = 0;
+			const applyWeaponHitEffects = options.applyWeaponHitEffects ?? true;
+			const allowContextHealing = options.allowContextHealing ?? true;
 			const sourceWeapon = sourceWeaponInstanceId
-				? (equippedWeapons.find((weapon) => weapon.instanceId === sourceWeaponInstanceId)
-						?.definition ?? null)
+				? (equippedWeaponByInstanceId.get(sourceWeaponInstanceId)?.definition ?? null)
 				: null;
 
 			if (sourceWeapon?.attack.requiredInfusion && enemy.voidTouchedTimer > 0) {
@@ -1991,14 +2326,20 @@ export function createCampaignSketch(
 			if (remainingDamage <= 0) {
 				enemy.hitFlash = Math.max(enemy.hitFlash, hitFlash);
 				recordWeaponDamage(sourceWeaponInstanceId, actualDamage);
-				if (sourceWeapon?.attack.special?.type === 'shield-steal' && sourceWeaponInstanceId) {
+				if (
+					applyWeaponHitEffects &&
+					sourceWeapon?.attack.special?.type === 'shield-steal' &&
+					sourceWeaponInstanceId
+				) {
 					addPixlShieldFromSource(
 						`${sourceWeaponInstanceId}-shield-steal`,
 						actualDamage * sourceWeapon.attack.special.shieldRatio,
 						sourceWeapon.projectileVisual.color
 					);
 				}
-				applyBlackHoleLifeSteal(enemy, actualDamage);
+				if (allowContextHealing) {
+					applyBlackHoleLifeSteal(enemy, actualDamage);
+				}
 				return { defeated: false, actualDamage };
 			}
 			const shieldReduction =
@@ -2027,19 +2368,44 @@ export function createCampaignSketch(
 			enemy.health -= totalDamage;
 			enemy.hitFlash = Math.max(enemy.hitFlash, hitFlash);
 			recordWeaponDamage(sourceWeaponInstanceId, actualDamage);
-			if (sourceWeapon?.attack.special?.type === 'shield-steal' && sourceWeaponInstanceId) {
+			if (
+				applyWeaponHitEffects &&
+				sourceWeapon?.attack.special?.type === 'shield-steal' &&
+				sourceWeaponInstanceId
+			) {
 				addPixlShieldFromSource(
 					`${sourceWeaponInstanceId}-shield-steal`,
 					actualDamage * sourceWeapon.attack.special.shieldRatio,
 					sourceWeapon.projectileVisual.color
 				);
 			}
-			applyBlackHoleLifeSteal(enemy, actualDamage);
+			if (allowContextHealing) {
+				applyBlackHoleLifeSteal(enemy, actualDamage);
+			}
 
-			if (sourceWeapon?.attack.special?.type === 'vulnerable-hit') {
+			if (applyWeaponHitEffects && sourceWeapon?.attack.special?.type === 'vulnerable-hit') {
 				enemy.vulnerableTimer = Math.max(
 					enemy.vulnerableTimer,
 					sourceWeapon.attack.special.duration
+				);
+			}
+
+			const bleedSpec = applyWeaponHitEffects
+				? resolveBleedSourceSpec(sourceWeapon, sourceWeaponInstanceId)
+				: null;
+
+			if (bleedSpec && sourceWeaponInstanceId) {
+				const knifeSiphon =
+					sourceWeapon?.id === 'fan-of-knives'
+						? knifeSiphonUtilityByFanInstanceId.get(sourceWeaponInstanceId)
+						: null;
+
+				applyBleedToEnemy(
+					enemyIndex,
+					Math.max(0, actualDamage * bleedSpec.damageRatio),
+					bleedSpec.duration,
+					sourceWeaponInstanceId,
+					knifeSiphon?.lifeStealRatio ?? 0
 				);
 			}
 
@@ -2054,6 +2420,10 @@ export function createCampaignSketch(
 			}
 
 			if (enemy.health <= 0) {
+				if (triggerHemorrhageBurst(enemyIndex)) {
+					return { defeated: true, actualDamage };
+				}
+
 				awardEnemyDefeat(enemyIndex);
 				return { defeated: true, actualDamage };
 			}
@@ -2087,6 +2457,48 @@ export function createCampaignSketch(
 
 				if (progress >= 1) {
 					needleBursts.splice(index, 1);
+				}
+			}
+		};
+
+		const updateFanKnifeBursts = (dt: number) => {
+			for (let index = fanKnifeBursts.length - 1; index >= 0; index -= 1) {
+				const burst = fanKnifeBursts[index];
+				burst.age += dt;
+				burst.emissionTimer -= dt;
+
+				while (burst.emissionTimer <= 0 && burst.projectilesReleased < burst.projectileCount) {
+					burst.emissionTimer += burst.emissionInterval;
+
+					const volleyCount = Math.min(
+						burst.projectilesPerEmission,
+						burst.projectileCount - burst.projectilesReleased
+					);
+					const spinAngle = burst.baseAngle + burst.age * burst.spinRate;
+
+					for (let volleyIndex = 0; volleyIndex < volleyCount; volleyIndex += 1) {
+						const angleRadians = spinAngle + volleyIndex * burst.angleStep;
+
+						spawnProjectile({
+							sourceWeaponInstanceId: burst.sourceWeaponInstanceId,
+							originX: centerX,
+							originY: centerY,
+							angleRadians,
+							weapon: getWeaponDefinition('fan-of-knives'),
+							damage: burst.damage,
+							shape: 'knife',
+							trail: 'streak',
+							glow: burst.glow,
+							color: burst.color,
+							motion: 'straight'
+						});
+					}
+
+					burst.projectilesReleased += volleyCount;
+				}
+
+				if (burst.projectilesReleased >= burst.projectileCount) {
+					fanKnifeBursts.splice(index, 1);
 				}
 			}
 		};
@@ -2920,6 +3332,33 @@ export function createCampaignSketch(
 				return;
 			}
 
+			if (special?.type === 'fan-knives') {
+				const knifeSiphon = knifeSiphonUtilityByFanInstanceId.get(weapon.instanceId);
+				const damageMultiplier = knifeSiphon?.damageMultiplier ?? 1;
+				const projectileCount = Math.max(1, special.projectileCount);
+				const projectilesPerEmission = 3;
+				const angleStep = ((special.burstArcDegrees / 180) * Math.PI) / projectilesPerEmission;
+				const baseAngle = Math.atan2(target.y - centerY, target.x - centerX);
+
+				fanKnifeBursts.push({
+					sourceWeaponInstanceId: weapon.instanceId,
+					baseAngle,
+					angleStep,
+					spinRate: Math.PI * 5.5,
+					projectileCount,
+					projectilesReleased: 0,
+					projectilesPerEmission,
+					emissionInterval: 0.026,
+					emissionTimer: 0,
+					damage: getAdjustedWeaponDamage(weapon.definition, damageMultiplier, weapon.instanceId),
+					color: weapon.definition.projectileVisual.color,
+					glow: true,
+					age: 0
+				});
+
+				return;
+			}
+
 			if (special?.type === 'sniper-line') {
 				spawnSniperLock(weapon.definition, weapon.instanceId);
 				return;
@@ -2994,7 +3433,7 @@ export function createCampaignSketch(
 				return;
 			}
 
-			if (weapon.definition.id === 'splitter') {
+			if (weapon.definition.id === 'splitter' || weapon.definition.id === 'the-knife') {
 				const targets = getClosestEnemies(Math.max(1, weapon.definition.attack.projectileCount));
 
 				if (targets.length === 0) {
@@ -3379,6 +3818,17 @@ export function createCampaignSketch(
 			}
 		};
 
+		const updateHemorrhageBursts = (dt: number) => {
+			for (let index = hemorrhageBursts.length - 1; index >= 0; index -= 1) {
+				const burst = hemorrhageBursts[index];
+				burst.age += dt;
+
+				if (burst.age >= burst.duration) {
+					hemorrhageBursts.splice(index, 1);
+				}
+			}
+		};
+
 		const updateLaserSweeps = (dt: number) => {
 			for (let index = laserSweeps.length - 1; index >= 0; index -= 1) {
 				const sweep = laserSweeps[index];
@@ -3450,6 +3900,10 @@ export function createCampaignSketch(
 
 		const updateEnemies = (dt: number) => {
 			for (let index = enemies.length - 1; index >= 0; index -= 1) {
+				if (updateBleedOnEnemy(index, dt)) {
+					continue;
+				}
+
 				const enemy = enemies[index];
 				const stats = combatProfile.glitches[enemy.kind];
 				const contactRange = getEnemyContactRange(enemy.kind);
@@ -4615,6 +5069,54 @@ export function createCampaignSketch(
 				p.circle(bomb.centerX, bomb.centerY, flashRadius * 0.95);
 			}
 
+			for (const burst of hemorrhageBursts) {
+				const progress = Math.min(1, burst.age / Math.max(0.0001, burst.duration));
+				const alphaHex = Math.round((1 - progress) * 180)
+					.toString(16)
+					.padStart(2, '0');
+				const splashRadius = burst.radius * (0.18 + progress * 0.92);
+				const coreRadius = burst.radius * (0.62 + (1 - progress) * 0.18);
+
+				p.noStroke();
+				p.fill(`#2f0808${alphaHex}`);
+				p.circle(burst.centerX, burst.centerY, coreRadius * 1.7);
+				p.fill(`${burst.color}${alphaHex}`);
+				p.circle(burst.centerX, burst.centerY, coreRadius * 1.2);
+				p.fill(`#7f1d1d${alphaHex}`);
+				p.circle(burst.centerX, burst.centerY, coreRadius * 0.7);
+
+				for (let dropletIndex = 0; dropletIndex < 11; dropletIndex += 1) {
+					const angle = (dropletIndex / 11) * p.TWO_PI + dropletIndex * 0.37;
+					const travel = splashRadius * (0.52 + (dropletIndex % 4) * 0.18);
+					const dropletX = burst.centerX + Math.cos(angle) * travel;
+					const dropletY = burst.centerY + Math.sin(angle) * travel * 0.82;
+					const dropletSize = Math.max(4, burst.radius * (0.16 - dropletIndex * 0.007));
+
+					p.fill(dropletIndex % 3 === 0 ? `#fecaca${alphaHex}` : `${burst.color}${alphaHex}`);
+					p.circle(dropletX, dropletY, dropletSize * (1.1 - progress * 0.18));
+					p.fill(`#7f1d1d${alphaHex}`);
+					p.circle(
+						dropletX + Math.cos(angle) * dropletSize * 0.08,
+						dropletY + Math.sin(angle) * dropletSize * 0.08,
+						dropletSize * 0.52
+					);
+				}
+
+				for (let streakIndex = 0; streakIndex < 5; streakIndex += 1) {
+					const angle = (streakIndex / 5) * p.TWO_PI + 0.24;
+					const innerX = burst.centerX + Math.cos(angle) * coreRadius * 0.4;
+					const innerY = burst.centerY + Math.sin(angle) * coreRadius * 0.4;
+					const outerX = burst.centerX + Math.cos(angle) * splashRadius * 0.92;
+					const outerY = burst.centerY + Math.sin(angle) * splashRadius * 0.92;
+
+					p.stroke(`#7f1d1d${alphaHex}`);
+					p.strokeWeight(Math.max(1.2, burst.radius * 0.08));
+					p.line(innerX, innerY, outerX, outerY);
+				}
+
+				p.noStroke();
+			}
+
 			for (const sweep of laserSweeps) {
 				const beamX = centerX + Math.cos(sweep.angle) * sweep.beamLength;
 				const beamY = centerY + Math.sin(sweep.angle) * sweep.beamLength;
@@ -4700,7 +5202,51 @@ export function createCampaignSketch(
 				p.push();
 				p.translate(projectile.x, projectile.y);
 
-				if (projectile.shape === 'diamond') {
+				if (projectile.shape === 'knife') {
+					p.rotate(Math.atan2(projectile.directionY, projectile.directionX));
+					p.rectMode(p.CENTER);
+					p.fill('#f8fafc');
+					p.beginShape();
+					p.vertex(projectile.size * 1.05, 0);
+					p.vertex(projectile.size * 0.2, -projectile.size * 0.12);
+					p.vertex(-projectile.size * 0.16, -projectile.size * 0.28);
+					p.vertex(-projectile.size * 0.32, 0);
+					p.vertex(-projectile.size * 0.16, projectile.size * 0.28);
+					p.vertex(projectile.size * 0.2, projectile.size * 0.12);
+					p.endShape(p.CLOSE);
+					p.fill('#e2e8f0');
+					p.beginShape();
+					p.vertex(projectile.size * 0.72, 0);
+					p.vertex(projectile.size * 0.08, -projectile.size * 0.05);
+					p.vertex(-projectile.size * 0.04, 0);
+					p.vertex(projectile.size * 0.08, projectile.size * 0.05);
+					p.endShape(p.CLOSE);
+					p.fill('#d97706');
+					p.rect(
+						-projectile.size * 0.28,
+						0,
+						projectile.size * 0.22,
+						Math.max(2, projectile.size * 0.36),
+						2
+					);
+					p.fill('#5b4636');
+					p.rect(
+						-projectile.size * 0.54,
+						0,
+						projectile.size * 0.44,
+						Math.max(2, projectile.size * 0.2),
+						2
+					);
+					p.fill('#7f1d1d');
+					p.triangle(
+						-projectile.size * 0.86,
+						0,
+						-projectile.size * 0.66,
+						-projectile.size * 0.12,
+						-projectile.size * 0.66,
+						projectile.size * 0.12
+					);
+				} else if (projectile.shape === 'diamond') {
 					p.rotate(Math.PI / 4);
 					p.rectMode(p.CENTER);
 					p.square(0, 0, projectile.size * 1.05);
@@ -5047,6 +5593,71 @@ export function createCampaignSketch(
 		};
 
 		const drawEnemies = () => {
+			const drawEnemyShape = (enemy: EnemyState, visual: (typeof ENEMY_VISUALS)[GlitchKind]) => {
+				if (visual.shape === 'square') {
+					p.rectMode(p.CENTER);
+					p.square(enemy.x, enemy.y, visual.radius * 1.8);
+					return;
+				}
+
+				if (visual.shape === 'diamond') {
+					p.push();
+					p.translate(enemy.x, enemy.y);
+					p.rotate(Math.PI / 4);
+					p.rectMode(p.CENTER);
+					p.square(0, 0, visual.radius * 2.1);
+					p.pop();
+					return;
+				}
+
+				if (visual.shape === 'triangle') {
+					p.triangle(
+						enemy.x,
+						enemy.y - visual.radius * 1.25,
+						enemy.x - visual.radius,
+						enemy.y + visual.radius,
+						enemy.x + visual.radius,
+						enemy.y + visual.radius
+					);
+					return;
+				}
+
+				p.circle(enemy.x, enemy.y, visual.radius * 2);
+			};
+
+			const clipEnemyShape = (
+				enemy: EnemyState,
+				visual: (typeof ENEMY_VISUALS)[GlitchKind],
+				callback: () => void
+			) => {
+				const context = p.drawingContext as CanvasRenderingContext2D;
+				context.save();
+				context.beginPath();
+
+				if (visual.shape === 'square') {
+					const size = visual.radius * 1.8;
+					context.rect(enemy.x - size / 2, enemy.y - size / 2, size, size);
+				} else if (visual.shape === 'diamond') {
+					const size = visual.radius * 1.48;
+					context.moveTo(enemy.x, enemy.y - size);
+					context.lineTo(enemy.x + size, enemy.y);
+					context.lineTo(enemy.x, enemy.y + size);
+					context.lineTo(enemy.x - size, enemy.y);
+					context.closePath();
+				} else if (visual.shape === 'triangle') {
+					context.moveTo(enemy.x, enemy.y - visual.radius * 1.25);
+					context.lineTo(enemy.x - visual.radius, enemy.y + visual.radius);
+					context.lineTo(enemy.x + visual.radius, enemy.y + visual.radius);
+					context.closePath();
+				} else {
+					context.arc(enemy.x, enemy.y, visual.radius, 0, Math.PI * 2);
+				}
+
+				context.clip();
+				callback();
+				context.restore();
+			};
+
 			for (const enemy of enemies) {
 				const visual = ENEMY_VISUALS[enemy.kind];
 				const flash = enemy.hitFlash > 0;
@@ -5061,32 +5672,38 @@ export function createCampaignSketch(
 				}
 
 				if (flash) {
-					p.fill(255);
+					if (enemy.bleedStoredDamage > 0) {
+						p.fill('#ffe4e6');
+					} else {
+						p.fill(255);
+					}
 				} else {
 					p.fill(...visual.fill);
 				}
+				drawEnemyShape(enemy, visual);
 
-				if (visual.shape === 'square') {
-					p.rectMode(p.CENTER);
-					p.square(enemy.x, enemy.y, visual.radius * 1.8);
-				} else if (visual.shape === 'diamond') {
-					p.push();
-					p.translate(enemy.x, enemy.y);
-					p.rotate(Math.PI / 4);
-					p.rectMode(p.CENTER);
-					p.square(0, 0, visual.radius * 2.1);
-					p.pop();
-				} else if (visual.shape === 'triangle') {
-					p.triangle(
-						enemy.x,
-						enemy.y - visual.radius * 1.25,
-						enemy.x - visual.radius,
-						enemy.y + visual.radius,
-						enemy.x + visual.radius,
-						enemy.y + visual.radius
+				if (enemy.bleedStoredDamage > 0) {
+					const bleedFillRatio = Math.max(
+						0,
+						Math.min(1, (enemy.bleedStoredDamage * bleedCatalystMultiplier) / enemy.maxHealth)
 					);
-				} else {
-					p.circle(enemy.x, enemy.y, visual.radius * 2);
+					const overlayWidth =
+						visual.shape === 'triangle' ? visual.radius * 2.2 : visual.radius * 2.4;
+					const overlayHeight =
+						visual.shape === 'triangle' ? visual.radius * 2.4 : visual.radius * 2.4;
+					const fillHeight = overlayHeight * bleedFillRatio;
+
+					clipEnemyShape(enemy, visual, () => {
+						p.noStroke();
+						p.fill('#dc2626cc');
+						p.rectMode(p.CORNER);
+						p.rect(
+							enemy.x - overlayWidth / 2,
+							enemy.y + overlayHeight / 2 - fillHeight,
+							overlayWidth,
+							fillHeight
+						);
+					});
 				}
 
 				if (enemy.shieldPulseTimer > 0) {
@@ -5176,7 +5793,13 @@ export function createCampaignSketch(
 				activeShieldColor = initialResumeState.activeShieldColor;
 				enemyId = initialResumeState.enemyId;
 				spawnQueue = [...initialResumeState.spawnQueue];
-				enemies = initialResumeState.enemies.map((enemy) => ({ ...enemy }));
+				enemies = initialResumeState.enemies.map((enemy) => ({
+					...enemy,
+					bleedStoredDamage: enemy.bleedStoredDamage ?? 0,
+					bleedDurationRemaining: enemy.bleedDurationRemaining ?? 0,
+					bleedSourceWeaponInstanceId: enemy.bleedSourceWeaponInstanceId ?? null,
+					bleedLifeStealRatio: enemy.bleedLifeStealRatio ?? 0
+				}));
 				highestUnlockedLevel = initialResumeState.highestUnlockedLevel;
 				highestClearedLevel = initialResumeState.highestClearedLevel;
 				completed = initialResumeState.completed;
@@ -5206,9 +5829,11 @@ export function createCampaignSketch(
 				updateExecutionLatticeStrikes(dt);
 				updateForkLightningBursts(dt);
 				updateFlamethrowerCones(dt);
+				updateFanKnifeBursts(dt);
 				updateIceSpikes(dt);
 				updateBlizzardStorms(dt);
 				updateVoidTendrils(dt);
+				updateHemorrhageBursts(dt);
 				updateEnemies(dt);
 				updateEnemyProjectiles(dt);
 				updateSniperChainBursts(dt);

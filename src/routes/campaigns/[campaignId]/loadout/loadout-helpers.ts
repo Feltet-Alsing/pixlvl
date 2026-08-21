@@ -807,6 +807,12 @@ export function getLoadoutItemEffectSummary(definition: LoadoutItemDefinition) {
 			return `Adjacent weapons activate ${definition.effect.reduction} cycle faster`;
 		case 'cycle-damage-boost':
 			return `${definition.effect.damageMultiplier}x damage next cycle`;
+		case 'hemorrhage-burst':
+			return `Bleeding enemies burst when stored bleed exceeds max health`;
+		case 'bleed-catalyst':
+			return `${definition.effect.multiplier}x bleed damage, capped at ${definition.effect.maxTotalMultiplier}x total`;
+		case 'knife-siphon':
+			return `Fan of Knives touching The Knife gains ${Math.round(definition.effect.lifeStealRatio * 100)}% leech and ${definition.effect.damageMultiplier}x damage while this also touches The Knife`;
 	}
 }
 
