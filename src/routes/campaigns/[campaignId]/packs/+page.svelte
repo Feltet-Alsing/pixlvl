@@ -8,6 +8,7 @@
 
 	type OpenedPackSummary = NonNullable<NonNullable<PageProps['form']>['openedPack']>;
 	type OpenedCardSummary = OpenedPackSummary['cards'][number];
+	type OpenedPackBatchSummary = NonNullable<NonNullable<PageProps['form']>['openedPackBatch']>;
 
 	const rarityAccentById = {
 		normal: '#f0f4f8',
@@ -143,15 +144,13 @@
 		].join('; ');
 	};
 
-	let campaignPacks = $derived.by(() => {
-		const rewardPacks = data.gameState?.rewardPacks ?? [];
+	let rewardPacks = $derived(data.gameState?.rewardPacks ?? []);
+	let unopenedPacks = $derived(rewardPacks.filter((pack) => pack.status === 'unopened'));
+	let openedPacks = $derived(rewardPacks.filter((pack) => pack.status === 'opened'));
+	let hasAnyPacks = $derived(rewardPacks.length > 0);
+	let selectedPackIds = $state<string[]>([]);
 
-		return rewardPacks.filter((pack) => pack.campaignId === data.campaignId);
-	});
-	let unopenedPacks = $derived(campaignPacks.filter((pack) => pack.status === 'unopened'));
-	let openedPacks = $derived(campaignPacks.filter((pack) => pack.status === 'opened'));
-	let hasAnyPacks = $derived(campaignPacks.length > 0);
-
+	let openedPackBatch = $derived(form?.openedPackBatch as OpenedPackBatchSummary | undefined);
 	let openedPack = $derived(form?.openedPack as OpenedPackSummary | undefined);
 	let revealStep = $derived(openedPack ? 0 : -1);
 	let revealCardCount = $derived(openedPack?.cards.length ?? 0);
@@ -177,6 +176,10 @@
 			? 'Reveal guaranteed card'
 			: 'Reveal next card';
 	});
+	let selectedPackCount = $derived(selectedPackIds.length);
+	let allUnopenedSelected = $derived(
+		unopenedPacks.length > 0 && selectedPackIds.length === unopenedPacks.length
+	);
 
 	function advanceReveal() {
 		if (!openedPack || revealStep >= revealCardCount) {
@@ -193,6 +196,24 @@
 
 		revealStep = 0;
 	}
+
+	function isPackSelected(packId: string) {
+		return selectedPackIds.includes(packId);
+	}
+
+	function togglePackSelection(packId: string) {
+		selectedPackIds = isPackSelected(packId)
+			? selectedPackIds.filter((selectedPackId) => selectedPackId !== packId)
+			: [...selectedPackIds, packId];
+	}
+
+	function selectAllPacks() {
+		selectedPackIds = unopenedPacks.map((pack) => pack.id);
+	}
+
+	function deselectAllPacks() {
+		selectedPackIds = [];
+	}
 </script>
 
 <svelte:head>
@@ -204,7 +225,9 @@
 		<section class="hero panel">
 			<p class="eyebrow">Campaign {data.campaign.campaign}</p>
 			<h1>Reward packs</h1>
-			<p class="lede">Choose a sealed pack or revisit the pulls you have already opened.</p>
+			<p class="lede">
+				Choose a sealed pack or revisit the pulls you have already opened across your whole account.
+			</p>
 		</section>
 
 		{#if form?.openPackError}
@@ -213,13 +236,84 @@
 			<p class="feedback success">{form.openPackSuccess}</p>
 		{/if}
 
-		{#if openedPack}
+		{#if openedPackBatch}
+			<section class="panel opened-pack-summary">
+				<div class="section-head compact-section-head">
+					<h2>Bulk opening summary</h2>
+					<div class="summary-strip" aria-label="Bulk opening summary">
+						<span class="summary-pill">{openedPackBatch.packCount} packs</span>
+						<span class="summary-pill">{openedPackBatch.openedCardCount} cards</span>
+						<span class="summary-pill">{openedPackBatch.newCardCount} new</span>
+					</div>
+				</div>
+
+				<div class="reveal-panel">
+					<div class="reveal-progress-header">
+						<div>
+							<p class="reveal-phase-label">Top 10 pulls</p>
+							<p class="reveal-phase-copy">
+								New cards are always shown first, then the rarest pulls.
+							</p>
+						</div>
+					</div>
+
+					<div
+						class="opened-cards-list"
+						role="list"
+						aria-label="Bulk opened pack top cards summary"
+					>
+						{#each openedPackBatch.topCards as card, cardIndex (`${card.packId}:${card.definitionId}:${card.slotIndex}:${cardIndex}`)}
+							{@const summaryThumbnail = getShapeThumbnail(card.definitionId, 'summary')}
+							<div
+								class={`opened-card-row summary-card-row rarity-${card.rarity} ${card.isGuaranteedSlot ? 'guaranteed-card' : ''}`}
+								role="listitem"
+								style={getRevealCardStyle(card)}
+							>
+								<div class="opened-card-main">
+									{#if summaryThumbnail}
+										<div class="summary-shape-stage" aria-hidden="true">
+											<div class="summary-shape-grid" style={summaryThumbnail.style}>
+												{#each createIndexArray(summaryThumbnail.shape.height) as shapeY (`bulk-summary:${card.definitionId}:${shapeY}`)}
+													{#each createIndexArray(summaryThumbnail.shape.width) as shapeX (`bulk-summary:${card.definitionId}:${shapeY}:${shapeX}`)}
+														<div
+															class="summary-shape-cell"
+															class:filled={isShapeCellFilled(
+																summaryThumbnail.shape,
+																shapeX,
+																shapeY
+															)}
+														></div>
+													{/each}
+												{/each}
+											</div>
+										</div>
+									{/if}
+									<div>
+										<p class="opened-card-name">{card.name}</p>
+										<p class="opened-card-rarity">
+											{formatLabel(card.rarity)} · Pack #{card.packId.slice(0, 8)}
+										</p>
+									</div>
+								</div>
+								<div class="opened-card-flags">
+									{#if card.isGuaranteedSlot}
+										<span class="card-flag guaranteed">Guaranteed</span>
+									{/if}
+									{#if card.isNew}
+										<span class="card-flag new">New</span>
+									{/if}
+								</div>
+							</div>
+						{/each}
+					</div>
+				</div>
+			</section>
+		{:else if openedPack}
 			<section class="panel opened-pack-summary">
 				<div class="section-head compact-section-head">
 					<h2>Latest opening</h2>
 					<div class="summary-strip" aria-label="Latest opening summary">
 						<span class="summary-pill">Pack #{openedPack.id.slice(0, 8)}</span>
-						<span class="summary-pill">Campaign {openedPack.campaignId}</span>
 						<span class="summary-pill">{openedPack.cards.length} cards</span>
 						<span class="summary-pill">Opened {formatCompactDate(openedPack.openedAt)}</span>
 					</div>
@@ -286,7 +380,7 @@
 										<p class="reveal-pack-series">pixlvl reward drop</p>
 										<h3>{currentRevealCard.name}</h3>
 										<p class="reveal-pack-subtitle">
-											Campaign {openedPack.campaignId}
+											Pack #{openedPack.id.slice(0, 8)}
 											{#if currentRevealCard.isGuaranteedSlot}
 												• featured pull
 											{:else}
@@ -389,57 +483,93 @@
 			<section class="section-block">
 				<div class="section-head">
 					<h2>Unopened</h2>
-					<p>Choose a sealed pack from the shelf.</p>
+					<p>Select sealed packs from the shelf, then open them in one batch.</p>
 				</div>
 
 				{#if unopenedPacks.length > 0}
-					<div class="pack-grid">
-						{#each unopenedPacks as pack (pack.id)}
-							<article
-								class={['pack-shelf-item', 'sealed', unopenedPacks.length > 1 && 'has-stack']}
-							>
-								<div class="pack-stack-stage" aria-hidden="true">
-									{#if unopenedPacks.length > 1}
-										<span class="pack-stack-backdrop pack-stack-backdrop-far"></span>
-										<span class="pack-stack-backdrop pack-stack-backdrop-near"></span>
-									{/if}
-									<div class="pack-face-preview sealed-preview">
-										<div class="pack-face-header">
-											<span>Campaign {pack.campaignId}</span>
-											<span>Lv {pack.sourceCampaignLevel}</span>
-										</div>
-										<div class="pack-face-badge">reward pack</div>
-										<div class="pack-face-emblem">
-											<div class="pack-face-orbit pack-face-orbit-outer"></div>
-											<div class="pack-face-orbit pack-face-orbit-inner"></div>
-											<div class="pack-face-core"></div>
-										</div>
-										<div class="pack-face-footer">
-											<span>{pack.cardCount} cards</span>
-											<span>sealed</span>
-										</div>
-									</div>
-								</div>
-								<div class="pack-shelf-meta">
-									<div class="pack-card-topline">
-										<p class="pack-kicker">Pack #{pack.id.slice(0, 8)}</p>
-										<span class="status-pill status-unopened">Sealed</span>
-									</div>
-									<div class="pack-context-row" aria-label="Pack details">
-										<span class="pack-context-pill">Lv {pack.sourceCampaignLevel}</span>
-										<span class="pack-context-pill">{pack.cardCount} cards</span>
-									</div>
-									<p class="pack-note">
-										Dropped {formatCompactDate(pack.droppedAt)}. Contents hidden.
-									</p>
-								</div>
-								<form method="post" action="?/openPack">
-									<input type="hidden" name="packId" value={pack.id} />
-									<button class="pack-action-button" type="submit">Open pack</button>
-								</form>
-							</article>
+					<form method="post" action="?/openSelectedPacks" class="bulk-pack-form">
+						<div class="pack-bulk-toolbar">
+							<div class="pack-bulk-copy">
+								<p class="pack-bulk-count">{selectedPackCount} selected</p>
+								<p class="pack-note">
+									Open a batch and get a top 10 summary weighted toward new and rare pulls.
+								</p>
+							</div>
+							<div class="pack-bulk-actions">
+								<button
+									type="button"
+									class="bulk-control-button secondary"
+									onclick={selectAllPacks}
+									disabled={allUnopenedSelected}
+								>
+									Select all
+								</button>
+								<button
+									type="button"
+									class="bulk-control-button secondary"
+									onclick={deselectAllPacks}
+									disabled={selectedPackCount === 0}
+								>
+									Deselect all
+								</button>
+								<button
+									type="submit"
+									class="bulk-control-button primary"
+									disabled={selectedPackCount === 0}
+								>
+									Open selected packs
+								</button>
+							</div>
+						</div>
+
+						{#each selectedPackIds as packId (`selected:${packId}`)}
+							<input type="hidden" name="packId" value={packId} />
 						{/each}
-					</div>
+
+						<div class="pack-grid">
+							{#each unopenedPacks as pack (pack.id)}
+								<button
+									type="button"
+									class={[
+										'pack-shelf-item',
+										'pack-card-hitarea',
+										'sealed',
+										isPackSelected(pack.id) && 'is-selected',
+										unopenedPacks.length > 1 && 'has-stack'
+									]}
+									onclick={() => togglePackSelection(pack.id)}
+									aria-pressed={isPackSelected(pack.id)}
+									aria-label={`${isPackSelected(pack.id) ? 'Deselect' : 'Select'} sealed pack ${pack.id.slice(0, 8)} from source level ${pack.sourceCampaignLevel}`}
+								>
+									<div class="pack-stack-stage" aria-hidden="true">
+										{#if unopenedPacks.length > 1}
+											<span class="pack-stack-backdrop pack-stack-backdrop-far"></span>
+											<span class="pack-stack-backdrop pack-stack-backdrop-near"></span>
+										{/if}
+										<div class="pack-face-preview sealed-preview">
+											<div class="pack-selection-indicator">
+												{isPackSelected(pack.id) ? 'Selected' : 'Select'}
+											</div>
+											<div class="pack-face-header">
+												<span>Reward pack</span>
+												<span>Lv {pack.sourceCampaignLevel}</span>
+											</div>
+											<div class="pack-face-badge">reward pack</div>
+											<div class="pack-face-emblem">
+												<div class="pack-face-orbit pack-face-orbit-outer"></div>
+												<div class="pack-face-orbit pack-face-orbit-inner"></div>
+												<div class="pack-face-core"></div>
+											</div>
+											<div class="pack-face-footer">
+												<span>Pack #{pack.id.slice(0, 8)}</span>
+												<span>{pack.cardCount} cards</span>
+											</div>
+										</div>
+									</div>
+								</button>
+							{/each}
+						</div>
+					</form>
 				{:else}
 					<div class="panel empty-state">
 						<h3>No sealed packs</h3>
@@ -457,41 +587,42 @@
 				{#if openedPacks.length > 0}
 					<div class="pack-grid">
 						{#each openedPacks as pack (pack.id)}
-							<article class={['pack-shelf-item', 'opened', openedPacks.length > 1 && 'has-stack']}>
-								<div class="pack-stack-stage" aria-hidden="true">
-									{#if openedPacks.length > 1}
-										<span class="pack-stack-backdrop pack-stack-backdrop-far"></span>
-										<span class="pack-stack-backdrop pack-stack-backdrop-near"></span>
-									{/if}
-									<div class="pack-face-preview opened-preview">
-										<div class="pack-face-header">
-											<span>Campaign {pack.campaignId}</span>
-											<span>Lv {pack.sourceCampaignLevel}</span>
-										</div>
-										<div class="pack-face-badge">opened pack</div>
-										<div class="pack-face-emblem">
-											<div class="pack-face-orbit pack-face-orbit-outer"></div>
-											<div class="pack-face-orbit pack-face-orbit-inner"></div>
-											<div class="pack-face-core"></div>
-										</div>
-										<div class="pack-face-footer">
-											<span>{pack.cardCount} cards</span>
-											<span>opened</span>
+							<form method="post" action="?/openPack" class="pack-card-form">
+								<input type="hidden" name="packId" value={pack.id} />
+								<button
+									type="submit"
+									class={[
+										'pack-shelf-item',
+										'pack-card-hitarea',
+										'opened',
+										openedPacks.length > 1 && 'has-stack'
+									]}
+									aria-label={`Reopen pack ${pack.id.slice(0, 8)} from source level ${pack.sourceCampaignLevel}`}
+								>
+									<div class="pack-stack-stage" aria-hidden="true">
+										{#if openedPacks.length > 1}
+											<span class="pack-stack-backdrop pack-stack-backdrop-far"></span>
+											<span class="pack-stack-backdrop pack-stack-backdrop-near"></span>
+										{/if}
+										<div class="pack-face-preview opened-preview">
+											<div class="pack-face-header">
+												<span>Opened pack</span>
+												<span>Lv {pack.sourceCampaignLevel}</span>
+											</div>
+											<div class="pack-face-badge">opened pack</div>
+											<div class="pack-face-emblem">
+												<div class="pack-face-orbit pack-face-orbit-outer"></div>
+												<div class="pack-face-orbit pack-face-orbit-inner"></div>
+												<div class="pack-face-core"></div>
+											</div>
+											<div class="pack-face-footer">
+												<span>Pack #{pack.id.slice(0, 8)}</span>
+												<span>{pack.cardCount} cards</span>
+											</div>
 										</div>
 									</div>
-								</div>
-								<div class="pack-shelf-meta">
-									<div class="pack-card-topline">
-										<p class="pack-kicker">Pack #{pack.id.slice(0, 8)}</p>
-										<span class="status-pill status-opened">Opened</span>
-									</div>
-									<div class="pack-context-row" aria-label="Pack details">
-										<span class="pack-context-pill">Lv {pack.sourceCampaignLevel}</span>
-										<span class="pack-context-pill">{pack.cardCount} cards</span>
-									</div>
-									<p class="pack-note">Opened {formatCompactDate(pack.openedAt)}.</p>
-								</div>
-							</article>
+								</button>
+							</form>
 						{/each}
 					</div>
 				{:else}
@@ -504,7 +635,7 @@
 		{:else}
 			<section class="panel empty-state full-width">
 				<h2>No reward packs yet</h2>
-				<p>Reward packs will appear here after they drop in this campaign.</p>
+				<p>Reward packs will appear here after they drop anywhere in your runs.</p>
 			</section>
 		{/if}
 	</div>
@@ -1067,6 +1198,69 @@
 		align-items: start;
 	}
 
+	.bulk-pack-form {
+		display: grid;
+		gap: 1rem;
+	}
+
+	.pack-bulk-toolbar {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		gap: 0.9rem;
+		align-items: end;
+		padding: 0.95rem 1rem;
+		border-radius: 1rem;
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		background: rgba(255, 255, 255, 0.03);
+	}
+
+	.pack-bulk-copy {
+		display: grid;
+		gap: 0.2rem;
+	}
+
+	.pack-bulk-count {
+		margin: 0;
+		font-size: 0.78rem;
+		font-weight: 700;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: #f4f4f4;
+	}
+
+	.pack-bulk-actions {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: flex-end;
+		gap: 0.6rem;
+	}
+
+	.bulk-control-button {
+		min-height: 2.5rem;
+		padding: 0.7rem 1rem;
+		border-radius: 999px;
+		border: 1px solid rgba(255, 255, 255, 0.14);
+		font: inherit;
+		font-weight: 700;
+		cursor: pointer;
+	}
+
+	.bulk-control-button.primary {
+		background: rgba(255, 214, 102, 0.14);
+		border-color: rgba(255, 214, 102, 0.26);
+		color: #fff0c2;
+	}
+
+	.bulk-control-button.secondary {
+		background: rgba(255, 255, 255, 0.05);
+		color: #f4f4f4;
+	}
+
+	.bulk-control-button:disabled {
+		opacity: 0.45;
+		cursor: default;
+	}
+
 	.pack-shelf-item {
 		display: grid;
 		gap: 0.85rem;
@@ -1075,14 +1269,40 @@
 		align-content: start;
 	}
 
-	.pack-shelf-item form {
+	.pack-card-form {
 		width: min(100%, 14rem);
+	}
+
+	.pack-card-hitarea {
+		width: 100%;
+		padding: 0;
+		margin: 0;
+		appearance: none;
+		background: transparent;
+		border: 0;
+		color: inherit;
+		font: inherit;
+		text-align: inherit;
+		cursor: pointer;
+	}
+
+	.pack-card-hitarea:focus-visible {
+		outline: none;
+	}
+
+	.pack-card-hitarea.is-selected .pack-face-preview {
+		transform: translateY(-6px) scale(1.01);
+		border-color: rgba(255, 214, 102, 0.42);
+		box-shadow:
+			0 30px 64px rgba(0, 0, 0, 0.42),
+			0 0 0 1px rgba(255, 214, 102, 0.16),
+			0 0 52px rgba(255, 214, 102, 0.12);
 	}
 
 	.pack-stack-stage {
 		position: relative;
 		width: min(100%, 14.5rem);
-		padding: 0.4rem 0.9rem 1rem;
+		padding: 0.4rem 0.9rem 0.45rem;
 		display: grid;
 		place-items: center;
 	}
@@ -1126,59 +1346,6 @@
 		opacity: 0.65;
 	}
 
-	.pack-card-topline {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.75rem;
-		margin-bottom: 0.1rem;
-		width: 100%;
-	}
-
-	.pack-kicker {
-		margin: 0;
-		font-size: 0.78rem;
-		font-weight: 700;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: #9d9d9d;
-	}
-
-	.status-pill {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		min-height: 1.75rem;
-		padding: 0 0.8rem;
-		border-radius: 999px;
-		font-size: 0.74rem;
-		font-weight: 700;
-	}
-
-	.status-unopened {
-		background: rgba(103, 217, 111, 0.18);
-		color: #9cf5a2;
-	}
-
-	.status-opened {
-		background: rgba(255, 255, 255, 0.08);
-		color: #e8e8e8;
-	}
-
-	.pack-action-button {
-		width: 100%;
-		min-height: 2.8rem;
-		padding: 0.75rem 1rem;
-		color: #f4f4f4;
-		font: inherit;
-		font-weight: 700;
-		cursor: pointer;
-	}
-
-	.pack-action-button:hover {
-		border-color: rgba(103, 217, 111, 0.35);
-	}
-
 	.pack-face-preview {
 		position: relative;
 		justify-self: center;
@@ -1205,6 +1372,26 @@
 			0 26px 54px rgba(0, 0, 0, 0.36),
 			0 0 36px rgba(255, 255, 255, 0.05);
 		z-index: 1;
+		transition:
+			transform 180ms ease,
+			border-color 180ms ease,
+			box-shadow 180ms ease;
+	}
+
+	.pack-card-hitarea:hover .pack-face-preview,
+	.pack-card-hitarea:focus-visible .pack-face-preview {
+		transform: translateY(-6px) scale(1.01);
+		border-color: rgba(255, 255, 255, 0.2);
+		box-shadow:
+			0 30px 64px rgba(0, 0, 0, 0.42),
+			0 0 46px rgba(255, 255, 255, 0.08);
+	}
+
+	.pack-card-hitarea:focus-visible .pack-face-preview {
+		box-shadow:
+			0 0 0 2px rgba(255, 255, 255, 0.14),
+			0 0 0 4px rgba(255, 214, 102, 0.18),
+			0 30px 64px rgba(0, 0, 0, 0.42);
 	}
 
 	.pack-face-preview::before {
@@ -1261,6 +1448,27 @@
 		color: #fff9ff;
 		position: relative;
 		z-index: 1;
+	}
+
+	.pack-selection-indicator {
+		justify-self: end;
+		padding: 0.35rem 0.6rem;
+		border-radius: 999px;
+		border: 1px solid rgba(255, 255, 255, 0.14);
+		background: rgba(0, 0, 0, 0.28);
+		font-size: 0.62rem;
+		font-weight: 800;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: rgba(255, 255, 255, 0.82);
+		position: relative;
+		z-index: 1;
+	}
+
+	.pack-card-hitarea.is-selected .pack-selection-indicator {
+		background: rgba(255, 214, 102, 0.16);
+		border-color: rgba(255, 214, 102, 0.3);
+		color: #fff0c2;
 	}
 
 	.pack-face-emblem {
@@ -1345,6 +1553,20 @@
 		font-size: 0.88rem;
 		line-height: 1.35;
 		text-align: center;
+	}
+
+	@media (max-width: 760px) {
+		.pack-bulk-toolbar {
+			grid-template-columns: 1fr;
+		}
+
+		.pack-bulk-actions {
+			justify-content: stretch;
+		}
+
+		.bulk-control-button {
+			flex: 1 1 100%;
+		}
 	}
 
 	.opened-cards-list {

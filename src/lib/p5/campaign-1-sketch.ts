@@ -3,12 +3,12 @@ import type P5 from 'p5';
 import { campaign1 } from '$lib/data/campaigns/campaign-1';
 import {
 	getCampaignCombatProfile,
-	getCampaignWeaponPool,
 	getLoadoutItemDefinition,
 	getWeaponDefinition,
 	isUtilityDefinition,
 	isWeaponDefinition
 } from '$lib/data';
+import { rollLevelRewardPacks as buildRewardPacksForLevel } from '$lib/game/reward-packs';
 import { getActiveLoadoutPlacements } from '$lib/game/loadout-slots';
 import { getPlacementRotation, rotateWeaponShape } from '$lib/game/loadout-rotation';
 import { createUpgradedWeaponDefinition } from '$lib/game/weapon-upgrades';
@@ -21,7 +21,6 @@ import type {
 	LoadoutItemDefinition,
 	OwnedWeaponInstance,
 	PersistedRewardPack,
-	PersistedRewardPackCard,
 	UtilityDefinition,
 	WeaponAttackBehavior,
 	ElementalInfusionType,
@@ -47,17 +46,6 @@ const LEVEL_RESET_DELAY = 1.2;
 const CAMPAIGN_LOOP_DELAY = 3;
 const LOADOUT_PREVIEW_MAX_WIDTH = 320;
 const LOADOUT_PREVIEW_BASE_HEIGHT = 240;
-const PACK_CARD_COUNT = 5;
-const GUARANTEED_PACK_SLOT_INDEX = 4;
-const NO_GUARANTEED_PACK_SLOT_INDEX = -1;
-
-const NORMAL_SLOT_RARITY_WEIGHTS: Record<WeaponRarity, number> = {
-	normal: 5,
-	magic: 4,
-	rare: 3,
-	exotic: 2,
-	legendary: 1
-};
 
 const PROJECTILE_SIZE_BY_VISUAL: Record<WeaponProjectileSize, number> = {
 	small: 5,
@@ -867,7 +855,6 @@ export function createCampaignSketch(
 ) {
 	return (p: P5) => {
 		const levels = campaign.levels;
-		const weaponPool = getCampaignWeaponPool(campaign.campaign);
 		const runMode = options.runMode ?? 'combat';
 		const showLoadoutSketch = options.showLoadoutSketch ?? true;
 		let pixlProgression = createUpgradeablePixlState({
@@ -1421,197 +1408,6 @@ export function createCampaignSketch(
 			recalculatePixlShieldPool();
 		};
 
-		const getLevelPackDropChance = () => {
-			if (currentLevel.isCampaignBoss) {
-				return campaign.campaign === 1 ? 0.2 : 0.1;
-			}
-
-			return campaign.campaign === 1 ? 0.1 : 0.05;
-		};
-
-		const getNormalPackDropChance = () => Math.min(1, getLevelPackDropChance() * 3);
-
-		const isSpecialPackStage = () => currentLevel.stage >= 4 && currentLevel.stage <= 5;
-
-		const getEligiblePackDefinitions = () => {
-			return weaponPool.filter((item) => {
-				if (item.drop.mode !== 'drop') {
-					return false;
-				}
-
-				if (item.drop.campaignId && item.drop.campaignId !== campaign.campaign) {
-					return false;
-				}
-
-				if (item.drop.stageStart && currentLevel.stage < item.drop.stageStart) {
-					return false;
-				}
-
-				if (item.drop.stageEnd && currentLevel.stage > item.drop.stageEnd) {
-					return false;
-				}
-
-				return true;
-			});
-		};
-
-		const getGuaranteedPackDefinitions = () => {
-			return weaponPool.filter((item) => {
-				if (item.drop.mode !== 'drop') {
-					return false;
-				}
-
-				if (item.drop.campaignId && item.drop.campaignId !== campaign.campaign) {
-					return false;
-				}
-
-				return item.rarity === 'exotic' || item.rarity === 'legendary';
-			});
-		};
-
-		const chooseRandomPackDefinition = (
-			candidates: LoadoutItemDefinition[],
-			rarity: WeaponRarity,
-			fallbacks: WeaponRarity[] = []
-		) => {
-			for (const nextRarity of [rarity, ...fallbacks]) {
-				const matchingCandidates = candidates.filter(
-					(candidate) => candidate.rarity === nextRarity
-				);
-
-				if (matchingCandidates.length === 0) {
-					continue;
-				}
-
-				return matchingCandidates[Math.floor(p.random(matchingCandidates.length))] ?? null;
-			}
-
-			return null;
-		};
-
-		const chooseWeightedNormalSlotRarity = (candidates: LoadoutItemDefinition[]) => {
-			const availableRarities = Object.entries(NORMAL_SLOT_RARITY_WEIGHTS).filter(([rarity]) =>
-				candidates.some((candidate) => candidate.rarity === rarity)
-			) as Array<[WeaponRarity, number]>;
-
-			if (availableRarities.length === 0) {
-				return null;
-			}
-
-			const totalWeight = availableRarities.reduce((sum, [, weight]) => sum + weight, 0);
-			let roll = p.random(totalWeight);
-
-			for (const [rarity, weight] of availableRarities) {
-				roll -= weight;
-
-				if (roll <= 0) {
-					return rarity;
-				}
-			}
-
-			return availableRarities[availableRarities.length - 1]?.[0] ?? null;
-		};
-
-		const createRewardPackCard = (
-			slotIndex: number,
-			definition: LoadoutItemDefinition,
-			isGuaranteedSlot: boolean
-		): PersistedRewardPackCard => ({
-			slotIndex,
-			definitionId: definition.id,
-			rarity: definition.rarity,
-			isGuaranteedSlot
-		});
-
-		const createRewardPack = (
-			cards: PersistedRewardPackCard[],
-			guaranteedSlotIndex: number
-		): PersistedRewardPack => ({
-			id: createRewardPackId(Math.floor(p.random(1_000_000_000))),
-			ownerUserId: '',
-			campaignId: campaign.campaign,
-			sourceCampaignLevel: currentLevel.campaignLevel,
-			droppedAt: new Date().toISOString(),
-			openedAt: null,
-			status: 'unopened',
-			cardCount: cards.length,
-			guaranteedSlotIndex,
-			contentVersion: 1,
-			cards
-		});
-
-		const createNormalRewardPack = (eligibleDefinitions: LoadoutItemDefinition[]) => {
-			const cards: PersistedRewardPackCard[] = [];
-
-			for (let slotIndex = 0; slotIndex < PACK_CARD_COUNT; slotIndex += 1) {
-				const rarity = chooseWeightedNormalSlotRarity(eligibleDefinitions);
-
-				if (!rarity) {
-					return null;
-				}
-
-				const definition = chooseRandomPackDefinition(eligibleDefinitions, rarity, [
-					'normal',
-					'magic',
-					'rare',
-					'exotic',
-					'legendary'
-				]);
-
-				if (!definition) {
-					return null;
-				}
-
-				cards.push(createRewardPackCard(slotIndex, definition, false));
-			}
-
-			return createRewardPack(cards, NO_GUARANTEED_PACK_SLOT_INDEX);
-		};
-
-		const createSpecialRewardPack = (
-			eligibleDefinitions: LoadoutItemDefinition[],
-			guaranteedDefinitions: LoadoutItemDefinition[]
-		) => {
-			const guaranteedRarity = p.random() < 0.5 ? 'exotic' : 'legendary';
-			const guaranteedDefinition = chooseRandomPackDefinition(
-				guaranteedDefinitions,
-				guaranteedRarity,
-				[guaranteedRarity === 'legendary' ? 'exotic' : 'legendary']
-			);
-
-			if (!guaranteedDefinition) {
-				return null;
-			}
-
-			const cards: PersistedRewardPackCard[] = [];
-
-			for (let slotIndex = 0; slotIndex < PACK_CARD_COUNT - 1; slotIndex += 1) {
-				const rarity = chooseWeightedNormalSlotRarity(eligibleDefinitions);
-
-				if (!rarity) {
-					return null;
-				}
-
-				const definition = chooseRandomPackDefinition(eligibleDefinitions, rarity, [
-					'normal',
-					'magic',
-					'rare',
-					'exotic',
-					'legendary'
-				]);
-
-				if (!definition) {
-					return null;
-				}
-
-				cards.push(createRewardPackCard(slotIndex, definition, false));
-			}
-
-			cards.push(createRewardPackCard(GUARANTEED_PACK_SLOT_INDEX, guaranteedDefinition, true));
-
-			return createRewardPack(cards, GUARANTEED_PACK_SLOT_INDEX);
-		};
-
 		const syncCanvasSize = () => {
 			if (!canvas) {
 				return;
@@ -1720,43 +1516,14 @@ export function createCampaignSketch(
 		};
 
 		const rollLevelRewardPacks = () => {
-			const eligibleDefinitions = getEligiblePackDefinitions();
-
-			if (eligibleDefinitions.length === 0) {
-				return [] as PersistedRewardPack[];
-			}
-
-			const rewardPacks: PersistedRewardPack[] = [];
-
-			if (p.random() < getNormalPackDropChance()) {
-				const normalPack = createNormalRewardPack(eligibleDefinitions);
-
-				if (normalPack) {
-					rewardPacks.push(normalPack);
-				}
-			}
-
-			if (!isSpecialPackStage()) {
-				return rewardPacks;
-			}
-
-			const guaranteedDefinitions = getGuaranteedPackDefinitions();
-
-			if (guaranteedDefinitions.length === 0) {
-				return rewardPacks;
-			}
-
-			if (p.random() >= getLevelPackDropChance()) {
-				return rewardPacks;
-			}
-
-			const specialPack = createSpecialRewardPack(eligibleDefinitions, guaranteedDefinitions);
-
-			if (specialPack) {
-				rewardPacks.push(specialPack);
-			}
-
-			return rewardPacks;
+			return buildRewardPacksForLevel({
+				stage: currentLevel.stage,
+				isCampaignBoss: currentLevel.isCampaignBoss,
+				sourceCampaignLevel: currentLevel.campaignLevel,
+				randomFloat: () => p.random(),
+				randomIndex: (maxExclusive) => Math.floor(p.random(maxExclusive)),
+				createPackId: () => createRewardPackId(Math.floor(p.random(1_000_000_000)))
+			});
 		};
 
 		const createEnemyState = (

@@ -53,6 +53,15 @@ const sharedPoolDefinitionIds = new Set([
 
 const sharedPoolWeapons = campaign1Weapons.filter((item) => sharedPoolDefinitionIds.has(item.id));
 
+const allCampaignWeapons = [
+	...campaign1Weapons,
+	...campaign2Weapons,
+	...campaign3Weapons,
+	...campaign4Weapons
+].filter(
+	(item, index, items) => items.findIndex((candidate) => candidate.id === item.id) === index
+);
+
 export const campaignWeaponPools = {
 	[campaign1.campaign]: campaign1Weapons,
 	[campaign2.campaign]: [...sharedPoolWeapons, ...campaign2Weapons],
@@ -122,7 +131,11 @@ export function getCampaignWeaponPool(campaignId: number): LoadoutItemDefinition
 		throw new Error(`Unknown weapon pool for campaign ${campaignId}`);
 	}
 
-	return pool;
+	return [...pool];
+}
+
+export function getRewardPackWeaponPool(): LoadoutItemDefinition[] {
+	return allCampaignWeapons;
 }
 
 export function getLoadoutItemDefinition(definitionId: string): LoadoutItemDefinition {

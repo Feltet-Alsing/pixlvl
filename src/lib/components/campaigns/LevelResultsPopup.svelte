@@ -13,7 +13,6 @@
 
 	interface RewardPackRow {
 		id: string;
-		campaignId: number;
 		sourceCampaignLevel: number;
 		cardCount: number;
 		guaranteedSlotLabel: string | null;
@@ -72,7 +71,7 @@
 						<strong>{pack.cardCount} cards</strong>
 					</div>
 					<p class="results-pack-context">
-						Campaign {campaignNumber} · Lv {pack.sourceCampaignLevel}
+						Source level {pack.sourceCampaignLevel}
 					</p>
 					<p class="results-pack-note">
 						{#if pack.guaranteedSlotLabel}

@@ -54,7 +54,6 @@ export interface RewardDropRow {
 
 export interface RewardPackRow {
 	id: string;
-	campaignId: number;
 	sourceCampaignLevel: number;
 	cardCount: number;
 	guaranteedSlotLabel: 'Exotic / Legendary';
@@ -120,7 +119,6 @@ export function createInitialCombatOverlay(pageData: PageProps['data']): CombatO
 export function buildRewardPackRows(rewardPacks: PersistedRewardPack[]) {
 	return rewardPacks.map((pack) => ({
 		id: pack.id,
-		campaignId: pack.campaignId,
 		sourceCampaignLevel: pack.sourceCampaignLevel,
 		cardCount: pack.cardCount,
 		guaranteedSlotLabel: 'Exotic / Legendary'

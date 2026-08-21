@@ -1,12 +1,6 @@
-import { and, eq, type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
+import { and, eq, inArray, type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
 
-import {
-	baselineCombatProfile,
-	campaigns,
-	getCampaign,
-	getCampaignLevel,
-	starterWeaponId
-} from '$lib/data';
+import { baselineCombatProfile, campaigns, getCampaign, starterWeaponId } from '$lib/data';
 import { getOwnedWeaponDefinitionIds } from '$lib/game/notifications';
 import {
 	createPersistedLoadoutState,
@@ -28,6 +22,8 @@ import type {
 export type PersistedPixlState = InferSelectModel<typeof pixlState>;
 export type PersistedCampaignProgress = InferSelectModel<typeof campaignProgress>;
 export type PersistedRewardPackRecord = InferSelectModel<typeof rewardPack>;
+
+const REWARD_PACK_SOURCE_LEVELS_PER_STAGE = 10;
 
 export interface GameState {
 	pixlState: PersistedPixlState;
@@ -60,6 +56,10 @@ export interface OpenRewardPackResult {
 	grantedWeapons: OwnedWeaponInstance[];
 	alreadyOpened: boolean;
 	newDefinitionIds: string[];
+}
+
+export interface OpenRewardPacksResult {
+	results: OpenRewardPackResult[];
 }
 
 const defaultCampaigns = Object.values(campaigns).map((campaign) => campaign.campaign);
@@ -117,14 +117,16 @@ function createOwnedWeaponFromRewardPackCard(
 	acquiredAt: string
 ): OwnedWeaponInstance {
 	const sourceLevel = pack.sourceCampaignLevel > 0 ? pack.sourceCampaignLevel : null;
-	const sourceStage = sourceLevel ? getCampaignLevel(pack.campaignId, sourceLevel).stage : null;
+	const sourceStage = sourceLevel
+		? Math.floor((sourceLevel - 1) / REWARD_PACK_SOURCE_LEVELS_PER_STAGE) + 1
+		: null;
 
 	return {
 		instanceId: createOwnedWeaponInstanceId(),
 		definitionId: card.definitionId,
 		source: 'pack',
 		acquiredAt,
-		campaignId: pack.campaignId,
+		campaignId: null,
 		stage: sourceStage,
 		level: sourceLevel,
 		upgradeLevel: 0,
@@ -465,17 +467,12 @@ export async function createRewardPackForUser(
 
 export async function openRewardPackForUser(
 	userId: string,
-	packId: string,
-	campaignId?: number
+	packId: string
 ): Promise<OpenRewardPackResult> {
 	await ensureGameState(userId);
 
 	return db.transaction(async (tx) => {
 		const packConditions = [eq(rewardPack.ownerUserId, userId), eq(rewardPack.id, packId)];
-
-		if (campaignId !== undefined) {
-			packConditions.push(eq(rewardPack.campaignId, campaignId));
-		}
 
 		const [storedPack] = await tx
 			.select()
@@ -543,6 +540,115 @@ export async function openRewardPackForUser(
 				.map((card) => card.definitionId)
 				.filter((definitionId) => !ownedDefinitionIdsBeforeOpen.has(definitionId))
 		} satisfies OpenRewardPackResult;
+	});
+}
+
+export async function openRewardPacksForUser(
+	userId: string,
+	packIds: string[]
+): Promise<OpenRewardPacksResult> {
+	await ensureGameState(userId);
+
+	const uniquePackIds = [...new Set(packIds.filter((packId) => packId.length > 0))];
+
+	if (uniquePackIds.length === 0) {
+		throw new Error('No reward packs selected.');
+	}
+
+	return db.transaction(async (tx) => {
+		const packConditions = [
+			eq(rewardPack.ownerUserId, userId),
+			inArray(rewardPack.id, uniquePackIds)
+		];
+
+		const storedPacks = await tx
+			.select()
+			.from(rewardPack)
+			.where(and(...packConditions));
+
+		if (storedPacks.length === 0) {
+			throw new Error('Reward pack not found.');
+		}
+
+		const storedPackById = new Map(storedPacks.map((pack) => [pack.id, pack]));
+		const orderedPacks = uniquePackIds
+			.map((packId) => storedPackById.get(packId) ?? null)
+			.filter((pack): pack is PersistedRewardPackRecord => pack !== null);
+
+		const [storedPixlState] = await tx.select().from(pixlState).where(eq(pixlState.userId, userId));
+
+		if (!storedPixlState) {
+			throw new Error(`Unable to load pixl state for user ${userId}`);
+		}
+
+		let nextOwnedWeapons = [...storedPixlState.ownedWeapons];
+		const ownedDefinitionIds = new Set(
+			storedPixlState.ownedWeapons.map((weapon) => weapon.definitionId)
+		);
+		const openedAt = new Date();
+		const acquiredAt = openedAt.toISOString();
+		const openedPackIds: string[] = [];
+		const results: OpenRewardPackResult[] = [];
+
+		for (const storedPack of orderedPacks) {
+			if (storedPack.status === 'opened') {
+				results.push({
+					pack: storedPack,
+					grantedWeapons: [],
+					alreadyOpened: true,
+					newDefinitionIds: []
+				});
+				continue;
+			}
+
+			const grantedWeapons = storedPack.cards.map((card) =>
+				createOwnedWeaponFromRewardPackCard(storedPack, card, acquiredAt)
+			);
+			const newDefinitionIds: string[] = [];
+
+			for (const card of storedPack.cards) {
+				if (ownedDefinitionIds.has(card.definitionId)) {
+					continue;
+				}
+
+				ownedDefinitionIds.add(card.definitionId);
+				newDefinitionIds.push(card.definitionId);
+			}
+
+			nextOwnedWeapons = normalizeOwnedWeapons([...nextOwnedWeapons, ...grantedWeapons]);
+			openedPackIds.push(storedPack.id);
+			results.push({
+				pack: {
+					...storedPack,
+					status: 'opened',
+					openedAt
+				},
+				grantedWeapons,
+				alreadyOpened: false,
+				newDefinitionIds
+			});
+		}
+
+		if (openedPackIds.length > 0) {
+			await tx
+				.update(pixlState)
+				.set({
+					ownedWeapons: nextOwnedWeapons,
+					updatedAt: openedAt
+				})
+				.where(eq(pixlState.userId, userId));
+
+			await tx
+				.update(rewardPack)
+				.set({
+					status: 'opened',
+					openedAt,
+					updatedAt: openedAt
+				})
+				.where(inArray(rewardPack.id, openedPackIds));
+		}
+
+		return { results } satisfies OpenRewardPacksResult;
 	});
 }
 

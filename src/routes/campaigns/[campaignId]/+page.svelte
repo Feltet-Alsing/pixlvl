@@ -627,8 +627,8 @@
 			pushChangeLogEntry(
 				`${guaranteedSlotLabel ? 'Special pack' : 'Reward pack'} · ${pack.cardCount} cards`,
 				guaranteedSlotLabel
-					? `Campaign ${pack.campaignId} Lv ${pack.sourceCampaignLevel} pack added with a guaranteed ${guaranteedSlotLabel} slot.`
-					: `Campaign ${pack.campaignId} Lv ${pack.sourceCampaignLevel} pack added to this run.`,
+					? `Source level ${pack.sourceCampaignLevel} pack added with a guaranteed ${guaranteedSlotLabel} slot.`
+					: `Source level ${pack.sourceCampaignLevel} pack added to this run.`,
 				'positive',
 				new Date(pack.droppedAt).getTime() || Date.now(),
 				undefined,

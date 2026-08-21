@@ -46,8 +46,7 @@ export function getCampaignRouteNotificationCounts(
 	const ownedDefinitionIds = getOwnedWeaponDefinitionIds(snapshot.ownedWeapons);
 	const acknowledgedDefinitionIds = new Set(snapshot.acknowledgedWeaponDefinitionIds ?? []);
 	const unopenedPacks = (snapshot.rewardPacks ?? []).filter(
-		(pack) =>
-			pack.status === 'unopened' && (campaignId === undefined || pack.campaignId === campaignId)
+		(pack) => pack.status === 'unopened'
 	).length;
 
 	return {
