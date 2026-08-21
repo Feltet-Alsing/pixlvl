@@ -804,7 +804,7 @@ export function getLoadoutItemEffectSummary(definition: LoadoutItemDefinition) {
 		case 'elemental-infuser':
 			return `Generates 1 ${definition.effect.element} infusion per cycle`;
 		case 'cycle-adjacency-reduction':
-			return `Adjacent weapons activate ${definition.effect.reduction} cycle faster`;
+			return `Adjacent items activate ${definition.effect.reduction} cycle faster`;
 		case 'cycle-damage-boost':
 			return `${definition.effect.damageMultiplier}x damage next cycle`;
 		case 'hemorrhage-burst':
@@ -813,6 +813,8 @@ export function getLoadoutItemEffectSummary(definition: LoadoutItemDefinition) {
 			return `${definition.effect.multiplier}x bleed damage, capped at ${definition.effect.maxTotalMultiplier}x total`;
 		case 'knife-siphon':
 			return `Fan of Knives touching The Knife gains ${Math.round(definition.effect.lifeStealRatio * 100)}% leech and ${definition.effect.damageMultiplier}x damage while this also touches The Knife`;
+		case 'oathbreaker-sigil':
+			return `Every ${definition.cycleInterval ?? 3} cycles, chains enemies in a forward half-circle, slows them by ${Math.round((1 - definition.effect.slowMultiplier) * 100)}%, and duplicates ${Math.round(definition.effect.damageShareRatio * 100)}% of direct-hit damage to the other linked enemies`;
 	}
 }
 

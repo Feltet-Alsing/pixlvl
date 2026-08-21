@@ -39,7 +39,11 @@ export const campaigns = {
 	[campaign4.campaign]: campaign4
 } as const;
 
-const sharedBleedDefinitionIds = new Set([
+const sharedPoolDefinitionIds = new Set([
+	'target-painter',
+	'kill-switch',
+	'oathbreaker-sigil',
+	'deadeye-sniper',
 	'the-knife',
 	'hemorrhage-burst',
 	'fan-of-knives',
@@ -47,13 +51,13 @@ const sharedBleedDefinitionIds = new Set([
 	'siphoning-knife'
 ]);
 
-const sharedBleedWeapons = campaign1Weapons.filter((item) => sharedBleedDefinitionIds.has(item.id));
+const sharedPoolWeapons = campaign1Weapons.filter((item) => sharedPoolDefinitionIds.has(item.id));
 
 export const campaignWeaponPools = {
 	[campaign1.campaign]: campaign1Weapons,
-	[campaign2.campaign]: [...sharedBleedWeapons, ...campaign2Weapons],
-	[campaign3.campaign]: [...sharedBleedWeapons, ...campaign3Weapons],
-	[campaign4.campaign]: [...sharedBleedWeapons, ...campaign4Weapons]
+	[campaign2.campaign]: [...sharedPoolWeapons, ...campaign2Weapons],
+	[campaign3.campaign]: [...sharedPoolWeapons, ...campaign3Weapons],
+	[campaign4.campaign]: [...sharedPoolWeapons, ...campaign4Weapons]
 } as const;
 
 export const campaignShopWeaponPools = shopWeaponPools;

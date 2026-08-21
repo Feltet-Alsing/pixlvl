@@ -21,6 +21,8 @@ export type WeaponSpecialAttackKind =
 	| 'force-field'
 	| 'laser-sweep'
 	| 'ricochet'
+	| 'kill-switch'
+	| 'target-painter'
 	| 'needle-fan'
 	| 'expanding-wave'
 	| 'sniper-line'
@@ -126,9 +128,20 @@ export interface WeaponAttackBehavior {
 				shieldRatio: number;
 		  }
 		| {
+				type: 'kill-switch';
+				maxRadius: number;
+				expansionSpeed: number;
+				lineWidth: number;
+				executeThresholdRatio: number;
+		  }
+		| {
 				type: 'vulnerable-hit';
 				damageMultiplier: number;
 				duration: number;
+		  }
+		| {
+				type: 'target-painter';
+				damageMultiplier: number;
 		  }
 		| {
 				type: 'bleed-hit';
@@ -317,6 +330,13 @@ export interface UtilityDefinition {
 				type: 'knife-siphon';
 				lifeStealRatio: number;
 				damageMultiplier: number;
+		  }
+		| {
+				type: 'oathbreaker-sigil';
+				radiusFactor: number;
+				duration: number;
+				slowMultiplier: number;
+				damageShareRatio: number;
 		  };
 	utilityVisual?: UtilityVisual;
 	drop: WeaponDropConfig;

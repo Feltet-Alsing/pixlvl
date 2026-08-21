@@ -692,7 +692,7 @@ Best fit:
 
 - rarity: `legendary`
 - type: `utility`
-- cadence: `4` cycles
+- cadence: `3` cycles
 - shape: large
 - role: single-target conversion keystone
 
@@ -701,7 +701,7 @@ Behavior:
 - emits a broad half-circle pulse covering roughly `50%` of the visible screen in front of the `pixl`
 - all enemies hit by that pulse are chained together for a short duration
 - chained enemies are slowed by `80%`
-- while chained, direct weapon-hit damage dealt to any one chained enemy is shared across all chained enemies hit by the pulse
+- while chained, `60%` of direct weapon-hit damage dealt to any one chained enemy is duplicated across all other chained enemies hit by the pulse
 - only direct weapon hits are shared
 - burn ticks, damage-over-time, execute effects, field damage, and other indirect effects must not duplicate through the chain
 
@@ -716,6 +716,25 @@ Best fit:
 - mark builds
 - heavy projectile hitters
 - any direct-hit weapon that otherwise struggles into density
+
+##### Deadeye Sniper
+
+- rarity: `exotic`
+- type: `weapon`
+- cadence: `2` cycles
+- base damage: `120`
+- role: pure single-target sniper anchor
+
+Behavior:
+
+- fires one hard-hitting sniper shot at a single target every `2` cycles
+- no splash, no chains, and no built-in area damage
+- exists to be the clean high-damage precision option rather than a wave-clear tool
+
+Design purpose:
+
+- gives Oathbreaker, mark, and other precision shells a simple raw-damage anchor
+- creates a clear contrast with Redline Sniper by dropping all pseudo-AOE behavior in exchange for much harder single hits
 
 ##### Support concepts worth keeping for the same pool
 

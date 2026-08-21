@@ -2,6 +2,47 @@ import type { LoadoutItemDefinition } from '$lib/data/types';
 
 export const campaign1Weapons: LoadoutItemDefinition[] = [
 	{
+		id: 'target-painter',
+		name: 'Target Painter',
+		rarity: 'normal',
+		shape: {
+			width: 3,
+			height: 2,
+			cells: [
+				[0, 0],
+				[1, 0],
+				[2, 0],
+				[1, 1]
+			]
+		},
+		baseDamage: 2,
+		projectileSpeed: 520,
+		attack: {
+			kind: 'single',
+			projectileCount: 1,
+			cycleInterval: 2,
+			special: {
+				type: 'target-painter',
+				damageMultiplier: 1.35
+			},
+			targeting: 'strongest-target'
+		},
+		projectileVisual: {
+			color: '#facc15',
+			size: 'small',
+			shape: 'spark',
+			trail: 'pulse',
+			glow: true
+		},
+		drop: {
+			mode: 'drop',
+			stageStart: 1,
+			stageEnd: 5,
+			perLevelDropChance: 0.12
+		},
+		role: 'Shared focus-fire relay that keeps one enemy painted so direct hits converge on the same priority target across long waves'
+	},
+	{
 		id: 'the-knife',
 		name: 'The Knife',
 		rarity: 'normal',
@@ -111,6 +152,52 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 			perLevelDropChance: 0.11
 		},
 		role: 'Early high-impact burst upgrade that fires a fast three-shot line into the current target'
+	},
+	{
+		id: 'kill-switch',
+		name: 'Kill Switch',
+		rarity: 'rare',
+		shape: {
+			width: 4,
+			height: 2,
+			cells: [
+				[0, 0],
+				[1, 0],
+				[2, 0],
+				[3, 0],
+				[1, 1],
+				[2, 1]
+			]
+		},
+		baseDamage: 0,
+		projectileSpeed: 0,
+		attack: {
+			kind: 'single',
+			projectileCount: 1,
+			cycleInterval: 4,
+			special: {
+				type: 'kill-switch',
+				maxRadius: 248,
+				expansionSpeed: 720,
+				lineWidth: 7,
+				executeThresholdRatio: 0.15
+			},
+			targeting: 'current-target'
+		},
+		projectileVisual: {
+			color: '#f97316',
+			size: 'small',
+			shape: 'spark',
+			trail: 'pulse',
+			glow: true
+		},
+		drop: {
+			mode: 'drop',
+			stageStart: 3,
+			stageEnd: 5,
+			perLevelDropChance: 0.06
+		},
+		role: 'Shared cleanup pulse that executes already-weakened enemies in a thin outward wave instead of adding generic raw DPS'
 	},
 	{
 		id: 'needle',
@@ -459,6 +546,47 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 		role: 'Late-campaign precision rifle that paints ranged threats, then chains between nearby ranged glitches to stabilize backline-heavy waves'
 	},
 	{
+		id: 'deadeye-sniper',
+		name: 'Deadeye Sniper',
+		rarity: 'exotic',
+		shape: {
+			width: 5,
+			height: 2,
+			cells: [
+				[0, 0],
+				[1, 0],
+				[2, 0],
+				[3, 0],
+				[4, 0],
+				[1, 1],
+				[2, 1]
+			]
+		},
+		baseDamage: 120,
+		projectileSpeed: 1100,
+		attack: {
+			kind: 'single',
+			projectileCount: 1,
+			cycleInterval: 2,
+			pierceCount: 999,
+			targeting: 'furthest-target'
+		},
+		projectileVisual: {
+			color: '#f8fafc',
+			size: 'small',
+			shape: 'spark',
+			trail: 'streak',
+			glow: true
+		},
+		drop: {
+			mode: 'drop',
+			stageStart: 5,
+			stageEnd: 5,
+			perLevelDropChance: 0.025
+		},
+		role: 'Exotic pure single-target sniper that fires every two cycles for massive backline damage, piercing through the whole line without any splash or chain behavior'
+	},
+	{
 		id: 'siphoning-knife',
 		name: 'Siphoning Knife',
 		category: 'utility',
@@ -495,5 +623,50 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 			perLevelDropChance: 0.015
 		},
 		role: 'Legendary passive that empowers Fan of Knives when it sits adjacent to both The Knife and this relic, adding heavy lifesteal and a raw damage spike'
+	},
+	{
+		id: 'oathbreaker-sigil',
+		name: 'Oathbreaker Sigil',
+		category: 'utility',
+		rarity: 'legendary',
+		shape: {
+			width: 4,
+			height: 4,
+			cells: [
+				[1, 0],
+				[2, 0],
+				[0, 1],
+				[1, 1],
+				[2, 1],
+				[3, 1],
+				[0, 2],
+				[1, 2],
+				[2, 2],
+				[3, 2],
+				[1, 3],
+				[2, 3]
+			]
+		},
+		activationKind: 'triggered',
+		cycleInterval: 3,
+		effect: {
+			type: 'oathbreaker-sigil',
+			radiusFactor: 0.5,
+			duration: 2.8,
+			slowMultiplier: 0.2,
+			damageShareRatio: 0.6
+		},
+		utilityVisual: {
+			color: '#f59e0b',
+			shape: 'ring',
+			glow: true
+		},
+		drop: {
+			mode: 'drop',
+			stageStart: 5,
+			stageEnd: 5,
+			perLevelDropChance: 0.015
+		},
+		role: 'Legendary 3-cycle conversion keystone that chains a forward pack together, heavily slows it, and duplicates 60% of direct-hit damage across the linked enemies for a short window'
 	}
 ];

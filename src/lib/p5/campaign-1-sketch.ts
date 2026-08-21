@@ -275,6 +275,21 @@ interface ForceFieldState {
 	hitEnemyIds: number[];
 }
 
+interface KillSwitchPulseState {
+	sourceWeaponInstanceId: string;
+	centerX: number;
+	centerY: number;
+	radius: number;
+	maxRadius: number;
+	expansionSpeed: number;
+	lineWidth: number;
+	executeThresholdRatio: number;
+	color: string;
+	glow: boolean;
+	age: number;
+	hitEnemyIds: number[];
+}
+
 interface StasisFieldState {
 	sourceWeaponInstanceId: string;
 	centerX: number;
@@ -505,6 +520,24 @@ interface HemorrhageBurstState {
 	color: string;
 }
 
+interface OathbreakerSigilState {
+	sourceUtilityInstanceId: string;
+	enemyIds: number[];
+	angle: number;
+	radius: number;
+	currentRadius: number;
+	halfArcRadians: number;
+	sweepDuration: number;
+	expansionSpeed: number;
+	lineWidth: number;
+	duration: number;
+	age: number;
+	slowMultiplier: number;
+	damageShareRatio: number;
+	color: string;
+	glow: boolean;
+}
+
 interface EquippedWeaponState {
 	instanceId: string;
 	definition: WeaponDefinition;
@@ -630,6 +663,7 @@ export interface CampaignCombatResumeState {
 	pixlShieldSources?: Record<string, number>;
 	pendingNextWeaponDamageMultiplier?: number;
 	weaponDamageMultiplierByInstanceId?: Record<string, number>;
+	markedEnemyId?: number | null;
 	activeShieldColor: string;
 	enemyId: number;
 	spawnQueue: GlitchKind[];
@@ -927,6 +961,32 @@ export function createCampaignSketch(
 			weapon.cyclesUntilTrigger = weapon.cycleInterval;
 		}
 
+		for (const utility of triggeredUtilities) {
+			let cycleReduction = 0;
+
+			for (const passiveUtility of passiveUtilities) {
+				if (passiveUtility.definition.effect.type !== 'cycle-adjacency-reduction') {
+					continue;
+				}
+
+				const touches = doCellsTouchByEdge(
+					getPlacedShapeCells(utility.shape, utility.placementX, utility.placementY),
+					getPlacedShapeCells(
+						passiveUtility.shape,
+						passiveUtility.placementX,
+						passiveUtility.placementY
+					)
+				);
+
+				if (touches) {
+					cycleReduction += passiveUtility.definition.effect.reduction;
+				}
+			}
+
+			utility.cycleInterval = Math.max(1, utility.cycleInterval - cycleReduction);
+			utility.cyclesUntilTrigger = utility.cycleInterval;
+		}
+
 		const bleedCatalystMultiplier = passiveUtilities.reduce((multiplier, utility) => {
 			if (utility.definition.effect.type !== 'bleed-catalyst') {
 				return multiplier;
@@ -943,6 +1003,13 @@ export function createCampaignSketch(
 		const hemorrhageBurstEffect =
 			hemorrhageBurstUtility?.definition.effect.type === 'hemorrhage-burst'
 				? hemorrhageBurstUtility.definition.effect
+				: null;
+		const targetPainterWeapon = equippedWeapons.find(
+			(weapon) => weapon.definition.attack.special?.type === 'target-painter'
+		);
+		const targetPainterEffect =
+			targetPainterWeapon?.definition.attack.special?.type === 'target-painter'
+				? targetPainterWeapon.definition.attack.special
 				: null;
 		const knifeSiphonUtilityByFanInstanceId = new Map<
 			string,
@@ -1016,6 +1083,7 @@ export function createCampaignSketch(
 		let pixlShieldPool = 0;
 		let pixlShieldSources: Record<string, number> = {};
 		let pendingNextWeaponDamageMultiplier = 1;
+		let markedEnemyId: number | null = null;
 		let weaponDamageMultiplierByInstanceId = Object.fromEntries(
 			equippedWeapons.map((weapon) => [weapon.instanceId, 1])
 		) as Record<string, number>;
@@ -1030,6 +1098,7 @@ export function createCampaignSketch(
 		let projectiles: ProjectileState[] = [];
 		let enemyProjectiles: EnemyProjectileState[] = [];
 		let forceFields: ForceFieldState[] = [];
+		let killSwitchPulses: KillSwitchPulseState[] = [];
 		let stasisFields: StasisFieldState[] = [];
 		let laserSweeps: LaserSweepState[] = [];
 		let needleBursts: NeedleBurstState[] = [];
@@ -1042,6 +1111,7 @@ export function createCampaignSketch(
 		let voidTendrils: VoidTendrilState[] = [];
 		let voidTunnels: VoidTunnelState[] = [];
 		let phaseshifts: PhaseshiftState[] = [];
+		let oathbreakerSigils: OathbreakerSigilState[] = [];
 		let burningGrounds: BurningGroundState[] = [];
 		let delayedBombs: DelayedBombState[] = [];
 		let hemorrhageBursts: HemorrhageBurstState[] = [];
@@ -1288,6 +1358,7 @@ export function createCampaignSketch(
 				pixlShieldSources,
 				pendingNextWeaponDamageMultiplier,
 				weaponDamageMultiplierByInstanceId,
+				markedEnemyId,
 				activeShieldColor,
 				enemyId,
 				spawnQueue,
@@ -1597,11 +1668,13 @@ export function createCampaignSketch(
 			cycleDamageMultiplier = 1;
 			cycleDamageBuffExpiresAfterSweepIndex = null;
 			pixlFlash = 0;
+			markedEnemyId = null;
 			enemyId = 0;
 			enemies = [];
 			projectiles = [];
 			enemyProjectiles = [];
 			forceFields = [];
+			killSwitchPulses = [];
 			stasisFields = [];
 			laserSweeps = [];
 			needleBursts = [];
@@ -1614,6 +1687,7 @@ export function createCampaignSketch(
 			voidTendrils = [];
 			voidTunnels = [];
 			phaseshifts = [];
+			oathbreakerSigils = [];
 			burningGrounds = [];
 			delayedBombs = [];
 			hemorrhageBursts = [];
@@ -2016,6 +2090,55 @@ export function createCampaignSketch(
 			return getClosestEnemy();
 		};
 
+		const getMarkedEnemy = () => {
+			if (markedEnemyId === null) {
+				return null;
+			}
+
+			return enemies.find((enemy) => enemy.id === markedEnemyId) ?? null;
+		};
+
+		const assignMarkedEnemy = (enemy: EnemyState | null) => {
+			markedEnemyId = enemy?.id ?? null;
+			return enemy;
+		};
+
+		const ensureMarkedEnemy = () => {
+			if (!targetPainterEffect) {
+				markedEnemyId = null;
+				return null;
+			}
+
+			const existingMarkedEnemy = getMarkedEnemy();
+
+			if (existingMarkedEnemy) {
+				return existingMarkedEnemy;
+			}
+
+			return assignMarkedEnemy(getWeaponTarget('strongest-target'));
+		};
+
+		const bounceMarkedEnemy = (originX: number, originY: number, defeatedEnemyId: number) => {
+			if (!targetPainterEffect) {
+				markedEnemyId = null;
+				return null;
+			}
+
+			const [nearbyEnemy] = getClosestEnemiesToPoint(
+				originX,
+				originY,
+				1,
+				Number.POSITIVE_INFINITY,
+				[defeatedEnemyId]
+			);
+
+			if (nearbyEnemy) {
+				return assignMarkedEnemy(nearbyEnemy);
+			}
+
+			return assignMarkedEnemy(getWeaponTarget('strongest-target'));
+		};
+
 		const getClosestEnemies = (count: number) => {
 			return [...enemies]
 				.sort(
@@ -2024,6 +2147,33 @@ export function createCampaignSketch(
 						Math.hypot(right.x - centerX, right.y - centerY)
 				)
 				.slice(0, count);
+		};
+
+		const normalizeAngleDelta = (fromAngle: number, toAngle: number) => {
+			let delta = toAngle - fromAngle;
+
+			while (delta > Math.PI) delta -= Math.PI * 2;
+			while (delta < -Math.PI) delta += Math.PI * 2;
+
+			return delta;
+		};
+
+		const getActiveOathbreakerSigilForEnemy = (enemyId: number) => {
+			for (const sigil of oathbreakerSigils) {
+				if (!sigil.enemyIds.includes(enemyId)) {
+					continue;
+				}
+
+				return sigil;
+			}
+
+			return null;
+		};
+
+		const getOathbreakerSlowMultiplier = (enemyId: number) => {
+			const sigil = getActiveOathbreakerSigilForEnemy(enemyId);
+
+			return sigil?.slowMultiplier ?? 1;
 		};
 
 		const getFurthestEnemies = (count: number) => {
@@ -2191,6 +2341,10 @@ export function createCampaignSketch(
 				return;
 			}
 
+			const shouldBounceMark = targetPainterEffect && markedEnemyId === defeatedEnemy.id;
+			const defeatedEnemyX = defeatedEnemy.x;
+			const defeatedEnemyY = defeatedEnemy.y;
+
 			waveXp += currentLevel.xpPerEnemy[defeatedEnemy.kind] ?? 0;
 
 			if (defeatedEnemy.kind === 'zerglitch') {
@@ -2207,6 +2361,10 @@ export function createCampaignSketch(
 			}
 
 			enemies.splice(enemyIndex, 1);
+
+			if (shouldBounceMark) {
+				bounceMarkedEnemy(defeatedEnemyX, defeatedEnemyY, defeatedEnemy.id);
+			}
 		};
 
 		const applyDamageToPixl = (damage: number) => {
@@ -2286,6 +2444,7 @@ export function createCampaignSketch(
 			options: {
 				applyWeaponHitEffects?: boolean;
 				allowContextHealing?: boolean;
+				allowOathbreakerShare?: boolean;
 			} = {}
 		) => {
 			const enemy = enemies[enemyIndex];
@@ -2299,9 +2458,19 @@ export function createCampaignSketch(
 			let actualDamage = 0;
 			const applyWeaponHitEffects = options.applyWeaponHitEffects ?? true;
 			const allowContextHealing = options.allowContextHealing ?? true;
+			const allowOathbreakerShare = options.allowOathbreakerShare ?? false;
 			const sourceWeapon = sourceWeaponInstanceId
 				? (equippedWeaponByInstanceId.get(sourceWeaponInstanceId)?.definition ?? null)
 				: null;
+
+			if (
+				targetPainterEffect &&
+				markedEnemyId === enemy.id &&
+				applyWeaponHitEffects &&
+				sourceWeaponInstanceId
+			) {
+				remainingDamage *= targetPainterEffect.damageMultiplier;
+			}
 
 			if (sourceWeapon?.attack.requiredInfusion && enemy.voidTouchedTimer > 0) {
 				remainingDamage *= 1.3;
@@ -2419,6 +2588,40 @@ export function createCampaignSketch(
 				enemy.shieldPulseCooldown = stats.onHitShieldCooldown;
 			}
 
+			if (allowOathbreakerShare && actualDamage > 0 && sourceWeaponInstanceId) {
+				const sigil = getActiveOathbreakerSigilForEnemy(enemy.id);
+
+				if (sigil && sigil.enemyIds.length > 1) {
+					const sharedDamage = actualDamage * sigil.damageShareRatio;
+
+					for (const chainedEnemyId of sigil.enemyIds) {
+						if (chainedEnemyId === enemy.id) {
+							continue;
+						}
+
+						const chainedEnemyIndex = enemies.findIndex(
+							(candidate) => candidate.id === chainedEnemyId
+						);
+
+						if (chainedEnemyIndex < 0) {
+							continue;
+						}
+
+						applyDamageToEnemy(
+							chainedEnemyIndex,
+							sharedDamage,
+							Math.max(0.05, hitFlash * 0.85),
+							sourceWeaponInstanceId,
+							{
+								applyWeaponHitEffects: false,
+								allowContextHealing: false,
+								allowOathbreakerShare: false
+							}
+						);
+					}
+				}
+			}
+
 			if (enemy.health <= 0) {
 				if (triggerHemorrhageBurst(enemyIndex)) {
 					return { defeated: true, actualDamage };
@@ -2449,7 +2652,9 @@ export function createCampaignSketch(
 					const enemyIndex = enemies.findIndex((enemy) => enemy.id === burst.enemyId);
 
 					if (enemyIndex >= 0) {
-						applyDamageToEnemy(enemyIndex, burst.damage, 0.09, burst.sourceWeaponInstanceId);
+						applyDamageToEnemy(enemyIndex, burst.damage, 0.09, burst.sourceWeaponInstanceId, {
+							allowOathbreakerShare: true
+						});
 					}
 
 					burst.hasHit = true;
@@ -2534,6 +2739,69 @@ export function createCampaignSketch(
 					hitEnemyIds: []
 				});
 			}
+		};
+
+		const spawnKillSwitchPulse = (weapon: WeaponDefinition, sourceWeaponInstanceId: string) => {
+			const special = weapon.attack.special;
+
+			if (!special || special.type !== 'kill-switch') {
+				return;
+			}
+
+			killSwitchPulses.push({
+				sourceWeaponInstanceId,
+				centerX,
+				centerY,
+				radius: combatProfile.collision.pixlRadius,
+				maxRadius: special.maxRadius,
+				expansionSpeed: special.expansionSpeed,
+				lineWidth: special.lineWidth,
+				executeThresholdRatio: special.executeThresholdRatio,
+				color: weapon.projectileVisual.color,
+				glow: weapon.projectileVisual.glow ?? false,
+				age: 0,
+				hitEnemyIds: []
+			});
+		};
+
+		const spawnOathbreakerSigil = (utility: EquippedUtilityState) => {
+			const effect = utility.definition.effect;
+
+			if (effect.type !== 'oathbreaker-sigil') {
+				return;
+			}
+
+			const focalTarget =
+				getWeaponTarget('strongest-target') ?? getWeaponTarget('nearest-target') ?? null;
+
+			if (!focalTarget) {
+				return;
+			}
+
+			const angle = Math.atan2(focalTarget.y - centerY, focalTarget.x - centerX);
+			const radius = Math.min(p.width, p.height) * effect.radiusFactor;
+			const currentRadius = combatProfile.collision.pixlRadius;
+			const sweepDuration = 0.32;
+			const expansionSpeed = Math.max(1, (radius - currentRadius) / sweepDuration);
+			const halfArcRadians = Math.PI / 2;
+
+			oathbreakerSigils.push({
+				sourceUtilityInstanceId: utility.instanceId,
+				enemyIds: [],
+				angle,
+				radius,
+				currentRadius,
+				halfArcRadians,
+				sweepDuration,
+				expansionSpeed,
+				lineWidth: 10,
+				duration: effect.duration,
+				age: 0,
+				slowMultiplier: effect.slowMultiplier,
+				damageShareRatio: effect.damageShareRatio,
+				color: utility.definition.utilityVisual?.color ?? '#f59e0b',
+				glow: utility.definition.utilityVisual?.glow ?? false
+			});
 		};
 
 		const spawnStasisField = (
@@ -3322,6 +3590,11 @@ export function createCampaignSketch(
 				return;
 			}
 
+			if (special?.type === 'kill-switch') {
+				spawnKillSwitchPulse(weapon.definition, weapon.instanceId);
+				return;
+			}
+
 			if (special?.type === 'laser-sweep') {
 				spawnLaserSweep(weapon.definition, weapon.instanceId);
 				return;
@@ -3329,6 +3602,18 @@ export function createCampaignSketch(
 
 			if (special?.type === 'needle-fan') {
 				spawnNeedleFan(weapon.definition, weapon.instanceId);
+				return;
+			}
+
+			if (special?.type === 'target-painter') {
+				const painterTarget = ensureMarkedEnemy() ?? target;
+
+				if (!painterTarget) {
+					return;
+				}
+
+				assignMarkedEnemy(painterTarget);
+				fireProjectile(painterTarget, weapon.definition, weapon.instanceId);
 				return;
 			}
 
@@ -3514,6 +3799,11 @@ export function createCampaignSketch(
 
 			if (effect.type === 'elemental-infuser') {
 				elementalInfusions[effect.element] += 1;
+				return;
+			}
+
+			if (effect.type === 'oathbreaker-sigil') {
+				spawnOathbreakerSigil(utility);
 				return;
 			}
 
@@ -3721,6 +4011,88 @@ export function createCampaignSketch(
 			}
 		};
 
+		const updateKillSwitchPulses = (dt: number) => {
+			for (let index = killSwitchPulses.length - 1; index >= 0; index -= 1) {
+				const pulse = killSwitchPulses[index];
+				pulse.age += dt;
+				pulse.radius += pulse.expansionSpeed * dt;
+
+				for (let enemyIndex = enemies.length - 1; enemyIndex >= 0; enemyIndex -= 1) {
+					const enemy = enemies[enemyIndex];
+
+					if (pulse.hitEnemyIds.includes(enemy.id)) {
+						continue;
+					}
+
+					const enemyRadius = ENEMY_VISUALS[enemy.kind].radius;
+					const distance = Math.hypot(enemy.x - pulse.centerX, enemy.y - pulse.centerY);
+					const ringThreshold = pulse.lineWidth / 2 + enemyRadius;
+
+					if (Math.abs(distance - pulse.radius) > ringThreshold) {
+						continue;
+					}
+
+					pulse.hitEnemyIds = [...pulse.hitEnemyIds, enemy.id];
+
+					if (enemy.health / Math.max(1, enemy.maxHealth) > pulse.executeThresholdRatio) {
+						continue;
+					}
+
+					const executeDamage = enemy.supportShieldPool + enemy.health + enemy.maxHealth * 2;
+					applyDamageToEnemy(enemyIndex, executeDamage, 0.18, pulse.sourceWeaponInstanceId, {
+						applyWeaponHitEffects: false,
+						allowContextHealing: false
+					});
+				}
+
+				if (pulse.radius >= pulse.maxRadius) {
+					killSwitchPulses.splice(index, 1);
+				}
+			}
+		};
+
+		const updateOathbreakerSigils = (dt: number) => {
+			for (let index = oathbreakerSigils.length - 1; index >= 0; index -= 1) {
+				const sigil = oathbreakerSigils[index];
+				sigil.age += dt;
+				sigil.enemyIds = sigil.enemyIds.filter((enemyId) =>
+					enemies.some((enemy) => enemy.id === enemyId)
+				);
+
+				if (sigil.currentRadius < sigil.radius) {
+					sigil.currentRadius = Math.min(
+						sigil.radius,
+						sigil.currentRadius + sigil.expansionSpeed * dt
+					);
+
+					for (const enemy of enemies) {
+						if (sigil.enemyIds.includes(enemy.id)) {
+							continue;
+						}
+
+						const enemyAngle = Math.atan2(enemy.y - centerY, enemy.x - centerX);
+
+						if (Math.abs(normalizeAngleDelta(sigil.angle, enemyAngle)) > sigil.halfArcRadians) {
+							continue;
+						}
+
+						const distance = Math.hypot(enemy.x - centerX, enemy.y - centerY);
+						const ringThreshold = sigil.lineWidth / 2 + ENEMY_VISUALS[enemy.kind].radius;
+
+						if (Math.abs(distance - sigil.currentRadius) > ringThreshold) {
+							continue;
+						}
+
+						sigil.enemyIds = [...sigil.enemyIds, enemy.id];
+					}
+				}
+
+				if (sigil.age >= sigil.sweepDuration + sigil.duration) {
+					oathbreakerSigils.splice(index, 1);
+				}
+			}
+		};
+
 		const updateStasisFields = (dt: number) => {
 			for (let index = stasisFields.length - 1; index >= 0; index -= 1) {
 				const field = stasisFields[index];
@@ -3899,6 +4271,8 @@ export function createCampaignSketch(
 		};
 
 		const updateEnemies = (dt: number) => {
+			ensureMarkedEnemy();
+
 			for (let index = enemies.length - 1; index >= 0; index -= 1) {
 				if (updateBleedOnEnemy(index, dt)) {
 					continue;
@@ -4031,7 +4405,9 @@ export function createCampaignSketch(
 				const desiredRange = Math.max(contactRange + 20, enemy.holdRadius);
 				const confusionMultiplier = enemy.confusionTimer > 0 ? 0.67 : 1;
 				const chillMultiplier = enemy.frozenTimer > 0 ? 0 : 1 - enemy.chillAmount;
-				const moveSpeedMultiplier = confusionMultiplier * chillMultiplier;
+				const oathbreakerSlowMultiplier = getOathbreakerSlowMultiplier(enemy.id);
+				const moveSpeedMultiplier =
+					confusionMultiplier * chillMultiplier * oathbreakerSlowMultiplier;
 				const effectiveMoveSpeed =
 					stats.moveSpeed * moveSpeedMultiplier * enemy.moveSpeedMultiplier;
 
@@ -4181,7 +4557,8 @@ export function createCampaignSketch(
 								enemyIndex,
 								getAdjustedWeaponDamage(lock.weapon, 1, lock.sourceWeaponInstanceId),
 								0.1,
-								lock.sourceWeaponInstanceId
+								lock.sourceWeaponInstanceId,
+								{ allowOathbreakerShare: true }
 							);
 						}
 					}
@@ -4227,7 +4604,9 @@ export function createCampaignSketch(
 						const enemyIndex = enemies.findIndex((enemy) => enemy.id === trackedTarget.id);
 
 						if (enemyIndex >= 0) {
-							applyDamageToEnemy(enemyIndex, strike.damage, 0.12, strike.sourceWeaponInstanceId);
+							applyDamageToEnemy(enemyIndex, strike.damage, 0.12, strike.sourceWeaponInstanceId, {
+								allowOathbreakerShare: true
+							});
 						}
 					}
 
@@ -4252,7 +4631,9 @@ export function createCampaignSketch(
 						const enemyIndex = enemies.findIndex((enemy) => enemy.id === segment.enemyId);
 
 						if (enemyIndex >= 0) {
-							applyDamageToEnemy(enemyIndex, segment.damage, 0.1, burst.sourceWeaponInstanceId);
+							applyDamageToEnemy(enemyIndex, segment.damage, 0.1, burst.sourceWeaponInstanceId, {
+								allowOathbreakerShare: true
+							});
 						}
 
 						segment.hasHit = true;
@@ -4478,7 +4859,9 @@ export function createCampaignSketch(
 						const enemyIndex = enemies.findIndex((enemy) => enemy.id === trackedTarget.id);
 
 						if (enemyIndex >= 0) {
-							applyDamageToEnemy(enemyIndex, tendril.damage, 0.1, tendril.sourceWeaponInstanceId);
+							applyDamageToEnemy(enemyIndex, tendril.damage, 0.1, tendril.sourceWeaponInstanceId, {
+								allowOathbreakerShare: true
+							});
 							healPixl(tendril.healPerHit);
 						}
 					}
@@ -4648,7 +5031,8 @@ export function createCampaignSketch(
 									enemyIndex,
 									projectile.damage,
 									0.04,
-									projectile.sourceWeaponInstanceId
+									projectile.sourceWeaponInstanceId,
+									{ allowOathbreakerShare: true }
 								);
 							}
 						}
@@ -4711,7 +5095,8 @@ export function createCampaignSketch(
 						hitEnemyIndex,
 						projectile.damage,
 						0.08,
-						projectile.sourceWeaponInstanceId
+						projectile.sourceWeaponInstanceId,
+						{ allowOathbreakerShare: true }
 					);
 
 					if (projectile.ricochetRemaining > 0 && retargetRicochetProjectile(projectile)) {
@@ -4844,6 +5229,112 @@ export function createCampaignSketch(
 				p.stroke(field.color);
 				p.strokeWeight(field.lineWidth);
 				p.circle(field.centerX, field.centerY, field.radius * 2);
+			}
+
+			for (const pulse of killSwitchPulses) {
+				if (pulse.glow) {
+					p.noFill();
+					p.stroke(`${pulse.color}33`);
+					p.strokeWeight(pulse.lineWidth * 1.9);
+					p.circle(pulse.centerX, pulse.centerY, pulse.radius * 2.1);
+				}
+
+				p.noFill();
+				p.stroke(pulse.color);
+				p.strokeWeight(pulse.lineWidth);
+				p.circle(pulse.centerX, pulse.centerY, pulse.radius * 2);
+			}
+
+			for (const sigil of oathbreakerSigils) {
+				const life = 1 - sigil.age / Math.max(0.0001, sigil.sweepDuration + sigil.duration);
+				const alphaHex = Math.round(Math.max(0.22, life * 0.72) * 255)
+					.toString(16)
+					.padStart(2, '0');
+				const startAngle = sigil.angle - sigil.halfArcRadians;
+				const endAngle = sigil.angle + sigil.halfArcRadians;
+				const chainPointCount = 11;
+				let previousChainX = 0;
+				let previousChainY = 0;
+
+				if (sigil.glow) {
+					p.noFill();
+					p.stroke(`${sigil.color}33`);
+					p.strokeWeight(sigil.lineWidth * 1.8);
+					p.arc(
+						centerX,
+						centerY,
+						sigil.currentRadius * 2.1,
+						sigil.currentRadius * 2.1,
+						startAngle,
+						endAngle
+					);
+				}
+
+				p.noFill();
+				p.stroke(`${sigil.color}${alphaHex}`);
+				p.strokeWeight(sigil.lineWidth);
+				p.arc(
+					centerX,
+					centerY,
+					sigil.currentRadius * 2,
+					sigil.currentRadius * 2,
+					startAngle,
+					endAngle
+				);
+
+				for (let pointIndex = 0; pointIndex < chainPointCount; pointIndex += 1) {
+					const t = pointIndex / (chainPointCount - 1);
+					const pointAngle = p.lerp(startAngle, endAngle, t);
+					const pointX = centerX + Math.cos(pointAngle) * sigil.currentRadius;
+					const pointY = centerY + Math.sin(pointAngle) * sigil.currentRadius;
+
+					if (pointIndex > 0) {
+						p.stroke(`${sigil.color}${alphaHex}`);
+						p.strokeWeight(2.2);
+						p.line(previousChainX, previousChainY, pointX, pointY);
+					}
+
+					p.noStroke();
+					p.fill(pointIndex % 2 === 0 ? `#fef3c7${alphaHex}` : `${sigil.color}${alphaHex}`);
+					p.circle(
+						pointX,
+						pointY,
+						pointIndex === 0 || pointIndex === chainPointCount - 1 ? 7 : 5.6
+					);
+
+					previousChainX = pointX;
+					previousChainY = pointY;
+				}
+
+				const chainedEnemies = sigil.enemyIds
+					.map((enemyId) => enemies.find((enemy) => enemy.id === enemyId) ?? null)
+					.filter((enemy): enemy is EnemyState => enemy !== null);
+
+				for (const enemy of chainedEnemies) {
+					const enemyAngle = Math.atan2(enemy.y - centerY, enemy.x - centerX);
+					const anchorX =
+						centerX + Math.cos(enemyAngle) * Math.min(sigil.currentRadius, sigil.radius);
+					const anchorY =
+						centerY + Math.sin(enemyAngle) * Math.min(sigil.currentRadius, sigil.radius);
+					p.noFill();
+					p.stroke(`${sigil.color}${alphaHex}`);
+					p.strokeWeight(1.8);
+					p.line(anchorX, anchorY, enemy.x, enemy.y);
+					p.noStroke();
+					p.fill(`#fef3c7${alphaHex}`);
+					p.circle(anchorX, anchorY, 5);
+					p.circle(enemy.x, enemy.y, ENEMY_VISUALS[enemy.kind].radius * 2.4);
+				}
+
+				if (chainedEnemies.length > 1) {
+					for (let enemyIndex = 0; enemyIndex < chainedEnemies.length; enemyIndex += 1) {
+						const enemy = chainedEnemies[enemyIndex];
+						const nextEnemy = chainedEnemies[(enemyIndex + 1) % chainedEnemies.length];
+						p.stroke(`${sigil.color}88`);
+						p.strokeWeight(1.2);
+						p.line(enemy.x, enemy.y, nextEnemy.x, nextEnemy.y);
+					}
+				}
 			}
 
 			for (const field of stasisFields) {
@@ -5164,6 +5655,62 @@ export function createCampaignSketch(
 					p.rect(0, 0, projectile.size * 1.15, projectile.size * 1.15, 3);
 					p.fill('#ffe29a');
 					p.rect(0, -projectile.size * 0.08, projectile.size * 0.42, projectile.size * 0.42, 2);
+					p.pop();
+					continue;
+				}
+
+				if (projectile.weaponId === 'deadeye-sniper') {
+					const heading = Math.atan2(projectile.directionY, projectile.directionX);
+					const life = 1 - Math.min(1, projectile.age / Math.max(0.0001, 0.18));
+					const alphaHex = Math.round((0.3 + life * 0.7) * 255)
+						.toString(16)
+						.padStart(2, '0');
+					const glowAlphaHex = Math.round((0.12 + life * 0.32) * 255)
+						.toString(16)
+						.padStart(2, '0');
+
+					p.stroke(`#e0f2fe${glowAlphaHex}`);
+					p.strokeWeight(Math.max(7, projectile.size * 1.45));
+					p.line(projectile.originX, projectile.originY, projectile.x, projectile.y);
+
+					p.stroke(`#7dd3fc${alphaHex}`);
+					p.strokeWeight(Math.max(3.2, projectile.size * 0.72));
+					p.line(projectile.originX, projectile.originY, projectile.x, projectile.y);
+
+					p.stroke(`#f8fafc${alphaHex}`);
+					p.strokeWeight(Math.max(1.4, projectile.size * 0.26));
+					p.line(projectile.originX, projectile.originY, projectile.x, projectile.y);
+
+					for (let echoIndex = 1; echoIndex <= 2; echoIndex += 1) {
+						const echoT = echoIndex / 3;
+						const echoX = p.lerp(projectile.x, projectile.lastX, echoT * 0.72);
+						const echoY = p.lerp(projectile.y, projectile.lastY, echoT * 0.72);
+						p.noStroke();
+						p.fill(echoIndex === 1 ? '#e0f2fe88' : '#7dd3fc55');
+						p.circle(echoX, echoY, projectile.size * (1.55 - echoT * 0.42));
+					}
+
+					p.noStroke();
+					p.fill('#7dd3fcaa');
+					p.circle(projectile.x, projectile.y, projectile.size * 2.3);
+					p.fill('#f8fafc');
+					p.circle(projectile.x, projectile.y, projectile.size * 1.15);
+
+					p.push();
+					p.translate(projectile.x, projectile.y);
+					p.rotate(heading);
+					p.rectMode(p.CENTER);
+					p.noStroke();
+					p.fill('#f8fafc');
+					p.rect(0, 0, projectile.size * 1.45, Math.max(2, projectile.size * 0.3), 2);
+					p.fill('#7dd3fc');
+					p.rect(
+						-projectile.size * 0.36,
+						0,
+						projectile.size * 0.55,
+						Math.max(2, projectile.size * 0.18),
+						2
+					);
 					p.pop();
 					continue;
 				}
@@ -5706,6 +6253,20 @@ export function createCampaignSketch(
 					});
 				}
 
+				if (markedEnemyId === enemy.id) {
+					p.noFill();
+					p.stroke('#facc15dd');
+					p.strokeWeight(2);
+					p.circle(enemy.x, enemy.y, visual.radius * 3.15);
+					p.line(enemy.x, enemy.y - visual.radius * 2.1, enemy.x, enemy.y - visual.radius * 1.15);
+					p.line(
+						enemy.x - visual.radius * 0.55,
+						enemy.y - visual.radius * 1.6,
+						enemy.x + visual.radius * 0.55,
+						enemy.y - visual.radius * 1.6
+					);
+				}
+
 				if (enemy.shieldPulseTimer > 0) {
 					const stats = combatProfile.glitches[enemy.kind];
 					const shieldColor = stats.shieldColor ?? '#ffe6a3';
@@ -5789,6 +6350,7 @@ export function createCampaignSketch(
 							string,
 							number
 						>);
+				markedEnemyId = initialResumeState.markedEnemyId ?? null;
 				recalculatePixlShieldPool();
 				activeShieldColor = initialResumeState.activeShieldColor;
 				enemyId = initialResumeState.enemyId;
@@ -5819,6 +6381,8 @@ export function createCampaignSketch(
 			if (runMode === 'combat' && status === 'running') {
 				updateWaveFlow(dt);
 				updateForceFields(dt);
+				updateKillSwitchPulses(dt);
+				updateOathbreakerSigils(dt);
 				updateStasisFields(dt);
 				updateVoidTunnels(dt);
 				updatePhaseshifts(dt);
