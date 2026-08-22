@@ -816,6 +816,11 @@
 			return;
 		}
 
+		const rewardPacksToPersist = mergeRewardPacks(
+			data.gameState.rewardPacks,
+			pendingRewardPacks.length > 0 ? pendingRewardPacks : combatOverlay.rewardPacks
+		);
+
 		if (typeof sessionStorage !== 'undefined' && latestCombatResumeState) {
 			sessionStorage.setItem(
 				getArenaCombatResumeStorageKey(data.campaignId),
@@ -851,7 +856,7 @@
 					defence: livePixlState.defence,
 					agility: livePixlState.agility
 				},
-				rewardPacks: pendingRewardPacks.length > 0 ? pendingRewardPacks : combatOverlay.rewardPacks,
+				rewardPacks: rewardPacksToPersist,
 				campaignProgress: [
 					{
 						campaignId: data.campaignId,

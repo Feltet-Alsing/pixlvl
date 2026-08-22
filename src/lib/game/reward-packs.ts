@@ -73,10 +73,13 @@ function chooseRandomPackDefinition(
 	candidates: LoadoutItemDefinition[],
 	rarity: WeaponRarity,
 	randomIndex: (maxExclusive: number) => number,
+	excludedDefinitionIds: Set<string>,
 	fallbacks: WeaponRarity[] = []
 ) {
 	for (const nextRarity of [rarity, ...fallbacks]) {
-		const matchingCandidates = candidates.filter((candidate) => candidate.rarity === nextRarity);
+		const matchingCandidates = candidates.filter(
+			(candidate) => candidate.rarity === nextRarity && !excludedDefinitionIds.has(candidate.id)
+		);
 
 		if (matchingCandidates.length === 0) {
 			continue;
@@ -90,10 +93,13 @@ function chooseRandomPackDefinition(
 
 function chooseWeightedNormalSlotRarity(
 	candidates: LoadoutItemDefinition[],
-	randomFloat: () => number
+	randomFloat: () => number,
+	excludedDefinitionIds: Set<string>
 ) {
 	const availableRarities = Object.entries(NORMAL_SLOT_RARITY_WEIGHTS).filter(([rarity]) =>
-		candidates.some((candidate) => candidate.rarity === rarity)
+		candidates.some(
+			(candidate) => candidate.rarity === rarity && !excludedDefinitionIds.has(candidate.id)
+		)
 	) as Array<[WeaponRarity, number]>;
 
 	if (availableRarities.length === 0) {
@@ -152,26 +158,36 @@ function createNormalRewardPack(
 	input: RollLevelRewardPacksInput
 ) {
 	const cards: PersistedRewardPackCard[] = [];
+	const selectedDefinitionIds = new Set<string>();
+
+	if (eligibleDefinitions.length < PACK_CARD_COUNT) {
+		return null;
+	}
 
 	for (let slotIndex = 0; slotIndex < PACK_CARD_COUNT; slotIndex += 1) {
-		const rarity = chooseWeightedNormalSlotRarity(eligibleDefinitions, input.randomFloat);
+		const rarity = chooseWeightedNormalSlotRarity(
+			eligibleDefinitions,
+			input.randomFloat,
+			selectedDefinitionIds
+		);
 
 		if (!rarity) {
 			return null;
 		}
 
-		const definition = chooseRandomPackDefinition(eligibleDefinitions, rarity, input.randomIndex, [
-			'normal',
-			'magic',
-			'rare',
-			'exotic',
-			'legendary'
-		]);
+		const definition = chooseRandomPackDefinition(
+			eligibleDefinitions,
+			rarity,
+			input.randomIndex,
+			selectedDefinitionIds,
+			['normal', 'magic', 'rare', 'exotic', 'legendary']
+		);
 
 		if (!definition) {
 			return null;
 		}
 
+		selectedDefinitionIds.add(definition.id);
 		cards.push(createRewardPackCard(slotIndex, definition, false));
 	}
 
@@ -183,12 +199,17 @@ function createSpecialRewardPack(
 	guaranteedDefinitions: LoadoutItemDefinition[],
 	input: RollLevelRewardPacksInput
 ) {
+	if (eligibleDefinitions.length < PACK_CARD_COUNT) {
+		return null;
+	}
+
 	const guaranteedRarity =
 		input.randomFloat() < SPECIAL_PACK_LEGENDARY_CHANCE ? 'legendary' : 'exotic';
 	const guaranteedDefinition = chooseRandomPackDefinition(
 		guaranteedDefinitions,
 		guaranteedRarity,
 		input.randomIndex,
+		new Set<string>(),
 		[guaranteedRarity === 'legendary' ? 'exotic' : 'legendary']
 	);
 
@@ -197,26 +218,32 @@ function createSpecialRewardPack(
 	}
 
 	const cards: PersistedRewardPackCard[] = [];
+	const selectedDefinitionIds = new Set<string>([guaranteedDefinition.id]);
 
 	for (let slotIndex = 0; slotIndex < PACK_CARD_COUNT - 1; slotIndex += 1) {
-		const rarity = chooseWeightedNormalSlotRarity(eligibleDefinitions, input.randomFloat);
+		const rarity = chooseWeightedNormalSlotRarity(
+			eligibleDefinitions,
+			input.randomFloat,
+			selectedDefinitionIds
+		);
 
 		if (!rarity) {
 			return null;
 		}
 
-		const definition = chooseRandomPackDefinition(eligibleDefinitions, rarity, input.randomIndex, [
-			'normal',
-			'magic',
-			'rare',
-			'exotic',
-			'legendary'
-		]);
+		const definition = chooseRandomPackDefinition(
+			eligibleDefinitions,
+			rarity,
+			input.randomIndex,
+			selectedDefinitionIds,
+			['normal', 'magic', 'rare', 'exotic', 'legendary']
+		);
 
 		if (!definition) {
 			return null;
 		}
 
+		selectedDefinitionIds.add(definition.id);
 		cards.push(createRewardPackCard(slotIndex, definition, false));
 	}
 
