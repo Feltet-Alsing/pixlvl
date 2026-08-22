@@ -5,7 +5,6 @@ import {
 	getCampaignCombatProfile,
 	getCampaignWeaponPool,
 	getLoadoutItemDefinition,
-	getWeaponDefinition,
 	campaigns,
 	weaponDefinitions
 } from '$lib/data';
@@ -43,7 +42,11 @@ import {
 	getCampaignRouteNotificationCounts,
 	type NotificationSnapshot
 } from '$lib/game/notifications';
-import { getPlacementRotation, rotateWeaponShape } from '$lib/game/loadout-rotation';
+import {
+	getPlacementMirrored,
+	getPlacementRotation,
+	transformWeaponShape
+} from '$lib/game/loadout-rotation';
 
 import type {
 	LoadoutItemDefinition,
@@ -143,17 +146,20 @@ function buildOwnedWeaponById(ownedWeapons: OwnedWeaponInstance[]) {
 function isPlacementWithinBounds(
 	definition: LoadoutItemDefinition,
 	rotation: LoadoutPlacement['rotation'],
+	mirrored: boolean,
 	x: number,
 	y: number,
 	columnCount: number,
 	rowCount: number
 ) {
-	return rotateWeaponShape(definition.shape, rotation).cells.every(([cellX, cellY]) => {
+	return transformWeaponShape(definition.shape, rotation, mirrored).cells.every(
+		([cellX, cellY]) => {
 		const gridX = x + cellX;
 		const gridY = y + cellY;
 
 		return gridX >= 0 && gridX < columnCount && gridY >= 0 && gridY < rowCount;
-	});
+		}
+	);
 }
 
 function placementsOverlap(
@@ -162,6 +168,7 @@ function placementsOverlap(
 	currentInstanceId: string,
 	definition: LoadoutItemDefinition,
 	rotation: LoadoutPlacement['rotation'],
+	mirrored: boolean,
 	x: number,
 	y: number
 ) {
@@ -180,14 +187,18 @@ function placementsOverlap(
 		}
 
 		const placedDefinition = getLoadoutItemDefinition(ownedWeapon.definitionId);
-		const placedShape = rotateWeaponShape(placedDefinition.shape, getPlacementRotation(placement));
+		const placedShape = transformWeaponShape(
+			placedDefinition.shape,
+			getPlacementRotation(placement),
+			getPlacementMirrored(placement)
+		);
 
 		for (const [cellX, cellY] of placedShape.cells) {
 			occupied.add(`${placement.x + cellX}:${placement.y + cellY}`);
 		}
 	}
 
-	return rotateWeaponShape(definition.shape, rotation).cells.some(([cellX, cellY]) =>
+	return transformWeaponShape(definition.shape, rotation, mirrored).cells.some(([cellX, cellY]) =>
 		occupied.has(`${x + cellX}:${y + cellY}`)
 	);
 }
@@ -233,11 +244,13 @@ function validateLoadoutPlacements(
 		}
 
 		const rotation = getPlacementRotation(placement);
+		const mirrored = getPlacementMirrored(placement);
 
 		if (
 			!isPlacementWithinBounds(
 				definition,
 				rotation,
+				mirrored,
 				placement.x,
 				placement.y,
 				columnCount,
@@ -257,6 +270,7 @@ function validateLoadoutPlacements(
 				placement.weaponInstanceId,
 				definition,
 				rotation,
+				mirrored,
 				placement.x,
 				placement.y
 			)
@@ -376,6 +390,8 @@ function parseLoadoutStateFromFormData(formData: FormData) {
 						x: (entry as LoadoutPlacement).x,
 						y: (entry as LoadoutPlacement).y,
 						rotation: getPlacementRotation(entry as LoadoutPlacement)
+						,
+						mirrored: getPlacementMirrored(entry as LoadoutPlacement)
 					};
 
 					if (typeof (entry as LoadoutPlacement).targeting === 'string') {
@@ -395,59 +411,6 @@ function parseLoadoutStateFromFormData(formData: FormData) {
 			activeSlot: normalizeLoadoutSlotIndex(parsed.activeSlot),
 			slots: normalizedSlots as PersistedLoadoutState['slots']
 		} satisfies PersistedLoadoutState;
-	} catch {
-		return null;
-	}
-}
-
-function parseLoadoutPlacementsFromFormData(formData: FormData) {
-	const validTargetingKinds = new Set([
-		'current-target',
-		'nearest-target',
-		'furthest-target',
-		'strongest-target',
-		'weakest-target'
-	]);
-
-	const rawPlacements = formData.get('loadoutPlacements');
-
-	if (typeof rawPlacements !== 'string') {
-		return null;
-	}
-
-	try {
-		const parsed = JSON.parse(rawPlacements);
-
-		if (!Array.isArray(parsed)) {
-			return null;
-		}
-
-		return parsed
-			.map((entry) => {
-				if (
-					typeof entry !== 'object' ||
-					entry === null ||
-					typeof entry.weaponInstanceId !== 'string' ||
-					typeof entry.x !== 'number' ||
-					typeof entry.y !== 'number'
-				) {
-					return null;
-				}
-
-				const placement: LoadoutPlacement = {
-					weaponInstanceId: entry.weaponInstanceId,
-					x: entry.x,
-					y: entry.y,
-					rotation: getPlacementRotation(entry)
-				};
-
-				if (typeof entry.targeting === 'string' && validTargetingKinds.has(entry.targeting)) {
-					placement.targeting = entry.targeting;
-				}
-
-				return placement;
-			})
-			.filter((entry): entry is LoadoutPlacement => entry !== null);
 	} catch {
 		return null;
 	}
@@ -481,6 +444,7 @@ export async function placeLoadoutWeaponForUser(
 	const rotation = getPlacementRotation({
 		rotation: formData.get('rotation') ? Number(formData.get('rotation')) : 0
 	});
+	const mirrored = getPlacementMirrored({ mirrored: formData.get('mirrored') === 'true' });
 
 	if (typeof weaponInstanceId !== 'string' || x === null || y === null) {
 		return { ok: false, status: 400, data: { loadoutError: 'Invalid loadout placement request.' } };
@@ -510,6 +474,7 @@ export async function placeLoadoutWeaponForUser(
 			x,
 			y,
 			rotation,
+			mirrored,
 			targeting: 'current-target' as const
 		}
 	];

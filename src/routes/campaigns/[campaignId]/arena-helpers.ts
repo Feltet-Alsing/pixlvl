@@ -1,4 +1,8 @@
-import { getLoadoutRotationLabel } from '$lib/game/loadout-rotation';
+import {
+	getLoadoutRotationLabel,
+	getPlacementMirrored,
+	getPlacementRotation
+} from '$lib/game/loadout-rotation';
 import { getActiveLoadoutPlacements } from '$lib/game/loadout-slots';
 
 import type {
@@ -67,6 +71,7 @@ export interface LoadoutRow {
 	x: number;
 	y: number;
 	rotation: LoadoutRotation;
+	mirrored: boolean;
 }
 
 export interface CampaignStageSummary {
@@ -200,7 +205,8 @@ export function buildCurrentLoadoutRows(
 				rarity: definition.rarity,
 				x: placement.x,
 				y: placement.y,
-				rotation: placement.rotation
+				rotation: getPlacementRotation(placement),
+				mirrored: getPlacementMirrored(placement)
 			} satisfies LoadoutRow;
 		})
 		.filter((entry): entry is LoadoutRow => entry !== null)
@@ -250,7 +256,7 @@ export function buildLoadoutTooltip(currentLoadoutRows: LoadoutRow[]) {
 		currentLoadoutRows
 			.map(
 				(weapon) =>
-					`${weapon.name} (${weapon.x}, ${weapon.y}) · ${getLoadoutRotationLabel(weapon.rotation)}`
+					`${weapon.name} (${weapon.x}, ${weapon.y}) · ${getLoadoutRotationLabel(weapon.rotation)}${weapon.mirrored ? ' mirrored' : ''}`
 			)
 			.join('\n') || 'No equipped items'
 	);

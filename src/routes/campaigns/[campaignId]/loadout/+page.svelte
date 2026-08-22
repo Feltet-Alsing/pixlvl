@@ -20,7 +20,7 @@
 		cycleLoadoutRotation,
 		getLoadoutRotationLabel,
 		getPlacementRotation,
-		rotateWeaponShape
+		transformWeaponShape
 	} from '$lib/game/loadout-rotation';
 	import { createBaselineUpgradeablePixlState } from '$lib/game/upgrades';
 	import { createCampaignSketch, type CampaignCombatResumeState } from '$lib/p5/campaign-1-sketch';
@@ -106,6 +106,8 @@
 		totalScrapInvested?: number;
 		stats: Array<{ label: string; value: string }>;
 		canRotate?: boolean;
+		canMirror?: boolean;
+		isMirrored?: boolean;
 		canChangeTargeting?: boolean;
 	}
 
@@ -184,6 +186,7 @@
 	let draftLoadoutSlots = $state.raw(cloneLoadoutSlots(initialPersistedLoadoutState.slots));
 	let draggedWeaponAnchor = $state<{ x: number; y: number } | null>(null);
 	let draggedWeaponRotation = $state<LoadoutRotation>(0);
+	let draggedWeaponMirrored = $state(false);
 	let draggedWeaponTargeting = $state<WeaponTargetingKind>('nearest-target');
 	let draggedWeaponPointerId = $state<number | null>(null);
 	let dragPreviewPointer = $state<{ x: number; y: number } | null>(null);
@@ -333,7 +336,11 @@
 	);
 	let draggedWeaponShape = $derived(
 		draggedWeaponDefinition
-			? rotateWeaponShape(draggedWeaponDefinition.shape, draggedWeaponRotation)
+			? transformWeaponShape(
+					draggedWeaponDefinition.shape,
+					draggedWeaponRotation,
+					draggedWeaponMirrored
+				)
 			: null
 	);
 	let occupiedCellKeys = $derived.by(() => {
@@ -508,6 +515,7 @@
 				role: selectedPlacedWeapon.role,
 				shapeLabel: getShapeLabel(selectedPlacedWeapon.shape, selectedPlacedWeapon.rotation),
 				rotationLabel: getLoadoutRotationLabel(selectedPlacedWeapon.rotation),
+				isMirrored: selectedPlacedWeapon.mirrored,
 				summary:
 					selectedPlacedWeapon.category === 'weapon'
 						? selectedPlacedWeapon.effectSummary
@@ -549,6 +557,7 @@
 						? normalizeTargetingValue(selectedPlacedWeapon.targeting)
 						: undefined,
 				canRotate: true,
+				canMirror: true,
 				canChangeTargeting: selectedPlacedWeapon.category === 'weapon'
 			} satisfies SelectedWeaponDetails;
 		}
@@ -1397,7 +1406,8 @@
 		weaponInstanceId: string,
 		x: number,
 		y: number,
-		rotation = draggedWeaponRotation
+		rotation = draggedWeaponRotation,
+		mirrored = draggedWeaponMirrored
 	) {
 		const ownedWeapon = ownedWeaponByInstanceId[weaponInstanceId];
 		const definition = ownedWeapon ? weaponDefinitionById[ownedWeapon.definitionId] : null;
@@ -1410,7 +1420,7 @@
 			return false;
 		}
 
-		const shape = rotateWeaponShape(definition.shape, rotation);
+		const shape = transformWeaponShape(definition.shape, rotation, mirrored);
 		const occupiedCells = getOccupiedCellKeys(weaponInstanceId);
 
 		return shape.cells.every(([shapeX, shapeY]) => {
@@ -1431,14 +1441,15 @@
 		weaponInstanceId: string,
 		x: number,
 		y: number,
-		rotation = draggedWeaponRotation
+		rotation = draggedWeaponRotation,
+		mirrored = draggedWeaponMirrored
 	) {
 		const hadPlacement = draftLoadoutPlacements.some(
 			(placement) => placement.weaponInstanceId === weaponInstanceId
 		);
 		const weaponName = getLoadoutItemName(weaponInstanceId);
 
-		if (!canPlaceWeaponAt(weaponInstanceId, x, y, rotation)) {
+		if (!canPlaceWeaponAt(weaponInstanceId, x, y, rotation, mirrored)) {
 			return;
 		}
 
@@ -1451,6 +1462,7 @@
 				x,
 				y,
 				rotation,
+				mirrored,
 				targeting: draggedWeaponTargeting
 			} satisfies LoadoutPlacement
 		];
@@ -1491,7 +1503,11 @@
 		clearDragState();
 	}
 
-	function pickWeaponForMobilePlacement(weaponInstanceId: string, rotation: LoadoutRotation) {
+	function pickWeaponForMobilePlacement(
+		weaponInstanceId: string,
+		rotation: LoadoutRotation,
+		mirrored = false
+	) {
 		const ownedWeapon = ownedWeaponByInstanceId[weaponInstanceId];
 		const definition = ownedWeapon ? weaponDefinitionById[ownedWeapon.definitionId] : null;
 
@@ -1501,6 +1517,7 @@
 
 		draggedWeaponInstanceId = weaponInstanceId;
 		draggedWeaponRotation = rotation;
+		draggedWeaponMirrored = mirrored;
 		draggedWeaponTargeting = (
 			isWeaponDefinition(definition) && definition.attack.targeting === 'current-target'
 				? 'nearest-target'
@@ -1508,7 +1525,9 @@
 					? definition.attack.targeting
 					: 'nearest-target'
 		) as WeaponTargetingKind;
-		draggedWeaponAnchor = getDefaultDragAnchor(rotateWeaponShape(definition.shape, rotation));
+		draggedWeaponAnchor = getDefaultDragAnchor(
+			transformWeaponShape(definition.shape, rotation, mirrored)
+		);
 		draggedWeaponPointerId = null;
 		hoveredGridOrigin = null;
 		isInventoryDropTargetActive = false;
@@ -1541,6 +1560,7 @@
 		weaponInstanceId: string,
 		anchor: { x: number; y: number },
 		rotation: LoadoutRotation,
+		mirrored: boolean,
 		targeting: WeaponTargetingKind
 	) {
 		if (event.cancelable) {
@@ -1551,6 +1571,7 @@
 		draggedWeaponInstanceId = weaponInstanceId;
 		draggedWeaponAnchor = anchor;
 		draggedWeaponRotation = rotation;
+		draggedWeaponMirrored = mirrored;
 		draggedWeaponTargeting = targeting;
 		draggedWeaponPointerId = event.pointerId;
 		hoveredGridOrigin = null;
@@ -1634,7 +1655,8 @@
 				draggedWeaponInstanceId,
 				hoveredGridOrigin.x,
 				hoveredGridOrigin.y,
-				draggedWeaponRotation
+				draggedWeaponRotation,
+				draggedWeaponMirrored
 			);
 			return;
 		}
@@ -1651,6 +1673,7 @@
 		draggedWeaponInstanceId = null;
 		draggedWeaponAnchor = null;
 		draggedWeaponRotation = 0;
+		draggedWeaponMirrored = false;
 		draggedWeaponTargeting = 'nearest-target';
 		draggedWeaponPointerId = null;
 		hoveredGridOrigin = null;
@@ -1671,7 +1694,11 @@
 		}
 
 		const nextRotation = cycleLoadoutRotation(draggedWeaponRotation);
-		const nextShape = rotateWeaponShape(draggedWeaponDefinition.shape, nextRotation);
+		const nextShape = transformWeaponShape(
+			draggedWeaponDefinition.shape,
+			nextRotation,
+			draggedWeaponMirrored
+		);
 		const hoveredCell =
 			hoveredGridOrigin && draggedWeaponAnchor
 				? {
@@ -1693,6 +1720,36 @@
 		markRotationTipSeen();
 	}
 
+	function mirrorDraggedWeapon() {
+		if (!draggedWeaponDefinition) {
+			return;
+		}
+
+		const nextMirrored = !draggedWeaponMirrored;
+		const nextShape = transformWeaponShape(
+			draggedWeaponDefinition.shape,
+			draggedWeaponRotation,
+			nextMirrored
+		);
+		const hoveredCell =
+			hoveredGridOrigin && draggedWeaponAnchor
+				? {
+						x: hoveredGridOrigin.x + draggedWeaponAnchor.x,
+						y: hoveredGridOrigin.y + draggedWeaponAnchor.y
+				  }
+				: null;
+
+		draggedWeaponMirrored = nextMirrored;
+		draggedWeaponAnchor = getDefaultDragAnchor(nextShape);
+
+		if (hoveredCell) {
+			hoveredGridOrigin = {
+				x: hoveredCell.x - draggedWeaponAnchor!.x,
+				y: hoveredCell.y - draggedWeaponAnchor!.y
+			};
+		}
+	}
+
 	function rotatePlacedWeapon(weaponInstanceId: string) {
 		const placement = placementByWeaponInstanceId[weaponInstanceId];
 		const ownedWeapon = ownedWeaponByInstanceId[weaponInstanceId];
@@ -1704,10 +1761,22 @@
 		}
 
 		const nextRotation = cycleLoadoutRotation(getPlacementRotation(placement));
-		const rotatedShape = rotateWeaponShape(definition.shape, nextRotation);
+		const rotatedShape = transformWeaponShape(
+			definition.shape,
+			nextRotation,
+			placement.mirrored === true
+		);
 		const nextOrigin = clampPlacementOrigin(rotatedShape, placement.x, placement.y);
 
-		if (!canPlaceWeaponAt(weaponInstanceId, nextOrigin.x, nextOrigin.y, nextRotation)) {
+		if (
+			!canPlaceWeaponAt(
+				weaponInstanceId,
+				nextOrigin.x,
+				nextOrigin.y,
+				nextRotation,
+				placement.mirrored === true
+			)
+		) {
 			return;
 		}
 
@@ -1724,6 +1793,50 @@
 			'neutral'
 		);
 		markRotationTipSeen();
+	}
+
+	function mirrorPlacedWeapon(weaponInstanceId: string) {
+		const placement = placementByWeaponInstanceId[weaponInstanceId];
+		const ownedWeapon = ownedWeaponByInstanceId[weaponInstanceId];
+		const definition = ownedWeapon ? weaponDefinitionById[ownedWeapon.definitionId] : null;
+		const weaponName = getLoadoutItemName(weaponInstanceId);
+
+		if (!placement || !definition) {
+			return;
+		}
+
+		const nextMirrored = !(placement.mirrored === true);
+		const mirroredShape = transformWeaponShape(
+			definition.shape,
+			getPlacementRotation(placement),
+			nextMirrored
+		);
+		const nextOrigin = clampPlacementOrigin(mirroredShape, placement.x, placement.y);
+
+		if (
+			!canPlaceWeaponAt(
+				weaponInstanceId,
+				nextOrigin.x,
+				nextOrigin.y,
+				getPlacementRotation(placement),
+				nextMirrored
+			)
+		) {
+			return;
+		}
+
+		draftLoadoutPlacements = draftLoadoutPlacements.map((entry) =>
+			entry.weaponInstanceId === weaponInstanceId
+				? { ...entry, x: nextOrigin.x, y: nextOrigin.y, mirrored: nextMirrored }
+				: entry
+		);
+		selectedPlacedWeaponInstanceId = weaponInstanceId;
+		selectedInventoryDefinitionId = null;
+		pushChangeLogEntry(
+			`${nextMirrored ? 'Mirrored' : 'Unmirrored'} ${weaponName}`,
+			`Draft orientation updated in loadout ${activeLoadoutSlot + 1}.`,
+			'neutral'
+		);
 	}
 
 	function handleWindowKeydown(event: KeyboardEvent) {
@@ -1784,6 +1897,7 @@
 			weapon.weaponInstanceId,
 			getPlacedWeaponDragAnchor(event, weapon.shape),
 			weapon.rotation,
+			weapon.mirrored,
 			(weapon.targeting === 'current-target' || !weapon.targeting
 				? 'nearest-target'
 				: weapon.targeting) as WeaponTargetingKind
@@ -1813,6 +1927,7 @@
 			weapon.weaponInstanceId,
 			anchor,
 			0,
+			false,
 			(weapon.attack?.targeting === 'current-target' || !weapon.attack?.targeting
 				? 'nearest-target'
 				: weapon.attack.targeting) as WeaponTargetingKind
@@ -1858,6 +1973,7 @@
 		draggedWeaponInstanceId = weapon.weaponInstanceId;
 		draggedWeaponAnchor = getDefaultDragAnchor(weapon.shape);
 		draggedWeaponRotation = 0;
+		draggedWeaponMirrored = false;
 		draggedWeaponTargeting = (
 			weapon.attack?.targeting === 'current-target' || !weapon.attack?.targeting
 				? 'nearest-target'
@@ -1894,7 +2010,7 @@
 		selectedPlacedWeaponInstanceId = null;
 		selectedInventoryDefinitionId = group.groupId;
 		selectedInventoryWeaponInstanceId = weapon.weaponInstanceId;
-		pickWeaponForMobilePlacement(weapon.weaponInstanceId, 0);
+		pickWeaponForMobilePlacement(weapon.weaponInstanceId, 0, false);
 		isMobileItemPaneOpen = false;
 	}
 
@@ -2106,6 +2222,22 @@
 							>
 								Rotate {mobileRotateWeapon.name}
 							</button>
+							<button
+								class="ghost"
+								type="button"
+								onclick={() => {
+									if (
+										draggedWeaponInstanceId &&
+										draggedWeaponInstanceId === mobileRotateInstanceId
+									) {
+										mirrorDraggedWeapon();
+									} else {
+										mirrorPlacedWeapon(mobileRotateInstanceId);
+									}
+								}}
+							>
+								Mirror {mobileRotateWeapon.name}
+							</button>
 							{#if draggedWeaponInstanceId}
 								<button class="ghost" type="button" onclick={cancelMobilePlacement}>
 									Cancel
@@ -2159,6 +2291,11 @@
 					onRotate={() => {
 						if (selectedPlacedWeaponInstanceId) {
 							rotatePlacedWeapon(selectedPlacedWeaponInstanceId);
+						}
+					}}
+					onMirror={() => {
+						if (selectedPlacedWeaponInstanceId) {
+							mirrorPlacedWeapon(selectedPlacedWeaponInstanceId);
 						}
 					}}
 					onTargetingChange={(value) => {

@@ -1,6 +1,11 @@
 import { getLoadoutItemDefinition } from '$lib/data';
-import { normalizeLoadoutRotation } from '$lib/game/loadout-rotation';
-import { getPlacementRotation, rotateWeaponShape } from '$lib/game/loadout-rotation';
+import {
+	getPlacementMirrored,
+	getPlacementRotation,
+	normalizeLoadoutMirror,
+	normalizeLoadoutRotation,
+	transformWeaponShape
+} from '$lib/game/loadout-rotation';
 
 import type {
 	LoadoutPlacement,
@@ -36,7 +41,8 @@ export function createEmptyLoadoutSlots(): LoadoutSlots {
 export function cloneLoadoutPlacements(placements: LoadoutPlacement[]) {
 	return placements.map((placement) => ({
 		...placement,
-		rotation: normalizeLoadoutRotation(placement.rotation)
+		rotation: normalizeLoadoutRotation(placement.rotation),
+		mirrored: normalizeLoadoutMirror(placement.mirrored)
 	}));
 }
 
@@ -91,6 +97,7 @@ export function normalizeLoadoutPlacements(
 			x: placement.x,
 			y: placement.y,
 			rotation: normalizeLoadoutRotation(placement.rotation),
+			mirrored: getPlacementMirrored(placement),
 			targeting: validTargetingKinds.has(placement.targeting as WeaponTargetingKind)
 				? placement.targeting
 				: undefined
@@ -127,7 +134,8 @@ function sanitizeLoadoutPlacements(
 		}
 
 		const rotation = getPlacementRotation(placement);
-		const shape = rotateWeaponShape(definition.shape, rotation);
+		const mirrored = getPlacementMirrored(placement);
+		const shape = transformWeaponShape(definition.shape, rotation, mirrored);
 		const occupiedByPlacement: string[] = [];
 		let isValidPlacement = true;
 
@@ -165,7 +173,8 @@ function sanitizeLoadoutPlacements(
 
 		sanitizedPlacements.push({
 			...placement,
-			rotation
+			rotation,
+			mirrored
 		});
 	}
 

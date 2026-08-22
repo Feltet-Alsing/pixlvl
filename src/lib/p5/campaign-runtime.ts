@@ -2,7 +2,11 @@ import type P5 from 'p5';
 
 import { getLoadoutItemDefinition, isUtilityDefinition, isWeaponDefinition } from '$lib/data';
 import { getActiveLoadoutPlacements } from '$lib/game/loadout-slots';
-import { getPlacementRotation, rotateWeaponShape } from '$lib/game/loadout-rotation';
+import {
+	getPlacementMirrored,
+	getPlacementRotation,
+	transformWeaponShape
+} from '$lib/game/loadout-rotation';
 import { createUpgradedWeaponDefinition } from '$lib/game/weapon-upgrades';
 
 import type {
@@ -228,7 +232,11 @@ export function buildEquippedLoadoutEntries(
 		}
 
 		const definition = getLoadoutItemDefinition(ownedWeapon.definitionId);
-		const shape = rotateWeaponShape(definition.shape, getPlacementRotation(placement));
+		const shape = transformWeaponShape(
+			definition.shape,
+			getPlacementRotation(placement),
+			getPlacementMirrored(placement)
+		);
 		const triggerColumn = getLoadoutItemTriggerColumn(shape, placement.x);
 		const targeting = isWeaponDefinition(definition)
 			? (placement.targeting ?? definition.attack.targeting)

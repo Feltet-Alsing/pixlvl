@@ -6,7 +6,11 @@
 		starterWeaponId
 	} from '$lib/data';
 	import { getActiveLoadoutPlacements } from '$lib/game/loadout-slots';
-	import { rotateWeaponShape } from '$lib/game/loadout-rotation';
+	import {
+		getPlacementMirrored,
+		getPlacementRotation,
+		transformWeaponShape
+	} from '$lib/game/loadout-rotation';
 	import type { WeaponRarity } from '$lib/data/types';
 	import type { PageServerData } from './$types';
 	import P5Canvas from '$lib/components/P5Canvas.svelte';
@@ -89,7 +93,11 @@
 			}
 
 			const definition = getLoadoutItemDefinition(ownedWeapon.definitionId);
-			const shape = rotateWeaponShape(definition.shape, placement.rotation);
+			const shape = transformWeaponShape(
+				definition.shape,
+				getPlacementRotation(placement),
+				getPlacementMirrored(placement)
+			);
 
 			for (const [shapeX, shapeY] of shape.cells) {
 				occupied[`${placement.x + shapeX}:${placement.y + shapeY}`] = definition.rarity;

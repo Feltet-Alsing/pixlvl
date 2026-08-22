@@ -29,6 +29,8 @@
 		totalScrapInvested?: number;
 		stats: DetailRow[];
 		canRotate?: boolean;
+		canMirror?: boolean;
+		isMirrored?: boolean;
 		canChangeTargeting?: boolean;
 	}
 
@@ -36,6 +38,7 @@
 		detail: SelectedWeaponDetails | null;
 		signedIn?: boolean;
 		onRotate?: () => void;
+		onMirror?: () => void;
 		targetingOptions?: Array<{ value: string; label: string }>;
 		onTargetingChange?: (value: string) => void;
 		onUpgradeSubmit?: () => void;
@@ -51,6 +54,7 @@
 		detail,
 		signedIn = false,
 		onRotate,
+		onMirror,
 		targetingOptions = [],
 		onTargetingChange,
 		onUpgradeSubmit,
@@ -108,6 +112,12 @@
 					<strong>{detail.rotationLabel}</strong>
 				</div>
 			{/if}
+			{#if detail.canMirror}
+				<div class="detail-card">
+					<span>Mirror</span>
+					<strong>{detail.isMirrored ? 'Mirrored' : 'Normal'}</strong>
+				</div>
+			{/if}
 			{#each detail.stats as stat (stat.label)}
 				<div class="detail-card">
 					<span>{stat.label}</span>
@@ -130,8 +140,17 @@
 			</label>
 		{/if}
 
-		{#if detail.canRotate && onRotate}
-			<button class="rotate-button" type="button" onclick={onRotate}>Rotate 90°</button>
+		{#if (detail.canRotate && onRotate) || (detail.canMirror && onMirror)}
+			<div class="transform-actions">
+				{#if detail.canRotate && onRotate}
+					<button class="rotate-button" type="button" onclick={onRotate}>Rotate 90°</button>
+				{/if}
+				{#if detail.canMirror && onMirror}
+					<button class="rotate-button" type="button" onclick={onMirror}>
+						{detail.isMirrored ? 'Unmirror' : 'Mirror'} weapon
+					</button>
+				{/if}
+			</div>
 		{/if}
 
 		{#if showUpgradeControls && signedIn && detail.category === 'weapon' && detail.isUpgradeable && detail.weaponInstanceId}
@@ -235,6 +254,12 @@
 	.targeting-field {
 		display: grid;
 		gap: 0.35rem;
+	}
+
+	.transform-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.55rem;
 	}
 
 	.detail-card {

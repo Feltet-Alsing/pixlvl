@@ -4,10 +4,20 @@ export function normalizeLoadoutRotation(rotation: unknown): LoadoutRotation {
 	return rotation === 1 || rotation === 2 || rotation === 3 ? rotation : 0;
 }
 
+export function normalizeLoadoutMirror(mirrored: unknown) {
+	return mirrored === true;
+}
+
 export function getPlacementRotation(
 	placement: Pick<LoadoutPlacement, 'rotation'> | { rotation?: unknown } | null | undefined
 ): LoadoutRotation {
 	return normalizeLoadoutRotation(placement?.rotation);
+}
+
+export function getPlacementMirrored(
+	placement: Pick<LoadoutPlacement, 'mirrored'> | { mirrored?: unknown } | null | undefined
+) {
+	return normalizeLoadoutMirror(placement?.mirrored);
 }
 
 export function cycleLoadoutRotation(rotation: LoadoutRotation, step = 1): LoadoutRotation {
@@ -21,6 +31,20 @@ export function getLoadoutRotationDegrees(rotation: LoadoutRotation) {
 
 export function getLoadoutRotationLabel(rotation: LoadoutRotation) {
 	return `${getLoadoutRotationDegrees(rotation)}°`;
+}
+
+function normalizeWeaponShape(cells: Array<[number, number]>) {
+	const minX = Math.min(...cells.map(([x]) => x));
+	const minY = Math.min(...cells.map(([, y]) => y));
+	const normalizedCells = cells.map(([x, y]) => [x - minX, y - minY] as [number, number]);
+	const maxX = Math.max(...normalizedCells.map(([x]) => x));
+	const maxY = Math.max(...normalizedCells.map(([, y]) => y));
+
+	return {
+		width: maxX + 1,
+		height: maxY + 1,
+		cells: normalizedCells
+	};
 }
 
 export function rotateWeaponShape(shape: WeaponShape, rotation: LoadoutRotation): WeaponShape {
@@ -43,15 +67,21 @@ export function rotateWeaponShape(shape: WeaponShape, rotation: LoadoutRotation)
 		}
 	});
 
-	const minX = Math.min(...rotatedCells.map(([x]) => x));
-	const minY = Math.min(...rotatedCells.map(([, y]) => y));
-	const normalizedCells = rotatedCells.map(([x, y]) => [x - minX, y - minY] as [number, number]);
-	const maxX = Math.max(...normalizedCells.map(([x]) => x));
-	const maxY = Math.max(...normalizedCells.map(([, y]) => y));
+	return normalizeWeaponShape(rotatedCells);
+}
 
-	return {
-		width: maxX + 1,
-		height: maxY + 1,
-		cells: normalizedCells
-	};
+export function mirrorWeaponShape(shape: WeaponShape): WeaponShape {
+	const mirroredCells = shape.cells.map(([x, y]) => [shape.width - 1 - x, y] as [number, number]);
+
+	return normalizeWeaponShape(mirroredCells);
+}
+
+export function transformWeaponShape(
+	shape: WeaponShape,
+	rotation: LoadoutRotation,
+	mirrored = false
+): WeaponShape {
+	const rotatedShape = rotateWeaponShape(shape, rotation);
+
+	return mirrored ? mirrorWeaponShape(rotatedShape) : rotatedShape;
 }

@@ -1,15 +1,13 @@
 import { isUtilityDefinition, isWeaponDefinition, starterWeaponId } from '$lib/data';
 import {
+	getPlacementMirrored,
 	getLoadoutRotationLabel,
 	getPlacementRotation,
-	rotateWeaponShape
+	transformWeaponShape
 } from '$lib/game/loadout-rotation';
 import {
 	createUpgradedWeaponDefinition,
-	getWeaponDisplayName,
-	getWeaponTotalScrapInvested,
 	getWeaponUpgradeCostForNextLevel,
-	getWeaponUpgradeLevel,
 	isUpgradeableWeaponInstance,
 	MAX_WEAPON_UPGRADE_LEVEL
 } from '$lib/game/weapon-upgrades';
@@ -46,6 +44,7 @@ export interface LoadoutWeapon {
 	x: number;
 	y: number;
 	rotation: LoadoutRotation;
+	mirrored: boolean;
 	targeting?: WeaponTargetingKind;
 }
 
@@ -149,10 +148,6 @@ function getTotalScrapInvested(weapon: OwnedWeaponInstance) {
 	return Math.max(0, weapon.totalScrapInvested ?? 0);
 }
 
-function formatWeaponDisplayName(definitionName: string, upgradeLevel: number) {
-	return upgradeLevel > 0 ? `${definitionName} +${upgradeLevel}` : definitionName;
-}
-
 function getInventoryWeaponGroupId(weapon: OwnedWeaponInstance) {
 	const upgradeLevel = getUpgradeLevel(weapon);
 	return upgradeLevel > 0 ? `${weapon.definitionId}::${weapon.instanceId}` : weapon.definitionId;
@@ -165,7 +160,8 @@ export function getGridCellKey(x: number, y: number) {
 export function cloneLoadoutPlacements(placements: LoadoutPlacement[]) {
 	return placements.map((placement) => ({
 		...placement,
-		rotation: getPlacementRotation(placement)
+		rotation: getPlacementRotation(placement),
+		mirrored: getPlacementMirrored(placement)
 	}));
 }
 
@@ -196,7 +192,11 @@ export function buildLoadoutWeapons(
 			name: displayDefinition.name,
 			upgradeLevel: getUpgradeLevel(ownedWeapon),
 			rarity: displayDefinition.rarity,
-			shape: rotateWeaponShape(displayDefinition.shape, getPlacementRotation(placement)),
+			shape: transformWeaponShape(
+				displayDefinition.shape,
+				getPlacementRotation(placement),
+				getPlacementMirrored(placement)
+			),
 			baseDamage: isWeaponDefinition(displayDefinition) ? displayDefinition.baseDamage : undefined,
 			attack: isWeaponDefinition(displayDefinition) ? displayDefinition.attack : undefined,
 			projectileSpeed: isWeaponDefinition(displayDefinition)
@@ -216,6 +216,7 @@ export function buildLoadoutWeapons(
 			x: placement.x,
 			y: placement.y,
 			rotation: getPlacementRotation(placement),
+			mirrored: getPlacementMirrored(placement),
 			targeting: placement.targeting
 		});
 	}

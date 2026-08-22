@@ -413,6 +413,7 @@ export interface LoadoutPlacement {
 	x: number;
 	y: number;
 	rotation: LoadoutRotation;
+	mirrored?: boolean;
 	targeting?: WeaponTargetingKind;
 }
 
