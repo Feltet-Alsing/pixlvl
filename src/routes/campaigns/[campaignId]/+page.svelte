@@ -350,6 +350,22 @@
 		);
 	}
 
+	function toPersistableRewardPack(pack: PersistedRewardPack) {
+		return {
+			id: pack.id,
+			ownerUserId: pack.ownerUserId,
+			campaignId: pack.campaignId,
+			sourceCampaignLevel: pack.sourceCampaignLevel,
+			droppedAt: pack.droppedAt,
+			openedAt: pack.openedAt,
+			status: pack.status,
+			cardCount: pack.cardCount,
+			guaranteedSlotIndex: pack.guaranteedSlotIndex,
+			contentVersion: pack.contentVersion,
+			cards: pack.cards
+		} satisfies PersistedRewardPack;
+	}
+
 	function pushChangeLogEntry(
 		title: string,
 		detail: string,
@@ -819,7 +835,7 @@
 		const rewardPacksToPersist = mergeRewardPacks(
 			data.gameState.rewardPacks,
 			pendingRewardPacks.length > 0 ? pendingRewardPacks : combatOverlay.rewardPacks
-		);
+		).map(toPersistableRewardPack);
 
 		if (typeof sessionStorage !== 'undefined' && latestCombatResumeState) {
 			sessionStorage.setItem(
