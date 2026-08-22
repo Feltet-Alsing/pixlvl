@@ -871,11 +871,13 @@
 		}
 
 		if (section === 'arena') {
-			await goto(resolve(`/campaigns/${data.campaignId}`));
+			await goto(resolve(`/campaigns/${data.campaignId}`), { invalidateAll: true });
 			return;
 		}
 
-		await goto(resolve(`/campaigns/${data.campaignId}/${section}`));
+		await goto(resolve(`/campaigns/${data.campaignId}/${section}`), {
+			invalidateAll: true
+		});
 	}
 
 	const purchaseUpgrade: SubmitFunction = ({ formData }) => {

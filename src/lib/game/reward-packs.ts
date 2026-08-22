@@ -10,13 +10,14 @@ import type {
 const PACK_CARD_COUNT = 5;
 const GUARANTEED_PACK_SLOT_INDEX = 4;
 const NO_GUARANTEED_PACK_SLOT_INDEX = -1;
+const SPECIAL_PACK_LEGENDARY_CHANCE = 0.2;
 
 const NORMAL_SLOT_RARITY_WEIGHTS: Record<WeaponRarity, number> = {
-	normal: 5,
-	magic: 4,
-	rare: 3,
-	exotic: 2,
-	legendary: 1
+	normal: 10,
+	magic: 6,
+	rare: 2.5,
+	exotic: 0.35,
+	legendary: 0.08
 };
 
 interface RollLevelRewardPacksInput {
@@ -182,7 +183,8 @@ function createSpecialRewardPack(
 	guaranteedDefinitions: LoadoutItemDefinition[],
 	input: RollLevelRewardPacksInput
 ) {
-	const guaranteedRarity = input.randomFloat() < 0.5 ? 'exotic' : 'legendary';
+	const guaranteedRarity =
+		input.randomFloat() < SPECIAL_PACK_LEGENDARY_CHANCE ? 'legendary' : 'exotic';
 	const guaranteedDefinition = chooseRandomPackDefinition(
 		guaranteedDefinitions,
 		guaranteedRarity,
