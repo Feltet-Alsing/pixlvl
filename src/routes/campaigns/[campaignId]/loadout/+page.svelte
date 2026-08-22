@@ -2270,8 +2270,8 @@
 
 				{#if isUpgradedScrap}
 					<p class="feedback neutral">
-						This upgraded item refunds {formatDisplayNumber(scrapDialog.refundScrapPerItem)} invested Scrap in addition to
-						its base scrap value.
+						This upgraded item refunds {formatDisplayNumber(scrapDialog.refundScrapPerItem)} invested
+						Scrap in addition to its base scrap value.
 					</p>
 				{/if}
 

@@ -8,9 +8,7 @@
 	}
 
 	let { label, value, variant = 'tile' }: Props = $props();
-	let formattedValue = $derived(
-		typeof value === 'number' ? formatDisplayNumber(value) : value
-	);
+	let formattedValue = $derived(typeof value === 'number' ? formatDisplayNumber(value) : value);
 </script>
 
 <div class={['stat-card', variant]}>
