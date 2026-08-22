@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { formatDisplayNumber } from '$lib/number-format';
+
 	interface Props {
 		label: string;
 		value: string | number;
@@ -6,11 +8,14 @@
 	}
 
 	let { label, value, variant = 'tile' }: Props = $props();
+	let formattedValue = $derived(
+		typeof value === 'number' ? formatDisplayNumber(value) : value
+	);
 </script>
 
 <div class={['stat-card', variant]}>
 	<span>{label}</span>
-	<strong>{value}</strong>
+	<strong>{formattedValue}</strong>
 </div>
 
 <style>

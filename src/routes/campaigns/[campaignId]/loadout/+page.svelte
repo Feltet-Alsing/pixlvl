@@ -2,6 +2,7 @@
 	import { beforeNavigate } from '$app/navigation';
 	import { fade } from 'svelte/transition';
 	import { isWeaponDefinition, starterWeaponId } from '$lib/data';
+	import { formatDisplayNumber } from '$lib/number-format';
 	import LoadoutDraggedShapePreview from '$lib/components/campaigns/LoadoutDraggedShapePreview.svelte';
 	import LoadoutGridBoard from '$lib/components/campaigns/LoadoutGridBoard.svelte';
 	import LoadoutInventoryToolbox from '$lib/components/campaigns/LoadoutInventoryToolbox.svelte';
@@ -2246,19 +2247,19 @@
 				<div class="scrap-stats-grid">
 					<div class="stat-card">
 						<span>Owned</span>
-						<strong>{scrapDialog.totalCount}</strong>
+						<strong>{formatDisplayNumber(scrapDialog.totalCount)}</strong>
 					</div>
 					<div class="stat-card">
 						<span>Scrapable now</span>
-						<strong>{scrapDialog.scrapableCount}</strong>
+						<strong>{formatDisplayNumber(scrapDialog.scrapableCount)}</strong>
 					</div>
 					<div class="stat-card">
 						<span>Equipped</span>
-						<strong>{scrapDialog.equippedCount}</strong>
+						<strong>{formatDisplayNumber(scrapDialog.equippedCount)}</strong>
 					</div>
 					<div class="stat-card">
 						<span>Value per item</span>
-						<strong>{scrapValuePerItem} Scrap</strong>
+						<strong>{formatDisplayNumber(scrapValuePerItem)} Scrap</strong>
 					</div>
 				</div>
 
@@ -2269,7 +2270,7 @@
 
 				{#if isUpgradedScrap}
 					<p class="feedback neutral">
-						This upgraded item refunds {scrapDialog.refundScrapPerItem} invested Scrap in addition to
+						This upgraded item refunds {formatDisplayNumber(scrapDialog.refundScrapPerItem)} invested Scrap in addition to
 						its base scrap value.
 					</p>
 				{/if}
@@ -2333,7 +2334,7 @@
 
 					<div class="scrap-total-card stat-card">
 						<span>Total yield</span>
-						<strong>{totalScrapYield} Scrap</strong>
+						<strong>{formatDisplayNumber(totalScrapYield)} Scrap</strong>
 					</div>
 
 					{#if requiresScrapConfirmation}

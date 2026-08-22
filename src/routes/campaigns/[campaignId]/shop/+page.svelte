@@ -1,5 +1,6 @@
 <script lang="ts">
 	import CampaignItemCard from '$lib/components/campaigns/CampaignItemCard.svelte';
+	import { formatDisplayNumber } from '$lib/number-format';
 	import type { LoadoutItemDefinition } from '$lib/data/types';
 	import type { PageProps } from './$types';
 
@@ -70,7 +71,7 @@
 
 				<div class="shop-balance-card stat-card">
 					<span>Scrap balance</span>
-					<strong>{scrapBalance}</strong>
+					<strong>{formatDisplayNumber(scrapBalance)}</strong>
 				</div>
 
 				{#if form?.shopError}
@@ -112,7 +113,7 @@
 													<div class="shop-meta-grid">
 														<div>
 															<span>Price</span>
-															<strong>{offer.price} Scrap</strong>
+															<strong>{formatDisplayNumber(offer.price)} Scrap</strong>
 														</div>
 														<div>
 															<span>Origin</span>
@@ -120,7 +121,7 @@
 														</div>
 													</div>
 													<button class="shop-buy-button" type="submit">
-														Buy for {offer.price} Scrap
+														Buy for {formatDisplayNumber(offer.price)} Scrap
 													</button>
 												</div>
 											{/snippet}

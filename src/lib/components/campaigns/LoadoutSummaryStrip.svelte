@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { formatDisplayNumber } from '$lib/number-format';
+
 	interface Props {
 		stage: number;
 		stageLevel: number;
@@ -18,6 +20,9 @@
 		projectilesPerCycle,
 		equippedCount
 	}: Props = $props();
+
+	const formatMaybeNumber = (value: string | number) =>
+		typeof value === 'number' ? formatDisplayNumber(value) : value;
 </script>
 
 <div class="loadout-summary-strip" aria-label="Equipped loadout cycle summary">
@@ -28,19 +33,19 @@
 	</div>
 	<div class="loadout-summary-card">
 		<span>Damage</span>
-		<strong>{damagePerCycle}</strong>
+		<strong>{formatMaybeNumber(damagePerCycle)}</strong>
 	</div>
 	<div class="loadout-summary-card">
 		<span>Scrap</span>
-		<strong>{scrap}</strong>
+		<strong>{formatDisplayNumber(scrap)}</strong>
 	</div>
 	<div class="loadout-summary-card">
 		<span>Projectiles</span>
-		<strong>{projectilesPerCycle}</strong>
+		<strong>{formatMaybeNumber(projectilesPerCycle)}</strong>
 	</div>
 	<div class="loadout-summary-card">
 		<span>Equipped</span>
-		<strong>{equippedCount}</strong>
+		<strong>{formatDisplayNumber(equippedCount)}</strong>
 	</div>
 </div>
 
