@@ -1736,7 +1736,7 @@
 				? {
 						x: hoveredGridOrigin.x + draggedWeaponAnchor.x,
 						y: hoveredGridOrigin.y + draggedWeaponAnchor.y
-				  }
+					}
 				: null;
 
 		draggedWeaponMirrored = nextMirrored;

@@ -154,10 +154,10 @@ function isPlacementWithinBounds(
 ) {
 	return transformWeaponShape(definition.shape, rotation, mirrored).cells.every(
 		([cellX, cellY]) => {
-		const gridX = x + cellX;
-		const gridY = y + cellY;
+			const gridX = x + cellX;
+			const gridY = y + cellY;
 
-		return gridX >= 0 && gridX < columnCount && gridY >= 0 && gridY < rowCount;
+			return gridX >= 0 && gridX < columnCount && gridY >= 0 && gridY < rowCount;
 		}
 	);
 }
@@ -389,8 +389,7 @@ function parseLoadoutStateFromFormData(formData: FormData) {
 						weaponInstanceId: (entry as LoadoutPlacement).weaponInstanceId,
 						x: (entry as LoadoutPlacement).x,
 						y: (entry as LoadoutPlacement).y,
-						rotation: getPlacementRotation(entry as LoadoutPlacement)
-						,
+						rotation: getPlacementRotation(entry as LoadoutPlacement),
 						mirrored: getPlacementMirrored(entry as LoadoutPlacement)
 					};
 
