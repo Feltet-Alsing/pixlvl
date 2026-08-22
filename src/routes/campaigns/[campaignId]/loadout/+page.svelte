@@ -1157,6 +1157,10 @@
 		scrapQuantity = clampScrapQuantity(scrapQuantity + delta);
 	}
 
+	function setScrapQuantityToMax() {
+		scrapQuantity = clampScrapQuantity(scrapDialog?.scrapableCount ?? 1);
+	}
+
 	function handleScrapQuantityInput(event: Event) {
 		const target = event.currentTarget;
 
@@ -2315,6 +2319,14 @@
 								disabled={scrapQuantity >= scrapDialog.scrapableCount}
 							>
 								+
+							</button>
+							<button
+								class="ghost quantity-button quantity-button-max"
+								type="button"
+								onclick={setScrapQuantityToMax}
+								disabled={scrapQuantity >= scrapDialog.scrapableCount}
+							>
+								Max
 							</button>
 						</div>
 					</label>
