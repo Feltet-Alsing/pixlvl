@@ -52,25 +52,26 @@ Current implemented content counts:
 
 - `4` defined campaigns
 - `50` levels per campaign
-- `59` unique loadout definitions in the live registry
-- `46` weapons
+- `49` unique loadout definitions in the core campaign registry
+- `36` weapons
 - `13` utilities
-- `44` definitions in the shared reward-pack pool
+- `49` definitions in the shared reward-pack pool
+- `9` definitions currently seeded into the cross-campaign shared pool
 
 Current per-campaign definition counts:
 
 - Campaign `1`: `16` definitions (`12` weapons, `4` utilities)
 - Campaign `2`: `14` definitions (`9` weapons, `5` utilities)
-- Campaign `3`: `8` definitions (`4` weapons, `4` utilities)
-- Campaign `4`: `6` definitions (`6` weapons, `0` utilities)
+- Campaign `3`: `11` definitions (`7` weapons, `4` utilities)
+- Campaign `4`: `8` definitions (`8` weapons, `0` utilities)
 
 Current rarity distribution across unique definitions:
 
-- `16` normal
-- `7` magic
-- `16` rare
-- `9` exotic
-- `11` legendary
+- `10` normal
+- `9` magic
+- `13` rare
+- `8` exotic
+- `9` legendary
 
 ---
 
@@ -234,7 +235,7 @@ V1 already includes several quality-of-life pieces:
 - equipped weapon summaries
 - unread notifications for newly acquired weapon types
 
-### Duplicate handling direction
+### Duplicate economy and shop state
 
 Duplicates are currently a natural part of the drop loop, and that is good.
 They support:
@@ -243,10 +244,9 @@ They support:
 - alternative loadout shapes using the same weapon family
 - build flexibility while the inventory is still small
 
-However, duplicate accumulation should not remain purely passive forever.
-Once the player has a stable collection, excess copies become inventory noise unless they convert into a second reward loop.
+That second reward loop is now implemented.
 
-The next inventory-economy layer should be:
+Current duplicate-economy rules:
 
 - duplicate weapons that are not currently equipped can be scrapped
 - scrapping produces a persistent resource called `Scrap`
@@ -260,23 +260,24 @@ Initial scrap values by rarity:
 - `exotic`: `500` Scrap
 - `legendary`: `5000` Scrap
 
-Scrap rules:
+Current scrap rules:
 
 - only duplicates can be scrapped
 - equipped items cannot be scrapped
 - an item must be unequipped before it becomes scrapable
-- scrapping should support bulk actions from grouped inventory entries rather than forcing one-item-at-a-time cleanup
-- choosing Scrap on a grouped item should open a popup where the player enters or adjusts the number of copies to scrap
-- the popup should give granular control over quantity instead of only offering fixed presets
-- scrapping `exotic` or `legendary` items should require an explicit warning confirmation before the action completes
+- scrapping supports grouped bulk actions for unupgraded copies
+- upgraded copies are scrapped one at a time and include partial refund value in their total payout
+- scrapping `exotic` or `legendary` items requires explicit warning confirmation before the action completes
+- upgraded items also require explicit warning confirmation before scrapping
 
-The scrap popup should show:
+Current shop rules:
 
-- current duplicate count
-- current equipped count
-- scrap value per item
-- total scrap yield for the selected quantity
-- warning text when the item rarity is `exotic` or `legendary`
+- the shop is unlocked by campaign completion progression rather than being open from the start
+- shop stock refreshes every `15` minutes
+- each refresh rolls `5` distinct offers
+- later campaign shop pools include earlier pools at reduced weight
+- shop stock is currently weapon-only and deliberately exclusive to the shop pool
+- duplicate shop purchases are allowed, so shop items can become real loadout pieces rather than one-time unlocks
 
 The shop should not replace drops.
 It should sit beside them as a pressure-release valve and long-term goal layer.
@@ -288,7 +289,20 @@ Design intent:
 - excess duplicates become meaningful instead of dead inventory
 - the player gains some agency over bad luck without deleting randomness
 
-Initial shop direction:
+This means duplicate handling has already evolved into:
+
+> drop -> keep or equip -> duplicate overflow -> scrap -> save toward unique shop items
+
+What is still missing is not the existence of the duplicate economy, but its next layer of depth.
+
+Remaining follow-up for this system:
+
+- add shop-exclusive utilities alongside the current weapon stock
+- keep tuning offer weighting, pricing, and campaign unlock pacing
+- decide whether Scrap should gain additional sinks besides shop purchases and weapon upgrades
+- continue improving inventory clarity around bulk scrap, upgraded copies, and favorites
+
+Shop direction that is already live:
 
 - stock should focus on unique, curated items rather than common filler
 - shop items should feel special enough that saving Scrap is a real choice
@@ -373,15 +387,11 @@ This means the intended flow is:
 - the timer refreshes what is currently on offer from those unlocked pools
 - current campaign items feel most relevant, while older campaign items still occasionally reappear
 
-This means duplicate handling should evolve into:
+This remains a stronger near-term retention feature than prestige, and it is now one of the game's active progression layers rather than a purely future design note.
 
-> drop -> keep or equip -> duplicate overflow -> scrap -> save toward unique shop items
+### Weapon upgrades state
 
-This is a stronger near-term retention feature than prestige and should happen earlier.
-
-### Weapon upgrades direction
-
-The next progression layer after duplicate scrapping should be per-instance weapon upgrading.
+Per-instance weapon upgrading is now implemented.
 
 Design intent:
 
@@ -390,13 +400,11 @@ Design intent:
 - upgraded items should feel like invested gear rather than fungible duplicates
 - upgrading should add more player interaction without turning the inventory into noise
 
-Core rules:
+Current rules:
 
 - upgrades apply per weapon instance, not per weapon definition
 - only weapons can be upgraded
 - utilities cannot be upgraded
-- any zero-damage weapon should be reclassified as a utility instead of being forced into the weapon upgrade system
-- reclassified zero-damage items should still enact exactly as they do now in combat; only their category changes
 - max weapon upgrade level is `+5`
 
 Upgrade presentation:
@@ -464,170 +472,49 @@ The intended long-term loop becomes:
 
 > drop -> equip or scrap -> save Scrap -> invest in specific weapon copies -> keep upgraded copies out of bulk scrap -> recycle bad investments at partial refund
 
-### Weapon upgrades implementation readiness
+Current implementation state:
 
-The upgrade design is now specific enough to prepare implementation work.
+- owned weapon instances persist both `upgradeLevel` and `totalScrapInvested`
+- upgrade cost is already rarity-based and Scrap-funded
+- upgraded weapons already display as `Original Name +N`
+- combat scaling is already applied per equipped instance rather than by mutating the shared base registry
+- the single-projectile capstone bonus and generic multi-projectile `+1 projectile` capstone are already wired into the upgraded combat definition path
+- inventory and scrap flows already split upgraded copies away from bulk duplicate scrap groups
 
-#### Systems directly affected
+Remaining upgrade work:
 
-The current codebase already shows where the upgrade system will land.
+- verify or extend `+5` projectile-capstone support for weapons that use bespoke activation paths
+- decide whether any additional upgraded-weapon UI belongs outside the current loadout flow
+- reclassify zero-damage weapons that should behave as utilities in economy and grouping terms while preserving their combat behavior
+- keep reviewing whether refund values and upgrade pacing still feel correct at scale
 
-Primary data and runtime surfaces:
-
-- `src/lib/data/types.ts`
-- `src/lib/server/game-state.ts`
-- `src/lib/server/db/game.schema.ts`
-- `src/lib/server/campaign-route.ts`
-- `src/lib/server/shop.ts`
-- `src/lib/p5/campaign-1-sketch.ts`
-
-Primary UI and grouping surfaces:
-
-- `src/routes/campaigns/[campaignId]/loadout/+page.svelte`
-- `src/lib/components/campaigns/LoadoutInventoryToolbox.svelte`
-- `src/lib/components/campaigns/LoadoutGridBoard.svelte`
-- `src/lib/components/campaigns/LevelResultsPopup.svelte`
-- route helpers that build reward and inventory grouping rows
-
-#### Important current implementation fact
-
-`OwnedWeaponInstance` already has a `level` field in the current type model.
-
-That means the upgrade system does not need a brand-new identity model for owned items.
-However, the meaning of that field must become explicit and persistent across the full economy and UI flow.
-
-The owned-weapon instance model should evolve to support at least:
-
-- current upgrade level
-- total Scrap invested in that specific copy
-- existing identity fields such as `instanceId`, `definitionId`, acquisition data, and ownership source
-
-`totalScrapInvested` should be stored explicitly rather than recomputed from level alone.
-
-Reason:
-
-- refund is based on invested Scrap
-- future rebalance changes to upgrade cost should not corrupt old refund values
-- explicit invested value is more robust than reverse-calculating from current rules later
-
-#### Current duplicate and scrap constraint
-
-The current scrap flow is definition-group based.
-
-Right now, duplicate scrapping works by passing a `definitionId` and a quantity through the campaign-route/server scrap path.
-This is good enough for unupgraded duplicate cleanup, but not good enough for upgraded-copy protection by itself.
-
-The upgrade system therefore requires two rule layers:
-
-- UI layer: upgraded weapons never appear in bulk scrap candidate groups
-- backend layer: bulk scrap logic must reject upgraded weapons even if a future UI bug or malformed request includes them
-
-Bulk scrap should only ever operate on unupgraded duplicate copies.
-
-#### Inventory grouping consequence
-
-Current inventory is grouped primarily by weapon definition.
-
-After upgrades:
-
-- unupgraded copies of the same weapon definition can still be grouped together
-- upgraded copies should always be broken out as distinct instance entries
-- upgraded copies should display `Original Name +N`
-- upgraded copies should not be counted toward duplicate-bulk-scrap groups
-
-This is the key inventory rule that keeps the system readable.
-
-#### Combat/runtime consequence
-
-Upgrade scaling should be applied at the owned-instance level when combat state is built, not by mutating global weapon definitions.
-
-Reason:
-
-- multiple copies of the same definition may exist at different upgrade levels
-- combat must respect per-instance scaling
-- loadout summaries and reward/inventory displays need to remain instance-accurate
-
-Runtime upgrade application should therefore happen when equipped weapon state is derived from owned instances and placements.
-
-#### Multi-projectile capstone warning
-
-The `+1 projectile` rule is design-valid, but not every qualifying weapon uses the same firing path.
-
-Some weapons already use custom runtime activation logic and will need bespoke handling for the final capstone.
-
-Current known examples:
-
-- `Blaster`
-- `Splitter`
-- `Pulse Array`
-
-The generic spread path should still support the capstone for ordinary projectile-count weapons, but custom-activation weapons will need explicit support.
-
-#### Zero-damage reclassification candidates
-
-The current clear candidates for reclassification from weapon to utility are the zero-damage campaign 4 items:
+Zero-damage reclassification candidates still worth revisiting:
 
 - `Void Tunnel`
 - `Black Hole`
 - `Phaseshift`
 - `Force Field Trap`
 
-These should keep their current combat behavior and activation identity, but move out of the upgradeable weapon category.
+Guardrails that still matter:
 
-That means category should control:
+- upgraded copies must never become part of bulk duplicate scrap
+- refund must continue to use stored invested Scrap rather than inferred historic cost
+- per-instance combat scaling must remain isolated from shared base definitions
+- zero-damage reclassification must not accidentally change combat behavior
 
-- upgrade eligibility
-- inventory grouping
-- scrap/bulk scrap behavior
-- how the item is presented in UI filters and tabs
+### Cross-campaign weapon expansion state
 
-But category should not automatically change combat behavior.
+The codebase already has a first shared cross-campaign pool.
 
-#### Recommended implementation phases
+Current shared-pool state:
 
-Phase 1: data model and persistence
+- a curated shared pool of `9` definitions is seeded into Campaigns `2` through `4`
+- the current shared set is focused on mark, execute, bleed, and precision-damage packages
+- this shared pool already helps later campaigns avoid being completely isolated from earlier build shells
 
-- formalize owned-weapon upgrade fields
-- persist `totalScrapInvested`
-- migrate existing saves safely with all current items at base level and zero invested Scrap
+The current campaign-local pools are still not large enough on their own to guarantee satisfying long-run variety, especially once pack rewards and late-game repetition are taken into account.
 
-Phase 2: inventory and scrap rules
-
-- separate upgraded copies from unupgraded groups
-- exclude upgraded copies from bulk scrap in both UI and backend
-- support single-copy scrap with 50% invested Scrap refund
-
-Phase 3: combat scaling
-
-- apply damage and projectile-speed scaling per equipped instance
-- apply capstone rules at `+5`
-- handle custom multi-projectile weapons explicitly
-
-Phase 4: zero-damage reclassification
-
-- move zero-damage candidates into utility classification
-- preserve their current runtime behavior
-- confirm shop, drops, notifications, and loadout views still treat them correctly
-
-Phase 5: upgrade UI
-
-- show `+N` naming
-- show next upgrade cost
-- show refund value
-- expose upgrade actions clearly without mixing them into duplicate bulk-scrap flows
-
-#### Final implementation guardrails
-
-- upgraded copies must never be bulk-scrapped
-- refund must use stored invested Scrap, not inferred cost
-- per-instance combat scaling must not mutate shared definitions
-- zero-damage items must remain behaviorally identical after reclassification
-
-### Cross-campaign weapon expansion direction
-
-The current campaign-local weapon pools are not large enough on their own to guarantee satisfying variety, especially once pack rewards begin rolling multiple cards at once.
-
-The next weapon-expansion pass should therefore introduce a shared cross-campaign pool of build-defining weapons and utilities.
+The next weapon-expansion pass should therefore grow the existing shared pool rather than invent it from scratch.
 
 These should not erase campaign identity.
 They should fill tactical gaps, deepen synergy options, and prevent later pools from collapsing into the same few repeated high-rarity outcomes.
@@ -651,7 +538,7 @@ They should fill tactical gaps, deepen synergy options, and prevent later pools 
 
 #### Primary cross-campaign archetype packages
 
-The first shared-pool pass should intentionally support a small set of repeatable archetypes:
+The current shared pool already leans on a few repeatable archetypes, and the next pass should deliberately round them out:
 
 - mark and focus-fire
 - execute and cleanup
@@ -663,9 +550,9 @@ The first shared-pool pass should intentionally support a small set of repeatabl
 
 The goal is to let players recognize a build shell across campaigns while still using campaign-specific headliners and visuals.
 
-#### Refined concept shortlist
+#### Expansion shortlist
 
-The following concepts are worth preserving as the first serious shared-pool design set.
+The following concepts are still worth preserving as the next serious shared-pool expansion set.
 
 ##### Target Painter
 
@@ -1408,8 +1295,7 @@ Current content rules:
 - a Campaign `1` pack can only open into Campaign `1` weapons
 - a Campaign `4` pack can only open into Campaign `4` weapons
 - pack contents are rolled at pack drop time, not at pack open time
-- duplicate cards inside a pack are currently allowed
-- duplicate protection is not part of the first implementation
+- duplicate cards inside a pack are currently prevented
 - the `4` normal slots can roll any rarity
 - the `4` normal slots should use rarity weighting so lower rarities appear more often than higher rarities
 
@@ -1455,144 +1341,30 @@ not:
 
 #### Remaining open questions
 
-These points still need explicit definition before implementation:
+These points still need explicit cleanup or balancing decisions:
 
 - whether stage gating inside a campaign should remove some weapons from early pack openings
-- how unopened packs are represented in persistence and inventory UI
-- whether the `Packs` tab should support opening multiple packs in sequence after closing the current summary
+- whether the reward-pack pool should remain fully shared or become more tightly campaign-authored
+- how far route-level notifications should distinguish sealed-pack drops from revealed card gains
+- how aggressive the final pack-drop odds should be once reward pacing is fully rebalanced
 
-#### Implementation plan
+#### Current implementation state
 
-The preferred implementation order is:
+- unopened and opened packs are stored as first-class persisted records
+- level clear now awards sealed packs instead of direct item drops
+- pack contents are rolled at drop time and opened atomically later
+- the `Packs` route exists as a dedicated management surface
+- packs can be opened individually or in bulk
+- reveal and summary flows are already implemented, including `new` markers
+- notification and route wiring already understand unopened packs as a real progression surface
 
-##### Phase 1: data model and persistence
+#### Remaining cleanup and polish
 
-Goal:
-
-- add a persistent sealed-pack model without disturbing the existing owned-weapon flow first
-
-Preferred implementation shape:
-
-- use a dedicated persisted pack record rather than embedding unopened packs inside `pixl_state.owned_weapons`
-- keep pack records server-authored and separate from inventory items
-
-Primary code surfaces:
-
-- `src/lib/data/types.ts`
-- `src/lib/server/db/game.schema.ts`
-- `src/lib/server/game-state.ts`
-
-Implementation tasks:
-
-- add types for persisted packs and persisted pack cards
-- add database storage for unopened and opened pack records
-- add starter-account logic that seeds `1` unopened Campaign `1` pack for new users
-- add game-state helpers for listing packs and opening a pack atomically
-
-Preferred outcome:
-
-- packs exist as first-class persisted reward objects before the UI tries to render them
-
-##### Phase 2: pack reward generation
-
-Goal:
-
-- replace the current direct item-drop reward generation with pack reward generation at level clear
-
-Primary code surfaces:
-
-- `src/lib/p5/campaign-1-sketch.ts`
-- `src/lib/data/index.ts`
-- campaign weapon definition files under `src/lib/data/weapons/`
-
-Implementation tasks:
-
-- remove direct level-end owned-weapon reward creation from the combat clear flow
-- add pack-drop chance evaluation by campaign and boss-stage level rules
-- generate sealed pack contents at drop time using the agreed `5` card structure
-- resolve the guaranteed slot as `50 / 50` `exotic` or `legendary`
-- resolve the `4` normal slots using the current rarity weights
-- store the dropped pack instead of immediately adding revealed cards to inventory
-
-Preferred outcome:
-
-- combat clear now awards sealed packs instead of raw weapon instances
-
-##### Phase 3: Packs route and pack list UI
-
-Goal:
-
-- create the management surface where players can inspect and open unopened packs
-
-Primary code surfaces:
-
-- `src/routes/campaigns/[campaignId]/+layout.svelte`
-- `src/lib/components/campaigns/CampaignRouteNav.svelte`
-- new route under `src/routes/campaigns/[campaignId]/packs/`
-
-Implementation tasks:
-
-- add a `Packs` route/tab to the campaign route navigation
-- list unopened packs first
-- show campaign identity and basic pack metadata without revealing contents
-- show whether any unopened pack contains newly dropped rewards waiting to be opened
-
-Preferred outcome:
-
-- pack inventory becomes a normal route surface alongside Arena, Loadout, Shop, and Stats
-
-##### Phase 4: open flow and reveal sequence
-
-Goal:
-
-- open one sealed pack through a short card-by-card reveal sequence and summary screen
-
-Primary code surfaces:
-
-- new `packs` route component(s)
-- `src/lib/server/game-state.ts` or dedicated pack server helpers
-
-Implementation tasks:
-
-- implement the atomic open action
-- grant the stored card rewards to inventory at open time
-- mark the pack as opened in the same transaction
-- reveal cards one by one on click
-- save the guaranteed high-rarity slot for the strongest beat
-- show a final summary screen with `new` markers
-
-Preferred outcome:
-
-- opening a pack is presentation over a fixed server result, not another roll
-
-##### Phase 5: notifications, migration, and cleanup
-
-Goal:
-
-- integrate packs cleanly with the rest of the campaign flow and remove old drop assumptions
-
-Primary code surfaces:
-
-- `src/lib/game/notifications.ts`
-- `src/lib/server/campaign-route.ts`
-- `src/routes/campaigns/[campaignId]/+page.svelte`
-- `src/routes/campaigns/[campaignId]/loadout/+page.svelte`
-
-Implementation tasks:
-
-- replace direct new-weapon notification assumptions with unopened-pack or opened-pack aware logic
-- decide whether the Recent feed logs sealed pack drops, revealed cards, or both
-- update any route-level badges to reflect unopened packs if needed
-- remove dead code paths from the old direct drop model
-- rebalance authored weapon chances to work inside the pack generator rather than as direct end-of-level rewards
-
-Preferred outcome:
-
-- the game no longer behaves like a direct item-drop system in UI or persistence
-
-##### Phase 6: balance pass after implementation
-
-Goal:
+- confirm and stabilize pack persistence during arena-to-route handoff, especially when the player already has unopened packs
+- keep tuning rarity weights, guaranteed-slot odds, and drop frequency around the sealed-pack model rather than the old direct-drop model
+- decide the final presentation split between sealed-pack notifications, reveal summaries, and recent-feed history
+- review whether campaign identity inside pack contents needs to be tighter than the current shared reward pool
+- continue improving bulk-open readability so repeated pack provenance remains clear without looking buggy
 
 - verify that pack frequency and item gain actually slow down mid and late game progression
 
@@ -1677,7 +1449,7 @@ Known limitations of V1:
 - targeting behavior is not yet a player-controlled system
 - build diversity is now partly rule-system-driven, but several archetypes still need deeper support
 - long-term motivation beyond clearing harder content is still limited
-- duplicate overflow does not yet convert into a meaningful secondary economy
+- the duplicate economy now exists, but still needs more depth, sinks, and polish
 - balance is functional but still early
 
 These are acceptable V1 limitations.
@@ -1741,6 +1513,177 @@ Required outcomes:
 - define Campaign 5 level structure and reward pool
 - add any missing Campaign 5 weapons required by that content
 - deliver a boss readability pass so the new mechanic is understandable in play
+
+Campaign 5 scaling direction:
+
+- Campaign 5 should scale primarily through enemy health and enemy damage rather than through a major further increase in body count
+- the campaign should keep the battlefield cleaner than late Campaign 4 while making each enemy matter more
+- this should preserve readability and help keep normal runs inside the global `120` second pacing cap
+- Campaign 5 should keep the full Campaign 4 enemy roster as its baseline roster instead of introducing another general wave enemy expansion
+- the main new encounter layer should be a true stage-ending boss at the end of each stage
+
+Locked first-pass tuning direction relative to Campaign 4:
+
+- increase stage health scaling by roughly an additional `30%`
+- increase stage damage scaling by roughly an additional `15%`
+- keep spawn density flatter than Campaign 4 instead of trying to top Campaign 4's flood profile
+
+Roster direction:
+
+- keep `biter`, `swarmer`, `tanker`, `shard`, `bulwark`, `shielder`, and `zerglitch` as the full normal-wave roster
+- do not add another standard wave enemy just to create variety
+- spend the novelty budget on boss mechanics, elite pressure, and clearer priority-target moments instead of more ambient bodies
+- each stage should culminate in a real boss encounter that acts as the campaign's main new build check
+
+Boss structure direction:
+
+- Campaign 5 should currently be built around `2` core boss archetypes reused across stages with escalating modifiers
+- Stage `5` should end in a distinct boss-of-bosses encounter that combines both archetypes into one final capstone fight
+- the purpose of the archetypes is to create recognizable build checks without requiring five completely unrelated boss systems at once
+- for boss cadence planning, `1` cycle should currently be treated as `1` second
+
+Stage boss order:
+
+- Stage `1`: melee damage-check boss
+- Stage `2`: ranged survivability-check boss
+- Stage `3`: melee damage-check boss
+- Stage `4`: ranged survivability-check boss
+- Stage `5`: hybrid mega-boss that combines both archetypes
+
+Boss archetype 1: damage-check boss
+
+- role: single-target DPS check
+- movement: melee boss that slowly but relentlessly encroaches on the pixl
+- pacing: should feel oppressive because it keeps coming, not because it moves quickly
+- build test: asks whether the player's build can sustain strong focused damage before the boss reaches lethal contact range
+
+Behavior direction:
+
+- the boss should begin outside the center and steadily close distance over the course of the fight
+- it should not flood the screen with add clutter by default
+- its danger should come from its health pool, contact threat, and refusal to give the player infinite time
+- once it reaches the pixl, it should deal heavy contact damage every cycle so failed DPS checks collapse quickly rather than dragging out
+- the encounter should reward clean mark, vulnerability, sniper, anti-tank, and other focused-damage packages
+
+Design intent:
+
+- this boss proves that Campaign 5 is not about surviving chaos alone
+- it creates a pure readability check for single-target damage output
+- it gives slower control or support-heavy boards a clear failure case if they cannot convert setup into real boss damage
+
+Boss archetype 2: survivability-check boss
+
+- role: ranged survival and mitigation check
+- movement: hovers around the arena like a siege enemy instead of closing directly into melee
+- pacing: should feel threatening because it keeps line-of-fire pressure on the pixl rather than because it floods the screen with adds
+- build test: asks whether the player's build can survive repeated high-damage projectile pressure while still maintaining enough uptime to kill the boss
+
+Behavior direction:
+
+- the boss should stay mobile around the outer or mid ring of the arena
+- it should fire heavy projectiles that punish weak shielding, weak sustain, or lack of backline reach
+- it should fire one large, readable projectile every cycle so the threat stays constant without becoming cluttered spam
+- it should not need extreme health to be threatening because part of its danger budget is already spent on ranged burst pressure
+- the encounter should reward anti-ranged tools, shielding, sustain, priority targeting, and weapons that can reach siege-style threats reliably
+
+Design intent:
+
+- this boss proves that Campaign 5 also tests defence, not only DPS
+- it creates a clean survivability check without turning the arena into a cluttered bullet-hell screen
+- it punishes boards that can clear waves but cannot withstand repeated boss projectile spikes
+
+Boss health budgeting direction:
+
+- the two archetypes should not share identical health budgets
+- the melee damage-check boss should have the higher health budget because most of its threat comes from surviving long enough to reach the pixl
+- the ranged survivability-check boss should have lower health because part of its threat budget is already invested in heavy projectile pressure and uptime denial
+
+Preferred first-pass health model:
+
+- pick the strongest normal-wave health anchor in the Campaign 5 roster after stage scaling
+- use that anchored health value as the boss-scaling reference rather than inventing a disconnected number system
+
+Recommended first-pass boss health multipliers by stage:
+
+- all stage bosses should currently live somewhere inside a `10x` to `20x` health band relative to the tankiest normal-wave enemy in that stage
+- early-stage bosses should sit closer to the low end of that band so the mechanic is learned before the raw numbers become oppressive
+- later-stage bosses can push toward the upper end once the player is expected to have stronger scaling, better support pieces, and more coherent archetypes
+- the melee damage-check boss should usually sit above the ranged survivability boss within that same band because more of its threat budget is tied up in raw soak
+- the ranged survivability boss should still remain somewhat less tanky than the melee boss because its projectile pressure already consumes part of the encounter's total danger budget
+
+Suggested first-pass targets inside that band:
+
+- damage-check boss: roughly `12x`, `14x`, `16x`, `18x` the tankiest normal-wave enemy health for stages `1` through `4`
+- survivability-check boss: roughly `10x`, `12x`, `14x`, `16x` the tankiest normal-wave enemy health for stages `1` through `4`
+- Stage `5` mega-boss: `40x` the tankiest normal-wave enemy health for the final stage, because it combines the core pressure patterns of both archetypes into one encounter
+
+Stage `5` mega-boss direction:
+
+- movement: slowly encroaches on the pixl like the melee damage-check boss
+- offence: maintains heavy ranged projectile pressure like the survivability-check boss
+- role: final Campaign 5 hybrid check that asks for both survivability and sustained focused damage in the same fight
+- cadence: fires one large projectile every cycle, while contact damage should also hit every cycle if the boss reaches the pixl
+- pacing: should feel like a long-form capstone encounter, but must still respect the global `120` second outer bound
+- screen rule: it should not rely on large add clutter; the boss itself should be the event
+
+Boss damage budgeting direction:
+
+- expected pixl durability by this point should be at least roughly `1000` effective health
+- melee boss contact damage should therefore be tuned as a near-fail-state hit: if it reaches the pixl, a single contact cycle should deal `1000` base damage at Stage `1`
+- ranged boss projectile damage should start at `250` base damage per hit at Stage `1`
+- both boss damage profiles should scale by `20%` per stage
+- practical formula: `stageDamage = baseDamage * (1 + 0.2 * (stage - 1))`
+
+Suggested first-pass damage targets by stage:
+
+- melee damage-check boss contact hit: `1000`, `1200`, `1400`, `1600`, `1800`
+- survivability-check boss projectile hit: `250`, `300`, `350`, `400`, `450`
+- Stage `5` mega-boss should inherit both values at the Stage `5` tier: `1800` contact damage per second if it reaches the pixl and `450` damage from one large projectile every second
+
+Worked temporary example using the current Campaign `4` `zerglitch` as the placeholder health anchor:
+
+- Stage `1`
+  - anchor health: `146`
+  - damage-check boss: `1752` HP
+  - survivability-check boss: `1460` HP
+- Stage `2`
+  - anchor health: `196`
+  - damage-check boss: `2744` HP
+  - survivability-check boss: `2352` HP
+- Stage `3`
+  - anchor health: `245`
+  - damage-check boss: `3920` HP
+  - survivability-check boss: `3430` HP
+- Stage `4`
+  - anchor health: `295`
+  - damage-check boss: `5310` HP
+  - survivability-check boss: `4720` HP
+- Stage `5` mega-boss
+  - placeholder anchor health using the same current `zerglitch` base and Campaign `5` health scaling model: `345`
+  - mega-boss: `13,800` HP
+
+These numbers are only a temporary worked example.
+Once Campaign `5` has its own combat profile, boss HP should be recalculated from the actual tankiest Campaign `5` normal-wave enemy after stage scaling.
+
+Balancing rule:
+
+- if the survivability boss is already threatening because the pixl is dying to projectile spikes, reduce its health before reducing its projectile identity
+- if the damage-check boss is consistently reaching the pixl without creating enough real burn window, reduce its movement pressure before collapsing its health budget
+- the survivability boss should usually end up somewhat less tanky than the melee damage-check boss at the same stage, but both should remain inside the `10x` to `20x` anchor band
+- the mega-boss is the one deliberate exception to that normal band, and should sit at `40x` because it is the campaign capstone rather than a standard stage boss
+
+This means the first Campaign 5 baseline should target something close to:
+
+- `healthPerStage: 0.34`
+- `damagePerStage: 0.28`
+
+Design intent:
+
+- health is the main pacing scaler
+- damage is the main tension scaler
+- enemy count is a secondary pressure lever, not the primary difficulty source
+- boss and elite mechanics should create the real build checks instead of ambient screen clutter
+- stage bosses should be the primary source of new mechanic complexity, not extra baseline enemy types
 
 Exit criteria:
 
@@ -1854,6 +1797,10 @@ Current implemented pacing decisions:
   - spawn rate is aggressively increased across the full campaign
   - Stage `5` still receives the additional `+50%` spawn-rate spike
   - this campaign keeps its current enemy roster and population model, but relies on extremely high spawn density to respect the pacing cap
+- Campaign `5`
+  - should not try to exceed Campaign `4` primarily through additional screen clutter
+  - should hold density flatter and push difficulty mainly through higher per-enemy health and damage
+  - should use boss mechanics, elite checks, and priority-target pressure to spend the difficulty budget that Campaign `4` spends on crowd volume
 
 Design intent of the update:
 

@@ -2,10 +2,12 @@ import { baselineCombatProfile } from './combat/baseline-v1';
 import { campaign2CombatProfile } from './combat/campaign-2-v1';
 import { campaign3CombatProfile } from './combat/campaign-3-v1';
 import { campaign4CombatProfile } from './combat/campaign-4-v1';
+import { campaign5CombatProfile } from './combat/campaign-5-v1';
 import { campaign1 } from './campaigns/campaign-1';
 import { campaign2 } from './campaigns/campaign-2';
 import { campaign3 } from './campaigns/campaign-3';
 import { campaign4 } from './campaigns/campaign-4';
+import { campaign5 } from './campaigns/campaign-5';
 import { shopWeaponDefinitions, shopWeaponPools } from './shop';
 import { campaign1Weapons, campaign2Weapons, campaign3Weapons, campaign4Weapons } from './weapons';
 
@@ -21,7 +23,8 @@ export {
 	baselineCombatProfile,
 	campaign2CombatProfile,
 	campaign3CombatProfile,
-	campaign4CombatProfile
+	campaign4CombatProfile,
+	campaign5CombatProfile
 };
 export const starterWeaponId = 'pea-shooter';
 
@@ -29,14 +32,16 @@ export const combatProfiles = {
 	[baselineCombatProfile.id]: baselineCombatProfile,
 	[campaign2CombatProfile.id]: campaign2CombatProfile,
 	[campaign3CombatProfile.id]: campaign3CombatProfile,
-	[campaign4CombatProfile.id]: campaign4CombatProfile
+	[campaign4CombatProfile.id]: campaign4CombatProfile,
+	[campaign5CombatProfile.id]: campaign5CombatProfile
 } as const;
 
 export const campaigns = {
 	[campaign1.campaign]: campaign1,
 	[campaign2.campaign]: campaign2,
 	[campaign3.campaign]: campaign3,
-	[campaign4.campaign]: campaign4
+	[campaign4.campaign]: campaign4,
+	[campaign5.campaign]: campaign5
 } as const;
 
 const sharedPoolDefinitionIds = new Set([
@@ -66,7 +71,8 @@ export const campaignWeaponPools = {
 	[campaign1.campaign]: campaign1Weapons,
 	[campaign2.campaign]: [...sharedPoolWeapons, ...campaign2Weapons],
 	[campaign3.campaign]: [...sharedPoolWeapons, ...campaign3Weapons],
-	[campaign4.campaign]: [...sharedPoolWeapons, ...campaign4Weapons]
+	[campaign4.campaign]: [...sharedPoolWeapons, ...campaign4Weapons],
+	[campaign5.campaign]: [...sharedPoolWeapons, ...campaign4Weapons]
 } as const;
 
 export const campaignShopWeaponPools = shopWeaponPools;

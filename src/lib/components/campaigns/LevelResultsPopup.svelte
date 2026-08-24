@@ -16,6 +16,7 @@
 		sourceCampaignLevel: number;
 		cardCount: number;
 		guaranteedSlotLabel: string | null;
+		kind: 'normal' | 'special' | 'rare';
 		isSpecial: boolean;
 	}
 
@@ -67,7 +68,13 @@
 			{#each rewardPackRows as pack (pack.id)}
 				<article class:results-pack-special={pack.isSpecial} class="results-pack-card">
 					<div class="results-pack-topline">
-						<p class="results-pack-kicker">{pack.isSpecial ? 'Special pack' : 'Reward pack'}</p>
+						<p class="results-pack-kicker">
+							{pack.kind === 'special'
+								? 'Special pack'
+								: pack.kind === 'rare'
+									? 'Rare pack'
+									: 'Reward pack'}
+						</p>
 						<strong>{pack.cardCount} cards</strong>
 					</div>
 					<p class="results-pack-context">

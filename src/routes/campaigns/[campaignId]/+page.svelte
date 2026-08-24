@@ -248,9 +248,12 @@
 	let rewardPackRows = $derived.by(() =>
 		buildRewardPackRows(combatOverlay.rewardPacks).map((pack) => ({
 			...pack,
-			isSpecial: hasGuaranteedPackSlot(
-				combatOverlay.rewardPacks.find((entry) => entry.id === pack.id) ?? null
-			),
+			isSpecial:
+				(combatOverlay.rewardPacks.find((entry) => entry.id === pack.id) ?? null)?.kind ===
+					'special' ||
+				hasGuaranteedPackSlot(
+					combatOverlay.rewardPacks.find((entry) => entry.id === pack.id) ?? null
+				),
 			guaranteedSlotLabel: getGuaranteedPackLabel(
 				combatOverlay.rewardPacks.find((entry) => entry.id === pack.id) ?? null
 			)
@@ -325,6 +328,22 @@
 		return guaranteedRarities.map((rarity) => formatPackLabel(rarity)).join(' / ');
 	}
 
+	function getRewardPackKindLabel(pack: PersistedRewardPack | null) {
+		if (!pack) {
+			return 'Reward pack';
+		}
+
+		if (pack.kind === 'special') {
+			return 'Special pack';
+		}
+
+		if (pack.kind === 'rare') {
+			return 'Rare pack';
+		}
+
+		return 'Reward pack';
+	}
+
 	function mergeRewardPacks(
 		existing: PersistedRewardPack[] | null | undefined,
 		incoming: PersistedRewardPack[] | null | undefined
@@ -356,6 +375,7 @@
 			ownerUserId: pack.ownerUserId,
 			campaignId: pack.campaignId,
 			sourceCampaignLevel: pack.sourceCampaignLevel,
+			kind: pack.kind,
 			droppedAt: pack.droppedAt,
 			openedAt: pack.openedAt,
 			status: pack.status,
@@ -714,11 +734,12 @@
 
 		for (const pack of newRewardPacks) {
 			const guaranteedSlotLabel = getGuaranteedPackLabel(pack);
+			const packKindLabel = getRewardPackKindLabel(pack);
 			pushChangeLogEntry(
-				`${guaranteedSlotLabel ? 'Special pack' : 'Reward pack'} · ${pack.cardCount} cards`,
+				`${packKindLabel} · ${pack.cardCount} cards`,
 				guaranteedSlotLabel
-					? `Source level ${pack.sourceCampaignLevel} pack added with a guaranteed ${guaranteedSlotLabel} slot.`
-					: `Source level ${pack.sourceCampaignLevel} pack added to this run.`,
+					? `Source level ${pack.sourceCampaignLevel} ${packKindLabel.toLowerCase()} added with a guaranteed ${guaranteedSlotLabel} slot.`
+					: `Source level ${pack.sourceCampaignLevel} ${packKindLabel.toLowerCase()} added to this run.`,
 				'positive',
 				new Date(pack.droppedAt).getTime() || Date.now(),
 				undefined,

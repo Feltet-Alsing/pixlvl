@@ -60,7 +60,8 @@ export interface RewardPackRow {
 	id: string;
 	sourceCampaignLevel: number;
 	cardCount: number;
-	guaranteedSlotLabel: 'Exotic / Legendary';
+	kind: PersistedRewardPack['kind'];
+	guaranteedSlotLabel: 'Exotic / Legendary' | null;
 }
 
 export interface LoadoutRow {
@@ -126,7 +127,8 @@ export function buildRewardPackRows(rewardPacks: PersistedRewardPack[]) {
 		id: pack.id,
 		sourceCampaignLevel: pack.sourceCampaignLevel,
 		cardCount: pack.cardCount,
-		guaranteedSlotLabel: 'Exotic / Legendary'
+		kind: pack.kind,
+		guaranteedSlotLabel: pack.guaranteedSlotIndex >= 0 ? 'Exotic / Legendary' : null
 	})) satisfies RewardPackRow[];
 }
 

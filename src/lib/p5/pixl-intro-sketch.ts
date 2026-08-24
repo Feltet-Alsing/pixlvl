@@ -59,6 +59,24 @@ const ENEMY_VISUALS: Record<
 		fill: [188, 72, 72],
 		stroke: [255, 205, 205],
 		shape: 'circle'
+	},
+	'boss-melee': {
+		radius: 32,
+		fill: [142, 36, 36],
+		stroke: [255, 214, 214],
+		shape: 'circle'
+	},
+	'boss-ranged': {
+		radius: 28,
+		fill: [55, 148, 196],
+		stroke: [219, 244, 255],
+		shape: 'diamond'
+	},
+	'boss-hybrid': {
+		radius: 36,
+		fill: [122, 78, 188],
+		stroke: [255, 228, 185],
+		shape: 'diamond'
 	}
 };
 

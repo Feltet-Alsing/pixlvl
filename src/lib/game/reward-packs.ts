@@ -4,6 +4,7 @@ import type {
 	LoadoutItemDefinition,
 	PersistedRewardPack,
 	PersistedRewardPackCard,
+	RewardPackKind,
 	WeaponRarity
 } from '$lib/data/types';
 
@@ -20,8 +21,18 @@ const NORMAL_SLOT_RARITY_WEIGHTS: Record<WeaponRarity, number> = {
 	legendary: 0.08
 };
 
+const RARE_PACK_SLOT_RARITY_WEIGHTS: Record<WeaponRarity, number> = {
+	normal: NORMAL_SLOT_RARITY_WEIGHTS.normal,
+	magic: NORMAL_SLOT_RARITY_WEIGHTS.magic * 2,
+	rare: NORMAL_SLOT_RARITY_WEIGHTS.rare * 2,
+	exotic: NORMAL_SLOT_RARITY_WEIGHTS.exotic * 2,
+	legendary: NORMAL_SLOT_RARITY_WEIGHTS.legendary * 2
+};
+
 interface RollLevelRewardPacksInput {
+	campaignId: number;
 	stage: number;
+	isStageBoss: boolean;
 	isCampaignBoss: boolean;
 	sourceCampaignLevel: number;
 	randomFloat: () => number;
@@ -35,6 +46,16 @@ function getLevelPackDropChance(isCampaignBoss: boolean) {
 
 function getNormalPackDropChance(isCampaignBoss: boolean) {
 	return Math.min(1, getLevelPackDropChance(isCampaignBoss) * 3);
+}
+
+function getRarePackDropChance(
+	input: Pick<RollLevelRewardPacksInput, 'campaignId' | 'isStageBoss' | 'isCampaignBoss'>
+) {
+	if (input.campaignId !== 5 || !input.isStageBoss) {
+		return 0;
+	}
+
+	return input.isCampaignBoss ? 0.4 : 0.2;
 }
 
 function isSpecialPackStage(stage: number) {
@@ -94,9 +115,10 @@ function chooseRandomPackDefinition(
 function chooseWeightedNormalSlotRarity(
 	candidates: LoadoutItemDefinition[],
 	randomFloat: () => number,
-	excludedDefinitionIds: Set<string>
+	excludedDefinitionIds: Set<string>,
+	rarityWeights: Record<WeaponRarity, number> = NORMAL_SLOT_RARITY_WEIGHTS
 ) {
-	const availableRarities = Object.entries(NORMAL_SLOT_RARITY_WEIGHTS).filter(([rarity]) =>
+	const availableRarities = Object.entries(rarityWeights).filter(([rarity]) =>
 		candidates.some(
 			(candidate) => candidate.rarity === rarity && !excludedDefinitionIds.has(candidate.id)
 		)
@@ -136,13 +158,15 @@ function createRewardPackCard(
 function createRewardPack(
 	cards: PersistedRewardPackCard[],
 	guaranteedSlotIndex: number,
+	kind: RewardPackKind,
 	input: RollLevelRewardPacksInput
 ): PersistedRewardPack {
 	return {
 		id: input.createPackId(),
 		ownerUserId: '',
-		campaignId: 0,
+		campaignId: input.campaignId,
 		sourceCampaignLevel: input.sourceCampaignLevel,
+		kind,
 		droppedAt: new Date().toISOString(),
 		openedAt: null,
 		status: 'unopened',
@@ -153,8 +177,10 @@ function createRewardPack(
 	};
 }
 
-function createNormalRewardPack(
+function createStandardRewardPack(
 	eligibleDefinitions: LoadoutItemDefinition[],
+	kind: Extract<RewardPackKind, 'normal' | 'rare'>,
+	rarityWeights: Record<WeaponRarity, number>,
 	input: RollLevelRewardPacksInput
 ) {
 	const cards: PersistedRewardPackCard[] = [];
@@ -168,7 +194,8 @@ function createNormalRewardPack(
 		const rarity = chooseWeightedNormalSlotRarity(
 			eligibleDefinitions,
 			input.randomFloat,
-			selectedDefinitionIds
+			selectedDefinitionIds,
+			rarityWeights
 		);
 
 		if (!rarity) {
@@ -191,7 +218,7 @@ function createNormalRewardPack(
 		cards.push(createRewardPackCard(slotIndex, definition, false));
 	}
 
-	return createRewardPack(cards, NO_GUARANTEED_PACK_SLOT_INDEX, input);
+	return createRewardPack(cards, NO_GUARANTEED_PACK_SLOT_INDEX, kind, input);
 }
 
 function createSpecialRewardPack(
@@ -249,7 +276,7 @@ function createSpecialRewardPack(
 
 	cards.push(createRewardPackCard(GUARANTEED_PACK_SLOT_INDEX, guaranteedDefinition, true));
 
-	return createRewardPack(cards, GUARANTEED_PACK_SLOT_INDEX, input);
+	return createRewardPack(cards, GUARANTEED_PACK_SLOT_INDEX, 'special', input);
 }
 
 export function rollLevelRewardPacks(input: RollLevelRewardPacksInput): PersistedRewardPack[] {
@@ -263,10 +290,28 @@ export function rollLevelRewardPacks(input: RollLevelRewardPacksInput): Persiste
 	const rewardPacks: PersistedRewardPack[] = [];
 
 	if (input.randomFloat() < getNormalPackDropChance(input.isCampaignBoss)) {
-		const normalPack = createNormalRewardPack(eligibleDefinitions, input);
+		const normalPack = createStandardRewardPack(
+			eligibleDefinitions,
+			'normal',
+			NORMAL_SLOT_RARITY_WEIGHTS,
+			input
+		);
 
 		if (normalPack) {
 			rewardPacks.push(normalPack);
+		}
+	}
+
+	if (input.randomFloat() < getRarePackDropChance(input)) {
+		const rarePack = createStandardRewardPack(
+			eligibleDefinitions,
+			'rare',
+			RARE_PACK_SLOT_RARITY_WEIGHTS,
+			input
+		);
+
+		if (rarePack) {
+			rewardPacks.push(rarePack);
 		}
 	}
 

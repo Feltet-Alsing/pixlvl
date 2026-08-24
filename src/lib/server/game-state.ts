@@ -16,7 +16,8 @@ import type {
 	OwnedWeaponInstance,
 	PersistedLoadoutState,
 	PersistedRewardPack,
-	PersistedRewardPackCard
+	PersistedRewardPackCard,
+	RewardPackKind
 } from '$lib/data/types';
 
 export type PersistedPixlState = InferSelectModel<typeof pixlState>;
@@ -28,7 +29,7 @@ const REWARD_PACK_SOURCE_LEVELS_PER_STAGE = 10;
 export interface GameState {
 	pixlState: PersistedPixlState;
 	campaignProgress: PersistedCampaignProgress[];
-	rewardPacks: PersistedRewardPackRecord[];
+	rewardPacks: PersistedRewardPack[];
 }
 
 export interface GameStatePatch {
@@ -52,7 +53,7 @@ export interface GameStatePatch {
 }
 
 export interface OpenRewardPackResult {
-	pack: PersistedRewardPackRecord;
+	pack: PersistedRewardPack;
 	grantedWeapons: OwnedWeaponInstance[];
 	alreadyOpened: boolean;
 	newDefinitionIds: string[];
@@ -175,6 +176,7 @@ function createStarterRewardPack(userId: string): PersistedRewardPack {
 		ownerUserId: userId,
 		campaignId: STARTER_PACK_CAMPAIGN_ID,
 		sourceCampaignLevel: STARTER_PACK_SOURCE_LEVEL,
+		kind: 'normal',
 		droppedAt: STARTER_PACK_DROPPED_AT.toISOString(),
 		openedAt: null,
 		status: 'unopened',
@@ -182,6 +184,31 @@ function createStarterRewardPack(userId: string): PersistedRewardPack {
 		guaranteedSlotIndex: NO_GUARANTEED_PACK_SLOT_INDEX,
 		contentVersion: STARTER_PACK_CONTENT_VERSION,
 		cards: createStarterRewardPackCards()
+	};
+}
+
+function normalizeRewardPackKind(kind: unknown): RewardPackKind {
+	if (kind === 'special' || kind === 'rare') {
+		return kind;
+	}
+
+	return 'normal';
+}
+
+function serializeRewardPackRecord(pack: PersistedRewardPackRecord): PersistedRewardPack {
+	return {
+		id: pack.id,
+		ownerUserId: pack.ownerUserId,
+		campaignId: pack.campaignId,
+		sourceCampaignLevel: pack.sourceCampaignLevel,
+		kind: normalizeRewardPackKind(pack.kind),
+		droppedAt: pack.droppedAt.toISOString(),
+		openedAt: pack.openedAt ? pack.openedAt.toISOString() : null,
+		status: pack.status === 'opened' ? 'opened' : 'unopened',
+		cardCount: pack.cardCount,
+		guaranteedSlotIndex: pack.guaranteedSlotIndex,
+		contentVersion: pack.contentVersion,
+		cards: pack.cards
 	};
 }
 
@@ -429,20 +456,22 @@ export async function getOrCreateGameState(userId: string): Promise<GameState> {
 		campaignProgress: storedCampaignProgress.sort(
 			(left, right) => left.campaignId - right.campaignId
 		),
-		rewardPacks: (
-			await db.select().from(rewardPack).where(eq(rewardPack.ownerUserId, userId))
-		).sort(
-			(left, right) => new Date(right.droppedAt).getTime() - new Date(left.droppedAt).getTime()
-		)
+		rewardPacks: (await db.select().from(rewardPack).where(eq(rewardPack.ownerUserId, userId)))
+			.map(serializeRewardPackRecord)
+			.sort(
+				(left, right) => new Date(right.droppedAt).getTime() - new Date(left.droppedAt).getTime()
+			)
 	};
 }
 
 export async function getRewardPacksForUser(userId: string) {
 	await ensureGameState(userId);
 
-	return (await db.select().from(rewardPack).where(eq(rewardPack.ownerUserId, userId))).sort(
-		(left, right) => new Date(right.droppedAt).getTime() - new Date(left.droppedAt).getTime()
-	);
+	return (await db.select().from(rewardPack).where(eq(rewardPack.ownerUserId, userId)))
+		.map(serializeRewardPackRecord)
+		.sort(
+			(left, right) => new Date(right.droppedAt).getTime() - new Date(left.droppedAt).getTime()
+		);
 }
 
 export async function createRewardPackForUser(
@@ -491,7 +520,7 @@ export async function openRewardPackForUser(
 
 		if (storedPack.status === 'opened') {
 			return {
-				pack: storedPack,
+				pack: serializeRewardPackRecord(storedPack),
 				grantedWeapons: [],
 				alreadyOpened: true,
 				newDefinitionIds: []
@@ -529,11 +558,11 @@ export async function openRewardPackForUser(
 			.where(eq(rewardPack.id, storedPack.id));
 
 		return {
-			pack: {
+			pack: serializeRewardPackRecord({
 				...storedPack,
 				status: 'opened',
 				openedAt
-			},
+			}),
 			grantedWeapons,
 			alreadyOpened: false,
 			newDefinitionIds: storedPack.cards
@@ -593,7 +622,7 @@ export async function openRewardPacksForUser(
 		for (const storedPack of orderedPacks) {
 			if (storedPack.status === 'opened') {
 				results.push({
-					pack: storedPack,
+					pack: serializeRewardPackRecord(storedPack),
 					grantedWeapons: [],
 					alreadyOpened: true,
 					newDefinitionIds: []
@@ -618,11 +647,11 @@ export async function openRewardPacksForUser(
 			nextOwnedWeapons = normalizeOwnedWeapons([...nextOwnedWeapons, ...grantedWeapons]);
 			openedPackIds.push(storedPack.id);
 			results.push({
-				pack: {
+				pack: serializeRewardPackRecord({
 					...storedPack,
 					status: 'opened',
 					openedAt
-				},
+				}),
 				grantedWeapons,
 				alreadyOpened: false,
 				newDefinitionIds

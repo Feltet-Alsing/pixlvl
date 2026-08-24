@@ -2648,12 +2648,13 @@
 
 	.inventory-panel {
 		position: static;
-		align-self: start;
+		align-self: stretch;
 		height: auto;
 		max-height: none;
 		min-height: 0;
 		overflow: visible;
 		grid-template-rows: minmax(0, 1fr);
+		align-content: stretch;
 		gap: 0.75rem;
 	}
 
@@ -2874,9 +2875,11 @@
 		.inventory-panel {
 			position: sticky;
 			top: 1.15rem;
-			height: calc(100dvh - 6.6rem);
-			max-height: calc(100dvh - 6.6rem);
-			overflow: hidden;
+			box-sizing: border-box;
+			height: calc(100vh - 2.3rem);
+			min-height: calc(100vh - 2.3rem);
+			max-height: calc(100vh - 2.3rem);
+			overflow: visible;
 		}
 	}
 
@@ -2903,21 +2906,21 @@
 
 		.inventory-panel.mobile-item-pane {
 			position: fixed;
-			top: 50%;
+			top: 0.75rem;
 			right: 0.75rem;
-			bottom: auto;
+			bottom: 0.75rem;
 			z-index: 35;
 			width: min(20rem, calc(100vw - 1.5rem));
-			max-height: min(78dvh, 40rem);
-			transform: translate3d(calc(100% + 1rem), -50%, 0);
+			max-height: none;
+			transform: translate3d(calc(100% + 1rem), 0, 0);
 			transition: transform 180ms ease;
-			overflow: hidden;
+			overflow: visible;
 			touch-action: pan-y;
 			overscroll-behavior: contain;
 		}
 
 		.inventory-panel.mobile-item-pane.open {
-			transform: translate3d(0, -50%, 0);
+			transform: translate3d(0, 0, 0);
 		}
 
 		.mobile-pane-backdrop {

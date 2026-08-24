@@ -86,6 +86,7 @@ export const rewardPack = pgTable(
 			.references(() => user.id, { onDelete: 'cascade' }),
 		campaignId: integer('campaign_id').notNull(),
 		sourceCampaignLevel: integer('source_campaign_level').notNull(),
+		kind: text('kind').notNull().default('normal'),
 		droppedAt: timestamp('dropped_at').defaultNow().notNull(),
 		openedAt: timestamp('opened_at'),
 		status: text('status').notNull().default('unopened'),

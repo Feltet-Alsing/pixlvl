@@ -1249,13 +1249,98 @@ export function createCampaignSketch(
 
 		const rollLevelRewardPacks = () => {
 			return buildRewardPacksForLevel({
+				campaignId: campaign.campaign,
 				stage: currentLevel.stage,
+				isStageBoss: currentLevel.isStageBoss,
 				isCampaignBoss: currentLevel.isCampaignBoss,
 				sourceCampaignLevel: currentLevel.campaignLevel,
 				randomFloat: () => p.random(),
 				randomIndex: (maxExclusive) => Math.floor(p.random(maxExclusive)),
 				createPackId: () => createRewardPackId(Math.floor(p.random(1_000_000_000)))
 			});
+		};
+
+		const BOSS_HEALTH_ANCHOR_BASE = 146;
+		const BOSS_HEALTH_PER_STAGE = 0.34;
+		const BOSS_DAMAGE_PER_STAGE = 0.2;
+		const DAMAGE_CHECK_HEALTH_MULTIPLIERS = [12, 14, 16, 18] as const;
+		const SURVIVABILITY_HEALTH_MULTIPLIERS = [10, 12, 14, 16] as const;
+
+		const getBossAnchorHealth = (stage: number) => {
+			return Math.max(
+				1,
+				Math.round(BOSS_HEALTH_ANCHOR_BASE * (1 + Math.max(0, stage - 1) * BOSS_HEALTH_PER_STAGE))
+			);
+		};
+
+		const getBossTargetHealth = (kind: GlitchKind, stage: number) => {
+			const anchorHealth = getBossAnchorHealth(stage);
+			const stageIndex = Math.max(
+				0,
+				Math.min(stage - 1, DAMAGE_CHECK_HEALTH_MULTIPLIERS.length - 1)
+			);
+
+			if (kind === 'boss-melee') {
+				return anchorHealth * DAMAGE_CHECK_HEALTH_MULTIPLIERS[stageIndex];
+			}
+
+			if (kind === 'boss-ranged') {
+				return anchorHealth * SURVIVABILITY_HEALTH_MULTIPLIERS[stageIndex];
+			}
+
+			if (kind === 'boss-hybrid') {
+				return anchorHealth * 40;
+			}
+
+			return null;
+		};
+
+		const getBossDamageMultiplier = (stage: number) => {
+			return 1 + Math.max(0, stage - 1) * BOSS_DAMAGE_PER_STAGE;
+		};
+
+		const getXpForEnemyKind = (kind: GlitchKind) => {
+			if (kind === 'boss-melee') {
+				return currentLevel.xpPerEnemy.bossMelee ?? 0;
+			}
+
+			if (kind === 'boss-ranged') {
+				return currentLevel.xpPerEnemy.bossRanged ?? 0;
+			}
+
+			if (kind === 'boss-hybrid') {
+				return currentLevel.xpPerEnemy.bossHybrid ?? 0;
+			}
+
+			return currentLevel.xpPerEnemy[kind] ?? 0;
+		};
+
+		const getBossEnemyOverrides = (
+			kind: GlitchKind
+		):
+			| Partial<
+					Pick<
+						EnemyState,
+						| 'holdRadius'
+						| 'orbitDirection'
+						| 'health'
+						| 'maxHealth'
+						| 'moveSpeedMultiplier'
+						| 'damageMultiplier'
+					>
+			  >
+			| undefined => {
+			const targetHealth = getBossTargetHealth(kind, currentLevel.stage);
+
+			if (targetHealth === null) {
+				return undefined;
+			}
+
+			return {
+				health: targetHealth,
+				maxHealth: targetHealth,
+				damageMultiplier: getBossDamageMultiplier(currentLevel.stage)
+			};
 		};
 
 		const createEnemyState = (
@@ -1265,7 +1350,12 @@ export function createCampaignSketch(
 			overrides?: Partial<
 				Pick<
 					EnemyState,
-					'holdRadius' | 'orbitDirection' | 'health' | 'maxHealth' | 'moveSpeedMultiplier'
+					| 'holdRadius'
+					| 'orbitDirection'
+					| 'health'
+					| 'maxHealth'
+					| 'moveSpeedMultiplier'
+					| 'damageMultiplier'
 				>
 			>
 		): EnemyState => {
@@ -1306,7 +1396,7 @@ export function createCampaignSketch(
 				chillAmount: 0,
 				frozenTimer: 0,
 				moveSpeedMultiplier: overrides?.moveSpeedMultiplier ?? 1,
-				damageMultiplier: getEnemyStageMultiplier('damagePerStage')
+				damageMultiplier: overrides?.damageMultiplier ?? getEnemyStageMultiplier('damagePerStage')
 			};
 		};
 
@@ -1399,7 +1489,7 @@ export function createCampaignSketch(
 			const x = centerX + Math.cos(angle) * FIXED_SPAWN_RADIUS;
 			const y = centerY + Math.sin(angle) * FIXED_SPAWN_RADIUS;
 
-			enemies.push(createEnemyState(kind, x, y));
+			enemies.push(createEnemyState(kind, x, y, getBossEnemyOverrides(kind)));
 			enemyId += 1;
 		};
 
@@ -1846,7 +1936,7 @@ export function createCampaignSketch(
 			const defeatedEnemyX = defeatedEnemy.x;
 			const defeatedEnemyY = defeatedEnemy.y;
 
-			waveXp += currentLevel.xpPerEnemy[defeatedEnemy.kind] ?? 0;
+			waveXp += getXpForEnemyKind(defeatedEnemy.kind);
 
 			if (defeatedEnemy.kind === 'zerglitch') {
 				for (let splitIndex = 0; splitIndex < 15; splitIndex += 1) {
@@ -3872,6 +3962,7 @@ export function createCampaignSketch(
 				const stats = combatProfile.glitches[enemy.kind];
 				const contactRange = getEnemyContactRange(enemy.kind);
 				const isSiege = stats.attackPattern === 'siege';
+				const isHybrid = stats.attackPattern === 'hybrid';
 				enemy.hitFlash = Math.max(0, enemy.hitFlash - dt);
 				enemy.confusionTimer = Math.max(0, enemy.confusionTimer - dt);
 				enemy.voidTouchedTimer = Math.max(0, enemy.voidTouchedTimer - dt);
@@ -4029,7 +4120,10 @@ export function createCampaignSketch(
 					const step = Math.min(distance - contactRange, effectiveMoveSpeed * dt);
 					enemy.x += (dx / distance) * step;
 					enemy.y += (dy / distance) * step;
-					continue;
+
+					if (!isHybrid) {
+						continue;
+					}
 				}
 
 				enemy.attackTimer -= dt;
@@ -4054,9 +4148,12 @@ export function createCampaignSketch(
 						continue;
 					}
 
-					if (isSiege) {
+					if (isSiege || isHybrid) {
 						fireEnemyProjectile(enemy, stats);
-						continue;
+
+						if (isSiege) {
+							continue;
+						}
 					}
 
 					applyDamageToPixl(Math.max(1, Math.round(stats.contactDamage * enemy.damageMultiplier)));

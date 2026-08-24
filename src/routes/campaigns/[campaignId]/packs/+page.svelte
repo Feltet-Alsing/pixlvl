@@ -150,6 +150,30 @@
 	let hasAnyPacks = $derived(rewardPacks.length > 0);
 	let selectedPackIds = $state<string[]>([]);
 
+	function getPackKindLabel(pack: (typeof rewardPacks)[number]) {
+		if (pack.kind === 'special') {
+			return 'Special pack';
+		}
+
+		if (pack.kind === 'rare') {
+			return 'Rare pack';
+		}
+
+		return 'Reward pack';
+	}
+
+	function getPackKindBadge(pack: (typeof rewardPacks)[number]) {
+		if (pack.kind === 'special') {
+			return 'special pack';
+		}
+
+		if (pack.kind === 'rare') {
+			return 'rare pack';
+		}
+
+		return 'reward pack';
+	}
+
 	let openedPackBatch = $derived(form?.openedPackBatch as OpenedPackBatchSummary | undefined);
 	let openedPack = $derived(form?.openedPack as OpenedPackSummary | undefined);
 	let revealStep = $derived(openedPack ? 0 : -1);
@@ -551,10 +575,10 @@
 												{isPackSelected(pack.id) ? 'Selected' : 'Select'}
 											</div>
 											<div class="pack-face-header">
-												<span>Reward pack</span>
+												<span>{getPackKindLabel(pack)}</span>
 												<span>Lv {pack.sourceCampaignLevel}</span>
 											</div>
-											<div class="pack-face-badge">reward pack</div>
+											<div class="pack-face-badge">{getPackKindBadge(pack)}</div>
 											<div class="pack-face-emblem">
 												<div class="pack-face-orbit pack-face-orbit-outer"></div>
 												<div class="pack-face-orbit pack-face-orbit-inner"></div>
@@ -606,10 +630,10 @@
 										{/if}
 										<div class="pack-face-preview opened-preview">
 											<div class="pack-face-header">
-												<span>Opened pack</span>
+												<span>Opened {getPackKindLabel(pack).toLowerCase()}</span>
 												<span>Lv {pack.sourceCampaignLevel}</span>
 											</div>
-											<div class="pack-face-badge">opened pack</div>
+											<div class="pack-face-badge">opened {getPackKindBadge(pack)}</div>
 											<div class="pack-face-emblem">
 												<div class="pack-face-orbit pack-face-orbit-outer"></div>
 												<div class="pack-face-orbit pack-face-orbit-inner"></div>

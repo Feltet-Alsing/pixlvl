@@ -1,5 +1,14 @@
 export type GlitchKind =
-	'biter' | 'swarmer' | 'tanker' | 'shard' | 'bulwark' | 'shielder' | 'zerglitch';
+	| 'biter'
+	| 'swarmer'
+	| 'tanker'
+	| 'shard'
+	| 'bulwark'
+	| 'shielder'
+	| 'zerglitch'
+	| 'boss-melee'
+	| 'boss-ranged'
+	| 'boss-hybrid';
 
 export type WeaponRarity = 'normal' | 'magic' | 'rare' | 'exotic' | 'legendary';
 
@@ -57,7 +66,7 @@ export interface GlitchStats {
 	contactDamage: number;
 	attackSpeed: number;
 	moveSpeed: number;
-	attackPattern?: 'melee' | 'siege';
+	attackPattern?: 'melee' | 'siege' | 'hybrid';
 	supportPattern?: 'shield-nearest-non-bulwark';
 	preferredRange?: number;
 	orbitSpeed?: number;
@@ -389,6 +398,8 @@ export interface OwnedWeaponInstance {
 
 export type RewardPackStatus = 'unopened' | 'opened';
 
+export type RewardPackKind = 'normal' | 'special' | 'rare';
+
 export interface PersistedRewardPackCard {
 	slotIndex: number;
 	definitionId: string;
@@ -401,6 +412,7 @@ export interface PersistedRewardPack {
 	ownerUserId: string;
 	campaignId: number;
 	sourceCampaignLevel: number;
+	kind: RewardPackKind;
 	droppedAt: string;
 	openedAt: string | null;
 	status: RewardPackStatus;
@@ -449,6 +461,9 @@ export interface WaveComposition {
 	bulwark?: number;
 	shielder?: number;
 	zerglitch?: number;
+	bossMelee?: number;
+	bossRanged?: number;
+	bossHybrid?: number;
 }
 
 export interface XpPerEnemy {
@@ -459,6 +474,9 @@ export interface XpPerEnemy {
 	bulwark?: number;
 	shielder?: number;
 	zerglitch?: number;
+	bossMelee?: number;
+	bossRanged?: number;
+	bossHybrid?: number;
 }
 
 export interface CampaignLevel {
@@ -496,6 +514,9 @@ export interface CampaignBaseline {
 			bulwark?: string;
 			shielder?: string;
 			zerglitch?: string;
+			bossMelee?: string;
+			bossRanged?: string;
+			bossHybrid?: string;
 		};
 	};
 	bossEnemyMultipliers: {
@@ -510,6 +531,9 @@ export interface CampaignBaseline {
 		bulwark?: string;
 		shielder?: string;
 		zerglitch?: string;
+		bossMelee?: string;
+		bossRanged?: string;
+		bossHybrid?: string;
 	};
 }
 
