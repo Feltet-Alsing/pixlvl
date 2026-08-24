@@ -127,6 +127,7 @@
 	let unreadChangeLogCount = $state(0);
 	let livePackNotificationCount = $state(0);
 	let pendingRewardPacks = $state.raw<PersistedRewardPack[]>([]);
+	let latestLevelRewardPacks = $state.raw<PersistedRewardPack[]>([]);
 	let hasLoadedChangeLogState = false;
 	let lastPersistedChangeLogJson = '';
 	let seenArenaDropInstanceIds = new Set<string>();
@@ -246,16 +247,14 @@
 		)
 	);
 	let rewardPackRows = $derived.by(() =>
-		buildRewardPackRows(combatOverlay.rewardPacks).map((pack) => ({
+		buildRewardPackRows(latestLevelRewardPacks).map((pack) => ({
 			...pack,
 			isSpecial:
-				(combatOverlay.rewardPacks.find((entry) => entry.id === pack.id) ?? null)?.kind ===
+				(latestLevelRewardPacks.find((entry) => entry.id === pack.id) ?? null)?.kind ===
 					'special' ||
-				hasGuaranteedPackSlot(
-					combatOverlay.rewardPacks.find((entry) => entry.id === pack.id) ?? null
-				),
+				hasGuaranteedPackSlot(latestLevelRewardPacks.find((entry) => entry.id === pack.id) ?? null),
 			guaranteedSlotLabel: getGuaranteedPackLabel(
-				combatOverlay.rewardPacks.find((entry) => entry.id === pack.id) ?? null
+				latestLevelRewardPacks.find((entry) => entry.id === pack.id) ?? null
 			)
 		}))
 	);
@@ -815,6 +814,12 @@
 
 	function handleCombatStateChange(update: CombatOverlayStateUpdate) {
 		pendingRewardPacks = mergeRewardPacks(pendingRewardPacks, update.rewardPacks ?? []);
+
+		if (update.status === 'running' || update.status === 'defeated') {
+			latestLevelRewardPacks = [];
+		} else if (update.rewardPacks) {
+			latestLevelRewardPacks = update.rewardPacks;
+		}
 
 		combatOverlayOverride = {
 			...combatOverlay,
