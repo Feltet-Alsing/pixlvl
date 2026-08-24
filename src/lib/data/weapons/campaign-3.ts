@@ -2,6 +2,135 @@ import type { LoadoutItemDefinition } from '$lib/data/types';
 
 export const campaign3Weapons: LoadoutItemDefinition[] = [
 	{
+		id: 'aegis-leech',
+		name: 'Aegis Leech',
+		rarity: 'magic',
+		shape: {
+			width: 3,
+			height: 3,
+			cells: [
+				[1, 0],
+				[0, 1],
+				[1, 1],
+				[2, 1],
+				[1, 2]
+			]
+		},
+		baseDamage: 4,
+		projectileSpeed: 420,
+		attack: {
+			kind: 'spread',
+			projectileCount: 4,
+			spreadDegrees: 32,
+			motion: 'wave',
+			special: {
+				type: 'shield-steal',
+				shieldRatio: 1.15
+			},
+			targeting: 'current-target'
+		},
+		projectileVisual: {
+			color: '#67e8f9',
+			size: 'small',
+			shape: 'spark',
+			trail: 'pulse',
+			glow: true
+		},
+		drop: {
+			mode: 'drop',
+			campaignId: 3,
+			stageStart: 1,
+			stageEnd: 3,
+			perLevelDropChance: 0.07
+		},
+		role: 'Magic shield-support weapon that sprays weak arc bolts and converts the damage dealt into pixl shielding, giving fragile multihit boards room to stabilize'
+	},
+	{
+		id: 'prism-brand',
+		name: 'Prism Brand',
+		rarity: 'magic',
+		shape: {
+			width: 3,
+			height: 3,
+			cells: [
+				[1, 0],
+				[0, 1],
+				[1, 1],
+				[2, 1],
+				[1, 2]
+			]
+		},
+		baseDamage: 3,
+		projectileSpeed: 520,
+		attack: {
+			kind: 'single',
+			projectileCount: 1,
+			cycleInterval: 2,
+			special: {
+				type: 'target-painter',
+				damageMultiplier: 1.4
+			},
+			targeting: 'strongest-target'
+		},
+		projectileVisual: {
+			color: '#f59e0b',
+			size: 'medium',
+			shape: 'diamond',
+			trail: 'streak',
+			glow: true
+		},
+		drop: {
+			mode: 'drop',
+			campaignId: 3,
+			stageStart: 2,
+			stageEnd: 5,
+			perLevelDropChance: 0.065
+		},
+		role: 'Magic focus-support weapon that brands the strongest enemy so the rest of the board collapses onto one priority target with amplified direct-hit damage'
+	},
+	{
+		id: 'relay-torch',
+		name: 'Relay Torch',
+		rarity: 'magic',
+		shape: {
+			width: 2,
+			height: 2,
+			cells: [
+				[0, 0],
+				[1, 0],
+				[0, 1]
+			]
+		},
+		baseDamage: 5,
+		projectileSpeed: 560,
+		attack: {
+			kind: 'single',
+			projectileCount: 1,
+			cycleInterval: 1,
+			motion: 'accelerate',
+			special: {
+				type: 'next-weapon-boost',
+				damageMultiplier: 1.25
+			},
+			targeting: 'current-target'
+		},
+		projectileVisual: {
+			color: '#fb7185',
+			size: 'small',
+			shape: 'spark',
+			trail: 'streak',
+			glow: true
+		},
+		drop: {
+			mode: 'drop',
+			campaignId: 3,
+			stageStart: 1,
+			stageEnd: 5,
+			perLevelDropChance: 0.07
+		},
+		role: 'Magic sequencing weapon that fires often and passes a 25% damage boost forward to the next weapon in the sweep, letting combo boards stack deliberate payoffs'
+	},
+	{
 		id: 'fire-infuser',
 		name: 'Fire Infuser',
 		category: 'utility',

@@ -2,6 +2,99 @@ import type { LoadoutItemDefinition } from '$lib/data/types';
 
 export const campaign4Weapons: LoadoutItemDefinition[] = [
 	{
+		id: 'grave-threader',
+		name: 'Grave Threader',
+		rarity: 'magic',
+		shape: {
+			width: 2,
+			height: 4,
+			cells: [
+				[0, 0],
+				[1, 0],
+				[1, 1],
+				[0, 2],
+				[1, 2],
+				[1, 3]
+			]
+		},
+		baseDamage: 4,
+		projectileSpeed: 600,
+		attack: {
+			kind: 'single',
+			projectileCount: 2,
+			pierceCount: 1,
+			special: {
+				type: 'life-steal-mark',
+				lifeStealRatio: 0.2,
+				duration: 2.4
+			},
+			targeting: 'strongest-target'
+		},
+		projectileVisual: {
+			color: '#c084fc',
+			size: 'small',
+			shape: 'knife',
+			trail: 'streak',
+			glow: true
+		},
+		drop: {
+			mode: 'drop',
+			campaignId: 4,
+			stageStart: 1,
+			stageEnd: 3,
+			perLevelDropChance: 0.07
+		},
+		role: 'Magic sustain enabler that threads enemies with a short soul-leech mark, causing all allied damage into those targets to return health for a brief window'
+	},
+	{
+		id: 'ruin-choir',
+		name: 'Ruin Choir',
+		rarity: 'magic',
+		shape: {
+			width: 4,
+			height: 2,
+			cells: [
+				[0, 0],
+				[1, 0],
+				[2, 0],
+				[3, 0],
+				[1, 1],
+				[2, 1]
+			]
+		},
+		baseDamage: 5,
+		projectileSpeed: 0,
+		attack: {
+			kind: 'single',
+			projectileCount: 1,
+			cycleInterval: 3,
+			special: {
+				type: 'vulnerable-pulse',
+				maxRadius: 170,
+				expansionSpeed: 500,
+				lineWidth: 12,
+				damageMultiplier: 1.3,
+				duration: 2.5
+			},
+			targeting: 'current-target'
+		},
+		projectileVisual: {
+			color: '#f472b6',
+			size: 'large',
+			shape: 'orb',
+			trail: 'pulse',
+			glow: true
+		},
+		drop: {
+			mode: 'drop',
+			campaignId: 4,
+			stageStart: 2,
+			stageEnd: 5,
+			perLevelDropChance: 0.05
+		},
+		role: 'Magic battlefield debuffer that releases a low-damage curse pulse, softening groups so every other weapon hits harder for the next few cycles'
+	},
+	{
 		id: 'void-tunnel',
 		name: 'Void Tunnel',
 		rarity: 'rare',

@@ -76,6 +76,8 @@ interface EnemyState {
 	shieldPulseCooldown: number;
 	confusionTimer: number;
 	voidTouchedTimer: number;
+	lifeStealMarkTimer: number;
+	lifeStealMarkRatio: number;
 	vulnerableTimer: number;
 	chillAmount: number;
 	frozenTimer: number;
@@ -193,6 +195,22 @@ interface KillSwitchPulseState {
 	expansionSpeed: number;
 	lineWidth: number;
 	executeThresholdRatio: number;
+	color: string;
+	glow: boolean;
+	age: number;
+	hitEnemyIds: number[];
+}
+
+interface VulnerablePulseState {
+	sourceWeaponInstanceId: string;
+	centerX: number;
+	centerY: number;
+	radius: number;
+	maxRadius: number;
+	expansionSpeed: number;
+	lineWidth: number;
+	damage: number;
+	vulnerableDuration: number;
 	color: string;
 	glow: boolean;
 	age: number;
@@ -796,6 +814,7 @@ export function createCampaignSketch(
 		let enemyProjectiles: EnemyProjectileState[] = [];
 		let forceFields: ForceFieldState[] = [];
 		let killSwitchPulses: KillSwitchPulseState[] = [];
+		let vulnerablePulses: VulnerablePulseState[] = [];
 		let stasisFields: StasisFieldState[] = [];
 		let laserSweeps: LaserSweepState[] = [];
 		let needleBursts: NeedleBurstState[] = [];
@@ -1183,6 +1202,7 @@ export function createCampaignSketch(
 			enemyProjectiles = [];
 			forceFields = [];
 			killSwitchPulses = [];
+			vulnerablePulses = [];
 			stasisFields = [];
 			laserSweeps = [];
 			needleBursts = [];
@@ -1280,6 +1300,8 @@ export function createCampaignSketch(
 				shieldPulseCooldown: p.random(0, Math.max(0.15, (stats.onHitShieldCooldown ?? 0) * 0.5)),
 				confusionTimer: 0,
 				voidTouchedTimer: 0,
+				lifeStealMarkTimer: 0,
+				lifeStealMarkRatio: 0,
 				vulnerableTimer: 0,
 				chillAmount: 0,
 				frozenTimer: 0,
@@ -1988,6 +2010,9 @@ export function createCampaignSketch(
 				if (allowContextHealing) {
 					applyBlackHoleLifeSteal(enemy, actualDamage);
 				}
+				if (enemy.lifeStealMarkTimer > 0 && actualDamage > 0) {
+					healPixl(actualDamage * enemy.lifeStealMarkRatio);
+				}
 				return { defeated: false, actualDamage };
 			}
 			const shieldReduction =
@@ -2030,11 +2055,25 @@ export function createCampaignSketch(
 			if (allowContextHealing) {
 				applyBlackHoleLifeSteal(enemy, actualDamage);
 			}
+			if (enemy.lifeStealMarkTimer > 0 && actualDamage > 0) {
+				healPixl(actualDamage * enemy.lifeStealMarkRatio);
+			}
 
 			if (applyWeaponHitEffects && sourceWeapon?.attack.special?.type === 'vulnerable-hit') {
 				enemy.vulnerableTimer = Math.max(
 					enemy.vulnerableTimer,
 					sourceWeapon.attack.special.duration
+				);
+			}
+
+			if (applyWeaponHitEffects && sourceWeapon?.attack.special?.type === 'life-steal-mark') {
+				enemy.lifeStealMarkTimer = Math.max(
+					enemy.lifeStealMarkTimer,
+					sourceWeapon.attack.special.duration
+				);
+				enemy.lifeStealMarkRatio = Math.max(
+					enemy.lifeStealMarkRatio,
+					sourceWeapon.attack.special.lifeStealRatio
 				);
 			}
 
@@ -2236,6 +2275,30 @@ export function createCampaignSketch(
 				expansionSpeed: special.expansionSpeed,
 				lineWidth: special.lineWidth,
 				executeThresholdRatio: special.executeThresholdRatio,
+				color: weapon.projectileVisual.color,
+				glow: weapon.projectileVisual.glow ?? false,
+				age: 0,
+				hitEnemyIds: []
+			});
+		};
+
+		const spawnVulnerablePulse = (weapon: WeaponDefinition, sourceWeaponInstanceId: string) => {
+			const special = weapon.attack.special;
+
+			if (!special || special.type !== 'vulnerable-pulse') {
+				return;
+			}
+
+			vulnerablePulses.push({
+				sourceWeaponInstanceId,
+				centerX,
+				centerY,
+				radius: combatProfile.collision.pixlRadius,
+				maxRadius: special.maxRadius,
+				expansionSpeed: special.expansionSpeed,
+				lineWidth: special.lineWidth,
+				damage: getAdjustedWeaponDamage(weapon, 1, sourceWeaponInstanceId),
+				vulnerableDuration: special.duration,
 				color: weapon.projectileVisual.color,
 				glow: weapon.projectileVisual.glow ?? false,
 				age: 0,
@@ -3074,6 +3137,11 @@ export function createCampaignSketch(
 				return;
 			}
 
+			if (special?.type === 'vulnerable-pulse') {
+				spawnVulnerablePulse(weapon.definition, weapon.instanceId);
+				return;
+			}
+
 			if (special?.type === 'laser-sweep') {
 				spawnLaserSweep(weapon.definition, weapon.instanceId);
 				return;
@@ -3530,6 +3598,49 @@ export function createCampaignSketch(
 			}
 		};
 
+		const updateVulnerablePulses = (dt: number) => {
+			for (let index = vulnerablePulses.length - 1; index >= 0; index -= 1) {
+				const pulse = vulnerablePulses[index];
+				pulse.age += dt;
+				pulse.radius += pulse.expansionSpeed * dt;
+
+				for (let enemyIndex = enemies.length - 1; enemyIndex >= 0; enemyIndex -= 1) {
+					const enemy = enemies[enemyIndex];
+
+					if (pulse.hitEnemyIds.includes(enemy.id)) {
+						continue;
+					}
+
+					const enemyRadius = ENEMY_VISUALS[enemy.kind].radius;
+					const distance = Math.hypot(enemy.x - pulse.centerX, enemy.y - pulse.centerY);
+					const ringThreshold = pulse.lineWidth / 2 + enemyRadius;
+
+					if (Math.abs(distance - pulse.radius) > ringThreshold) {
+						continue;
+					}
+
+					pulse.hitEnemyIds = [...pulse.hitEnemyIds, enemy.id];
+					applyDamageToEnemy(enemyIndex, pulse.damage, 0.14, pulse.sourceWeaponInstanceId, {
+						applyWeaponHitEffects: false,
+						allowContextHealing: false
+					});
+
+					const updatedEnemy = enemies[enemyIndex];
+
+					if (updatedEnemy) {
+						updatedEnemy.vulnerableTimer = Math.max(
+							updatedEnemy.vulnerableTimer,
+							pulse.vulnerableDuration
+						);
+					}
+				}
+
+				if (pulse.radius >= pulse.maxRadius) {
+					vulnerablePulses.splice(index, 1);
+				}
+			}
+		};
+
 		const updateOathbreakerSigils = (dt: number) => {
 			for (let index = oathbreakerSigils.length - 1; index >= 0; index -= 1) {
 				const sigil = oathbreakerSigils[index];
@@ -3764,6 +3875,10 @@ export function createCampaignSketch(
 				enemy.hitFlash = Math.max(0, enemy.hitFlash - dt);
 				enemy.confusionTimer = Math.max(0, enemy.confusionTimer - dt);
 				enemy.voidTouchedTimer = Math.max(0, enemy.voidTouchedTimer - dt);
+				enemy.lifeStealMarkTimer = Math.max(0, enemy.lifeStealMarkTimer - dt);
+				if (enemy.lifeStealMarkTimer <= 0) {
+					enemy.lifeStealMarkRatio = 0;
+				}
 				enemy.vulnerableTimer = Math.max(0, enemy.vulnerableTimer - dt);
 				enemy.frozenTimer = Math.max(0, enemy.frozenTimer - dt);
 				if (enemy.frozenTimer <= 0 && enemy.chillAmount >= 1) {
@@ -4715,6 +4830,20 @@ export function createCampaignSketch(
 					p.noFill();
 					p.stroke(`${pulse.color}33`);
 					p.strokeWeight(pulse.lineWidth * 1.9);
+					p.circle(pulse.centerX, pulse.centerY, pulse.radius * 2.1);
+				}
+
+				p.noFill();
+				p.stroke(pulse.color);
+				p.strokeWeight(pulse.lineWidth);
+				p.circle(pulse.centerX, pulse.centerY, pulse.radius * 2);
+			}
+
+			for (const pulse of vulnerablePulses) {
+				if (pulse.glow) {
+					p.noFill();
+					p.stroke(`${pulse.color}33`);
+					p.strokeWeight(pulse.lineWidth * 1.8);
 					p.circle(pulse.centerX, pulse.centerY, pulse.radius * 2.1);
 				}
 
@@ -5861,6 +5990,7 @@ export function createCampaignSketch(
 				updateWaveFlow(dt);
 				updateForceFields(dt);
 				updateKillSwitchPulses(dt);
+				updateVulnerablePulses(dt);
 				updateOathbreakerSigils(dt);
 				updateStasisFields(dt);
 				updateVoidTunnels(dt);

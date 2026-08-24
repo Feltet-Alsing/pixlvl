@@ -21,6 +21,7 @@ export type WeaponSpecialAttackKind =
 	| 'force-field'
 	| 'laser-sweep'
 	| 'ricochet'
+	| 'life-steal-mark'
 	| 'kill-switch'
 	| 'target-painter'
 	| 'needle-fan'
@@ -34,7 +35,8 @@ export type WeaponSpecialAttackKind =
 	| 'void-tendrils'
 	| 'void-tunnel'
 	| 'phaseshift'
-	| 'stasis-field';
+	| 'stasis-field'
+	| 'vulnerable-pulse';
 
 export type WeaponTargetingKind =
 	'current-target' | 'nearest-target' | 'furthest-target' | 'strongest-target' | 'weakest-target';
@@ -126,6 +128,11 @@ export interface WeaponAttackBehavior {
 		| {
 				type: 'shield-steal';
 				shieldRatio: number;
+		  }
+		| {
+				type: 'life-steal-mark';
+				lifeStealRatio: number;
+				duration: number;
 		  }
 		| {
 				type: 'kill-switch';
@@ -249,6 +256,14 @@ export interface WeaponAttackBehavior {
 				maxRadius: number;
 				expansionSpeed: number;
 				fieldDurationCycles: number;
+		  }
+		| {
+				type: 'vulnerable-pulse';
+				maxRadius: number;
+				expansionSpeed: number;
+				lineWidth: number;
+				damageMultiplier: number;
+				duration: number;
 		  }
 		| {
 				type: 'burning-ground';

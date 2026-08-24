@@ -161,6 +161,14 @@
 				return `Adj -${item.effect.reduction}`;
 			case 'cycle-damage-boost':
 				return `${item.effect.damageMultiplier}x boost`;
+			case 'hemorrhage-burst':
+				return 'Bleed detonation';
+			case 'bleed-catalyst':
+				return `${item.effect.multiplier}x bleed`;
+			case 'knife-siphon':
+				return `${item.effect.lifeStealRatio}x leech`;
+			case 'oathbreaker-sigil':
+				return 'Shared damage zone';
 		}
 	}
 
