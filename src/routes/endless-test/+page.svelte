@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import P5Canvas from '$lib/components/P5Canvas.svelte';
-	import { campaign5CombatProfile } from '$lib/data';
+	import { endgameRosterCombatProfile } from '$lib/data';
 	import { createEndlessTestLevel, endlessTestCampaign } from '$lib/game/endless-test';
 	import { createArenaCombatSketch } from '$lib/p5/arena-combat-sketch';
 
@@ -17,7 +17,7 @@
 	let endlessSketch = $derived.by(() => {
 		const pixlState = data.gameState?.pixlState ?? null;
 
-		return createArenaCombatSketch(endlessTestCampaign, campaign5CombatProfile, {
+		return createArenaCombatSketch(endlessTestCampaign, endgameRosterCombatProfile, {
 			flowMode: 'endless',
 			rewardsEnabled: false,
 			pixlState,

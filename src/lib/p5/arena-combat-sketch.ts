@@ -19,6 +19,12 @@ import {
 	shuffleInPlace,
 	WEAPON_FILL_BY_RARITY
 } from '$lib/p5/campaign-runtime';
+import {
+	createWeaponVisualProps,
+	type WeaponAnimationProps,
+	type WeaponVisualProps
+} from '$lib/p5/weapon-component';
+import { getWeaponModule } from '$lib/p5/weapon-modules';
 import type {
 	CampaignDefinition,
 	CampaignLevel,
@@ -102,6 +108,8 @@ interface ProjectileState {
 	distanceTravelled: number;
 	age: number;
 	damage: number;
+	visual: WeaponVisualProps;
+	animation: WeaponAnimationProps;
 	color: string;
 	size: number;
 	shape: WeaponProjectileShape;
@@ -662,6 +670,8 @@ export function createArenaCombatSketch(
 		const equippedWeaponByInstanceId = new Map(
 			equippedWeapons.map((weapon) => [weapon.instanceId, weapon])
 		);
+		const getWeaponModuleByInstanceId = (instanceId: string) =>
+			getWeaponModule(equippedWeaponByInstanceId.get(instanceId)?.definition.id ?? '');
 		const passiveUtilities = equippedUtilities.filter(
 			(utility) => utility.definition.activationKind === 'passive'
 		);
@@ -3038,6 +3048,21 @@ export function createArenaCombatSketch(
 				distanceTravelled: 0,
 				age: 0,
 				damage,
+				visual: createWeaponVisualProps(weapon.projectileVisual, {
+					size: scaledSize,
+					shape,
+					trail,
+					glow,
+					color
+				}),
+				animation: {
+					age: 0,
+					directionX,
+					directionY,
+					lastX: originX,
+					lastY: originY,
+					motion
+				},
 				color,
 				size: scaledSize,
 				shape,
@@ -3262,189 +3287,109 @@ export function createArenaCombatSketch(
 			weaponDamageMultiplierByInstanceId[weapon.instanceId] = pendingNextWeaponDamageMultiplier;
 			pendingNextWeaponDamageMultiplier = 1;
 
-			const special = weapon.definition.attack.special;
+			const weaponModule = getWeaponModule(weapon.definition.id);
+			const result = weaponModule.activate(weapon, target, {
+				spawnForceField,
+				spawnKillSwitchPulse,
+				spawnVulnerablePulse,
+				spawnLaserSweep,
+				spawnNeedleFan,
+				ensureMarkedEnemy,
+				assignMarkedEnemy: (markedTarget) => {
+					assignMarkedEnemy(markedTarget as EnemyState);
+				},
+				fireProjectile: (projectileTarget, definition, instanceId, angleOffsetRadians) => {
+					fireProjectile(
+						projectileTarget as EnemyState,
+						definition,
+						instanceId,
+						angleOffsetRadians
+					);
+				},
+				spawnFanKnifeBurst: (definition, instanceId, burstTarget) => {
+					const knifeSiphon = knifeSiphonUtilityByFanInstanceId.get(instanceId);
+					const damageMultiplier = knifeSiphon?.damageMultiplier ?? 1;
+					const burstSpecial = definition.attack.special;
 
-			if (special?.type === 'force-field') {
-				spawnForceField(weapon.definition, weapon.instanceId);
-				return;
-			}
+					if (burstSpecial?.type !== 'fan-knives') {
+						return;
+					}
 
-			if (special?.type === 'kill-switch') {
-				spawnKillSwitchPulse(weapon.definition, weapon.instanceId);
-				return;
-			}
+					const projectileCount = Math.max(1, burstSpecial.projectileCount);
+					const projectilesPerEmission = 3;
+					const angleStep =
+						((burstSpecial.burstArcDegrees / 180) * Math.PI) / projectilesPerEmission;
+					const baseAngle = Math.atan2(burstTarget.y - centerY, burstTarget.x - centerX);
 
-			if (special?.type === 'vulnerable-pulse') {
-				spawnVulnerablePulse(weapon.definition, weapon.instanceId);
-				return;
-			}
-
-			if (special?.type === 'laser-sweep') {
-				spawnLaserSweep(weapon.definition, weapon.instanceId);
-				return;
-			}
-
-			if (special?.type === 'needle-fan') {
-				spawnNeedleFan(weapon.definition, weapon.instanceId);
-				return;
-			}
-
-			if (special?.type === 'target-painter') {
-				const painterTarget = ensureMarkedEnemy() ?? target;
-
-				if (!painterTarget) {
-					return;
+					fanKnifeBursts.push({
+						sourceWeaponInstanceId: instanceId,
+						baseAngle,
+						angleStep,
+						spinRate: Math.PI * 5.5,
+						projectileCount,
+						projectilesReleased: 0,
+						projectilesPerEmission,
+						emissionInterval: 0.026,
+						emissionTimer: 0,
+						damage: getAdjustedWeaponDamage(definition, damageMultiplier, instanceId),
+						color: definition.projectileVisual.color,
+						glow: true,
+						age: 0
+					});
+				},
+				spawnSniperLock,
+				spawnExecutionLattice,
+				spawnForkLightning,
+				spawnStasisField: (definition, instanceId, stasisTarget) => {
+					spawnStasisField(definition, instanceId, stasisTarget as EnemyState);
+				},
+				spawnVoidTunnel: (definition, instanceId, tunnelTarget) => {
+					spawnVoidTunnel(definition, instanceId, tunnelTarget as EnemyState);
+				},
+				spawnPhaseshift,
+				spawnBurningGroundProjectile: (definition, instanceId, burnTarget) => {
+					spawnProjectile({
+						sourceWeaponInstanceId: instanceId,
+						originX: centerX,
+						originY: centerY,
+						target: burnTarget as EnemyState,
+						weapon: definition,
+						damage: 0,
+						speed: Math.max(280, definition.projectileSpeed),
+						size: PROJECTILE_SIZE_BY_VISUAL[definition.projectileVisual.size] * 1.15,
+						motion: 'accelerate',
+						waveAmplitude: 5,
+						waveFrequency: 9,
+						wavePhase: p.random(p.TWO_PI),
+						waveDrift: p.random(-0.02, 0.02),
+						collidesWithEnemies: false,
+						impactTargetX: burnTarget.x,
+						impactTargetY: burnTarget.y,
+						arrivalEffect: 'burning-ground',
+						arrivalTriggerRadius: 16
+					});
+				},
+				spawnDelayedBomb: (definition, instanceId, bombTarget) => {
+					spawnDelayedBomb(definition, instanceId, bombTarget as EnemyState);
+				},
+				spawnFlamethrowerCone: (definition, instanceId, flameTarget) => {
+					spawnFlamethrowerCone(definition, instanceId, flameTarget as EnemyState);
+				},
+				spawnIceShower,
+				spawnVoidTendrils,
+				getClosestEnemies,
+				fireLineBurst: (burstTarget, definition, instanceId) => {
+					fireLineBurst(burstTarget as EnemyState, definition, instanceId);
+				},
+				firePulseArrayBurst: (burstTarget, definition, instanceId) => {
+					firePulseArrayBurst(burstTarget as EnemyState, definition, instanceId);
 				}
+			});
 
-				assignMarkedEnemy(painterTarget);
-				fireProjectile(painterTarget, weapon.definition, weapon.instanceId);
-				return;
-			}
-
-			if (special?.type === 'fan-knives') {
-				const knifeSiphon = knifeSiphonUtilityByFanInstanceId.get(weapon.instanceId);
-				const damageMultiplier = knifeSiphon?.damageMultiplier ?? 1;
-				const projectileCount = Math.max(1, special.projectileCount);
-				const projectilesPerEmission = 3;
-				const angleStep = ((special.burstArcDegrees / 180) * Math.PI) / projectilesPerEmission;
-				const baseAngle = Math.atan2(target.y - centerY, target.x - centerX);
-
-				fanKnifeBursts.push({
-					sourceWeaponInstanceId: weapon.instanceId,
-					baseAngle,
-					angleStep,
-					spinRate: Math.PI * 5.5,
-					projectileCount,
-					projectilesReleased: 0,
-					projectilesPerEmission,
-					emissionInterval: 0.026,
-					emissionTimer: 0,
-					damage: getAdjustedWeaponDamage(weapon.definition, damageMultiplier, weapon.instanceId),
-					color: weapon.definition.projectileVisual.color,
-					glow: true,
-					age: 0
-				});
-
-				return;
-			}
-
-			if (special?.type === 'sniper-line') {
-				spawnSniperLock(weapon.definition, weapon.instanceId);
-				return;
-			}
-
-			if (special?.type === 'execution-lattice') {
-				spawnExecutionLattice(weapon.definition, weapon.instanceId);
-				return;
-			}
-
-			if (special?.type === 'fork-lightning') {
-				spawnForkLightning(weapon.definition, weapon.instanceId);
-				return;
-			}
-
-			if (special?.type === 'stasis-field') {
-				spawnStasisField(weapon.definition, weapon.instanceId, target);
-				return;
-			}
-
-			if (special?.type === 'void-tunnel') {
-				spawnVoidTunnel(weapon.definition, weapon.instanceId, target);
-				return;
-			}
-
-			if (special?.type === 'phaseshift') {
-				spawnPhaseshift(weapon.definition, weapon.instanceId);
-				return;
-			}
-
-			if (special?.type === 'burning-ground') {
-				spawnProjectile({
-					sourceWeaponInstanceId: weapon.instanceId,
-					originX: centerX,
-					originY: centerY,
-					target,
-					weapon: weapon.definition,
-					damage: 0,
-					speed: Math.max(280, weapon.definition.projectileSpeed),
-					size: PROJECTILE_SIZE_BY_VISUAL[weapon.definition.projectileVisual.size] * 1.15,
-					motion: 'accelerate',
-					waveAmplitude: 5,
-					waveFrequency: 9,
-					wavePhase: p.random(p.TWO_PI),
-					waveDrift: p.random(-0.02, 0.02),
-					collidesWithEnemies: false,
-					impactTargetX: target.x,
-					impactTargetY: target.y,
-					arrivalEffect: 'burning-ground',
-					arrivalTriggerRadius: 16
-				});
-				return;
-			}
-
-			if (special?.type === 'delayed-bomb') {
-				spawnDelayedBomb(weapon.definition, weapon.instanceId, target);
-				return;
-			}
-
-			if (special?.type === 'flamethrower-cone') {
-				spawnFlamethrowerCone(weapon.definition, weapon.instanceId, target);
-				return;
-			}
-
-			if (special?.type === 'ice-shower') {
-				spawnIceShower(weapon.definition, weapon.instanceId);
-				return;
-			}
-
-			if (special?.type === 'void-tendrils') {
-				spawnVoidTendrils(weapon.definition, weapon.instanceId);
-				return;
-			}
-
-			if (weapon.definition.id === 'splitter' || weapon.definition.id === 'the-knife') {
-				const targets = getClosestEnemies(Math.max(1, weapon.definition.attack.projectileCount));
-
-				if (targets.length === 0) {
-					return;
-				}
-
-				for (const splitTarget of targets) {
-					fireProjectile(splitTarget, weapon.definition, weapon.instanceId);
-				}
-
-				return;
-			}
-
-			if (weapon.definition.id === 'blaster') {
-				fireLineBurst(target, weapon.definition, weapon.instanceId);
-				return;
-			}
-
-			if (weapon.definition.id === 'pulse-array') {
-				firePulseArrayBurst(target, weapon.definition, weapon.instanceId);
-				return;
-			}
-
-			const { projectileCount, spreadDegrees } = weapon.definition.attack;
-
-			if (projectileCount <= 1) {
-				fireProjectile(target, weapon.definition, weapon.instanceId);
-				return;
-			}
-
-			const totalSpreadRadians = ((spreadDegrees ?? 0) * Math.PI) / 180;
-			const startOffset = -totalSpreadRadians / 2;
-			const step = projectileCount > 1 ? totalSpreadRadians / (projectileCount - 1) : 0;
-
-			for (let index = 0; index < projectileCount; index += 1) {
-				fireProjectile(target, weapon.definition, weapon.instanceId, startOffset + step * index);
-			}
-
-			if (special?.type === 'next-weapon-boost') {
+			if (result.pendingNextWeaponDamageMultiplier !== null) {
 				pendingNextWeaponDamageMultiplier = Math.max(
 					pendingNextWeaponDamageMultiplier,
-					special.damageMultiplier
+					result.pendingNextWeaponDamageMultiplier
 				);
 			}
 		};
@@ -4661,6 +4606,8 @@ export function createArenaCombatSketch(
 						projectile.directionY = nextDirectionY / magnitude;
 						projectile.perpendicularX = -projectile.directionY;
 						projectile.perpendicularY = projectile.directionX;
+						projectile.animation.directionX = projectile.directionX;
+						projectile.animation.directionY = projectile.directionY;
 					}
 				}
 
@@ -4680,6 +4627,7 @@ export function createArenaCombatSketch(
 						projectile.maxSize,
 						projectile.size + projectile.sizeGrowth * dt
 					);
+					projectile.visual.size = projectile.size;
 				}
 
 				if (projectile.impactRadiusGrowth > 0) {
@@ -4964,6 +4912,22 @@ export function createArenaCombatSketch(
 			p.push();
 
 			for (const field of forceFields) {
+				if (
+					getWeaponModuleByInstanceId(field.sourceWeaponInstanceId).renderArenaEffect(p, {
+						kind: 'force-field',
+						centerX: field.centerX,
+						centerY: field.centerY,
+						startDelay: field.startDelay,
+						radius: field.radius,
+						lineWidth: field.lineWidth,
+						color: field.color,
+						glow: field.glow,
+						age: field.age
+					})
+				) {
+					continue;
+				}
+
 				if (field.age < field.startDelay) {
 					continue;
 				}
@@ -4982,6 +4946,20 @@ export function createArenaCombatSketch(
 			}
 
 			for (const pulse of killSwitchPulses) {
+				if (
+					getWeaponModuleByInstanceId(pulse.sourceWeaponInstanceId).renderArenaEffect(p, {
+						kind: 'kill-switch-pulse',
+						centerX: pulse.centerX,
+						centerY: pulse.centerY,
+						radius: pulse.radius,
+						lineWidth: pulse.lineWidth,
+						color: pulse.color,
+						glow: pulse.glow
+					})
+				) {
+					continue;
+				}
+
 				if (pulse.glow) {
 					p.noFill();
 					p.stroke(`${pulse.color}33`);
@@ -4996,6 +4974,20 @@ export function createArenaCombatSketch(
 			}
 
 			for (const pulse of vulnerablePulses) {
+				if (
+					getWeaponModuleByInstanceId(pulse.sourceWeaponInstanceId).renderArenaEffect(p, {
+						kind: 'vulnerable-pulse',
+						centerX: pulse.centerX,
+						centerY: pulse.centerY,
+						radius: pulse.radius,
+						lineWidth: pulse.lineWidth,
+						color: pulse.color,
+						glow: pulse.glow
+					})
+				) {
+					continue;
+				}
+
 				if (pulse.glow) {
 					p.noFill();
 					p.stroke(`${pulse.color}33`);
@@ -5102,6 +5094,19 @@ export function createArenaCombatSketch(
 			}
 
 			for (const field of stasisFields) {
+				if (
+					getWeaponModuleByInstanceId(field.sourceWeaponInstanceId).renderArenaEffect(p, {
+						kind: 'stasis-field',
+						centerX: field.centerX,
+						centerY: field.centerY,
+						radius: field.radius,
+						color: field.color,
+						glow: field.glow
+					})
+				) {
+					continue;
+				}
+
 				if (field.glow) {
 					p.noFill();
 					p.stroke(`${field.color}33`);
@@ -5116,6 +5121,24 @@ export function createArenaCombatSketch(
 			}
 
 			for (const tunnel of voidTunnels) {
+				if (
+					getWeaponModuleByInstanceId(tunnel.sourceWeaponInstanceId).renderArenaEffect(p, {
+						kind: 'void-tunnel',
+						variant: tunnel.variant,
+						centerX: tunnel.centerX,
+						centerY: tunnel.centerY,
+						halfWidth: tunnel.halfWidth,
+						halfHeight: tunnel.halfHeight,
+						age: tunnel.age,
+						duration: tunnel.duration,
+						color: tunnel.color,
+						glow: tunnel.glow,
+						easeInQuad
+					})
+				) {
+					continue;
+				}
+
 				if (tunnel.variant === 'void-tunnel') {
 					const progress = Math.min(1, tunnel.age / Math.max(0.0001, tunnel.duration * 0.32));
 					const easedProgress = easeInQuad(progress);
@@ -5198,6 +5221,19 @@ export function createArenaCombatSketch(
 			}
 
 			for (const phaseshift of phaseshifts) {
+				if (
+					getWeaponModuleByInstanceId(phaseshift.sourceWeaponInstanceId).renderArenaEffect(p, {
+						kind: 'phaseshift',
+						centerX: phaseshift.centerX,
+						centerY: phaseshift.centerY,
+						zoneWidth: phaseshift.zoneWidth,
+						halfHeight: phaseshift.halfHeight,
+						color: phaseshift.color
+					})
+				) {
+					continue;
+				}
+
 				p.noStroke();
 				p.fill(`${phaseshift.color}22`);
 				p.rect(
@@ -5219,6 +5255,22 @@ export function createArenaCombatSketch(
 			}
 
 			for (const ground of burningGrounds) {
+				if (
+					getWeaponModuleByInstanceId(ground.sourceWeaponInstanceId).renderArenaEffect(p, {
+						kind: 'burning-ground',
+						centerX: ground.centerX,
+						centerY: ground.centerY,
+						radius: ground.radius,
+						impactSize: ground.impactSize,
+						color: ground.color,
+						glow: ground.glow,
+						age: ground.age,
+						duration: ground.duration
+					})
+				) {
+					continue;
+				}
+
 				const lifeRatio = 1 - ground.age / Math.max(0.0001, ground.duration);
 				const emberRadius = ground.radius * (0.45 + lifeRatio * 0.08);
 				const flicker = 0.92 + Math.sin(ground.age * 13) * 0.06;
@@ -5287,6 +5339,24 @@ export function createArenaCombatSketch(
 			}
 
 			for (const bomb of delayedBombs) {
+				if (
+					getWeaponModuleByInstanceId(bomb.sourceWeaponInstanceId).renderArenaEffect(p, {
+						kind: 'delayed-bomb',
+						centerX: bomb.centerX,
+						centerY: bomb.centerY,
+						radius: bomb.radius,
+						markerSize: bomb.markerSize,
+						color: bomb.color,
+						glow: bomb.glow,
+						age: bomb.age,
+						detonationDelay: bomb.detonationDelay,
+						hasDetonated: bomb.hasDetonated,
+						explosionFlash: bomb.explosionFlash
+					})
+				) {
+					continue;
+				}
+
 				if (!bomb.hasDetonated) {
 					const progress = Math.min(1, bomb.age / Math.max(0.0001, bomb.detonationDelay));
 					const pulse = 1 + Math.sin(progress * Math.PI * 6) * 0.08;
@@ -5373,6 +5443,21 @@ export function createArenaCombatSketch(
 			}
 
 			for (const sweep of laserSweeps) {
+				if (
+					getWeaponModuleByInstanceId(sweep.sourceWeaponInstanceId).renderArenaEffect(p, {
+						kind: 'laser-sweep',
+						arenaCenterX: centerX,
+						arenaCenterY: centerY,
+						angle: sweep.angle,
+						beamLength: sweep.beamLength,
+						beamWidth: sweep.beamWidth,
+						color: sweep.color,
+						glow: sweep.glow
+					})
+				) {
+					continue;
+				}
+
 				const beamX = centerX + Math.cos(sweep.angle) * sweep.beamLength;
 				const beamY = centerY + Math.sin(sweep.angle) * sweep.beamLength;
 
@@ -5392,187 +5477,21 @@ export function createArenaCombatSketch(
 			}
 
 			for (const projectile of projectiles) {
-				if (projectile.weaponId === 'napalm-grenade') {
-					const heading = Math.atan2(projectile.directionY, projectile.directionX);
-					const pulse = 1 + Math.sin(projectile.age * 18) * 0.08;
+				projectile.animation.age = projectile.age;
+				projectile.animation.directionX = projectile.directionX;
+				projectile.animation.directionY = projectile.directionY;
+				projectile.animation.lastX = projectile.lastX;
+				projectile.animation.lastY = projectile.lastY;
 
-					for (let trailIndex = 0; trailIndex < 3; trailIndex += 1) {
-						const trailT = trailIndex / 3;
-						const trailX = p.lerp(projectile.x, projectile.lastX, 0.28 + trailT * 0.22);
-						const trailY = p.lerp(projectile.y, projectile.lastY, 0.28 + trailT * 0.22);
-						p.noStroke();
-						p.fill(trailIndex === 0 ? '#ffd16666' : '#ff5f1f55');
-						p.circle(trailX, trailY, projectile.size * (0.95 - trailT * 0.18));
-					}
-
-					p.noStroke();
-					p.fill('#ff6a1f55');
-					p.circle(projectile.x, projectile.y, projectile.size * 3.1 * pulse);
-					p.fill('#2d120acc');
-					p.circle(projectile.x, projectile.y, projectile.size * 1.5);
-
-					p.push();
-					p.translate(projectile.x, projectile.y);
-					p.rotate(heading + Math.PI / 4);
-					p.rectMode(p.CENTER);
-					p.fill('#fb923c');
-					p.rect(0, 0, projectile.size * 1.15, projectile.size * 1.15, 3);
-					p.fill('#ffe29a');
-					p.rect(0, -projectile.size * 0.08, projectile.size * 0.42, projectile.size * 0.42, 2);
-					p.pop();
-					continue;
-				}
-
-				if (projectile.weaponId === 'deadeye-sniper') {
-					const heading = Math.atan2(projectile.directionY, projectile.directionX);
-					const life = 1 - Math.min(1, projectile.age / Math.max(0.0001, 0.18));
-					const alphaHex = Math.round((0.3 + life * 0.7) * 255)
-						.toString(16)
-						.padStart(2, '0');
-					const glowAlphaHex = Math.round((0.12 + life * 0.32) * 255)
-						.toString(16)
-						.padStart(2, '0');
-
-					p.stroke(`#e0f2fe${glowAlphaHex}`);
-					p.strokeWeight(Math.max(7, projectile.size * 1.45));
-					p.line(projectile.originX, projectile.originY, projectile.x, projectile.y);
-
-					p.stroke(`#7dd3fc${alphaHex}`);
-					p.strokeWeight(Math.max(3.2, projectile.size * 0.72));
-					p.line(projectile.originX, projectile.originY, projectile.x, projectile.y);
-
-					p.stroke(`#f8fafc${alphaHex}`);
-					p.strokeWeight(Math.max(1.4, projectile.size * 0.26));
-					p.line(projectile.originX, projectile.originY, projectile.x, projectile.y);
-
-					for (let echoIndex = 1; echoIndex <= 2; echoIndex += 1) {
-						const echoT = echoIndex / 3;
-						const echoX = p.lerp(projectile.x, projectile.lastX, echoT * 0.72);
-						const echoY = p.lerp(projectile.y, projectile.lastY, echoT * 0.72);
-						p.noStroke();
-						p.fill(echoIndex === 1 ? '#e0f2fe88' : '#7dd3fc55');
-						p.circle(echoX, echoY, projectile.size * (1.55 - echoT * 0.42));
-					}
-
-					p.noStroke();
-					p.fill('#7dd3fcaa');
-					p.circle(projectile.x, projectile.y, projectile.size * 2.3);
-					p.fill('#f8fafc');
-					p.circle(projectile.x, projectile.y, projectile.size * 1.15);
-
-					p.push();
-					p.translate(projectile.x, projectile.y);
-					p.rotate(heading);
-					p.rectMode(p.CENTER);
-					p.noStroke();
-					p.fill('#f8fafc');
-					p.rect(0, 0, projectile.size * 1.45, Math.max(2, projectile.size * 0.3), 2);
-					p.fill('#7dd3fc');
-					p.rect(
-						-projectile.size * 0.36,
-						0,
-						projectile.size * 0.55,
-						Math.max(2, projectile.size * 0.18),
-						2
-					);
-					p.pop();
-					continue;
-				}
-
-				if (projectile.trail === 'streak') {
-					p.stroke(projectile.color);
-					p.strokeWeight(Math.max(1.5, projectile.size * 0.45));
-					p.line(projectile.lastX, projectile.lastY, projectile.x, projectile.y);
-				}
-
-				if (projectile.glow) {
-					p.noStroke();
-					p.fill(`${projectile.color}55`);
-					p.circle(projectile.x, projectile.y, projectile.size * 2.4);
-				}
-
-				if (projectile.trail === 'pulse') {
-					p.noFill();
-					p.stroke(`${projectile.color}88`);
-					p.strokeWeight(1);
-					p.circle(
-						projectile.x,
-						projectile.y,
-						projectile.size * (2.2 + Math.sin(projectile.age * 12) * 0.35)
-					);
-				}
-
-				p.noStroke();
-				p.fill(projectile.color);
-
-				if (projectile.shape === 'orb') {
-					p.circle(projectile.x, projectile.y, projectile.size * 1.35);
-					continue;
-				}
-
-				p.push();
-				p.translate(projectile.x, projectile.y);
-
-				if (projectile.shape === 'knife') {
-					p.rotate(Math.atan2(projectile.directionY, projectile.directionX));
-					p.rectMode(p.CENTER);
-					p.fill('#f8fafc');
-					p.beginShape();
-					p.vertex(projectile.size * 1.05, 0);
-					p.vertex(projectile.size * 0.2, -projectile.size * 0.12);
-					p.vertex(-projectile.size * 0.16, -projectile.size * 0.28);
-					p.vertex(-projectile.size * 0.32, 0);
-					p.vertex(-projectile.size * 0.16, projectile.size * 0.28);
-					p.vertex(projectile.size * 0.2, projectile.size * 0.12);
-					p.endShape(p.CLOSE);
-					p.fill('#e2e8f0');
-					p.beginShape();
-					p.vertex(projectile.size * 0.72, 0);
-					p.vertex(projectile.size * 0.08, -projectile.size * 0.05);
-					p.vertex(-projectile.size * 0.04, 0);
-					p.vertex(projectile.size * 0.08, projectile.size * 0.05);
-					p.endShape(p.CLOSE);
-					p.fill('#d97706');
-					p.rect(
-						-projectile.size * 0.28,
-						0,
-						projectile.size * 0.22,
-						Math.max(2, projectile.size * 0.36),
-						2
-					);
-					p.fill('#5b4636');
-					p.rect(
-						-projectile.size * 0.54,
-						0,
-						projectile.size * 0.44,
-						Math.max(2, projectile.size * 0.2),
-						2
-					);
-					p.fill('#7f1d1d');
-					p.triangle(
-						-projectile.size * 0.86,
-						0,
-						-projectile.size * 0.66,
-						-projectile.size * 0.12,
-						-projectile.size * 0.66,
-						projectile.size * 0.12
-					);
-				} else if (projectile.shape === 'diamond') {
-					p.rotate(Math.PI / 4);
-					p.rectMode(p.CENTER);
-					p.square(0, 0, projectile.size * 1.05);
-				} else if (projectile.shape === 'spark') {
-					p.rotate(projectile.age * 10);
-					p.rectMode(p.CENTER);
-					p.rect(0, 0, projectile.size * 1.4, Math.max(2, projectile.size * 0.4), 2);
-					p.rotate(Math.PI / 2);
-					p.rect(0, 0, projectile.size * 1.1, Math.max(2, projectile.size * 0.3), 2);
-				} else {
-					p.rectMode(p.CENTER);
-					p.square(0, 0, projectile.size);
-				}
-
-				p.pop();
+				getWeaponModule(projectile.weaponId).renderProjectile(p, {
+					weaponId: projectile.weaponId,
+					x: projectile.x,
+					y: projectile.y,
+					originX: projectile.originX,
+					originY: projectile.originY,
+					visual: projectile.visual,
+					animation: projectile.animation
+				});
 			}
 
 			for (const projectile of enemyProjectiles) {
@@ -5584,6 +5503,23 @@ export function createArenaCombatSketch(
 			}
 
 			for (const lock of sniperLocks) {
+				if (
+					getWeaponModuleByInstanceId(lock.sourceWeaponInstanceId).renderArenaEffect(p, {
+						kind: 'sniper-lock',
+						arenaCenterX: centerX,
+						arenaCenterY: centerY,
+						targetX: lock.targetX,
+						targetY: lock.targetY,
+						age: lock.age,
+						chargeDuration: lock.chargeDuration,
+						lineWidth: lock.lineWidth,
+						color: lock.color,
+						glow: lock.glow
+					})
+				) {
+					continue;
+				}
+
 				const progress = Math.min(1, lock.age / lock.chargeDuration);
 				const pulseWidth = lock.lineWidth + Math.sin(progress * Math.PI * 6) * 0.35;
 
@@ -5605,6 +5541,20 @@ export function createArenaCombatSketch(
 			}
 
 			for (const burst of sniperChainBursts) {
+				if (
+					getWeaponModuleByInstanceId(burst.sourceWeaponInstanceId).renderArenaEffect(p, {
+						kind: 'sniper-chain-burst',
+						segments: burst.segments,
+						lineWidth: burst.lineWidth,
+						color: burst.color,
+						glow: burst.glow,
+						age: burst.age,
+						duration: burst.duration
+					})
+				) {
+					continue;
+				}
+
 				const fade = 1 - burst.age / Math.max(0.0001, burst.duration);
 				const alpha = Math.round(255 * fade)
 					.toString(16)
@@ -5631,6 +5581,24 @@ export function createArenaCombatSketch(
 			}
 
 			for (const burst of needleBursts) {
+				if (
+					getWeaponModuleByInstanceId(burst.sourceWeaponInstanceId).renderArenaEffect(p, {
+						kind: 'needle-burst',
+						arenaCenterX: centerX,
+						arenaCenterY: centerY,
+						targetX: burst.targetX,
+						targetY: burst.targetY,
+						maxReach: burst.maxReach,
+						lineWidth: burst.lineWidth,
+						color: burst.color,
+						glow: burst.glow,
+						age: burst.age,
+						duration: burst.duration
+					})
+				) {
+					continue;
+				}
+
 				const progress = Math.min(1, burst.age / burst.duration);
 				const reachFactor = Math.sin(progress * Math.PI);
 				const dx = burst.targetX - centerX;
@@ -5662,6 +5630,23 @@ export function createArenaCombatSketch(
 			}
 
 			for (const strike of executionLatticeStrikes) {
+				if (
+					getWeaponModuleByInstanceId(strike.sourceWeaponInstanceId).renderArenaEffect(p, {
+						kind: 'execution-lattice-strike',
+						targetX: strike.targetX,
+						targetY: strike.targetY,
+						startY: strike.startY,
+						markerSize: strike.markerSize,
+						color: strike.color,
+						glow: strike.glow,
+						age: strike.age,
+						dropDuration: strike.dropDuration,
+						startDelay: strike.startDelay
+					})
+				) {
+					continue;
+				}
+
 				const progress = Math.min(
 					1,
 					Math.max(0, (strike.age - strike.startDelay) / strike.dropDuration)
@@ -5691,6 +5676,25 @@ export function createArenaCombatSketch(
 			}
 
 			for (const burst of forkLightningBursts) {
+				if (
+					getWeaponModuleByInstanceId(burst.sourceWeaponInstanceId).renderArenaEffect(p, {
+						kind: 'fork-lightning',
+						segments: burst.segments.map((segment) => ({
+							from: segment.from,
+							to: segment.to,
+							startDelay: segment.startDelay
+						})),
+						branchWidth: burst.branchWidth,
+						color: burst.color,
+						glow: burst.glow,
+						age: burst.age,
+						duration: burst.duration,
+						easeInQuad
+					})
+				) {
+					continue;
+				}
+
 				for (const segment of burst.segments) {
 					const progress = easeInQuad((burst.age - segment.startDelay) / burst.duration);
 
@@ -5769,6 +5773,27 @@ export function createArenaCombatSketch(
 			}
 
 			for (const spike of iceSpikes) {
+				if (
+					getWeaponModuleByInstanceId(spike.sourceWeaponInstanceId).renderArenaEffect(p, {
+						kind: 'ice-spike',
+						targetX: spike.targetX,
+						targetY: spike.targetY,
+						startY: spike.startY,
+						endY: spike.endY,
+						age: spike.age,
+						startDelay: spike.startDelay,
+						fallDuration: spike.fallDuration,
+						color: spike.color,
+						glow: spike.glow,
+						driftAmplitude: spike.driftAmplitude,
+						driftSpeed: spike.driftSpeed,
+						driftPhase: spike.driftPhase,
+						size: spike.size
+					})
+				) {
+					continue;
+				}
+
 				const progress = Math.max(0, (spike.age - spike.startDelay) / spike.fallDuration);
 				const currentY = spike.startY + (spike.endY - spike.startY) * progress;
 				const currentX =
@@ -5811,6 +5836,20 @@ export function createArenaCombatSketch(
 			}
 
 			for (const storm of blizzardStorms) {
+				if (
+					getWeaponModuleByInstanceId(storm.sourceWeaponInstanceId).renderArenaEffect(p, {
+						kind: 'blizzard-storm',
+						age: storm.age,
+						duration: storm.duration,
+						color: storm.color,
+						glow: storm.glow,
+						canvasWidth: p.width,
+						canvasHeight: p.height
+					})
+				) {
+					continue;
+				}
+
 				const progress = Math.min(1, storm.age / Math.max(0.0001, storm.duration));
 				const alphaHex = Math.round((1 - progress) * 110)
 					.toString(16)
@@ -5837,6 +5876,23 @@ export function createArenaCombatSketch(
 			}
 
 			for (const tendril of voidTendrils) {
+				if (
+					getWeaponModuleByInstanceId(tendril.sourceWeaponInstanceId).renderArenaEffect(p, {
+						kind: 'void-tendril',
+						arenaCenterX: centerX,
+						arenaCenterY: centerY,
+						targetX: tendril.targetX,
+						targetY: tendril.targetY,
+						age: tendril.age,
+						duration: tendril.duration,
+						color: tendril.color,
+						glow: tendril.glow,
+						easeInQuad
+					})
+				) {
+					continue;
+				}
+
 				const normalizedAge = Math.max(0, Math.min(1, tendril.age / tendril.duration));
 				const progress = easeInQuad(normalizedAge);
 				const reachX = centerX + (tendril.targetX - centerX) * progress;

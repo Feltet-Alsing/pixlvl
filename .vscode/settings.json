@@ -1,5 +1,9 @@
 {
     "chat.tools.terminal.autoApprove": {
-        "mv": true
+        "mv": true,
+        "/^node - <<'EOF'\nconst fs = require\\('fs'\\);\nconst weaponFiles = \\[\n  'src/lib/data/weapons/shared\\.ts',\n  'src/lib/data/weapons/control\\.ts',\n  'src/lib/data/weapons/elemental\\.ts',\n  'src/lib/data/weapons/anomaly\\.ts'\n\\];\nconst modulesText = fs\\.readFileSync\\('src/lib/p5/weapon-modules\\.ts', 'utf8'\\);\nconst ids = \\[\\];\nfor \\(const file of weaponFiles\\) \\{\n  const text = fs\\.readFileSync\\(file, 'utf8'\\);\n  const lines = text\\.split\\('\\\\n'\\);\n  let currentId = null;\n  let category = 'weapon';\n  for \\(const line of lines\\) \\{\n    const idMatch = line\\.match\\(/id: '\\(\\[\\^'\\]\\+\\)'/\\);\n    if \\(idMatch\\) \\{\n      currentId = idMatch\\[1\\];\n      category = 'weapon';\n    \\}\n    if \\(currentId && /category:\\\\s\\*'utility'/\\.test\\(line\\)\\) \\{\n      category = 'utility';\n    \\}\n    if \\(currentId && /role: /\\.test\\(line\\)\\) \\{\n      if \\(category === 'weapon'\\) ids\\.push\\(currentId\\);\n      currentId = null;\n      category = 'weapon';\n    \\}\n  \\}\n\\}\nconst missing = ids\\.filter\\(\\(id\\) => !modulesText\\.includes\\(`'\\$\\{id\\}'`\\) && !modulesText\\.includes\\(`\\$\\{id\\}:`\\)\\);\nconsole\\.log\\(JSON\\.stringify\\(\\{ weaponCount: ids\\.length, missing \\}, null, 2\\)\\);\nEOF$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
     }
 }
