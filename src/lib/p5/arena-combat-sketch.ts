@@ -6364,4 +6364,3 @@ export function createLoadoutSweepPreviewSketch(options: LoadoutSweepPreviewOpti
 		};
 	};
 }
-
