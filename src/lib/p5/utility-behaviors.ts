@@ -12,51 +12,86 @@ export interface UtilityActivationContext {
 	applyCycleDamageBoost: (damageMultiplier: number, expiresAfterSweepIndex: number) => void;
 }
 
-export function activateUtilityBehavior(
+export function activatePassiveUtilityBehavior() {
+	return;
+}
+
+function shouldTriggerUtility(utility: EquippedUtilityState) {
+	if (utility.definition.activationKind !== 'triggered') {
+		return false;
+	}
+
+	if (utility.cyclesUntilTrigger > 1) {
+		utility.cyclesUntilTrigger -= 1;
+		return false;
+	}
+
+	utility.cyclesUntilTrigger = utility.cycleInterval;
+	return true;
+}
+
+export function activateShieldPoolUtility(
 	utility: EquippedUtilityState,
-	context: UtilityActivationContext
+	context: UtilityActivationContext,
+	shieldPercent: number
 ) {
 	if (utility.definition.activationKind !== 'triggered') {
 		return;
 	}
 
-	const effect = utility.definition.effect;
-
-	if (effect.type === 'shield-pool') {
-		if (context.getShieldPoolForSource(utility.instanceId) > 0) {
-			return;
-		}
-
-		if (utility.cyclesUntilTrigger > 1) {
-			utility.cyclesUntilTrigger -= 1;
-			return;
-		}
-
-		utility.cyclesUntilTrigger = utility.cycleInterval;
-		context.setShieldPoolForSource(utility.instanceId, effect.shieldPercent);
-		context.recalculateShieldPool();
-		context.setActiveShieldColor(utility.definition.utilityVisual?.color ?? '#60a5fa');
+	if (context.getShieldPoolForSource(utility.instanceId) > 0) {
 		return;
 	}
 
-	if (utility.cyclesUntilTrigger > 1) {
-		utility.cyclesUntilTrigger -= 1;
+	if (!shouldTriggerUtility(utility)) {
 		return;
 	}
 
-	utility.cyclesUntilTrigger = utility.cycleInterval;
+	context.setShieldPoolForSource(utility.instanceId, shieldPercent);
+	context.recalculateShieldPool();
+	context.setActiveShieldColor(utility.definition.utilityVisual?.color ?? '#60a5fa');
+}
 
-	if (effect.type === 'elemental-infuser') {
-		context.addElementalInfusion(effect.element);
+export function activateElementalInfuserUtility(
+	utility: EquippedUtilityState,
+	context: UtilityActivationContext,
+	element: ElementalInfusionType
+) {
+	if (!shouldTriggerUtility(utility)) {
 		return;
 	}
 
-	if (effect.type === 'oathbreaker-sigil') {
-		context.spawnOathbreakerSigil(utility);
+	context.addElementalInfusion(element);
+}
+
+export function activateOathbreakerSigilUtility(
+	utility: EquippedUtilityState,
+	context: UtilityActivationContext
+) {
+	if (!shouldTriggerUtility(utility)) {
 		return;
 	}
 
-	if (effect.type === 'cycle-damage-boost') {
-		context.applyCycleDamageBoost(effect.damageMultiplier, context.currentSweepIndex + 1);
+	context.spawnOathbreakerSigil(utility);
+}
+
+export function activateCycleDamageBoostUtility(
+	utility: EquippedUtilityState,
+	context: UtilityActivationContext,
+	damageMultiplier: number
+) {
+	if (!shouldTriggerUtility(utility)) {
+		return;
 	}
+
+	context.applyCycleDamageBoost(damageMultiplier, context.currentSweepIndex + 1);
+}
+
+export function activateUtilityBehavior(
+	utility: EquippedUtilityState,
+	context: UtilityActivationContext
+) {
+	activatePassiveUtilityBehavior();
+	void utility;
+	void context;
 }
