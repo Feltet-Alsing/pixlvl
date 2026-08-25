@@ -94,6 +94,52 @@
 
 		return weapon.name.slice(0, 2).toUpperCase();
 	}
+
+	function hashString(input: string) {
+		let hash = 0;
+
+		for (let index = 0; index < input.length; index += 1) {
+			hash = (hash * 31 + input.charCodeAt(index)) | 0;
+		}
+
+		return Math.abs(hash);
+	}
+
+	function clamp(value: number, min: number, max: number) {
+		return Math.min(Math.max(value, min), max);
+	}
+
+	function getWeaponColorStyle(weapon: LoadoutWeapon) {
+		const hash = hashString(`${weapon.definitionId}:${weapon.weaponInstanceId}`);
+		const hueOffset = (hash % 31) - 15;
+		const saturationOffset = ((Math.floor(hash / 31) % 9) - 4) * 3;
+		const lightnessOffset = ((Math.floor(hash / (31 * 9)) % 11) - 5) * 2.2;
+
+		const paletteByRarity = {
+			normal: { hue: 215, saturation: 9, lightness: 51 },
+			magic: { hue: 219, saturation: 57, lightness: 49 },
+			rare: { hue: 40, saturation: 72, lightness: 43 },
+			exotic: { hue: 2, saturation: 57, lightness: 45 },
+			legendary: { hue: 28, saturation: 63, lightness: 34 }
+		} as const;
+
+		const base = paletteByRarity[weapon.rarity];
+		const fillHue = base.hue + hueOffset;
+		const fillSaturation = clamp(base.saturation + saturationOffset, 8, 92);
+		const fillLightness = clamp(base.lightness + lightnessOffset, 24, 72);
+		const borderHue = fillHue + (hash % 2 === 0 ? 6 : -6);
+		const outlineHue = fillHue + (hash % 3 === 0 ? 11 : -11);
+		const borderSaturation = clamp(fillSaturation + 10, 14, 96);
+		const outlineSaturation = clamp(fillSaturation + 16, 18, 98);
+		const borderLightness = clamp(fillLightness + 29, 44, 94);
+		const outlineLightness = clamp(fillLightness + 20, 36, 84);
+
+		return [
+			`--weapon-fill-color: hsl(${fillHue} ${fillSaturation}% ${fillLightness}%)`,
+			`--weapon-border-color: hsl(${borderHue} ${borderSaturation}% ${borderLightness}%)`,
+			`--weapon-outline-stroke: hsl(${outlineHue} ${outlineSaturation}% ${outlineLightness}%)`
+		].join('; ');
+	}
 </script>
 
 <div class="loadout-grid-shell" id="loadout-grid-shell">
@@ -134,7 +180,7 @@
 				class={`placed-weapon rarity-${weapon.rarity}`}
 				type="button"
 				class:dragging={draggedWeaponInstanceId === weapon.weaponInstanceId}
-				style={getWeaponGridArea(weapon)}
+				style={`${getWeaponGridArea(weapon)} ${getWeaponColorStyle(weapon)}`}
 				onclick={() => onSelectWeapon(weapon)}
 				onpointerdown={(event) => onPlacedWeaponPointerDown(event, weapon)}
 			>
