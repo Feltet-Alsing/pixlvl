@@ -272,11 +272,13 @@ Current scrap rules:
 
 Current shop rules:
 
-- the shop is unlocked by campaign completion progression rather than being open from the start
+- the shop unlocks fully after the player completes campaign `1`
 - shop stock refreshes every `15` minutes
-- each refresh rolls `5` distinct offers
-- later campaign shop pools include earlier pools at reduced weight
-- shop stock is currently weapon-only and deliberately exclusive to the shop pool
+- each refresh rolls `15` distinct offers in fixed rarity bands
+- each refresh contains `5` normal offers, with `1` guaranteed elemental infuser slot
+- each refresh contains `4` magic offers, `3` rare offers, `2` exotic offers, and `1` legendary offer
+- shop stock can pull from the full loadout item registry instead of only shop-exclusive pools
+- owned items are still allowed to reappear, but missing items should be weighted more heavily than duplicates
 - duplicate shop purchases are allowed, so shop items can become real loadout pieces rather than one-time unlocks
 
 The shop should not replace drops.
@@ -307,7 +309,7 @@ Shop direction that is already live:
 - stock should focus on unique, curated items rather than common filler
 - shop items should feel special enough that saving Scrap is a real choice
 - shop inventory can include weapons, utilities, or other build-defining unlocks
-- shop items should be exclusive to the shop rather than shared with the normal drop pool
+- the shop should help players chase missing build pieces at a hefty Scrap cost
 - the shop should avoid becoming a full replacement for campaign progression rewards
 
 Shop weapon philosophy:
@@ -329,12 +331,12 @@ This gives the shop its own role:
 - campaign drops provide the broad loot loop
 - shop items provide more deliberate agency when the player identifies a specific weakness in their current build
 
-Shop exclusivity is important:
+Shop role is now broader:
 
 - campaign drops should remain the source of normal campaign loot
-- the shop should offer its own distinct rewards
-- players should not be able to buy a shop item from the drop pool later, or vice versa
-- this keeps Scrap spending exciting without diluting the identity of campaign drops
+- the shop should act as a deliberate chase outlet for missing items
+- the shop can now surface both weapons and utilities from the broader loadout registry
+- this keeps Scrap spending exciting without forcing the shop to rely on a tiny exclusive pool
 
 Duplicate purchase behavior:
 
@@ -344,22 +346,21 @@ Duplicate purchase behavior:
 
 Shop item mix:
 
-- the long-term direction should be a mix of shop-exclusive weapons and shop-exclusive utilities
-- in the near term, shop inventory will lean on exclusive weapons first because utilities are not implemented yet
-- utility-based shop inventory should be added as part of the next utility implementation pass rather than faked early
+- the live shop mix is a rarity-banded rotation rather than a small campaign-exclusive rack
+- elemental infusers are guaranteed to appear once per refresh within the normal band
+- the shop can pull both weapons and utilities when they satisfy the rarity slot being filled
 
 Progression gating:
 
-- the shop should be tied to campaign progression rather than being fully open from the start
-- the player should not be able to bypass a whole campaign simply by farming duplicates into Scrap
-- clearing a stage `5` boss level should unlock the next appropriate shop inventory band
-- each unlocked campaign should add its own shop-exclusive item pool
+- the shop should remain closed until campaign `1` is completed once
+- after that clear, the full shop model is unlocked permanently
+- the player should still need significant Scrap savings to buy higher-rarity chase items
 
-This means the shop should behave like a progression-aware supplement:
+This means the shop should behave like a Scrap-driven chase supplement:
 
-- clear stage `5` of a campaign or stage band
-- unlock the corresponding campaign shop pool
-- spend Scrap only within the pools already earned through play
+- complete campaign `1`
+- unlock the full rotating shop
+- spend Scrap on missing or high-priority chase pieces when the rotation cooperates
 
 The goal is to let Scrap smooth progression and provide player agency without turning the shop into a campaign skip system.
 
@@ -367,25 +368,25 @@ Shop refresh model:
 
 - the shop should include a controlled amount of randomness
 - shop inventory should refresh every `15` minutes
-- each refresh should roll `5` random items from the currently unlocked campaign shop pools
-- each refresh must contain `5` distinct items rather than duplicate entries of the same item
-- campaign `1` shop should effectively show its guaranteed pool because only campaign `1` shop items are unlocked at that point
-- later campaigns should keep earlier campaign shop items in the pool, but with reduced weight
-- campaign `2` should roll campaign `1` shop items at roughly `50%` weight compared with campaign `2` shop items
-- the same principle should continue forward so older campaign shop items remain possible but become less common than current-tier items
-- randomness should never pull from locked future campaign shop pools
+- each refresh should roll `15` distinct items from the full loadout item registry once the shop is unlocked
+- each refresh must contain `5` normal items, `4` magic items, `3` rare items, `2` exotic items, and `1` legendary item
+- one of the normal slots must always be an elemental infuser
+- missing items should be weighted above already-owned duplicates so the shop helps chase gaps in a collection
+- duplicates can still appear because repeat purchases are allowed, but they should be less common than missing items
 
 Rarity and pool behavior:
 
-- rarity still matters for how exciting a shop roll feels, but the primary rule is campaign-pool eligibility first
-- current campaign shop items should dominate the roll table
-- older unlocked campaign shop items should remain in rotation as lower-weight fallback options
+- rarity now determines slot counts directly
+- normal offers provide utility and broad access, especially through the guaranteed infuser slot
+- magic, rare, exotic, and legendary slots provide the real chase pressure
+- the pool is full-registry after unlock, not campaign-banded
 
 This means the intended flow is:
 
-- progression unlocks additional campaign shop pools
-- the timer refreshes what is currently on offer from those unlocked pools
-- current campaign items feel most relevant, while older campaign items still occasionally reappear
+- complete campaign `1`
+- wait for each `15` minute refresh window
+- inspect the rarity bands for missing or build-defining items
+- spend Scrap only when the rotation surfaces something worth the cost
 
 This remains a stronger near-term retention feature than prestige, and it is now one of the game's active progression layers rather than a purely future design note.
 

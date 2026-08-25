@@ -1,8 +1,8 @@
 import {
-	campaignShopWeaponPools,
 	getLoadoutItemDefinition,
 	isUtilityDefinition,
-	starterWeaponId
+	starterWeaponId,
+	weaponDefinitions
 } from '$lib/data';
 import {
 	getWeaponDisplayName,
@@ -11,6 +11,7 @@ import {
 } from '$lib/game/weapon-upgrades';
 import type { GameState } from '$lib/server/game-state';
 import type {
+	LoadoutItemDefinition,
 	LoadoutPlacement,
 	OwnedWeaponInstance,
 	PersistedLoadoutState,
@@ -20,6 +21,24 @@ import type {
 
 import { getActiveLoadoutPlacements } from '$lib/game/loadout-slots';
 const SHOP_REFRESH_MS = 15 * 60 * 1000;
+
+const shopPriceByRarity: Record<WeaponRarity, number> = {
+	normal: 200,
+	magic: 900,
+	rare: 4000,
+	exotic: 20000,
+	legendary: 100000
+};
+
+const shopSlotCountByRarity: Record<WeaponRarity, number> = {
+	normal: 5,
+	magic: 4,
+	rare: 3,
+	exotic: 2,
+	legendary: 1
+};
+
+const shopUnlockCampaignId = 1;
 
 const rarityWeightByRarity: Record<WeaponRarity, number> = {
 	normal: 10,
@@ -39,10 +58,14 @@ export const scrapValueByRarity: Record<WeaponRarity, number> = {
 
 export interface ShopState {
 	isUnlocked: boolean;
-	highestUnlockedCampaignId: number;
 	refreshStartedAt: string;
 	nextRefreshAt: string;
 	offers: ShopOffer[];
+}
+
+interface ShopOfferCandidate extends ShopOffer {
+	isInfuser: boolean;
+	ownedCount: number;
 }
 
 export interface ScrapableGroupState {
@@ -86,57 +109,77 @@ function createRng(seed: number) {
 	};
 }
 
-export function getHighestUnlockedShopCampaignId(gameState: GameState) {
-	return gameState.campaignProgress.reduce((highest, progress) => {
-		if (!progress.completed) {
-			return highest;
-		}
-
-		return Math.max(highest, progress.campaignId);
-	}, 0);
+function isShopUnlocked(gameState: GameState) {
+	return gameState.campaignProgress.some(
+		(progress) => progress.campaignId === shopUnlockCampaignId && progress.completed
+	);
 }
 
-function getOfferWeight(
-	rarity: WeaponRarity,
-	shopCampaignId: number,
-	highestUnlockedCampaignId: number
-) {
-	const campaignWeight = Math.pow(0.5, Math.max(0, highestUnlockedCampaignId - shopCampaignId));
-	return rarityWeightByRarity[rarity] * campaignWeight;
+function getOfferCampaignId(offer: {
+	shop?: { campaignId: number };
+	drop: { campaignId?: number };
+}) {
+	return offer.shop?.campaignId ?? offer.drop.campaignId ?? 1;
 }
 
-function buildEligibleOffers(highestUnlockedCampaignId: number) {
-	const offers: ShopOffer[] = [];
+function isInfuserOffer(candidate: LoadoutItemDefinition) {
+	return isUtilityDefinition(candidate) && candidate.effect.type === 'elemental-infuser';
+}
 
-	for (let campaignId = 1; campaignId <= highestUnlockedCampaignId; campaignId += 1) {
-		const pool = campaignShopWeaponPools[campaignId as keyof typeof campaignShopWeaponPools] ?? [];
+function getOwnedDefinitionCountById(gameState: GameState) {
+	const counts = new Map<string, number>();
 
-		for (const item of pool) {
-			const weight = getOfferWeight(item.rarity, campaignId, highestUnlockedCampaignId);
-			offers.push({
-				definitionId: item.id,
-				name: item.name,
-				rarity: item.rarity,
-				role: item.role,
-				price: item.shop?.price ?? 0,
-				campaignId,
-				weight,
-				category: isUtilityDefinition(item) ? 'utility' : 'weapon'
-			});
+	for (const ownedWeapon of gameState.pixlState.ownedWeapons) {
+		counts.set(ownedWeapon.definitionId, (counts.get(ownedWeapon.definitionId) ?? 0) + 1);
+	}
+
+	return counts;
+}
+
+function getOfferWeight(rarity: WeaponRarity, ownedCount: number) {
+	const ownedBias =
+		ownedCount === 0 ? 10 : ownedCount === 1 ? 4 : ownedCount === 2 ? 1.75 : 0.45 / ownedCount;
+
+	return rarityWeightByRarity[rarity] * ownedBias;
+}
+
+function buildEligibleOffers(gameState: GameState) {
+	const offers: ShopOfferCandidate[] = [];
+	const ownedDefinitionCountById = getOwnedDefinitionCountById(gameState);
+
+	for (const item of Object.values(weaponDefinitions)) {
+		if (item.id === starterWeaponId) {
+			continue;
 		}
+
+		const ownedCount = ownedDefinitionCountById.get(item.id) ?? 0;
+		const weight = getOfferWeight(item.rarity, ownedCount);
+
+		offers.push({
+			definitionId: item.id,
+			name: item.name,
+			rarity: item.rarity,
+			role: item.role,
+			price: shopPriceByRarity[item.rarity],
+			campaignId: getOfferCampaignId(item),
+			weight,
+			category: isUtilityDefinition(item) ? 'utility' : 'weapon',
+			isInfuser: isInfuserOffer(item),
+			ownedCount
+		});
 	}
 
 	return offers;
 }
 
-function sampleDistinctOffers(offers: ShopOffer[], userId: string, bucket: number, count: number) {
-	if (offers.length <= count) {
-		return offers;
-	}
-
-	const rng = createRng(hashString(`${userId}:${bucket}:shop`));
-	const pool = [...offers];
-	const selected: ShopOffer[] = [];
+function sampleDistinctOffers(
+	offers: ShopOfferCandidate[],
+	rng: () => number,
+	count: number,
+	excludedDefinitionIds: Set<string>
+) {
+	const pool = offers.filter((offer) => !excludedDefinitionIds.has(offer.definitionId));
+	const selected: ShopOfferCandidate[] = [];
 
 	while (selected.length < count && pool.length > 0) {
 		const totalWeight = pool.reduce((total, offer) => total + offer.weight, 0);
@@ -152,36 +195,104 @@ function sampleDistinctOffers(offers: ShopOffer[], userId: string, bucket: numbe
 		}
 
 		selected.push(pool[selectedIndex]);
+		excludedDefinitionIds.add(pool[selectedIndex].definitionId);
 		pool.splice(selectedIndex, 1);
 	}
 
 	return selected;
 }
 
+function stripOfferCandidateMetadata(offer: ShopOfferCandidate): ShopOffer {
+	return {
+		definitionId: offer.definitionId,
+		name: offer.name,
+		rarity: offer.rarity,
+		role: offer.role,
+		price: offer.price,
+		campaignId: offer.campaignId,
+		weight: offer.weight,
+		category: offer.category
+	};
+}
+
+function buildRotationOffers(gameState: GameState, userId: string, bucket: number) {
+	const eligibleOffers = buildEligibleOffers(gameState);
+	const rng = createRng(hashString(`${userId}:${bucket}:shop-v2`));
+	const excludedDefinitionIds = new Set<string>();
+	const selected: ShopOfferCandidate[] = [];
+
+	const infuserOffers = eligibleOffers.filter(
+		(offer) => offer.rarity === 'normal' && offer.isInfuser
+	);
+	const normalOffers = eligibleOffers.filter(
+		(offer) => offer.rarity === 'normal' && !offer.isInfuser
+	);
+	const magicOffers = eligibleOffers.filter((offer) => offer.rarity === 'magic');
+	const rareOffers = eligibleOffers.filter((offer) => offer.rarity === 'rare');
+	const exoticOffers = eligibleOffers.filter((offer) => offer.rarity === 'exotic');
+	const legendaryOffers = eligibleOffers.filter((offer) => offer.rarity === 'legendary');
+
+	selected.push(...sampleDistinctOffers(infuserOffers, rng, 1, excludedDefinitionIds));
+	selected.push(
+		...sampleDistinctOffers(
+			normalOffers,
+			rng,
+			shopSlotCountByRarity.normal - selected.length,
+			excludedDefinitionIds
+		)
+	);
+
+	if (selected.filter((offer) => offer.rarity === 'normal').length < shopSlotCountByRarity.normal) {
+		selected.push(
+			...sampleDistinctOffers(
+				eligibleOffers.filter((offer) => offer.rarity === 'normal'),
+				rng,
+				shopSlotCountByRarity.normal - selected.filter((offer) => offer.rarity === 'normal').length,
+				excludedDefinitionIds
+			)
+		);
+	}
+
+	selected.push(
+		...sampleDistinctOffers(magicOffers, rng, shopSlotCountByRarity.magic, excludedDefinitionIds)
+	);
+	selected.push(
+		...sampleDistinctOffers(rareOffers, rng, shopSlotCountByRarity.rare, excludedDefinitionIds)
+	);
+	selected.push(
+		...sampleDistinctOffers(exoticOffers, rng, shopSlotCountByRarity.exotic, excludedDefinitionIds)
+	);
+	selected.push(
+		...sampleDistinctOffers(
+			legendaryOffers,
+			rng,
+			shopSlotCountByRarity.legendary,
+			excludedDefinitionIds
+		)
+	);
+
+	return selected.map(stripOfferCandidateMetadata);
+}
+
 export function buildShopState(gameState: GameState, userId: string, now = Date.now()): ShopState {
-	const highestUnlockedCampaignId = getHighestUnlockedShopCampaignId(gameState);
 	const bucket = getCurrentShopBucket(now);
 	const refreshStartedAt = new Date(bucket * SHOP_REFRESH_MS).toISOString();
 	const nextRefreshAt = new Date((bucket + 1) * SHOP_REFRESH_MS).toISOString();
 
-	if (highestUnlockedCampaignId < 1) {
+	if (!isShopUnlocked(gameState)) {
 		return {
 			isUnlocked: false,
-			highestUnlockedCampaignId,
 			refreshStartedAt,
 			nextRefreshAt,
 			offers: []
 		};
 	}
 
-	const eligibleOffers = buildEligibleOffers(highestUnlockedCampaignId);
-
 	return {
 		isUnlocked: true,
-		highestUnlockedCampaignId,
 		refreshStartedAt,
 		nextRefreshAt,
-		offers: sampleDistinctOffers(eligibleOffers, userId, bucket, 5)
+		offers: buildRotationOffers(gameState, userId, bucket)
 	};
 }
 
