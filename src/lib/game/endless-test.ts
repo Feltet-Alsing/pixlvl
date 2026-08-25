@@ -1,6 +1,11 @@
 import { campaign5 } from '$lib/data/campaigns/campaign-5';
 
-import type { CampaignDefinition, CampaignLevel, WaveComposition, XpPerEnemy } from '$lib/data/types';
+import type {
+	CampaignDefinition,
+	CampaignLevel,
+	WaveComposition,
+	XpPerEnemy
+} from '$lib/data/types';
 
 const WAVES_PER_MAJOR_BRACKET = 25;
 const WAVES_PER_BOSS_CHECKPOINT = 5;
@@ -89,7 +94,12 @@ function createBaseComposition(totalEnemies: number, stage: number): WaveComposi
 	};
 }
 
-function createBossComposition(totalEnemies: number, stage: number, isMajorBoss: boolean, wave: number) {
+function createBossComposition(
+	totalEnemies: number,
+	stage: number,
+	isMajorBoss: boolean,
+	wave: number
+) {
 	const supportEnemies = Math.max(8, Math.round(totalEnemies * (isMajorBoss ? 0.4 : 0.62)));
 	const supportComposition = createBaseComposition(supportEnemies, stage);
 
@@ -100,7 +110,7 @@ function createBossComposition(totalEnemies: number, stage: number, isMajorBoss:
 		};
 	}
 
-	return wave / WAVES_PER_BOSS_CHECKPOINT % 2 === 0
+	return (wave / WAVES_PER_BOSS_CHECKPOINT) % 2 === 0
 		? {
 				...supportComposition,
 				bossRanged: 1
@@ -132,7 +142,10 @@ export function createEndlessTestLevel(wave: number): CampaignLevel {
 	const stageLevel = ((safeWave - 1) % WAVES_PER_MAJOR_BRACKET) + 1;
 	const isCampaignBoss = safeWave % WAVES_PER_MAJOR_BRACKET === 0;
 	const isStageBoss = safeWave % WAVES_PER_BOSS_CHECKPOINT === 0;
-	const waveSize = Math.max(12, Math.round(scaleByWave(BASE_WAVE_SIZE, safeWave, SPAWN_SIZE_GROWTH)));
+	const waveSize = Math.max(
+		12,
+		Math.round(scaleByWave(BASE_WAVE_SIZE, safeWave, SPAWN_SIZE_GROWTH))
+	);
 	const composition = isStageBoss
 		? createBossComposition(waveSize, stage, isCampaignBoss, safeWave)
 		: createBaseComposition(waveSize, stage);
@@ -150,7 +163,9 @@ export function createEndlessTestLevel(wave: number): CampaignLevel {
 		composition,
 		xpPerEnemy,
 		totalXpReward: getTotalXpReward(composition, xpPerEnemy),
-		spawnRatePerSecond: Number(scaleByWave(BASE_SPAWN_RATE, safeWave, SPAWN_SIZE_GROWTH).toFixed(2)),
+		spawnRatePerSecond: Number(
+			scaleByWave(BASE_SPAWN_RATE, safeWave, SPAWN_SIZE_GROWTH).toFixed(2)
+		),
 		enemyHealthMultiplier: scalingMultiplier,
 		enemyDamageMultiplier: scalingMultiplier,
 		bossHealthMultiplier: scalingMultiplier,
