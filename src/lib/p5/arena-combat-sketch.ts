@@ -24,6 +24,7 @@ import {
 	type WeaponAnimationProps,
 	type WeaponVisualProps
 } from '$lib/p5/weapon-component';
+import { getUtilityModule } from '$lib/p5/utility-modules';
 import { getWeaponModule } from '$lib/p5/weapon-modules';
 import type {
 	CampaignDefinition,
@@ -670,8 +671,13 @@ export function createArenaCombatSketch(
 		const equippedWeaponByInstanceId = new Map(
 			equippedWeapons.map((weapon) => [weapon.instanceId, weapon])
 		);
+		const equippedUtilityByInstanceId = new Map(
+			equippedUtilities.map((utility) => [utility.instanceId, utility])
+		);
 		const getWeaponModuleByInstanceId = (instanceId: string) =>
 			getWeaponModule(equippedWeaponByInstanceId.get(instanceId)?.definition.id ?? '');
+		const getUtilityModuleByInstanceId = (instanceId: string) =>
+			getUtilityModule(equippedUtilityByInstanceId.get(instanceId)?.definition.id ?? '');
 		const passiveUtilities = equippedUtilities.filter(
 			(utility) => utility.definition.activationKind === 'passive'
 		);
@@ -3395,51 +3401,25 @@ export function createArenaCombatSketch(
 		};
 
 		const activateUtility = (utility: EquippedUtilityState) => {
-			if (utility.definition.activationKind !== 'triggered') {
-				return;
-			}
-			const effect = utility.definition.effect;
-
-			if (effect.type === 'shield-pool') {
-				if ((pixlShieldSources[utility.instanceId] ?? 0) > 0) {
-					return;
+			getUtilityModuleByInstanceId(utility.instanceId).activate(utility, {
+				currentSweepIndex,
+				getShieldPoolForSource: (sourceId) => pixlShieldSources[sourceId] ?? 0,
+				setShieldPoolForSource: (sourceId, shieldPercent) => {
+					pixlShieldSources[sourceId] = Math.ceil(pixlProgression.health * shieldPercent);
+				},
+				recalculateShieldPool: recalculatePixlShieldPool,
+				setActiveShieldColor: (color) => {
+					activeShieldColor = color;
+				},
+				addElementalInfusion: (element) => {
+					elementalInfusions[element] += 1;
+				},
+				spawnOathbreakerSigil,
+				applyCycleDamageBoost: (damageMultiplier, expiresAfterSweepIndex) => {
+					cycleDamageMultiplier = Math.max(cycleDamageMultiplier, damageMultiplier);
+					cycleDamageBuffExpiresAfterSweepIndex = expiresAfterSweepIndex;
 				}
-
-				if (utility.cyclesUntilTrigger > 1) {
-					utility.cyclesUntilTrigger -= 1;
-					return;
-				}
-
-				utility.cyclesUntilTrigger = utility.cycleInterval;
-				pixlShieldSources[utility.instanceId] = Math.ceil(
-					pixlProgression.health * effect.shieldPercent
-				);
-				recalculatePixlShieldPool();
-				activeShieldColor = utility.definition.utilityVisual?.color ?? '#60a5fa';
-				return;
-			}
-
-			if (utility.cyclesUntilTrigger > 1) {
-				utility.cyclesUntilTrigger -= 1;
-				return;
-			}
-
-			utility.cyclesUntilTrigger = utility.cycleInterval;
-
-			if (effect.type === 'elemental-infuser') {
-				elementalInfusions[effect.element] += 1;
-				return;
-			}
-
-			if (effect.type === 'oathbreaker-sigil') {
-				spawnOathbreakerSigil(utility);
-				return;
-			}
-
-			if (effect.type === 'cycle-damage-boost') {
-				cycleDamageMultiplier = Math.max(cycleDamageMultiplier, effect.damageMultiplier);
-				cycleDamageBuffExpiresAfterSweepIndex = currentSweepIndex + 1;
-			}
+			});
 		};
 
 		const activateWeaponsAtColumn = (column: number) => {
@@ -5002,6 +4982,35 @@ export function createArenaCombatSketch(
 			}
 
 			for (const sigil of oathbreakerSigils) {
+				const chainedEnemies = sigil.enemyIds
+					.map((enemyId) => enemies.find((enemy) => enemy.id === enemyId) ?? null)
+					.filter((enemy): enemy is EnemyState => enemy !== null);
+
+				if (
+					getUtilityModuleByInstanceId(sigil.sourceUtilityInstanceId).renderArenaEffect(p, {
+						kind: 'oathbreaker-sigil',
+						arenaCenterX: centerX,
+						arenaCenterY: centerY,
+						currentRadius: sigil.currentRadius,
+						radius: sigil.radius,
+						age: sigil.age,
+						sweepDuration: sigil.sweepDuration,
+						duration: sigil.duration,
+						angle: sigil.angle,
+						halfArcRadians: sigil.halfArcRadians,
+						lineWidth: sigil.lineWidth,
+						color: sigil.color,
+						glow: sigil.glow,
+						chainedEnemies: chainedEnemies.map((enemy) => ({
+							x: enemy.x,
+							y: enemy.y,
+							radius: ENEMY_VISUALS[enemy.kind].radius
+						}))
+					})
+				) {
+					continue;
+				}
+
 				const life = 1 - sigil.age / Math.max(0.0001, sigil.sweepDuration + sigil.duration);
 				const alphaHex = Math.round(Math.max(0.22, life * 0.72) * 255)
 					.toString(16)
@@ -5061,10 +5070,6 @@ export function createArenaCombatSketch(
 					previousChainX = pointX;
 					previousChainY = pointY;
 				}
-
-				const chainedEnemies = sigil.enemyIds
-					.map((enemyId) => enemies.find((enemy) => enemy.id === enemyId) ?? null)
-					.filter((enemy): enemy is EnemyState => enemy !== null);
 
 				for (const enemy of chainedEnemies) {
 					const enemyAngle = Math.atan2(enemy.y - centerY, enemy.x - centerX);
