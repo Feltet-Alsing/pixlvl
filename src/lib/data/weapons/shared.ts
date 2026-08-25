@@ -1,6 +1,11 @@
 import type { LoadoutItemDefinition } from '$lib/data/types';
 
-export const campaign1Weapons: LoadoutItemDefinition[] = [
+import {
+	sharedProjectileVisualById,
+	sharedUtilityVisualById
+} from '$lib/data/visuals/shared-weapons';
+
+export const sharedWeapons: LoadoutItemDefinition[] = [
 	{
 		id: 'target-painter',
 		name: 'Target Painter',
@@ -27,13 +32,7 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 			},
 			targeting: 'strongest-target'
 		},
-		projectileVisual: {
-			color: '#facc15',
-			size: 'small',
-			shape: 'spark',
-			trail: 'pulse',
-			glow: true
-		},
+		projectileVisual: sharedProjectileVisualById['target-painter'],
 		drop: {
 			mode: 'drop',
 			stageStart: 1,
@@ -68,12 +67,7 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 			},
 			targeting: 'current-target'
 		},
-		projectileVisual: {
-			color: '#f1f5f9',
-			size: 'small',
-			shape: 'knife',
-			trail: 'streak'
-		},
+		projectileVisual: sharedProjectileVisualById['the-knife'],
 		drop: {
 			mode: 'drop',
 			stageStart: 1,
@@ -105,10 +99,7 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 			projectileCount: 1,
 			targeting: 'current-target'
 		},
-		projectileVisual: {
-			color: '#67d96f',
-			size: 'small'
-		},
+		projectileVisual: sharedProjectileVisualById['pea-shooter'],
 		drop: {
 			mode: 'starter'
 		},
@@ -140,10 +131,7 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 			pierceCount: Number.POSITIVE_INFINITY,
 			targeting: 'current-target'
 		},
-		projectileVisual: {
-			color: '#ff4d4d',
-			size: 'large'
-		},
+		projectileVisual: sharedProjectileVisualById.blaster,
 		drop: {
 			mode: 'drop',
 			campaignId: 1,
@@ -184,13 +172,7 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 			},
 			targeting: 'current-target'
 		},
-		projectileVisual: {
-			color: '#f97316',
-			size: 'small',
-			shape: 'spark',
-			trail: 'pulse',
-			glow: true
-		},
+		projectileVisual: sharedProjectileVisualById['kill-switch'],
 		drop: {
 			mode: 'drop',
 			stageStart: 3,
@@ -227,12 +209,7 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 			},
 			targeting: 'current-target'
 		},
-		projectileVisual: {
-			color: '#f8f8f8',
-			size: 'small',
-			shape: 'spark',
-			glow: true
-		},
+		projectileVisual: sharedProjectileVisualById.needle,
 		drop: {
 			mode: 'drop',
 			campaignId: 1,
@@ -265,10 +242,7 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 			projectileCount: 3,
 			targeting: 'current-target'
 		},
-		projectileVisual: {
-			color: '#ffd84d',
-			size: 'small'
-		},
+		projectileVisual: sharedProjectileVisualById.splitter,
 		drop: {
 			mode: 'drop',
 			campaignId: 1,
@@ -300,11 +274,7 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 			thresholdRatio: 1,
 			radiusFactor: 0.18
 		},
-		utilityVisual: {
-			color: '#dc2626',
-			shape: 'ring',
-			glow: true
-		},
+		utilityVisual: sharedUtilityVisualById['hemorrhage-burst'],
 		drop: {
 			mode: 'drop',
 			stageStart: 2,
@@ -350,12 +320,7 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 			},
 			targeting: 'current-target'
 		},
-		projectileVisual: {
-			color: '#d44a38',
-			size: 'large',
-			shape: 'orb',
-			glow: true
-		},
+		projectileVisual: sharedProjectileVisualById['heavy-orb'],
 		drop: {
 			mode: 'drop',
 			campaignId: 1,
@@ -394,13 +359,7 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 			},
 			targeting: 'current-target'
 		},
-		projectileVisual: {
-			color: '#fca5a5',
-			size: 'small',
-			shape: 'diamond',
-			trail: 'streak',
-			glow: true
-		},
+		projectileVisual: sharedProjectileVisualById['fan-of-knives'],
 		drop: {
 			mode: 'drop',
 			stageStart: 3,
@@ -441,13 +400,7 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 			},
 			targeting: 'current-target'
 		},
-		projectileVisual: {
-			color: '#67e8f9',
-			size: 'medium',
-			shape: 'orb',
-			trail: 'pulse',
-			glow: true
-		},
+		projectileVisual: sharedProjectileVisualById['tide-caster'],
 		drop: {
 			mode: 'drop',
 			campaignId: 1,
@@ -481,11 +434,7 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 			multiplier: 2,
 			maxTotalMultiplier: 6
 		},
-		utilityVisual: {
-			color: '#ef4444',
-			shape: 'column-glow',
-			glow: true
-		},
+		utilityVisual: sharedUtilityVisualById['blood-catalyst'],
 		drop: {
 			mode: 'drop',
 			stageStart: 4,
@@ -529,13 +478,7 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 			},
 			targeting: 'furthest-target'
 		},
-		projectileVisual: {
-			color: '#ef4444',
-			size: 'small',
-			shape: 'spark',
-			trail: 'streak',
-			glow: true
-		},
+		projectileVisual: sharedProjectileVisualById['redline-sniper'],
 		drop: {
 			mode: 'drop',
 			campaignId: 1,
@@ -571,13 +514,7 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 			pierceCount: 999,
 			targeting: 'furthest-target'
 		},
-		projectileVisual: {
-			color: '#f8fafc',
-			size: 'small',
-			shape: 'spark',
-			trail: 'streak',
-			glow: true
-		},
+		projectileVisual: sharedProjectileVisualById['deadeye-sniper'],
 		drop: {
 			mode: 'drop',
 			stageStart: 5,
@@ -611,11 +548,7 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 			lifeStealRatio: 0.5,
 			damageMultiplier: 2
 		},
-		utilityVisual: {
-			color: '#7f1d1d',
-			shape: 'column-glow',
-			glow: true
-		},
+		utilityVisual: sharedUtilityVisualById['siphoning-knife'],
 		drop: {
 			mode: 'drop',
 			stageStart: 5,
@@ -656,11 +589,7 @@ export const campaign1Weapons: LoadoutItemDefinition[] = [
 			slowMultiplier: 0.2,
 			damageShareRatio: 0.6
 		},
-		utilityVisual: {
-			color: '#f59e0b',
-			shape: 'ring',
-			glow: true
-		},
+		utilityVisual: sharedUtilityVisualById['oathbreaker-sigil'],
 		drop: {
 			mode: 'drop',
 			stageStart: 5,

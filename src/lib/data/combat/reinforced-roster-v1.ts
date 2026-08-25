@@ -1,7 +1,7 @@
 import type { CombatProfile } from '$lib/data/types';
 
-export const campaign2CombatProfile: CombatProfile = {
-	id: 'campaign-2-v1',
+export const reinforcedRosterCombatProfile: CombatProfile = {
+	id: 'reinforced-roster-v1',
 	pixl: {
 		health: 100,
 		attackSpeed: 0.5
@@ -14,64 +14,64 @@ export const campaign2CombatProfile: CombatProfile = {
 	},
 	glitches: {
 		biter: {
-			health: 12,
-			contactDamage: 7,
-			attackSpeed: 0.9,
-			moveSpeed: 58
+			health: 14,
+			contactDamage: 8,
+			attackSpeed: 0.95,
+			moveSpeed: 60
 		},
 		swarmer: {
-			health: 9,
-			contactDamage: 5,
-			attackSpeed: 1.3,
-			moveSpeed: 92
+			health: 11,
+			contactDamage: 6,
+			attackSpeed: 1.38,
+			moveSpeed: 96
 		},
 		tanker: {
-			health: 36,
-			contactDamage: 13,
-			attackSpeed: 0.55,
-			moveSpeed: 38
+			health: 44,
+			contactDamage: 15,
+			attackSpeed: 0.58,
+			moveSpeed: 40
 		},
 		shard: {
-			health: 18,
-			contactDamage: 5,
-			attackSpeed: 0.65,
-			moveSpeed: 60,
+			health: 22,
+			contactDamage: 6,
+			attackSpeed: 0.72,
+			moveSpeed: 62,
 			attackPattern: 'siege',
 			preferredRange: 138,
-			orbitSpeed: 28,
-			projectileSpeed: 212,
-			projectileDamage: 6,
+			orbitSpeed: 30,
+			projectileSpeed: 224,
+			projectileDamage: 7,
 			projectileColor: '#7ae7ff',
 			projectileSize: 8
 		},
 		bulwark: {
-			health: 54,
-			contactDamage: 18,
-			attackSpeed: 0.42,
-			moveSpeed: 29,
-			onHitShieldDuration: 1.1,
-			onHitShieldCooldown: 2.4,
-			onHitShieldDamageReduction: 0.65,
+			health: 68,
+			contactDamage: 20,
+			attackSpeed: 0.44,
+			moveSpeed: 30,
+			onHitShieldDuration: 1.2,
+			onHitShieldCooldown: 2.2,
+			onHitShieldDamageReduction: 0.68,
 			shieldColor: '#ffd36b'
 		},
 		shielder: {
-			health: 72,
+			health: 92,
 			contactDamage: 0,
 			attackSpeed: 0.55,
-			moveSpeed: 56,
+			moveSpeed: 60,
 			attackPattern: 'siege',
 			supportPattern: 'shield-nearest-non-bulwark',
 			preferredRange: 138,
-			orbitSpeed: 28,
-			allyShieldAmount: 24,
+			orbitSpeed: 30,
+			allyShieldAmount: 30,
 			allyShieldDuration: 1,
 			shieldColor: '#7fb7ff'
 		},
 		zerglitch: {
-			health: 108,
-			contactDamage: 20,
+			health: 124,
+			contactDamage: 23,
 			attackSpeed: 0.38,
-			moveSpeed: 30
+			moveSpeed: 29
 		},
 		'boss-melee': {
 			health: 1752,

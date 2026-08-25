@@ -1,7 +1,6 @@
 import type P5 from 'p5';
 
-import { campaign1 } from '$lib/data/campaigns/campaign-1';
-import { getCampaignCombatProfile, getWeaponDefinition } from '$lib/data';
+import { getWeaponDefinition } from '$lib/data';
 import { rollLevelRewardPacks as buildRewardPacksForLevel } from '$lib/game/reward-packs';
 import { applyXpGain, createUpgradeablePixlState } from '$lib/game/upgrades';
 import {
@@ -479,14 +478,14 @@ type SharedPixlStateInput = Pick<
 	'xp' | 'defence' | 'agility' | 'ownedWeapons' | 'loadoutPlacements'
 >;
 
-interface CampaignSketchOptions {
+interface ArenaCombatSketchOptions {
 	persistPath?: string;
 	runMode?: RunMode;
 	flowMode?: 'campaign' | 'endless';
 	levelResolver?: (levelIndex: number) => CampaignLevel;
 	rewardsEnabled?: boolean;
 	showLoadoutSketch?: boolean;
-	resumeState?: CampaignCombatResumeState | null;
+	resumeState?: ArenaCombatResumeState | null;
 	pixlState?: SharedPixlStateInput | null;
 	campaignState?: Pick<
 		PersistedCampaignProgress,
@@ -523,7 +522,7 @@ interface CampaignSketchOptions {
 		}>;
 		status: WaveStatus;
 	}) => void;
-	onResumeStateChange?: (state: CampaignCombatResumeState) => void;
+	onResumeStateChange?: (state: ArenaCombatResumeState) => void;
 	getSkipResultsSignal?: () => number;
 	onStateChange?: (state: {
 		xp: number;
@@ -544,7 +543,7 @@ interface CampaignSketchOptions {
 	}) => void;
 }
 
-export interface CampaignCombatResumeState {
+export interface ArenaCombatResumeState {
 	campaignId: number;
 	currentLevel: number;
 	status: WaveStatus;
@@ -580,10 +579,10 @@ function createEmptyElementalInfusions(): Record<ElementalInfusionType, number> 
 	};
 }
 
-export function createCampaignSketch(
+export function createArenaCombatSketch(
 	campaign: CampaignDefinition,
 	combatProfile: CombatProfile,
-	options: CampaignSketchOptions = {}
+	options: ArenaCombatSketchOptions = {}
 ) {
 	return (p: P5) => {
 		const levels = campaign.levels;
@@ -1085,7 +1084,7 @@ export function createCampaignSketch(
 		};
 
 		const emitResumeState = () => {
-			const resumeState: CampaignCombatResumeState = {
+			const resumeState: ArenaCombatResumeState = {
 				campaignId: campaign.campaign,
 				currentLevel: currentLevel.campaignLevel,
 				status,
@@ -6366,4 +6365,3 @@ export function createLoadoutSweepPreviewSketch(options: LoadoutSweepPreviewOpti
 	};
 }
 
-export const campaign1Sketch = createCampaignSketch(campaign1, getCampaignCombatProfile(1));

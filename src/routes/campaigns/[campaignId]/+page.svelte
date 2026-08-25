@@ -21,10 +21,10 @@
 		type CombatOverlayState
 	} from './arena-helpers';
 	import {
-		createCampaignSketch,
+		createArenaCombatSketch,
 		createLoadoutSweepPreviewSketch,
-		type CampaignCombatResumeState
-	} from '$lib/p5/campaign-1-sketch';
+		type ArenaCombatResumeState
+	} from '$lib/p5/arena-combat-sketch';
 	import {
 		applyUpgradePurchase,
 		createUpgradeablePixlState,
@@ -99,7 +99,7 @@
 	}
 
 	type CombatOverlayStateUpdate = Parameters<
-		NonNullable<NonNullable<Parameters<typeof createCampaignSketch>[2]>['onCombatStateChange']>
+		NonNullable<NonNullable<Parameters<typeof createArenaCombatSketch>[2]>['onCombatStateChange']>
 	>[0] & { rewardPacks?: CombatOverlayState['rewardPacks'] };
 
 	const MOBILE_LAYOUT_BREAKPOINT = 860;
@@ -121,8 +121,8 @@
 	let showLoadoutPreview = $state(true);
 	let showChangeLogPopup = $state(false);
 	let skipResultsSignal = $state(0);
-	let combatResumeState = $state.raw<CampaignCombatResumeState | null>(null);
-	let latestCombatResumeState = $state.raw<CampaignCombatResumeState | null>(null);
+	let combatResumeState = $state.raw<ArenaCombatResumeState | null>(null);
+	let latestCombatResumeState = $state.raw<ArenaCombatResumeState | null>(null);
 	let changeLogEntries = $state.raw<ChangeLogEntry[]>([]);
 	let unreadChangeLogCount = $state(0);
 	let livePackNotificationCount = $state(0);
@@ -547,7 +547,7 @@
 
 		if (combatResumeText) {
 			try {
-				const resumeState = JSON.parse(combatResumeText) as CampaignCombatResumeState;
+				const resumeState = JSON.parse(combatResumeText) as ArenaCombatResumeState;
 				if (resumeState.campaignId === data.campaignId) {
 					combatResumeState = resumeState;
 					sessionStorage.removeItem(getArenaCombatResumeStorageKey(data.campaignId));
@@ -831,7 +831,7 @@
 		};
 	}
 
-	function handleCombatResumeStateChange(update: CampaignCombatResumeState) {
+	function handleCombatResumeStateChange(update: ArenaCombatResumeState) {
 		latestCombatResumeState = update;
 
 		if (combatResumeState?.campaignId === update.campaignId) {
@@ -1040,7 +1040,7 @@
 
 	let campaignSketch = $derived.by(() => {
 		return (p: import('p5').default) =>
-			createCampaignSketch(data.campaign, data.combatProfile, {
+			createArenaCombatSketch(data.campaign, data.combatProfile, {
 				persistPath: '/api/game/state',
 				runMode,
 				showLoadoutSketch: false,

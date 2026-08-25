@@ -203,7 +203,7 @@ export const campaign2: CampaignDefinition = {
 	stages,
 	levelsPerStage,
 	totalLevels,
-	combatProfile: 'campaign-2-v1',
+	combatProfile: 'full-roster-v1',
 	baseline,
 	levels: Array.from({ length: totalLevels }, (_, index) => {
 		const stage = Math.floor(index / levelsPerStage) + 1;

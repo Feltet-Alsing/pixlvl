@@ -1,6 +1,6 @@
 import type { LoadoutItemDefinition } from '$lib/data/types';
 
-export const campaign3Weapons: LoadoutItemDefinition[] = [
+export const elementalWeapons: LoadoutItemDefinition[] = [
 	{
 		id: 'aegis-leech',
 		name: 'Aegis Leech',

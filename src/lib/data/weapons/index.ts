@@ -1,9 +1,9 @@
-import { campaign1Weapons } from './campaign-1';
-import { campaign2Weapons } from './campaign-2';
-import { campaign3Weapons } from './campaign-3';
-import { campaign4Weapons } from './campaign-4';
+import { sharedWeapons } from './shared';
+import { controlWeapons } from './control';
+import { elementalWeapons } from './elemental';
+import { anomalyWeapons } from './anomaly';
 
-export { campaign2Weapons };
-export { campaign1Weapons };
-export { campaign3Weapons };
-export { campaign4Weapons };
+export { controlWeapons };
+export { sharedWeapons };
+export { elementalWeapons };
+export { anomalyWeapons };

@@ -218,7 +218,7 @@ export const campaign4: CampaignDefinition = {
 	stages,
 	levelsPerStage,
 	totalLevels,
-	combatProfile: 'campaign-4-v1',
+	combatProfile: 'onslaught-roster-v1',
 	baseline,
 	levels: Array.from({ length: totalLevels }, (_, index) => {
 		const stage = Math.floor(index / levelsPerStage) + 1;

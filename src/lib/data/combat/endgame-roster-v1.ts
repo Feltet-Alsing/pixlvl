@@ -1,18 +1,18 @@
-import { campaign4CombatProfile } from './campaign-4-v1';
+import { onslaughtRosterCombatProfile } from './onslaught-roster-v1';
 
 import type { CombatProfile } from '$lib/data/types';
 
-export const campaign5CombatProfile: CombatProfile = {
-	id: 'campaign-5-v1',
+export const endgameRosterCombatProfile: CombatProfile = {
+	id: 'endgame-roster-v1',
 	pixl: {
-		...campaign4CombatProfile.pixl
+		...onslaughtRosterCombatProfile.pixl
 	},
-	projectileSpeed: campaign4CombatProfile.projectileSpeed,
+	projectileSpeed: onslaughtRosterCombatProfile.projectileSpeed,
 	collision: {
-		...campaign4CombatProfile.collision
+		...onslaughtRosterCombatProfile.collision
 	},
 	glitches: {
-		...campaign4CombatProfile.glitches,
+		...onslaughtRosterCombatProfile.glitches,
 		'boss-melee': {
 			health: 1752,
 			contactDamage: 1000,

@@ -1,15 +1,15 @@
 import { baselineCombatProfile } from './combat/baseline-v1';
-import { campaign2CombatProfile } from './combat/campaign-2-v1';
-import { campaign3CombatProfile } from './combat/campaign-3-v1';
-import { campaign4CombatProfile } from './combat/campaign-4-v1';
-import { campaign5CombatProfile } from './combat/campaign-5-v1';
+import { fullRosterCombatProfile } from './combat/full-roster-v1';
+import { reinforcedRosterCombatProfile } from './combat/reinforced-roster-v1';
+import { onslaughtRosterCombatProfile } from './combat/onslaught-roster-v1';
+import { endgameRosterCombatProfile } from './combat/endgame-roster-v1';
 import { campaign1 } from './campaigns/campaign-1';
 import { campaign2 } from './campaigns/campaign-2';
 import { campaign3 } from './campaigns/campaign-3';
 import { campaign4 } from './campaigns/campaign-4';
 import { campaign5 } from './campaigns/campaign-5';
 import { shopWeaponDefinitions, shopWeaponPools } from './shop';
-import { campaign1Weapons, campaign2Weapons, campaign3Weapons, campaign4Weapons } from './weapons';
+import { anomalyWeapons, controlWeapons, elementalWeapons, sharedWeapons } from './weapons';
 
 import type {
 	CampaignDefinition,
@@ -21,19 +21,19 @@ import type {
 
 export {
 	baselineCombatProfile,
-	campaign2CombatProfile,
-	campaign3CombatProfile,
-	campaign4CombatProfile,
-	campaign5CombatProfile
+	fullRosterCombatProfile,
+	reinforcedRosterCombatProfile,
+	onslaughtRosterCombatProfile,
+	endgameRosterCombatProfile
 };
 export const starterWeaponId = 'pea-shooter';
 
 export const combatProfiles = {
 	[baselineCombatProfile.id]: baselineCombatProfile,
-	[campaign2CombatProfile.id]: campaign2CombatProfile,
-	[campaign3CombatProfile.id]: campaign3CombatProfile,
-	[campaign4CombatProfile.id]: campaign4CombatProfile,
-	[campaign5CombatProfile.id]: campaign5CombatProfile
+	[fullRosterCombatProfile.id]: fullRosterCombatProfile,
+	[reinforcedRosterCombatProfile.id]: reinforcedRosterCombatProfile,
+	[onslaughtRosterCombatProfile.id]: onslaughtRosterCombatProfile,
+	[endgameRosterCombatProfile.id]: endgameRosterCombatProfile
 } as const;
 
 export const campaigns = {
@@ -56,23 +56,23 @@ const sharedPoolDefinitionIds = new Set([
 	'siphoning-knife'
 ]);
 
-const sharedPoolWeapons = campaign1Weapons.filter((item) => sharedPoolDefinitionIds.has(item.id));
+const sharedPoolWeapons = sharedWeapons.filter((item) => sharedPoolDefinitionIds.has(item.id));
 
 const allCampaignWeapons = [
-	...campaign1Weapons,
-	...campaign2Weapons,
-	...campaign3Weapons,
-	...campaign4Weapons
+	...sharedWeapons,
+	...controlWeapons,
+	...elementalWeapons,
+	...anomalyWeapons
 ].filter(
 	(item, index, items) => items.findIndex((candidate) => candidate.id === item.id) === index
 );
 
 export const campaignWeaponPools = {
-	[campaign1.campaign]: campaign1Weapons,
-	[campaign2.campaign]: [...sharedPoolWeapons, ...campaign2Weapons],
-	[campaign3.campaign]: [...sharedPoolWeapons, ...campaign3Weapons],
-	[campaign4.campaign]: [...sharedPoolWeapons, ...campaign4Weapons],
-	[campaign5.campaign]: [...sharedPoolWeapons, ...campaign4Weapons]
+	[campaign1.campaign]: sharedWeapons,
+	[campaign2.campaign]: [...sharedPoolWeapons, ...controlWeapons],
+	[campaign3.campaign]: [...sharedPoolWeapons, ...elementalWeapons],
+	[campaign4.campaign]: [...sharedPoolWeapons, ...anomalyWeapons],
+	[campaign5.campaign]: [...sharedPoolWeapons, ...anomalyWeapons]
 } as const;
 
 export const campaignShopWeaponPools = shopWeaponPools;

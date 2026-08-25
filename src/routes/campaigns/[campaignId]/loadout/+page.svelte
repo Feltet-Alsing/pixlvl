@@ -23,7 +23,10 @@
 		transformWeaponShape
 	} from '$lib/game/loadout-rotation';
 	import { createBaselineUpgradeablePixlState } from '$lib/game/upgrades';
-	import { createCampaignSketch, type CampaignCombatResumeState } from '$lib/p5/campaign-1-sketch';
+	import {
+		createArenaCombatSketch,
+		type ArenaCombatResumeState
+	} from '$lib/p5/arena-combat-sketch';
 	import {
 		buildGridCells,
 		buildInventoryWeaponGroups,
@@ -145,7 +148,7 @@
 		rarity?: LoadoutItemDefinition['rarity'];
 	}
 
-	let combatResumeState = $state.raw<CampaignCombatResumeState | null>(null);
+	let combatResumeState = $state.raw<ArenaCombatResumeState | null>(null);
 
 	const scrapValueByRarity = {
 		normal: 5,
@@ -427,7 +430,7 @@
 	);
 	let backgroundCampaignSketch = $derived.by(() => {
 		return (p: import('p5').default) =>
-			createCampaignSketch(data.campaign, data.combatProfile, {
+			createArenaCombatSketch(data.campaign, data.combatProfile, {
 				runMode: 'combat',
 				showLoadoutSketch: false,
 				resumeState: combatResumeState,
@@ -837,7 +840,7 @@
 		}
 
 		try {
-			const resumeState = JSON.parse(combatResumeText) as CampaignCombatResumeState;
+			const resumeState = JSON.parse(combatResumeText) as ArenaCombatResumeState;
 
 			if (resumeState.campaignId !== data.campaignId) {
 				return;
@@ -1294,7 +1297,7 @@
 		liveCombatProgressOverride = update;
 	}
 
-	function handleBackgroundResumeStateChange(update: CampaignCombatResumeState) {
+	function handleBackgroundResumeStateChange(update: ArenaCombatResumeState) {
 		combatResumeState = update;
 
 		if (typeof sessionStorage === 'undefined') {

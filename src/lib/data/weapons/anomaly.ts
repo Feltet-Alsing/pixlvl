@@ -1,6 +1,6 @@
 import type { LoadoutItemDefinition } from '$lib/data/types';
 
-export const campaign4Weapons: LoadoutItemDefinition[] = [
+export const anomalyWeapons: LoadoutItemDefinition[] = [
 	{
 		id: 'grave-threader',
 		name: 'Grave Threader',

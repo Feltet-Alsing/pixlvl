@@ -1,6 +1,6 @@
 import type { LoadoutItemDefinition } from '$lib/data/types';
 
-export const campaign2Weapons: LoadoutItemDefinition[] = [
+export const controlWeapons: LoadoutItemDefinition[] = [
 	{
 		id: 'force-field',
 		name: 'Force Field',

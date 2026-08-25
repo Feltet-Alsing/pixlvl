@@ -3,12 +3,12 @@
 	import P5Canvas from '$lib/components/P5Canvas.svelte';
 	import { campaign5CombatProfile } from '$lib/data';
 	import { createEndlessTestLevel, endlessTestCampaign } from '$lib/game/endless-test';
-	import { createCampaignSketch } from '$lib/p5/campaign-1-sketch';
+	import { createArenaCombatSketch } from '$lib/p5/arena-combat-sketch';
 
 	import type { PageProps } from './$types';
 
 	type EndlessCombatState = Parameters<
-		NonNullable<NonNullable<Parameters<typeof createCampaignSketch>[2]>['onCombatStateChange']>
+		NonNullable<NonNullable<Parameters<typeof createArenaCombatSketch>[2]>['onCombatStateChange']>
 	>[0];
 
 	let { data }: PageProps = $props();
@@ -17,7 +17,7 @@
 	let endlessSketch = $derived.by(() => {
 		const pixlState = data.gameState?.pixlState ?? null;
 
-		return createCampaignSketch(endlessTestCampaign, campaign5CombatProfile, {
+		return createArenaCombatSketch(endlessTestCampaign, campaign5CombatProfile, {
 			flowMode: 'endless',
 			rewardsEnabled: false,
 			pixlState,
