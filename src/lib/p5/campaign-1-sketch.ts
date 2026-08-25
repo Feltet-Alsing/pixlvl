@@ -22,6 +22,7 @@ import {
 } from '$lib/p5/campaign-runtime';
 import type {
 	CampaignDefinition,
+	CampaignLevel,
 	CombatProfile,
 	GlitchKind,
 	OwnedWeaponInstance,
@@ -481,6 +482,9 @@ type SharedPixlStateInput = Pick<
 interface CampaignSketchOptions {
 	persistPath?: string;
 	runMode?: RunMode;
+	flowMode?: 'campaign' | 'endless';
+	levelResolver?: (levelIndex: number) => CampaignLevel;
+	rewardsEnabled?: boolean;
 	showLoadoutSketch?: boolean;
 	resumeState?: CampaignCombatResumeState | null;
 	pixlState?: SharedPixlStateInput | null;
@@ -584,6 +588,18 @@ export function createCampaignSketch(
 	return (p: P5) => {
 		const levels = campaign.levels;
 		const runMode = options.runMode ?? 'combat';
+		const flowMode = options.flowMode ?? 'campaign';
+		const endlessMode = flowMode === 'endless';
+		const rewardsEnabled = options.rewardsEnabled ?? true;
+		const resolveLevel = (levelIndex: number) => {
+			const safeIndex = Math.max(0, levelIndex);
+
+			if (options.levelResolver) {
+				return options.levelResolver(safeIndex);
+			}
+
+			return levels[Math.max(0, Math.min(safeIndex, levels.length - 1))];
+		};
 		const showLoadoutSketch = options.showLoadoutSketch ?? true;
 		let pixlProgression = createUpgradeablePixlState({
 			xp: options.pixlState?.xp ?? 0,
@@ -775,9 +791,11 @@ export function createCampaignSketch(
 		let canvas: HTMLCanvasElement | null = null;
 		let currentLevelIndex = Math.max(
 			0,
-			Math.min((options.campaignState?.currentLevel ?? 1) - 1, levels.length - 1)
+			endlessMode
+				? (options.campaignState?.currentLevel ?? 1) - 1
+				: Math.min((options.campaignState?.currentLevel ?? 1) - 1, levels.length - 1)
 		);
-		let currentLevel = levels[currentLevelIndex];
+		let currentLevel = resolveLevel(currentLevelIndex);
 		let status: WaveStatus = 'running';
 		let statusTimer = 0;
 		let currentSweepIndex = 0;
@@ -968,6 +986,14 @@ export function createCampaignSketch(
 			const perStage = campaign.baseline.enemyStageScaling?.[scalingKey] ?? 0;
 
 			return 1 + Math.max(0, currentLevel.stage - 1) * perStage;
+		};
+
+		const getEnemyHealthMultiplier = () => {
+			return currentLevel.enemyHealthMultiplier ?? getEnemyStageMultiplier('healthPerStage');
+		};
+
+		const getEnemyDamageMultiplier = () => {
+			return currentLevel.enemyDamageMultiplier ?? getEnemyStageMultiplier('damagePerStage');
 		};
 
 		const getLoadoutLayout = (): LoadoutLayout => {
@@ -1172,7 +1198,7 @@ export function createCampaignSketch(
 
 		const startLevel = (levelIndex: number) => {
 			currentLevelIndex = levelIndex;
-			currentLevel = levels[currentLevelIndex];
+			currentLevel = resolveLevel(currentLevelIndex);
 			levelRewardsCommitted = false;
 			status = 'running';
 			statusTimer = 0;
@@ -1229,6 +1255,10 @@ export function createCampaignSketch(
 		};
 
 		const getCurrentStageStartLevelIndex = () => {
+			if (endlessMode) {
+				return 0;
+			}
+
 			return Math.max(0, (currentLevel.stage - 1) * campaign.levelsPerStage);
 		};
 
@@ -1248,6 +1278,10 @@ export function createCampaignSketch(
 		};
 
 		const rollLevelRewardPacks = () => {
+			if (!rewardsEnabled) {
+				return [] as PersistedRewardPack[];
+			}
+
 			return buildRewardPacksForLevel({
 				campaignId: campaign.campaign,
 				stage: currentLevel.stage,
@@ -1279,23 +1313,37 @@ export function createCampaignSketch(
 				0,
 				Math.min(stage - 1, DAMAGE_CHECK_HEALTH_MULTIPLIERS.length - 1)
 			);
+			const bossHealthMultiplier = currentLevel.bossHealthMultiplier ?? 1;
+			let targetHealth: number | null = null;
 
 			if (kind === 'boss-melee') {
-				return anchorHealth * DAMAGE_CHECK_HEALTH_MULTIPLIERS[stageIndex];
+				targetHealth = anchorHealth * DAMAGE_CHECK_HEALTH_MULTIPLIERS[stageIndex];
 			}
 
 			if (kind === 'boss-ranged') {
-				return anchorHealth * SURVIVABILITY_HEALTH_MULTIPLIERS[stageIndex];
+				targetHealth = anchorHealth * SURVIVABILITY_HEALTH_MULTIPLIERS[stageIndex];
 			}
 
 			if (kind === 'boss-hybrid') {
-				return anchorHealth * 40;
+				targetHealth = anchorHealth * 40;
 			}
 
-			return null;
+			if (targetHealth === null) {
+				return null;
+			}
+
+			return Math.max(1, Math.round(targetHealth * bossHealthMultiplier));
 		};
 
 		const getBossDamageMultiplier = (stage: number) => {
+			if (currentLevel.bossDamageMultiplier !== undefined) {
+				return currentLevel.bossDamageMultiplier;
+			}
+
+			if (currentLevel.enemyDamageMultiplier !== undefined) {
+				return currentLevel.enemyDamageMultiplier;
+			}
+
 			return 1 + Math.max(0, stage - 1) * BOSS_DAMAGE_PER_STAGE;
 		};
 
@@ -1364,7 +1412,7 @@ export function createCampaignSketch(
 			const preferredRange = stats.preferredRange ?? getEnemyContactRange(kind);
 			const holdRadius =
 				stats.attackPattern === 'siege' ? FIXED_SPAWN_RADIUS : preferredRange + p.random(-12, 16);
-			const healthMultiplier = getEnemyStageMultiplier('healthPerStage');
+			const healthMultiplier = getEnemyHealthMultiplier();
 			const scaledHealth = Math.max(1, Math.round(stats.health * healthMultiplier));
 			const initialAttackTimer =
 				stats.attackPattern === 'siege' ? attackInterval * 2.5 : attackInterval;
@@ -1396,7 +1444,7 @@ export function createCampaignSketch(
 				chillAmount: 0,
 				frozenTimer: 0,
 				moveSpeedMultiplier: overrides?.moveSpeedMultiplier ?? 1,
-				damageMultiplier: overrides?.damageMultiplier ?? getEnemyStageMultiplier('damagePerStage')
+				damageMultiplier: overrides?.damageMultiplier ?? getEnemyDamageMultiplier()
 			};
 		};
 
@@ -3545,7 +3593,11 @@ export function createCampaignSketch(
 		const markCleared = () => {
 			rewardPacks = rollLevelRewardPacks();
 			waveDrops = [];
-			status = currentLevelIndex === levels.length - 1 ? 'complete' : 'cleared';
+			status = endlessMode
+				? 'cleared'
+				: currentLevelIndex === levels.length - 1
+					? 'complete'
+					: 'cleared';
 			statusTimer = status === 'complete' ? CAMPAIGN_LOOP_DELAY : LEVEL_CLEAR_DELAY;
 			commitLevelRewards(rewardPacks);
 		};
@@ -3560,7 +3612,15 @@ export function createCampaignSketch(
 
 			highestClearedLevel = Math.max(highestClearedLevel, currentLevel.campaignLevel);
 
-			if (status === 'complete') {
+			if (endlessMode) {
+				highestUnlockedLevel = Math.max(highestUnlockedLevel, currentLevel.campaignLevel + 1);
+				persistProgress(
+					currentLevel.campaignLevel + 1,
+					rewardPacks,
+					currentLevel.campaignLevel,
+					false
+				);
+			} else if (status === 'complete') {
 				completed = true;
 				highestUnlockedLevel = campaign.totalLevels;
 				persistProgress(campaign.totalLevels, rewardPacks, currentLevel.campaignLevel, false);
@@ -6029,9 +6089,11 @@ export function createCampaignSketch(
 			if (initialResumeState) {
 				currentLevelIndex = Math.max(
 					0,
-					Math.min(initialResumeState.currentLevel - 1, levels.length - 1)
+					endlessMode
+						? initialResumeState.currentLevel - 1
+						: Math.min(initialResumeState.currentLevel - 1, levels.length - 1)
 				);
-				currentLevel = levels[currentLevelIndex];
+				currentLevel = resolveLevel(currentLevelIndex);
 				status = initialResumeState.status;
 				levelRewardsCommitted = initialResumeState.levelRewardsCommitted;
 				statusTimer = initialResumeState.statusTimer;
@@ -6127,7 +6189,10 @@ export function createCampaignSketch(
 					} else {
 						commitLevelRewards();
 
-						if (status === 'complete') {
+						if (endlessMode) {
+							emitProgressState(currentLevel.campaignLevel + 1);
+							startLevel(currentLevelIndex + 1);
+						} else if (status === 'complete') {
 							emitProgressState(campaign.totalLevels);
 							startLevel(0);
 						} else {

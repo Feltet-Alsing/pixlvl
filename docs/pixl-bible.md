@@ -1763,6 +1763,173 @@ Near-term note:
 
 - prestige is still a valid long-term system, but it should come after the game has a stronger duplicate economy and shop loop
 
+### Endless mode
+
+`Endless mode` should be the first real endgame mechanic.
+
+It should exist to answer one core problem:
+
+- once a player finishes the campaign ladder, they need a place to cash in build strength without the game immediately needing full prestige
+
+Primary purpose:
+
+- provide a repeatable post-campaign challenge
+- convert optimized builds into long-run `Glitch Essence` income
+- unlock a second late-game chase economy through an endless-exclusive shop
+- give late-game players a clean benchmark for build power beyond campaign completion
+
+Endless mode should not replace the campaign ladder.
+It should begin only after the player has already cleared the current finite content.
+
+Unlock rule:
+
+- endless mode unlocks after the player completes campaign `5`
+- unlocking endless mode also unlocks a new endless shop with its own exclusive stock
+
+Access model:
+
+- endless mode should live as its own dedicated route or campaign-adjacent destination rather than pretending to be just another normal campaign
+- the player should be able to start a fresh run at any time after unlock
+- a run should always begin from wave `1`
+
+Endless shop model:
+
+- endless mode should unlock a second shop rather than only feeding the main campaign shop
+- this endless shop should contain a fixed set of exclusive weapons or utilities that do not appear in the normal shop
+- the endless shop inventory set can be static at first rather than timer-rotated
+- its exact stock can be designed later, but it should represent the strongest chase tier in the game
+- `Glitch Essence` should be the exclusive currency for this shop
+- normal `Scrap` should not be used to buy from the endless shop
+- `Glitch Essence` should come primarily or entirely from endless-mode performance
+
+Core structure:
+
+- endless mode is a single continuous run of escalating waves
+- there is no final level cap
+- each cleared wave immediately advances to the next wave
+- the run ends only when the `pixl` dies
+- death should record the highest cleared wave and end the run cleanly without deleting permanent account progress
+
+Combat identity:
+
+- endless should inherit the faster, higher-pressure expectations already established in the late campaigns
+- it should feel like a post-campaign stress test, not like replaying campaign `1` with bigger numbers
+- enemy variety should pull from the late-game roster and shared cross-campaign pressure pieces rather than from the full early roster indiscriminately
+
+Wave composition model:
+
+- normal waves should mix swarm, ranged, and tank pressure from an already-dangerous baseline
+- every `5` waves should contain a boss or elite checkpoint
+- every `25` waves should contain a major boss checkpoint intended to feel like a real run gate
+- boss checkpoints should be the main source of run tension rather than making every normal wave excessively bloated
+
+Scaling model:
+
+- early endless waves should start around post-campaign power, not tutorial power
+- endless enemy health should multiply by `1.2` each wave
+- endless enemy damage should multiply by `1.2` each wave
+- endless spawn rate should multiply by `1.1` each wave
+- endless wave size should multiply by `1.1` each wave
+- this means each wave should scale from the previous wave rather than from the original baseline only
+- the intended practical formula is:
+
+$$
+health(w) = baseHealth \times 1.2^{(w - 1)}
+$$
+
+$$
+damage(w) = baseDamage \times 1.2^{(w - 1)}
+$$
+
+$$
+spawnRate(w) = baseSpawnRate \times 1.1^{(w - 1)}
+$$
+
+$$
+waveSize(w) = baseWaveSize \times 1.1^{(w - 1)}
+$$
+
+- practical checkpoints should look roughly like this relative to wave `1`:
+- wave `10`: about `6.2x` health and damage, about `2.36x` spawn rate and wave size
+- wave `20`: about `31.9x` health and damage, about `6.12x` spawn rate and wave size
+- wave `30`: about `164x` health and damage, about `15.86x` spawn rate and wave size
+- this should function as a hardcore stress test for the strongest builds rather than as a gentle infinite progression lane
+- late endless difficulty should come from both brutal raw scaling and dangerous composition checks, not only from screen clutter
+
+Practical scaling philosophy:
+
+- waves `1-10` should already feel meaningfully harder than the campaign end state
+- waves `11-25` should begin breaking incomplete builds through boss kill-speed and survivability checks
+- waves `26+` should become an openly hostile attrition test where only optimized loadouts, upgrades, and chase items continue scaling
+
+Run rewards:
+
+- endless mode should primarily reward `Glitch Essence`
+- `Glitch Essence` should be awarded in cumulative `10`-wave checkpoints
+- clearing wave `10` should award `1` total `Glitch Essence`
+- clearing wave `20` should award `3` total `Glitch Essence`
+- clearing wave `30` should award `6` total `Glitch Essence`
+- each new `10`-wave bracket should add one more `Glitch Essence` than the previous bracket
+- this means the reward curve should follow triangular growth by completed `10`-wave milestones
+- boss checkpoints should grant the largest payout spikes
+- reward packs may appear in small amounts, but endless mode should not become the dominant source of pack flooding
+
+Examples:
+
+- wave `10`: `1`
+- wave `20`: `1 + 2 = 3`
+- wave `30`: `1 + 2 + 3 = 6`
+- wave `40`: `1 + 2 + 3 + 4 = 10`
+
+Reward intent:
+
+- campaign play remains the main progression ladder
+- endless mode becomes the best way to fund expensive post-campaign purchases after the campaign is beaten
+- this ties the endgame loop directly into both the main shop and the endless-exclusive shop
+
+Failure and persistence rules:
+
+- endless runs should not cost energy, keys, or other consumables to enter
+- a failed run should simply end and pay out what was earned from the waves already cleared
+- the account should permanently remember at least the best wave reached
+- the game should also remember lightweight lifetime stats such as total endless runs and total endless bosses cleared if a run-history layer is added later
+
+Scoring and status:
+
+- the primary score should be highest cleared wave
+- secondary stats can include total run `Glitch Essence` earned, time survived, and bosses defeated
+- endless mode should give the player a clean visible personal-best target even before any global leaderboard exists
+
+Economy role:
+
+- `Scrap` should remain the currency for the base shop and weapon upgrades
+- endless mode should be the late-game `Glitch Essence` engine
+- the endless-exclusive shop should become the top-end `Glitch Essence` sink for finished accounts
+- this keeps the standard account economy and the endgame chase economy meaningfully separate
+
+The intended late-game loop becomes:
+
+> finish campaign `5` -> unlock endless mode and the endless shop -> push waves -> earn `Glitch Essence` -> buy exclusive chase items -> upgrade key copies through the normal economy -> push deeper endless waves
+
+Guardrails:
+
+- endless mode must not invalidate the campaign ladder before the ladder is beaten
+- endless mode must not flood so many packs that the shop stops mattering
+- endless mode must respect the same readability concerns as the campaign game, especially around wave duration and enemy clutter
+- endless mode should reward deep runs sharply enough that strong builds feel valuable, but not so sharply that short runs feel pointless
+- the endless-exclusive shop should stay small and intentional so it feels like a chase destination rather than a second bloated catalog
+
+Implementation direction:
+
+- first version should prioritize brutal scaling, reliable `Glitch Essence` payout, boss checkpoints, personal-best tracking, and the endless shop unlock
+- do not block endless mode on prestige, world maps, or global leaderboard features
+- prestige can later sit above endless mode once the current duplicate economy, shop economy, and upgrade loop are proven at scale
+
+Current implementation progress:
+
+- a standalone endless test route now exists with generated infinite waves, `5`-wave boss checkpoints, `25`-wave major bosses, and escalating health/damage/spawn/wave-size scaling
+- this prototype intentionally skips `Glitch Essence`, endless-shop purchases, unlock gating, and endless-run persistence so the combat loop can be tuned in isolation first
+
 ### Wave pacing update
 
 The current wave pacing direction is now explicitly tightened.

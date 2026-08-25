@@ -491,6 +491,10 @@ export interface CampaignLevel {
 	xpPerEnemy: XpPerEnemy;
 	totalXpReward: number;
 	spawnRatePerSecond: number;
+	enemyHealthMultiplier?: number;
+	enemyDamageMultiplier?: number;
+	bossHealthMultiplier?: number;
+	bossDamageMultiplier?: number;
 }
 
 export interface CampaignBaseline {
