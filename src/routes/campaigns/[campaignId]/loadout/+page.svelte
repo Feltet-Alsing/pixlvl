@@ -2286,45 +2286,52 @@
 					/>
 				{/if}
 
-				<LoadoutGridBoard
-					gridTemplateColumns={loadoutGridTemplateColumns}
-					gridTemplateRows={loadoutGridTemplateRows}
-					{gridCells}
-					{occupiedCellKeys}
-					{previewCellStateByKey}
-					weapons={visiblePlacedWeapons}
-					{draggedWeaponInstanceId}
-					mobilePlacementMode={isMobileLayout && Boolean(draggedWeaponInstanceId)}
-					onSelectWeapon={selectPlacedWeapon}
-					onPlacedWeaponPointerDown={beginPlacedWeaponDrag}
-					onGridCellPress={handleMobileGridCellPress}
-					{getWeaponGridArea}
-					{getShapeGridTemplate}
-					{isShapeCellFilled}
-					{isLabelCell}
-				/>
+				<div class="loadout-workbench">
+					<div id="loadout-grid-shell" class="loadout-grid-shell">
+						<LoadoutGridBoard
+							gridTemplateColumns={loadoutGridTemplateColumns}
+							gridTemplateRows={loadoutGridTemplateRows}
+							{gridCells}
+							{occupiedCellKeys}
+							{previewCellStateByKey}
+							weapons={visiblePlacedWeapons}
+							{draggedWeaponInstanceId}
+							mobilePlacementMode={isMobileLayout && Boolean(draggedWeaponInstanceId)}
+							onSelectWeapon={(weapon) => selectPlacedWeapon(weapon as LoadoutWeapon)}
+							onPlacedWeaponPointerDown={(event, weapon) =>
+								beginPlacedWeaponDrag(event, weapon as LoadoutWeapon)}
+							onGridCellPress={handleMobileGridCellPress}
+							{getWeaponGridArea}
+							{getShapeGridTemplate}
+							{isShapeCellFilled}
+							{isLabelCell}
+						/>
+					</div>
 
-				<LoadoutWeaponDetailsPane
-					detail={selectedWeaponDetails}
-					signedIn={Boolean(data.gameState)}
-					targetingOptions={selectedTargetingOptions}
-					showUpgradeControls={false}
-					onRotate={() => {
-						if (selectedPlacedWeaponInstanceId) {
-							rotatePlacedWeapon(selectedPlacedWeaponInstanceId);
-						}
-					}}
-					onMirror={() => {
-						if (selectedPlacedWeaponInstanceId) {
-							mirrorPlacedWeapon(selectedPlacedWeaponInstanceId);
-						}
-					}}
-					onTargetingChange={(value) => {
-						if (selectedPlacedWeaponInstanceId) {
-							updatePlacedWeaponTargeting(selectedPlacedWeaponInstanceId, value);
-						}
-					}}
-				/>
+					<div class="loadout-inspector-shell">
+						<LoadoutWeaponDetailsPane
+							detail={selectedWeaponDetails}
+							signedIn={Boolean(data.gameState)}
+							targetingOptions={selectedTargetingOptions}
+							showUpgradeControls={false}
+							onRotate={() => {
+								if (selectedPlacedWeaponInstanceId) {
+									rotatePlacedWeapon(selectedPlacedWeaponInstanceId);
+								}
+							}}
+							onMirror={() => {
+								if (selectedPlacedWeaponInstanceId) {
+									mirrorPlacedWeapon(selectedPlacedWeaponInstanceId);
+								}
+							}}
+							onTargetingChange={(value) => {
+								if (selectedPlacedWeaponInstanceId) {
+									updatePlacedWeaponTargeting(selectedPlacedWeaponInstanceId, value);
+								}
+							}}
+						/>
+					</div>
+				</div>
 			</div>
 
 			<aside
@@ -2667,6 +2674,18 @@
 		align-content: start;
 	}
 
+	.loadout-workbench {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		gap: 0.75rem;
+		align-items: start;
+	}
+
+	.loadout-grid-shell,
+	.loadout-inspector-shell {
+		min-width: 0;
+	}
+
 	.inventory-panel {
 		position: static;
 		align-self: stretch;
@@ -2901,6 +2920,19 @@
 			min-height: calc(100vh - 2.3rem);
 			max-height: calc(100vh - 2.3rem);
 			overflow: visible;
+		}
+	}
+
+	@media (min-width: 1280px) {
+		.loadout-workbench {
+			grid-template-columns: minmax(0, 1fr) minmax(20rem, 24rem);
+			gap: 1rem;
+		}
+
+		.loadout-inspector-shell {
+			position: sticky;
+			top: 1.15rem;
+			align-self: start;
 		}
 	}
 

@@ -40,6 +40,22 @@
 
 	type InventorySortMode = 'recent' | 'rarity' | 'duplicates' | 'size' | 'name';
 
+	const SORT_OPTIONS: Array<{ value: InventorySortMode; label: string }> = [
+		{ value: 'recent', label: 'Recent' },
+		{ value: 'rarity', label: 'Rarity' },
+		{ value: 'duplicates', label: 'Dupes' },
+		{ value: 'size', label: 'Size' },
+		{ value: 'name', label: 'Name' }
+	];
+
+	const RARITY_OPTIONS: WeaponDefinition['rarity'][] = [
+		'normal',
+		'magic',
+		'rare',
+		'exotic',
+		'legendary'
+	];
+
 	interface Props {
 		searchValue: string;
 		isMobileLayout?: boolean;
@@ -146,6 +162,83 @@
 
 	function selectSortMode(mode: InventorySortMode) {
 		onSortModeChange(mode);
+	}
+
+	function isAllRaritiesSelected() {
+		return RARITY_OPTIONS.every((rarity) => activeRarities.has(rarity));
+	}
+
+	function getSortSummary() {
+		return SORT_OPTIONS.find((option) => option.value === sortMode)?.label ?? 'Recent';
+	}
+
+	function getFilterSummary() {
+		const activeFilters: string[] = [];
+
+		if (favoritesOnly) {
+			activeFilters.push('Favorites');
+		}
+
+		if (duplicatesOnly) {
+			activeFilters.push('Duplicates');
+		}
+
+		if (upgradedOnly) {
+			activeFilters.push('Upgraded');
+		}
+
+		if (!activeFilters.length) {
+			return 'All items';
+		}
+
+		return activeFilters.join(', ');
+	}
+
+	function getRaritySummary() {
+		if (isAllRaritiesSelected()) {
+			return 'All rarities';
+		}
+
+		if (activeRarities.size === 1) {
+			const [rarity] = [...activeRarities];
+			return rarity.charAt(0).toUpperCase() + rarity.slice(1);
+		}
+
+		return `${activeRarities.size} selected`;
+	}
+
+	function canResetControls() {
+		return (
+			sortMode !== 'recent' ||
+			favoritesOnly ||
+			duplicatesOnly ||
+			upgradedOnly ||
+			!isAllRaritiesSelected()
+		);
+	}
+
+	function resetControls() {
+		if (sortMode !== 'recent') {
+			onSortModeChange('recent');
+		}
+
+		if (favoritesOnly) {
+			onToggleFavoritesOnly();
+		}
+
+		if (duplicatesOnly) {
+			onToggleDuplicatesOnly();
+		}
+
+		if (upgradedOnly) {
+			onToggleUpgradedOnly();
+		}
+
+		for (const rarity of RARITY_OPTIONS) {
+			if (!activeRarities.has(rarity)) {
+				onToggleRarity(rarity);
+			}
+		}
 	}
 
 	function handleFavoriteButtonPointerDown(event: PointerEvent) {
@@ -265,9 +358,6 @@
 <div class="toolbox-shell">
 	<div class="section-head">
 		<h2>Loadout toolbox</h2>
-		<p>
-			Search or drag any ready item into the grid, and drag equipped items back here to unequip.
-		</p>
 	</div>
 
 	<label class="inventory-search" for="inventory-search-input">
@@ -282,89 +372,86 @@
 	</label>
 
 	<div class="toolbox-controls">
-		<div class="sort-chip-row" aria-label="Sort items">
-			<button
-				class:active-chip={sortMode === 'recent'}
-				class="filter-chip"
-				type="button"
-				onclick={() => selectSortMode('recent')}
-			>
-				Recent
-			</button>
-			<button
-				class:active-chip={sortMode === 'rarity'}
-				class="filter-chip"
-				type="button"
-				onclick={() => selectSortMode('rarity')}
-			>
-				Rarity
-			</button>
-			<button
-				class:active-chip={sortMode === 'duplicates'}
-				class="filter-chip"
-				type="button"
-				onclick={() => selectSortMode('duplicates')}
-			>
-				Dupes
-			</button>
-			<button
-				class:active-chip={sortMode === 'size'}
-				class="filter-chip"
-				type="button"
-				onclick={() => selectSortMode('size')}
-			>
-				Size
-			</button>
-			<button
-				class:active-chip={sortMode === 'name'}
-				class="filter-chip"
-				type="button"
-				onclick={() => selectSortMode('name')}
-			>
-				Name
-			</button>
-		</div>
+		<details class="control-menu">
+			<summary>
+				<span class="control-summary-label">Sort</span>
+				<span class="control-summary-value">{getSortSummary()}</span>
+			</summary>
+			<div class="control-menu-panel sort-chip-row" aria-label="Sort items">
+				{#each SORT_OPTIONS as option (option.value)}
+					<button
+						class:active-chip={sortMode === option.value}
+						class="filter-chip"
+						type="button"
+						onclick={() => selectSortMode(option.value)}
+					>
+						{option.label}
+					</button>
+				{/each}
+			</div>
+		</details>
 
-		<div class="filter-chip-row" aria-label="Inventory filters">
-			<button
-				class:active-chip={favoritesOnly}
-				class="filter-chip"
-				type="button"
-				onclick={onToggleFavoritesOnly}
-			>
-				Favorites
-			</button>
-			<button
-				class:active-chip={duplicatesOnly}
-				class="filter-chip"
-				type="button"
-				onclick={onToggleDuplicatesOnly}
-			>
-				Duplicates
-			</button>
-			<button
-				class:active-chip={upgradedOnly}
-				class="filter-chip"
-				type="button"
-				onclick={onToggleUpgradedOnly}
-			>
-				Upgraded
-			</button>
-		</div>
-
-		<div class="rarity-chip-row" aria-label="Rarity filters">
-			{#each ['normal', 'magic', 'rare', 'exotic', 'legendary'] as rarity (rarity)}
+		<details class="control-menu">
+			<summary>
+				<span class="control-summary-label">Filters</span>
+				<span class="control-summary-value">{getFilterSummary()}</span>
+			</summary>
+			<div class="control-menu-panel filter-chip-row" aria-label="Inventory filters">
 				<button
-					class:active-chip={activeRarities.has(rarity)}
-					class={`filter-chip rarity-chip rarity-${rarity}`}
+					class:active-chip={favoritesOnly}
+					class="filter-chip"
 					type="button"
-					onclick={() => onToggleRarity(rarity)}
-					ondblclick={() => onIsolateRarity(rarity)}
+					onclick={onToggleFavoritesOnly}
 				>
-					{rarity}
+					Favorites
 				</button>
-			{/each}
-		</div>
+				<button
+					class:active-chip={duplicatesOnly}
+					class="filter-chip"
+					type="button"
+					onclick={onToggleDuplicatesOnly}
+				>
+					Duplicates
+				</button>
+				<button
+					class:active-chip={upgradedOnly}
+					class="filter-chip"
+					type="button"
+					onclick={onToggleUpgradedOnly}
+				>
+					Upgraded
+				</button>
+			</div>
+		</details>
+
+		<details class="control-menu">
+			<summary>
+				<span class="control-summary-label">Rarity</span>
+				<span class="control-summary-value">{getRaritySummary()}</span>
+			</summary>
+			<div class="control-menu-panel rarity-chip-row" aria-label="Rarity filters">
+				{#each RARITY_OPTIONS as rarity (rarity)}
+					<button
+						class:active-chip={activeRarities.has(rarity)}
+						class={`filter-chip rarity-chip rarity-${rarity}`}
+						type="button"
+						onclick={() => onToggleRarity(rarity)}
+						ondblclick={() => onIsolateRarity(rarity)}
+					>
+						{rarity}
+					</button>
+				{/each}
+			</div>
+		</details>
+
+		<button
+			class="reset-button"
+			type="button"
+			disabled={!canResetControls()}
+			onclick={resetControls}
+		>
+			Reset
+		</button>
 	</div>
 
 	<div
@@ -453,29 +540,24 @@
 	.toolbox-shell {
 		display: grid;
 		grid-template-rows: auto auto auto minmax(0, 1fr);
-		gap: 0.7rem;
+		gap: 0.6rem;
 		height: 100%;
 		min-height: 0;
 	}
 
 	.section-head {
-		display: grid;
-		gap: 0.35rem;
+		display: flex;
+		align-items: center;
 	}
 
 	.section-head h2,
-	.section-head p,
 	.inventory-empty-state {
 		margin: 0;
 	}
 
-	.section-head p {
-		color: #c4c4c4;
-	}
-
 	.inventory-search {
 		display: grid;
-		gap: 0.35rem;
+		gap: 0.3rem;
 	}
 
 	.inventory-search span,
@@ -509,8 +591,70 @@
 	}
 
 	.toolbox-controls {
-		display: grid;
-		gap: 0.55rem;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-start;
+		gap: 0.45rem;
+	}
+
+	.control-menu {
+		min-width: min(8.5rem, 100%);
+		flex: 1 1 9.25rem;
+		max-width: 11rem;
+	}
+
+	.control-menu summary {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.45rem;
+		min-height: 2rem;
+		padding: 0.42rem 0.68rem;
+		border-radius: 0.85rem;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		background: rgba(255, 255, 255, 0.04);
+		cursor: pointer;
+		list-style: none;
+	}
+
+	.control-menu summary::-webkit-details-marker {
+		display: none;
+	}
+
+	.control-menu[open] summary {
+		border-color: rgba(170, 206, 255, 0.28);
+		background: rgba(84, 150, 255, 0.1);
+	}
+
+	.control-summary-label,
+	.control-summary-value {
+		font-size: 0.64rem;
+		font-weight: 700;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+	}
+
+	.control-summary-label {
+		color: #bdbdc3;
+		flex: 0 0 auto;
+	}
+
+	.control-summary-value {
+		color: #eef5ff;
+		text-align: right;
+		flex: 1 1 auto;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.control-menu-panel {
+		margin-top: 0.35rem;
+		padding: 0.5rem;
+		border-radius: 0.85rem;
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		background: rgba(255, 255, 255, 0.03);
 	}
 
 	.sort-chip-row,
@@ -534,6 +678,27 @@
 		letter-spacing: 0.04em;
 		text-transform: uppercase;
 		cursor: pointer;
+	}
+
+	.reset-button {
+		flex: 0 0 auto;
+		min-height: 2rem;
+		padding: 0.42rem 0.75rem;
+		border-radius: 0.85rem;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		background: rgba(255, 255, 255, 0.04);
+		color: #d6d6db;
+		font: inherit;
+		font-size: 0.68rem;
+		font-weight: 700;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		cursor: pointer;
+	}
+
+	.reset-button:disabled {
+		opacity: 0.45;
+		cursor: default;
 	}
 
 	.filter-chip.active-chip {
@@ -754,6 +919,15 @@
 	}
 
 	@media (max-width: 860px) {
+		.toolbox-controls {
+			gap: 0.4rem;
+		}
+
+		.control-menu {
+			flex-basis: 8.75rem;
+			max-width: none;
+		}
+
 		.inventory-toolbox-grid {
 			grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
 		}
