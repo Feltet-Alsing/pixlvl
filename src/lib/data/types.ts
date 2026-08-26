@@ -417,6 +417,17 @@ export interface UtilityDefinition {
 				duration: 'rest-of-cycle';
 		  }
 		| {
+				type: 'elemental-cycle-boost';
+				element: ElementalInfusionType;
+				damageMultiplier: number;
+				duration: 'rest-of-cycle';
+		  }
+		| {
+				type: 'elemental-mastery';
+				damageMultiplier: number;
+				duration: 'rest-of-cycle';
+		  }
+		| {
 				type: 'hemorrhage-burst';
 				thresholdRatio: number;
 				radiusFactor: number;

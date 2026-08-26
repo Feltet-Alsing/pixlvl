@@ -671,6 +671,24 @@ function createEmptyElementalInfusions(): Record<ElementalInfusionType, number> 
 	};
 }
 
+function createEmptyElementalDamageMultipliers(): Record<ElementalInfusionType, number> {
+	return {
+		fire: 1,
+		lightning: 1,
+		cold: 1,
+		void: 1
+	};
+}
+
+function createEmptyElementalExpiryState(): Record<ElementalInfusionType, number | null> {
+	return {
+		fire: null,
+		lightning: null,
+		cold: null,
+		void: null
+	};
+}
+
 export function createArenaCombatSketch(
 	campaign: CampaignDefinition,
 	combatProfile: CombatProfile,
@@ -954,6 +972,9 @@ export function createArenaCombatSketch(
 		let elementalInfusions = createEmptyElementalInfusions();
 		let cycleDamageMultiplier = 1;
 		let cycleDamageBuffExpiresAfterSweepIndex: number | null = null;
+		let elementalCycleDamageMultipliers = createEmptyElementalDamageMultipliers();
+		let elementalCycleBuffExpiresAfterSweepIndex = createEmptyElementalExpiryState();
+		let pixlAuraClock = 0;
 		let activeShieldColor = '#60a5fa';
 		let pixlFlash = 0;
 		let enemyId = 0;
@@ -1356,6 +1377,9 @@ export function createArenaCombatSketch(
 			applyStartingShieldUtilities();
 			cycleDamageMultiplier = 1;
 			cycleDamageBuffExpiresAfterSweepIndex = null;
+			elementalCycleDamageMultipliers = createEmptyElementalDamageMultipliers();
+			elementalCycleBuffExpiresAfterSweepIndex = createEmptyElementalExpiryState();
+			pixlAuraClock = 0;
 			pixlFlash = 0;
 			markedEnemyId = null;
 			enemyId = 0;
@@ -1412,17 +1436,36 @@ export function createArenaCombatSketch(
 				? (weaponDamageMultiplierByInstanceId[sourceWeaponInstanceId] ?? 1)
 				: 1;
 			const familyDamageMultiplier = weapon.family === 'mine' ? sharedMineDamageMultiplier : 1;
+			const elementalDamageMultiplier = weapon.attack.requiredInfusion
+				? elementalCycleDamageMultipliers[weapon.attack.requiredInfusion]
+				: 1;
 
 			return Math.max(
 				1,
 				Math.round(
 					weapon.baseDamage *
 						cycleDamageMultiplier *
+						elementalDamageMultiplier *
 						familyDamageMultiplier *
 						multiplier *
 						sourceDamageMultiplier
 				)
 			);
+		};
+
+		const hasActiveElementalMastery = () => {
+			return (
+				Object.keys(elementalCycleBuffExpiresAfterSweepIndex) as ElementalInfusionType[]
+			).every((element) => elementalCycleBuffExpiresAfterSweepIndex[element] !== null);
+		};
+
+		const getPendingElementalMasteryReservation = (element: ElementalInfusionType) => {
+			void element;
+
+			return triggeredUtilities.filter(
+				(utility) =>
+					utility.definition.effect.type === 'elemental-mastery' && utility.cyclesUntilTrigger <= 1
+			).length;
 		};
 
 		const getAdjustedMinePlacementCount = (weapon: WeaponDefinition) => {
@@ -4216,10 +4259,36 @@ export function createArenaCombatSketch(
 				addElementalInfusion: (element) => {
 					elementalInfusions[element] += 1;
 				},
+				getElementalInfusionCount: (element) => elementalInfusions[element],
+				spendElementalInfusion: (element, amount) => {
+					elementalInfusions[element] = Math.max(0, elementalInfusions[element] - amount);
+				},
 				spawnOathbreakerSigil,
 				applyCycleDamageBoost: (damageMultiplier, expiresAfterSweepIndex) => {
 					cycleDamageMultiplier = Math.max(cycleDamageMultiplier, damageMultiplier);
 					cycleDamageBuffExpiresAfterSweepIndex = expiresAfterSweepIndex;
+				},
+				applyElementalCycleBoost: (element, damageMultiplier, expiresAfterSweepIndex) => {
+					for (const activeElement of Object.keys(
+						elementalCycleDamageMultipliers
+					) as ElementalInfusionType[]) {
+						elementalCycleDamageMultipliers[activeElement] = 1;
+						elementalCycleBuffExpiresAfterSweepIndex[activeElement] = null;
+					}
+
+					elementalCycleDamageMultipliers[element] = Math.max(
+						elementalCycleDamageMultipliers[element],
+						damageMultiplier
+					);
+					elementalCycleBuffExpiresAfterSweepIndex[element] = expiresAfterSweepIndex;
+				},
+				applyElementalMasteryBoost: (damageMultiplier, expiresAfterSweepIndex) => {
+					for (const activeElement of Object.keys(
+						elementalCycleDamageMultipliers
+					) as ElementalInfusionType[]) {
+						elementalCycleDamageMultipliers[activeElement] = damageMultiplier;
+						elementalCycleBuffExpiresAfterSweepIndex[activeElement] = expiresAfterSweepIndex;
+					}
 				}
 			});
 		};
@@ -4227,6 +4296,10 @@ export function createArenaCombatSketch(
 		const activateWeaponsAtColumn = (column: number) => {
 			for (const utility of triggeredUtilities) {
 				if (utility.triggerColumn !== column) {
+					continue;
+				}
+
+				if (utility.definition.effect.type === 'elemental-mastery') {
 					continue;
 				}
 
@@ -4244,13 +4317,22 @@ export function createArenaCombatSketch(
 
 			for (const weapon of weaponsAtColumn) {
 				const requiredInfusion = weapon.definition.attack.requiredInfusion;
-				const requiredInfusionCount = Math.max(
+				const baseRequiredInfusionCount = Math.max(
 					1,
 					weapon.definition.attack.requiredInfusionCount ?? 1
 				);
+				const requiredInfusionCount = requiredInfusion
+					? Math.max(0, baseRequiredInfusionCount - (hasActiveElementalMastery() ? 1 : 0))
+					: baseRequiredInfusionCount;
 
 				if (requiredInfusion) {
-					if (elementalInfusions[requiredInfusion] < requiredInfusionCount) {
+					const reservedInfusionCount = getPendingElementalMasteryReservation(requiredInfusion);
+					const availableInfusionCount = Math.max(
+						0,
+						elementalInfusions[requiredInfusion] - reservedInfusionCount
+					);
+
+					if (availableInfusionCount < requiredInfusionCount) {
 						continue;
 					}
 
@@ -4276,6 +4358,8 @@ export function createArenaCombatSketch(
 		};
 
 		const advanceSweep = (dt: number) => {
+			pixlAuraClock += dt;
+
 			if (equippedWeaponColumns.length === 0) {
 				return;
 			}
@@ -4294,6 +4378,14 @@ export function createArenaCombatSketch(
 				remainingColumns -= step;
 
 				if (sweepProgress >= loadoutColumnCount) {
+					for (const utility of triggeredUtilities) {
+						if (utility.definition.effect.type !== 'elemental-mastery') {
+							continue;
+						}
+
+						activateUtility(utility);
+					}
+
 					sweepProgress = 0;
 					currentSweepIndex += 1;
 					publishedAverageDamageByWeaponInstanceId = Object.fromEntries(
@@ -4309,6 +4401,18 @@ export function createArenaCombatSketch(
 					) {
 						cycleDamageMultiplier = 1;
 						cycleDamageBuffExpiresAfterSweepIndex = null;
+					}
+
+					for (const element of Object.keys(
+						elementalCycleBuffExpiresAfterSweepIndex
+					) as ElementalInfusionType[]) {
+						if (
+							elementalCycleBuffExpiresAfterSweepIndex[element] !== null &&
+							currentSweepIndex >= (elementalCycleBuffExpiresAfterSweepIndex[element] as number)
+						) {
+							elementalCycleDamageMultipliers[element] = 1;
+							elementalCycleBuffExpiresAfterSweepIndex[element] = null;
+						}
 					}
 
 					elementalInfusions = createEmptyElementalInfusions();
@@ -5999,6 +6103,104 @@ export function createArenaCombatSketch(
 
 		const drawPixl = () => {
 			p.push();
+			const activeElementalBuffs = (
+				Object.entries(elementalCycleBuffExpiresAfterSweepIndex) as Array<
+					[ElementalInfusionType, number | null]
+				>
+			).filter(([, expiresAfterSweepIndex]) => expiresAfterSweepIndex !== null);
+
+			for (const [element] of activeElementalBuffs) {
+				const age = pixlAuraClock;
+				const pulse = 0.92 + Math.sin(age * 6) * 0.08;
+				const radius = combatProfile.collision.pixlRadius + 8;
+
+				if (element === 'fire') {
+					p.noFill();
+					p.stroke('#fb923ccc');
+					p.strokeWeight(2);
+					p.arc(centerX, centerY, radius * 2.4, radius * 2.4, age * 2.4, age * 2.4 + Math.PI * 1.2);
+					for (let emberIndex = 0; emberIndex < 3; emberIndex += 1) {
+						const angle = age * 2.8 + emberIndex * ((Math.PI * 2) / 3);
+						p.noStroke();
+						p.fill('#fdba74cc');
+						p.circle(
+							centerX + Math.cos(angle) * radius * 1.18,
+							centerY + Math.sin(angle) * radius * 1.18,
+							3.5 + pulse
+						);
+					}
+				} else if (element === 'lightning') {
+					p.stroke('#fde047dd');
+					p.strokeWeight(1.8);
+					for (let boltIndex = 0; boltIndex < 3; boltIndex += 1) {
+						const angle = age * 4 + boltIndex * ((Math.PI * 2) / 3);
+						const startX = centerX + Math.cos(angle) * radius * 0.88;
+						const startY = centerY + Math.sin(angle) * radius * 0.88;
+						const midX = centerX + Math.cos(angle + 0.18) * radius * 1.18;
+						const midY = centerY + Math.sin(angle + 0.18) * radius * 1.02;
+						const endX = centerX + Math.cos(angle - 0.08) * radius * 1.42;
+						const endY = centerY + Math.sin(angle - 0.08) * radius * 1.26;
+						p.line(startX, startY, midX, midY);
+						p.line(midX, midY, endX, endY);
+					}
+				} else if (element === 'cold') {
+					p.noFill();
+					p.stroke('#7dd3fccc');
+					p.strokeWeight(1.7);
+					p.circle(centerX, centerY, radius * 2.45);
+					for (let shardIndex = 0; shardIndex < 4; shardIndex += 1) {
+						const angle = age * 1.6 + shardIndex * (Math.PI / 2);
+						const x = centerX + Math.cos(angle) * radius * 1.22;
+						const y = centerY + Math.sin(angle) * radius * 1.22;
+						p.line(x - 3, y, x + 3, y);
+						p.line(x, y - 3, x, y + 3);
+					}
+				} else {
+					p.noFill();
+					p.stroke('#a78bfacc');
+					p.strokeWeight(1.8);
+					for (let ringIndex = 0; ringIndex < 2; ringIndex += 1) {
+						const wobble = Math.sin(age * 3.4 + ringIndex * 1.8) * 2.6;
+						p.circle(centerX, centerY, radius * (2.15 + ringIndex * 0.38) + wobble);
+					}
+				}
+			}
+
+			if (activeElementalBuffs.length === 4) {
+				const age = pixlAuraClock;
+				const masteryRadius = combatProfile.collision.pixlRadius + 13;
+				const colors = ['#fb923c', '#fde047', '#7dd3fc', '#a78bfa'];
+
+				p.noFill();
+				for (let ringIndex = 0; ringIndex < 4; ringIndex += 1) {
+					const angle = age * (1.2 + ringIndex * 0.18) + ringIndex * (Math.PI / 4);
+					const radius = masteryRadius + Math.sin(age * 3 + ringIndex) * 3;
+					p.push();
+					p.translate(centerX, centerY);
+					p.rotate(angle);
+					p.stroke(colors[ringIndex]);
+					p.strokeWeight(1.8 + (ringIndex % 2) * 0.4);
+					p.rectMode(p.CENTER);
+					p.rect(0, 0, radius * (2 + ringIndex * 0.14), radius * (2 + ringIndex * 0.14), 6);
+					p.pop();
+				}
+
+				for (let sparkIndex = 0; sparkIndex < 8; sparkIndex += 1) {
+					const color = colors[sparkIndex % colors.length];
+					const angle = age * 2.8 + sparkIndex * (Math.PI / 4);
+					const innerRadius = masteryRadius * 0.7;
+					const outerRadius = masteryRadius * 1.65;
+					p.stroke(color);
+					p.strokeWeight(1.3);
+					p.line(
+						centerX + Math.cos(angle) * innerRadius,
+						centerY + Math.sin(angle) * innerRadius,
+						centerX + Math.cos(angle) * outerRadius,
+						centerY + Math.sin(angle) * outerRadius
+					);
+				}
+			}
+
 			p.noFill();
 			p.strokeWeight(2);
 

@@ -8,9 +8,19 @@ export interface UtilityActivationContext {
 	recalculateShieldPool: () => void;
 	setActiveShieldColor: (color: string) => void;
 	addElementalInfusion: (element: ElementalInfusionType) => void;
+	getElementalInfusionCount: (element: ElementalInfusionType) => number;
+	spendElementalInfusion: (element: ElementalInfusionType, amount: number) => void;
 	spawnOathbreakerSigil: (utility: EquippedUtilityState) => void;
 	applyCycleDamageBoost: (damageMultiplier: number, expiresAfterSweepIndex: number) => void;
+	applyElementalCycleBoost: (
+		element: ElementalInfusionType,
+		damageMultiplier: number,
+		expiresAfterSweepIndex: number
+	) => void;
+	applyElementalMasteryBoost: (damageMultiplier: number, expiresAfterSweepIndex: number) => void;
 }
+
+const elementalInfusionTypes: ElementalInfusionType[] = ['fire', 'lightning', 'cold', 'void'];
 
 export function activatePassiveUtilityBehavior() {
 	return;
@@ -85,6 +95,41 @@ export function activateCycleDamageBoostUtility(
 	}
 
 	context.applyCycleDamageBoost(damageMultiplier, context.currentSweepIndex + 1);
+}
+
+export function activateElementalCycleBoostUtility(
+	utility: EquippedUtilityState,
+	context: UtilityActivationContext,
+	element: ElementalInfusionType,
+	damageMultiplier: number
+) {
+	if (!shouldTriggerUtility(utility)) {
+		return;
+	}
+
+	context.applyElementalCycleBoost(element, damageMultiplier, context.currentSweepIndex + 2);
+}
+
+export function activateElementalMasteryUtility(
+	utility: EquippedUtilityState,
+	context: UtilityActivationContext,
+	damageMultiplier: number
+) {
+	if (!shouldTriggerUtility(utility)) {
+		return;
+	}
+
+	for (const element of elementalInfusionTypes) {
+		if (context.getElementalInfusionCount(element) < 1) {
+			return;
+		}
+	}
+
+	for (const element of elementalInfusionTypes) {
+		context.spendElementalInfusion(element, 1);
+	}
+
+	context.applyElementalMasteryBoost(damageMultiplier, context.currentSweepIndex + 2);
 }
 
 export function activateUtilityBehavior(

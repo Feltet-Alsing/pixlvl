@@ -70,10 +70,10 @@ Current rarity distribution across unique definitions:
 - `10` normal
 - `9` magic
 - `11` normal
-- `14` magic
-- `18` rare
+- `16` magic
+- `20` rare
 - `10` exotic
-- `10` legendary
+- `11` legendary
 
 ### Season 1 weapon roster milestone
 
@@ -82,8 +82,8 @@ The first public release / Season `1` content target should be much larger than 
 Weapon milestone:
 
 - target `150` total weapons for the Season `1` roster
-- current implemented count is `63` weapons
-- remaining gap is `87` additional weapons
+- current implemented count is `68` weapons
+- remaining gap is `82` additional weapons
 
 Target rarity mix for the full Season `1` weapon roster:
 
@@ -107,6 +107,19 @@ Latest roster pass:
 - the next helper package is now live as fixed-placement laser rods: `Ember Rods`, `Coldwire Rods`, `Sunder Rods`
 - laser rods use the targeting menu as arena anchor selection with eight fixed positions around the pixl
 - rods are intentionally non-functional alone; they only create damage or debuff lanes when at least two rods of the same weapon are active and linked
+- the next elemental utility package is now live as pixl-bound cycle buffs: `Fire Boost`, `Lightning Boost`, `Cold Boost`, `Void Boost`
+- all four pixl buffs use the same U-shaped footprint:
+
+```text
+X--X
+XXXX
+```
+
+- pixl buffs trigger every cycle, keep their aura active between sweeps, and boost only that element's infused weapon damage until the next cycle refreshes them
+- only one pixl boost can be active at a time; a newly triggered boost overwrites any previously active elemental pixl boost
+- the elemental apex version is now `Elemental Mastery`, a legendary hollow rectangle that fits all four `2x2` infusers inside it
+- `Elemental Mastery` consumes one fire, lightning, cold, and void infusion together, then grants `200%` extra elemental damage across all infused weapons with a deliberately chaotic multi-element pixl aura
+- while `Elemental Mastery` is active, subsequent elemental weapons require `1` fewer infusion of their element to fire, to a minimum cost of `0`
 
 ---
 

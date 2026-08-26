@@ -6,7 +6,9 @@ import {
 } from '$lib/p5/utility-component';
 import {
 	activateCycleDamageBoostUtility,
+	activateElementalCycleBoostUtility,
 	activateElementalInfuserUtility,
+	activateElementalMasteryUtility,
 	activateOathbreakerSigilUtility,
 	activatePassiveUtilityBehavior,
 	activateShieldPoolUtility,
@@ -67,6 +69,30 @@ const elementalInfuserUtilityModule: Partial<UtilityModule> = {
 	}
 };
 
+const elementalCycleBoostUtilityModule: Partial<UtilityModule> = {
+	activate: (utility, context) => {
+		const effect = utility.definition.effect;
+
+		if (effect.type !== 'elemental-cycle-boost') {
+			return;
+		}
+
+		activateElementalCycleBoostUtility(utility, context, effect.element, effect.damageMultiplier);
+	}
+};
+
+const elementalMasteryUtilityModule: Partial<UtilityModule> = {
+	activate: (utility, context) => {
+		const effect = utility.definition.effect;
+
+		if (effect.type !== 'elemental-mastery') {
+			return;
+		}
+
+		activateElementalMasteryUtility(utility, context, effect.damageMultiplier);
+	}
+};
+
 const oathbreakerUtilityModule: Partial<UtilityModule> = {
 	activate: (utility, context) => {
 		activateOathbreakerSigilUtility(utility, context);
@@ -104,6 +130,11 @@ const utilityModulesById: Record<string, Partial<UtilityModule>> = {
 	'lightning-infuser': elementalInfuserUtilityModule,
 	'cold-infuser': elementalInfuserUtilityModule,
 	'void-infuser': elementalInfuserUtilityModule,
+	'fire-boost': elementalCycleBoostUtilityModule,
+	'lightning-boost': elementalCycleBoostUtilityModule,
+	'cold-boost': elementalCycleBoostUtilityModule,
+	'void-boost': elementalCycleBoostUtilityModule,
+	'elemental-mastery': elementalMasteryUtilityModule,
 	'oathbreaker-sigil': oathbreakerUtilityModule
 };
 

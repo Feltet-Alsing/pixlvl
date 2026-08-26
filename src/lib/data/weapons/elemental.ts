@@ -271,6 +271,214 @@ export const elementalWeapons: LoadoutItemDefinition[] = [
 		role: 'Normal utility that generates one void infusion each cycle'
 	},
 	{
+		id: 'fire-boost',
+		name: 'Fire Boost',
+		category: 'utility',
+		rarity: 'magic',
+		shape: {
+			width: 4,
+			height: 2,
+			cells: [
+				[0, 0],
+				[3, 0],
+				[0, 1],
+				[1, 1],
+				[2, 1],
+				[3, 1]
+			]
+		},
+		activationKind: 'triggered',
+		cycleInterval: 1,
+		effect: {
+			type: 'elemental-cycle-boost',
+			element: 'fire',
+			damageMultiplier: 1.2,
+			duration: 'rest-of-cycle'
+		},
+		utilityVisual: {
+			color: '#fb923c',
+			shape: 'ring',
+			glow: true
+		},
+		drop: {
+			mode: 'drop',
+			campaignId: 3,
+			stageStart: 2,
+			stageEnd: 5,
+			perLevelDropChance: 0.06
+		},
+		role: 'Magic pixl buff that wreathes the pixl in embers and boosts fire-infused weapon damage by 20% for the rest of the current cycle'
+	},
+	{
+		id: 'lightning-boost',
+		name: 'Lightning Boost',
+		category: 'utility',
+		rarity: 'magic',
+		shape: {
+			width: 4,
+			height: 2,
+			cells: [
+				[0, 0],
+				[3, 0],
+				[0, 1],
+				[1, 1],
+				[2, 1],
+				[3, 1]
+			]
+		},
+		activationKind: 'triggered',
+		cycleInterval: 1,
+		effect: {
+			type: 'elemental-cycle-boost',
+			element: 'lightning',
+			damageMultiplier: 1.2,
+			duration: 'rest-of-cycle'
+		},
+		utilityVisual: {
+			color: '#fde047',
+			shape: 'ring',
+			glow: true
+		},
+		drop: {
+			mode: 'drop',
+			campaignId: 3,
+			stageStart: 2,
+			stageEnd: 5,
+			perLevelDropChance: 0.06
+		},
+		role: 'Magic pixl buff that arcs around the pixl and boosts lightning-infused weapon damage by 20% for the rest of the current cycle'
+	},
+	{
+		id: 'cold-boost',
+		name: 'Cold Boost',
+		category: 'utility',
+		rarity: 'rare',
+		shape: {
+			width: 4,
+			height: 2,
+			cells: [
+				[0, 0],
+				[3, 0],
+				[0, 1],
+				[1, 1],
+				[2, 1],
+				[3, 1]
+			]
+		},
+		activationKind: 'triggered',
+		cycleInterval: 1,
+		effect: {
+			type: 'elemental-cycle-boost',
+			element: 'cold',
+			damageMultiplier: 1.25,
+			duration: 'rest-of-cycle'
+		},
+		utilityVisual: {
+			color: '#7dd3fc',
+			shape: 'ring',
+			glow: true
+		},
+		drop: {
+			mode: 'drop',
+			campaignId: 3,
+			stageStart: 3,
+			stageEnd: 5,
+			perLevelDropChance: 0.05
+		},
+		role: 'Rare pixl buff that frosts the pixl and boosts cold-infused weapon damage by 25% for the rest of the current cycle'
+	},
+	{
+		id: 'void-boost',
+		name: 'Void Boost',
+		category: 'utility',
+		rarity: 'rare',
+		shape: {
+			width: 4,
+			height: 2,
+			cells: [
+				[0, 0],
+				[3, 0],
+				[0, 1],
+				[1, 1],
+				[2, 1],
+				[3, 1]
+			]
+		},
+		activationKind: 'triggered',
+		cycleInterval: 1,
+		effect: {
+			type: 'elemental-cycle-boost',
+			element: 'void',
+			damageMultiplier: 1.25,
+			duration: 'rest-of-cycle'
+		},
+		utilityVisual: {
+			color: '#a78bfa',
+			shape: 'ring',
+			glow: true
+		},
+		drop: {
+			mode: 'drop',
+			campaignId: 3,
+			stageStart: 3,
+			stageEnd: 5,
+			perLevelDropChance: 0.05
+		},
+		role: 'Rare pixl buff that wraps the pixl in void shimmer and boosts void-infused weapon damage by 25% for the rest of the current cycle'
+	},
+	{
+		id: 'elemental-mastery',
+		name: 'Elemental Mastery',
+		category: 'utility',
+		rarity: 'legendary',
+		shape: {
+			width: 6,
+			height: 6,
+			cells: [
+				[0, 0],
+				[1, 0],
+				[2, 0],
+				[3, 0],
+				[4, 0],
+				[5, 0],
+				[0, 1],
+				[5, 1],
+				[0, 2],
+				[5, 2],
+				[0, 3],
+				[5, 3],
+				[0, 4],
+				[5, 4],
+				[0, 5],
+				[1, 5],
+				[2, 5],
+				[3, 5],
+				[4, 5],
+				[5, 5]
+			]
+		},
+		activationKind: 'triggered',
+		cycleInterval: 1,
+		effect: {
+			type: 'elemental-mastery',
+			damageMultiplier: 3,
+			duration: 'rest-of-cycle'
+		},
+		utilityVisual: {
+			color: '#f8fafc',
+			shape: 'ring',
+			glow: true
+		},
+		drop: {
+			mode: 'drop',
+			campaignId: 3,
+			stageStart: 4,
+			stageEnd: 5,
+			perLevelDropChance: 0.02
+		},
+		role: 'Legendary pixl buff that consumes one fire, lightning, cold, and void infusion each cycle to unleash a chaotic mastery aura, grant 200% extra elemental damage across all infused weapons, and reduce subsequent elemental weapon infusion costs by 1 while active'
+	},
+	{
 		id: 'zeus-hammer',
 		name: "Thor's Hammer",
 		rarity: 'legendary',
