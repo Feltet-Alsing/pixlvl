@@ -67,6 +67,14 @@ const allCampaignWeapons = [
 	(item, index, items) => items.findIndex((candidate) => candidate.id === item.id) === index
 );
 
+export const allLoadoutDefinitions = allCampaignWeapons;
+export const allWeaponDefinitions = allCampaignWeapons.filter(
+	(item): item is WeaponDefinition => !('category' in item && item.category === 'utility')
+);
+export const allUtilityDefinitions = allCampaignWeapons.filter(
+	(item): item is UtilityDefinition => 'category' in item && item.category === 'utility'
+);
+
 export const campaignWeaponPools = {
 	[campaign1.campaign]: sharedWeapons,
 	[campaign2.campaign]: [...sharedPoolWeapons, ...controlWeapons],
