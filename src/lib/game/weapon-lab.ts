@@ -5,6 +5,7 @@ import type {
 	CampaignDefinition,
 	CampaignLevel,
 	CombatProfile,
+	LoadoutItemDefinition,
 	LoadoutPlacement,
 	OwnedWeaponInstance,
 	WeaponDefinition,
@@ -147,7 +148,7 @@ export function createWeaponLabLevel(presetId: WeaponLabPresetId): CampaignLevel
 	};
 }
 
-function createLabOwnedWeapon(definition: WeaponDefinition, index: number): OwnedWeaponInstance {
+function createLabOwnedItem(definition: LoadoutItemDefinition, index: number): OwnedWeaponInstance {
 	return {
 		instanceId: `weapon-lab-${definition.id}-${index}`,
 		definitionId: definition.id,
@@ -162,26 +163,31 @@ function createLabOwnedWeapon(definition: WeaponDefinition, index: number): Owne
 }
 
 function createLabPlacement(
-	definition: WeaponDefinition,
+	definition: LoadoutItemDefinition,
 	instanceId: string,
-	index: number,
+	position: { x: number; y: number },
 	targeting: WeaponTargetingKind
 ): LoadoutPlacement {
-	const columnSpacing = 6;
-	const x = index * columnSpacing;
-	const y = 0;
-
 	return {
 		weaponInstanceId: instanceId,
-		x,
-		y,
+		x: position.x,
+		y: position.y,
 		rotation: 0,
-		targeting: targeting ?? definition.attack.targeting
+		targeting: 'attack' in definition ? (targeting ?? definition.attack.targeting) : undefined
 	};
 }
 
+function createWeaponLabPositions(loadoutItems: LoadoutItemDefinition[]) {
+	const supportRowSpacing = 3;
+
+	return loadoutItems.map((definition, index) => ({
+		x: 0,
+		y: 'attack' in definition ? 0 : (index + 1) * supportRowSpacing
+	}));
+}
+
 export function createWeaponLabPixlState(
-	weapons: WeaponDefinition[],
+	loadoutItems: LoadoutItemDefinition[],
 	options: {
 		targeting: WeaponTargetingKind;
 		xp?: number;
@@ -191,9 +197,17 @@ export function createWeaponLabPixlState(
 		targeting: 'current-target'
 	}
 ): WeaponLabPixlStateInput {
-	const ownedWeapons = weapons.map((definition, index) => createLabOwnedWeapon(definition, index));
+	const ownedWeapons = loadoutItems.map((definition, index) =>
+		createLabOwnedItem(definition, index)
+	);
+	const positions = createWeaponLabPositions(loadoutItems);
 	const placements = ownedWeapons.map((ownedWeapon, index) =>
-		createLabPlacement(weapons[index], ownedWeapon.instanceId, index, options.targeting)
+		createLabPlacement(
+			loadoutItems[index],
+			ownedWeapon.instanceId,
+			positions[index],
+			options.targeting
+		)
 	);
 
 	return {
