@@ -11,6 +11,7 @@ export interface UtilityActivationContext {
 	getElementalInfusionCount: (element: ElementalInfusionType) => number;
 	spendElementalInfusion: (element: ElementalInfusionType, amount: number) => void;
 	spawnOathbreakerSigil: (utility: EquippedUtilityState) => void;
+	spawnMirrorArray: (utility: EquippedUtilityState) => void;
 	applyCycleDamageBoost: (damageMultiplier: number, expiresAfterSweepIndex: number) => void;
 	applyElementalCycleBoost: (
 		element: ElementalInfusionType,
@@ -83,6 +84,17 @@ export function activateOathbreakerSigilUtility(
 	}
 
 	context.spawnOathbreakerSigil(utility);
+}
+
+export function activateMirrorArrayUtility(
+	utility: EquippedUtilityState,
+	context: UtilityActivationContext
+) {
+	if (!shouldTriggerUtility(utility)) {
+		return;
+	}
+
+	context.spawnMirrorArray(utility);
 }
 
 export function activateCycleDamageBoostUtility(

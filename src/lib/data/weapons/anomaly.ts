@@ -95,6 +95,154 @@ export const anomalyWeapons: LoadoutItemDefinition[] = [
 		role: 'Magic battlefield debuffer that releases a low-damage curse pulse, softening groups so every other weapon hits harder for the next few cycles'
 	},
 	{
+		id: 'parasite-bloom',
+		name: 'Parasite Bloom',
+		rarity: 'rare',
+		shape: {
+			width: 4,
+			height: 3,
+			cells: [
+				[1, 0],
+				[2, 0],
+				[0, 1],
+				[1, 1],
+				[2, 1],
+				[3, 1],
+				[1, 2],
+				[2, 2]
+			]
+		},
+		baseDamage: 8,
+		projectileSpeed: 360,
+		attack: {
+			kind: 'single',
+			projectileCount: 1,
+			cycleInterval: 2,
+			special: {
+				type: 'parasite-bloom',
+				duration: 3.2,
+				healRatio: 0.14,
+				pulseRadius: 96
+			},
+			targeting: 'strongest-target'
+		},
+		projectileVisual: {
+			color: '#f472b6',
+			size: 'medium',
+			shape: 'orb',
+			trail: 'pulse',
+			glow: true
+		},
+		drop: {
+			mode: 'drop',
+			campaignId: 4,
+			stageStart: 2,
+			stageEnd: 5,
+			perLevelDropChance: 0.045
+		},
+		role: "Rare anomaly sustain weapon that infects the strongest glitch with a short-lived parasite; if the host dies before it withers, it emits a healing pulse that restores pixl health based on the host's max health"
+	},
+	{
+		id: 'prism-prison',
+		name: 'Prism Prison',
+		rarity: 'rare',
+		shape: {
+			width: 5,
+			height: 4,
+			cells: [
+				[1, 0],
+				[2, 0],
+				[3, 0],
+				[0, 1],
+				[1, 1],
+				[2, 1],
+				[3, 1],
+				[4, 1],
+				[1, 2],
+				[2, 2],
+				[3, 2],
+				[2, 3]
+			]
+		},
+		baseDamage: 12,
+		projectileSpeed: 0,
+		attack: {
+			kind: 'single',
+			projectileCount: 1,
+			cycleInterval: 3,
+			special: {
+				type: 'prism-prison',
+				durationCycles: 1.4,
+				radius: 72,
+				sides: 6,
+				lineWidth: 10,
+				edgeHitCooldown: 0.38
+			},
+			targeting: 'current-target'
+		},
+		projectileVisual: {
+			color: '#67e8f9',
+			size: 'large',
+			shape: 'diamond',
+			trail: 'pulse',
+			glow: true
+		},
+		drop: {
+			mode: 'drop',
+			campaignId: 4,
+			stageStart: 2,
+			stageEnd: 5,
+			perLevelDropChance: 0.04
+		},
+		role: 'Rare anomaly trap weapon that drops a geometric cage over the chosen cluster; glitches that push through its edges get cut repeatedly until the prison collapses'
+	},
+	{
+		id: 'mirror-array',
+		name: 'Mirror Array',
+		category: 'utility',
+		rarity: 'exotic',
+		shape: {
+			width: 5,
+			height: 4,
+			cells: [
+				[1, 0],
+				[3, 0],
+				[0, 1],
+				[1, 1],
+				[2, 1],
+				[3, 1],
+				[4, 1],
+				[1, 2],
+				[2, 2],
+				[3, 2],
+				[1, 3],
+				[3, 3]
+			]
+		},
+		activationKind: 'triggered',
+		cycleInterval: 3,
+		effect: {
+			type: 'mirror-array',
+			radiusFactor: 0.56,
+			duration: 2.8,
+			reflectedDamageMultiplier: 0.85,
+			reflectedImpactRadius: 62
+		},
+		utilityVisual: {
+			color: '#93c5fd',
+			shape: 'ring',
+			glow: true
+		},
+		drop: {
+			mode: 'drop',
+			campaignId: 4,
+			stageStart: 3,
+			stageEnd: 5,
+			perLevelDropChance: 0.028
+		},
+		role: 'Exotic anomaly reflector that marks a forward half-arena mirror; shots that pierce through or miss into the mirror rebound once as wider splash echoes'
+	},
+	{
 		id: 'void-tunnel',
 		name: 'Void Tunnel',
 		rarity: 'rare',

@@ -88,6 +88,11 @@ interface EnemyState {
 	voidTouchedTimer: number;
 	lifeStealMarkTimer: number;
 	lifeStealMarkRatio: number;
+	parasiteBloomTimer: number;
+	parasiteBloomDuration: number;
+	parasiteBloomHealRatio: number;
+	parasiteBloomPulseRadius: number;
+	parasiteBloomColor: string | null;
 	vulnerableTimer: number;
 	chillAmount: number;
 	frozenTimer: number;
@@ -143,6 +148,8 @@ interface ProjectileState {
 	arrivalEffect: 'burning-ground' | null;
 	arrivalTriggerRadius: number;
 	minePayloadWeaponId: string | null;
+	mirrorBounceReady: boolean;
+	reflectedByMirror: boolean;
 }
 
 interface SniperLockState {
@@ -228,6 +235,17 @@ interface VulnerablePulseState {
 	glow: boolean;
 	age: number;
 	hitEnemyIds: number[];
+}
+
+interface ParasiteBloomPulseState {
+	originX: number;
+	originY: number;
+	radius: number;
+	maxRadius: number;
+	healAmount: number;
+	age: number;
+	duration: number;
+	color: string;
 }
 
 interface PerimeterMineState {
@@ -320,6 +338,25 @@ interface StasisFieldState {
 	glow: boolean;
 	age: number;
 	duration: number;
+}
+
+interface PrismPrisonState {
+	sourceWeaponInstanceId: string;
+	centerX: number;
+	centerY: number;
+	radius: number;
+	sides: number;
+	lineWidth: number;
+	edgeHitCooldown: number;
+	edgeHitCooldowns: Map<string, number>;
+	damage: number;
+	rotation: number;
+	color: string;
+	glow: boolean;
+	age: number;
+	triggered: boolean;
+	activeAge: number;
+	activeDuration: number;
 }
 
 interface VoidTunnelState {
@@ -591,6 +628,23 @@ interface OathbreakerSigilState {
 	age: number;
 	slowMultiplier: number;
 	damageShareRatio: number;
+	color: string;
+	glow: boolean;
+}
+
+interface MirrorArrayState {
+	sourceUtilityInstanceId: string;
+	angle: number;
+	radius: number;
+	currentRadius: number;
+	halfArcRadians: number;
+	sweepDuration: number;
+	expansionSpeed: number;
+	lineWidth: number;
+	duration: number;
+	age: number;
+	reflectedDamageMultiplier: number;
+	reflectedImpactRadius: number;
 	color: string;
 	glow: boolean;
 }
@@ -1023,7 +1077,9 @@ export function createArenaCombatSketch(
 		let forceFields: ForceFieldState[] = [];
 		let killSwitchPulses: KillSwitchPulseState[] = [];
 		let vulnerablePulses: VulnerablePulseState[] = [];
+		let parasiteBloomPulses: ParasiteBloomPulseState[] = [];
 		let stasisFields: StasisFieldState[] = [];
+		let prismPrisons: PrismPrisonState[] = [];
 		let laserSweeps: LaserSweepState[] = [];
 		let perimeterMines: PerimeterMineState[] = [];
 		let turretMines: TurretMineState[] = [];
@@ -1043,6 +1099,7 @@ export function createArenaCombatSketch(
 		let voidTunnels: VoidTunnelState[] = [];
 		let phaseshifts: PhaseshiftState[] = [];
 		let oathbreakerSigils: OathbreakerSigilState[] = [];
+		let mirrorArrays: MirrorArrayState[] = [];
 		let burningGrounds: BurningGroundState[] = [];
 		let delayedBombs: DelayedBombState[] = [];
 		let hemorrhageBursts: HemorrhageBurstState[] = [];
@@ -1429,7 +1486,9 @@ export function createArenaCombatSketch(
 			forceFields = [];
 			killSwitchPulses = [];
 			vulnerablePulses = [];
+			parasiteBloomPulses = [];
 			stasisFields = [];
+			prismPrisons = [];
 			laserSweeps = [];
 			perimeterMines = [];
 			turretMines = [];
@@ -1449,6 +1508,7 @@ export function createArenaCombatSketch(
 			voidTunnels = [];
 			phaseshifts = [];
 			oathbreakerSigils = [];
+			mirrorArrays = [];
 			burningGrounds = [];
 			delayedBombs = [];
 			hemorrhageBursts = [];
@@ -1787,6 +1847,11 @@ export function createArenaCombatSketch(
 				voidTouchedTimer: 0,
 				lifeStealMarkTimer: 0,
 				lifeStealMarkRatio: 0,
+				parasiteBloomTimer: 0,
+				parasiteBloomDuration: 0,
+				parasiteBloomHealRatio: 0,
+				parasiteBloomPulseRadius: 0,
+				parasiteBloomColor: null,
 				vulnerableTimer: 0,
 				chillAmount: 0,
 				frozenTimer: 0,
@@ -2235,6 +2300,112 @@ export function createArenaCombatSketch(
 			return delta;
 		};
 
+		const getRegularPolygonPoints = (
+			centerPointX: number,
+			centerPointY: number,
+			radius: number,
+			sides: number,
+			rotation: number
+		) => {
+			const points: Array<{ x: number; y: number }> = [];
+
+			for (let sideIndex = 0; sideIndex < sides; sideIndex += 1) {
+				const angle = rotation + (sideIndex / sides) * Math.PI * 2;
+				points.push({
+					x: centerPointX + Math.cos(angle) * radius,
+					y: centerPointY + Math.sin(angle) * radius
+				});
+			}
+
+			return points;
+		};
+
+		const getMirrorArrayForSegment = (
+			startX: number,
+			startY: number,
+			endX: number,
+			endY: number
+		) => {
+			for (const mirror of mirrorArrays) {
+				const startDistance = Math.hypot(startX - centerX, startY - centerY);
+				const endDistance = Math.hypot(endX - centerX, endY - centerY);
+				const threshold = mirror.lineWidth * 0.75;
+				const startAngle = Math.atan2(startY - centerY, startX - centerX);
+				const endAngle = Math.atan2(endY - centerY, endX - centerX);
+				const withinArc =
+					Math.abs(normalizeAngleDelta(mirror.angle, startAngle)) <= mirror.halfArcRadians ||
+					Math.abs(normalizeAngleDelta(mirror.angle, endAngle)) <= mirror.halfArcRadians;
+
+				if (!withinArc) {
+					continue;
+				}
+
+				if (
+					startDistance <= mirror.currentRadius + threshold &&
+					endDistance >= mirror.currentRadius - threshold
+				) {
+					return mirror;
+				}
+			}
+
+			return null;
+		};
+
+		const reflectProjectileFromMirror = (projectile: ProjectileState, mirror: MirrorArrayState) => {
+			if (projectile.reflectedByMirror) {
+				return false;
+			}
+
+			const startDistance = Math.hypot(projectile.lastX - centerX, projectile.lastY - centerY);
+			const endDistance = Math.hypot(projectile.x - centerX, projectile.y - centerY);
+			const distanceDelta = endDistance - startDistance;
+			const t =
+				Math.abs(distanceDelta) < 0.0001
+					? 1
+					: Math.max(0, Math.min(1, (mirror.currentRadius - startDistance) / distanceDelta));
+			const contactX = p.lerp(projectile.lastX, projectile.x, t);
+			const contactY = p.lerp(projectile.lastY, projectile.y, t);
+			const normalX = contactX - centerX;
+			const normalY = contactY - centerY;
+			const normalMagnitude = Math.hypot(normalX, normalY) || 1;
+			const nx = normalX / normalMagnitude;
+			const ny = normalY / normalMagnitude;
+			const dot = projectile.directionX * nx + projectile.directionY * ny;
+			const reflectedDirectionX = projectile.directionX - 2 * dot * nx;
+			const reflectedDirectionY = projectile.directionY - 2 * dot * ny;
+			const directionMagnitude = Math.hypot(reflectedDirectionX, reflectedDirectionY) || 1;
+
+			projectile.originX = contactX;
+			projectile.originY = contactY;
+			projectile.x = contactX;
+			projectile.y = contactY;
+			projectile.lastX = contactX;
+			projectile.lastY = contactY;
+			projectile.distanceTravelled = 0;
+			projectile.directionX = reflectedDirectionX / directionMagnitude;
+			projectile.directionY = reflectedDirectionY / directionMagnitude;
+			projectile.perpendicularX = -projectile.directionY;
+			projectile.perpendicularY = projectile.directionX;
+			projectile.animation.directionX = projectile.directionX;
+			projectile.animation.directionY = projectile.directionY;
+			projectile.animation.lastX = contactX;
+			projectile.animation.lastY = contactY;
+			projectile.hitEnemyIds = [];
+			projectile.impactRadius = Math.max(projectile.impactRadius, mirror.reflectedImpactRadius);
+			projectile.maxImpactRadius = Math.max(
+				projectile.maxImpactRadius,
+				mirror.reflectedImpactRadius
+			);
+			projectile.damage = Math.max(
+				1,
+				Math.round(projectile.damage * mirror.reflectedDamageMultiplier)
+			);
+			projectile.mirrorBounceReady = false;
+			projectile.reflectedByMirror = true;
+
+			return true;
+		};
+
 		const getActiveOathbreakerSigilForEnemy = (enemyId: number) => {
 			for (const sigil of oathbreakerSigils) {
 				if (!sigil.enemyIds.includes(enemyId)) {
@@ -2462,8 +2633,27 @@ export function createArenaCombatSketch(
 			const shouldBounceMark = targetPainterEffect && markedEnemyId === defeatedEnemy.id;
 			const defeatedEnemyX = defeatedEnemy.x;
 			const defeatedEnemyY = defeatedEnemy.y;
+			const parasiteHealAmount =
+				defeatedEnemy.parasiteBloomTimer > 0 && defeatedEnemy.parasiteBloomHealRatio > 0
+					? Math.max(1, Math.round(defeatedEnemy.maxHealth * defeatedEnemy.parasiteBloomHealRatio))
+					: 0;
 
 			waveXp += getXpForEnemyKind(defeatedEnemy.kind);
+
+			if (parasiteHealAmount > 0) {
+				healPixl(parasiteHealAmount);
+				parasiteBloomPulses.push({
+					originX: defeatedEnemyX,
+					originY: defeatedEnemyY,
+					radius: 12,
+					maxRadius: defeatedEnemy.parasiteBloomPulseRadius,
+					healAmount: parasiteHealAmount,
+					age: 0,
+					duration: 0.52,
+					color: defeatedEnemy.parasiteBloomColor ?? '#f472b6'
+				});
+				pixlFlash = Math.max(pixlFlash, 0.16);
+			}
 
 			if (defeatedEnemy.kind === 'zerglitch') {
 				for (let splitIndex = 0; splitIndex < 15; splitIndex += 1) {
@@ -2727,6 +2917,26 @@ export function createArenaCombatSketch(
 				);
 			}
 
+			if (applyWeaponHitEffects && sourceWeapon?.attack.special?.type === 'parasite-bloom') {
+				enemy.parasiteBloomTimer = Math.max(
+					enemy.parasiteBloomTimer,
+					sourceWeapon.attack.special.duration
+				);
+				enemy.parasiteBloomDuration = Math.max(
+					enemy.parasiteBloomDuration,
+					sourceWeapon.attack.special.duration
+				);
+				enemy.parasiteBloomHealRatio = Math.max(
+					enemy.parasiteBloomHealRatio,
+					sourceWeapon.attack.special.healRatio
+				);
+				enemy.parasiteBloomPulseRadius = Math.max(
+					enemy.parasiteBloomPulseRadius,
+					sourceWeapon.attack.special.pulseRadius
+				);
+				enemy.parasiteBloomColor = sourceWeapon.projectileVisual.color;
+			}
+
 			const bleedSpec = applyWeaponHitEffects
 				? resolveBleedSourceSpec(sourceWeapon, sourceWeaponInstanceId)
 				: null;
@@ -2971,7 +3181,7 @@ export function createArenaCombatSketch(
 			}
 
 			const angle = Math.atan2(focalTarget.y - centerY, focalTarget.x - centerX);
-			const radius = Math.min(p.width, p.height) * effect.radiusFactor;
+			const radius = arenaRadius + 36;
 			const currentRadius = combatProfile.collision.pixlRadius;
 			const sweepDuration = 0.32;
 			const expansionSpeed = Math.max(1, (radius - currentRadius) / sweepDuration);
@@ -2992,6 +3202,45 @@ export function createArenaCombatSketch(
 				slowMultiplier: effect.slowMultiplier,
 				damageShareRatio: effect.damageShareRatio,
 				color: utility.definition.utilityVisual?.color ?? '#f59e0b',
+				glow: utility.definition.utilityVisual?.glow ?? false
+			});
+		};
+
+		const spawnMirrorArray = (utility: EquippedUtilityState) => {
+			const effect = utility.definition.effect;
+
+			if (effect.type !== 'mirror-array') {
+				return;
+			}
+
+			const focalTarget =
+				getWeaponTarget('strongest-target') ?? getWeaponTarget('nearest-target') ?? null;
+
+			if (!focalTarget) {
+				return;
+			}
+
+			const angle = Math.atan2(focalTarget.y - centerY, focalTarget.x - centerX);
+			const radius = arenaRadius + 18;
+			const currentRadius = combatProfile.collision.pixlRadius;
+			const sweepDuration = 0.32;
+			const expansionSpeed = Math.max(1, (radius - currentRadius) / sweepDuration);
+			const halfArcRadians = Math.PI / 2;
+
+			mirrorArrays.push({
+				sourceUtilityInstanceId: utility.instanceId,
+				angle,
+				radius,
+				currentRadius,
+				halfArcRadians,
+				sweepDuration,
+				expansionSpeed,
+				lineWidth: 16,
+				duration: effect.duration,
+				age: 0,
+				reflectedDamageMultiplier: effect.reflectedDamageMultiplier,
+				reflectedImpactRadius: effect.reflectedImpactRadius,
+				color: utility.definition.utilityVisual?.color ?? '#93c5fd',
 				glow: utility.definition.utilityVisual?.glow ?? false
 			});
 		};
@@ -3018,6 +3267,45 @@ export function createArenaCombatSketch(
 				glow: weapon.projectileVisual.glow ?? false,
 				age: 0,
 				duration: special.fieldDurationCycles / Math.max(0.001, pixlProgression.attackSpeed)
+			});
+		};
+
+		const spawnPrismPrison = (
+			weapon: WeaponDefinition,
+			sourceWeaponInstanceId: string,
+			target: { x: number; y: number }
+		) => {
+			const special = weapon.attack.special;
+
+			if (!special || special.type !== 'prism-prison') {
+				return;
+			}
+
+			if (
+				prismPrisons.some(
+					(prison) => prison.sourceWeaponInstanceId === sourceWeaponInstanceId
+				)
+			) {
+				return;
+			}
+
+			prismPrisons.push({
+				sourceWeaponInstanceId,
+				centerX: target.x,
+				centerY: target.y,
+				radius: special.radius,
+				sides: special.sides,
+				lineWidth: special.lineWidth,
+				edgeHitCooldown: special.edgeHitCooldown,
+				edgeHitCooldowns: new Map(),
+				damage: getAdjustedWeaponDamage(weapon, 1, sourceWeaponInstanceId),
+				rotation: Math.atan2(target.y - centerY, target.x - centerX) + Math.PI / 6,
+				color: weapon.projectileVisual.color,
+				glow: weapon.projectileVisual.glow ?? false,
+				age: 0,
+				triggered: false,
+				activeAge: 0,
+				activeDuration: special.durationCycles / Math.max(0.001, pixlProgression.attackSpeed)
 			});
 		};
 
@@ -4032,7 +4320,9 @@ export function createArenaCombatSketch(
 				impactTargetY,
 				arrivalEffect,
 				arrivalTriggerRadius,
-				minePayloadWeaponId
+				minePayloadWeaponId,
+				mirrorBounceReady: false,
+				reflectedByMirror: false
 			});
 		};
 
@@ -4373,6 +4663,7 @@ export function createArenaCombatSketch(
 				spawnStasisField: (definition, instanceId, stasisTarget) => {
 					spawnStasisField(definition, instanceId, stasisTarget as EnemyState);
 				},
+				spawnPrismPrison,
 				spawnVoidTunnel: (definition, instanceId, tunnelTarget) => {
 					spawnVoidTunnel(definition, instanceId, tunnelTarget as EnemyState);
 				},
@@ -4457,6 +4748,7 @@ export function createArenaCombatSketch(
 					elementalInfusions[element] = Math.max(0, elementalInfusions[element] - amount);
 				},
 				spawnOathbreakerSigil,
+				spawnMirrorArray,
 				applyCycleDamageBoost: (damageMultiplier, expiresAfterSweepIndex) => {
 					cycleDamageMultiplier = Math.max(cycleDamageMultiplier, damageMultiplier);
 					cycleDamageBuffExpiresAfterSweepIndex = expiresAfterSweepIndex;
@@ -4814,6 +5106,19 @@ export function createArenaCombatSketch(
 			}
 		};
 
+		const updateParasiteBloomPulses = (dt: number) => {
+			for (let index = parasiteBloomPulses.length - 1; index >= 0; index -= 1) {
+				const pulse = parasiteBloomPulses[index];
+				pulse.age += dt;
+				const progress = Math.max(0, Math.min(1, pulse.age / pulse.duration));
+				pulse.radius = p.lerp(12, pulse.maxRadius, easeInQuad(progress));
+
+				if (pulse.age >= pulse.duration) {
+					parasiteBloomPulses.splice(index, 1);
+				}
+			}
+		};
+
 		const updateOathbreakerSigils = (dt: number) => {
 			for (let index = oathbreakerSigils.length - 1; index >= 0; index -= 1) {
 				const sigil = oathbreakerSigils[index];
@@ -4852,6 +5157,107 @@ export function createArenaCombatSketch(
 
 				if (sigil.age >= sigil.sweepDuration + sigil.duration) {
 					oathbreakerSigils.splice(index, 1);
+				}
+			}
+		};
+
+		const updateMirrorArrays = (dt: number) => {
+			for (let index = mirrorArrays.length - 1; index >= 0; index -= 1) {
+				const mirror = mirrorArrays[index];
+				mirror.age += dt;
+
+				if (mirror.currentRadius < mirror.radius) {
+					mirror.currentRadius = Math.min(
+						mirror.radius,
+						mirror.currentRadius + mirror.expansionSpeed * dt
+					);
+				}
+
+				if (mirror.age >= mirror.sweepDuration + mirror.duration) {
+					mirrorArrays.splice(index, 1);
+				}
+			}
+		};
+
+		const updatePrismPrisons = (dt: number) => {
+			for (let index = prismPrisons.length - 1; index >= 0; index -= 1) {
+				const prison = prismPrisons[index];
+				prison.age += dt;
+
+				if (prison.triggered) {
+					prison.activeAge += dt;
+				}
+
+				for (const [key, value] of prison.edgeHitCooldowns.entries()) {
+					const nextValue = value - dt;
+
+					if (nextValue <= 0) {
+						prison.edgeHitCooldowns.delete(key);
+					} else {
+						prison.edgeHitCooldowns.set(key, nextValue);
+					}
+				}
+
+				const points = getRegularPolygonPoints(
+					prison.centerX,
+					prison.centerY,
+					prison.radius,
+					prison.sides,
+					prison.rotation
+				);
+
+				for (let enemyIndex = enemies.length - 1; enemyIndex >= 0; enemyIndex -= 1) {
+					const enemy = enemies[enemyIndex];
+
+					if (isEnemyCapturedByVoidTendril(enemy.id)) {
+						continue;
+					}
+
+					const enemyRadius = ENEMY_VISUALS[enemy.kind].radius;
+					const distanceToCenter = Math.hypot(enemy.x - prison.centerX, enemy.y - prison.centerY);
+
+					if (distanceToCenter > prison.radius + enemyRadius + prison.lineWidth) {
+						continue;
+					}
+
+					for (let edgeIndex = 0; edgeIndex < points.length; edgeIndex += 1) {
+						const nextEdgeIndex = (edgeIndex + 1) % points.length;
+						const start = points[edgeIndex];
+						const end = points[nextEdgeIndex];
+						const cooldownKey = `${enemy.id}:${edgeIndex}`;
+
+						if ((prison.edgeHitCooldowns.get(cooldownKey) ?? 0) > 0) {
+							continue;
+						}
+
+						const distanceToEdge = getDistanceToSegment(
+							enemy.x,
+							enemy.y,
+							start.x,
+							start.y,
+							end.x,
+							end.y
+						);
+
+						if (distanceToEdge > enemyRadius + prison.lineWidth * 0.5) {
+							continue;
+						}
+
+						if (!prison.triggered) {
+							prison.triggered = true;
+							prison.activeAge = 0;
+						}
+
+						prison.edgeHitCooldowns.set(cooldownKey, prison.edgeHitCooldown);
+						applyDamageToEnemy(enemyIndex, prison.damage, 0.09, prison.sourceWeaponInstanceId, {
+							allowOathbreakerShare: true
+						});
+						break;
+					}
+				}
+
+				if (prison.triggered && prison.activeAge >= prison.activeDuration) {
+					prismPrisons.splice(index, 1);
 				}
 			}
 		};
@@ -5361,6 +5767,13 @@ export function createArenaCombatSketch(
 				enemy.lifeStealMarkTimer = Math.max(0, enemy.lifeStealMarkTimer - dt);
 				if (enemy.lifeStealMarkTimer <= 0) {
 					enemy.lifeStealMarkRatio = 0;
+				}
+				enemy.parasiteBloomTimer = Math.max(0, enemy.parasiteBloomTimer - dt);
+				if (enemy.parasiteBloomTimer <= 0) {
+					enemy.parasiteBloomDuration = 0;
+					enemy.parasiteBloomHealRatio = 0;
+					enemy.parasiteBloomPulseRadius = 0;
+					enemy.parasiteBloomColor = null;
 				}
 				enemy.vulnerableTimer = Math.max(0, enemy.vulnerableTimer - dt);
 				enemy.frozenTimer = Math.max(0, enemy.frozenTimer - dt);
@@ -6211,6 +6624,19 @@ export function createArenaCombatSketch(
 						projectile.perpendicularY * waveOffset;
 				}
 
+				if (!projectile.arrivalEffect && !projectile.reflectedByMirror) {
+					const mirror = getMirrorArrayForSegment(
+						projectile.lastX,
+						projectile.lastY,
+						projectile.x,
+						projectile.y
+					);
+
+					if (mirror && reflectProjectileFromMirror(projectile, mirror)) {
+						continue;
+					}
+				}
+
 				if (
 					projectile.arrivalEffect &&
 					projectile.impactTargetX !== null &&
@@ -6287,6 +6713,7 @@ export function createArenaCombatSketch(
 
 						if (projectile.pierceRemaining > 0) {
 							projectile.pierceRemaining -= hitEnemyIdsThisStep.length;
+							projectile.mirrorBounceReady = true;
 						} else {
 							projectiles.splice(index, 1);
 						}
@@ -6364,6 +6791,7 @@ export function createArenaCombatSketch(
 
 					if (projectile.pierceRemaining > 0) {
 						projectile.pierceRemaining -= 1;
+						projectile.mirrorBounceReady = true;
 					} else {
 						projectiles.splice(index, 1);
 					}
@@ -6377,6 +6805,17 @@ export function createArenaCombatSketch(
 					projectile.y < -24 ||
 					projectile.y > p.height + 24
 				) {
+					const mirror = getMirrorArrayForSegment(
+						projectile.lastX,
+						projectile.lastY,
+						projectile.x,
+						projectile.y
+					);
+
+					if (mirror && reflectProjectileFromMirror(projectile, mirror)) {
+						continue;
+					}
+
 					projectiles.splice(index, 1);
 				}
 			}
@@ -6707,6 +7146,82 @@ export function createArenaCombatSketch(
 				p.circle(pulse.centerX, pulse.centerY, pulse.radius * 2);
 			}
 
+			for (const pulse of parasiteBloomPulses) {
+				const progress = Math.max(0, Math.min(1, pulse.age / pulse.duration));
+				const alphaHex = Math.round((1 - progress) * 220)
+					.toString(16)
+					.padStart(2, '0');
+				const glowAlphaHex = Math.round((1 - progress) * 72)
+					.toString(16)
+					.padStart(2, '0');
+
+				p.noFill();
+				p.stroke(`${pulse.color}${glowAlphaHex}`);
+				p.strokeWeight(12 - progress * 6);
+				p.circle(pulse.originX, pulse.originY, pulse.radius * 2.18);
+
+				p.stroke(`${pulse.color}${alphaHex}`);
+				p.strokeWeight(4.2 - progress * 2.1);
+				p.circle(pulse.originX, pulse.originY, pulse.radius * 2);
+
+				p.noStroke();
+				p.fill(`#dcfce7${alphaHex}`);
+				p.circle(pulse.originX, pulse.originY, 10 + (1 - progress) * 10);
+			}
+
+			for (const mirror of mirrorArrays) {
+				const life = 1 - mirror.age / Math.max(0.0001, mirror.sweepDuration + mirror.duration);
+				const alphaHex = Math.round(Math.max(0.18, life * 0.75) * 255)
+					.toString(16)
+					.padStart(2, '0');
+				const startAngle = mirror.angle - mirror.halfArcRadians;
+				const endAngle = mirror.angle + mirror.halfArcRadians;
+
+				if (mirror.glow) {
+					p.noFill();
+					p.stroke(`${mirror.color}22`);
+					p.strokeWeight(mirror.lineWidth * 2.2);
+					p.arc(
+						centerX,
+						centerY,
+						mirror.currentRadius * 2.15,
+						mirror.currentRadius * 2.15,
+						startAngle,
+						endAngle
+					);
+				}
+
+				p.noFill();
+				p.stroke(`${mirror.color}${alphaHex}`);
+				p.strokeWeight(mirror.lineWidth);
+				p.arc(
+					centerX,
+					centerY,
+					mirror.currentRadius * 2,
+					mirror.currentRadius * 2,
+					startAngle,
+					endAngle
+				);
+
+				for (let shardIndex = 0; shardIndex < 7; shardIndex += 1) {
+					const t = shardIndex / 6;
+					const shardAngle = p.lerp(startAngle, endAngle, t);
+					const shardX = centerX + Math.cos(shardAngle) * mirror.currentRadius;
+					const shardY = centerY + Math.sin(shardAngle) * mirror.currentRadius;
+					const tangentAngle = shardAngle + Math.PI / 2;
+					const shardLength = 12 + (shardIndex % 2) * 4;
+
+					p.stroke(`#eff6ff${alphaHex}`);
+					p.strokeWeight(2.2);
+					p.line(
+						shardX - Math.cos(tangentAngle) * shardLength * 0.5,
+						shardY - Math.sin(tangentAngle) * shardLength * 0.5,
+						shardX + Math.cos(tangentAngle) * shardLength * 0.5,
+						shardY + Math.sin(tangentAngle) * shardLength * 0.5
+					);
+				}
+			}
+
 			for (const sigil of oathbreakerSigils) {
 				const chainedEnemies = sigil.enemyIds
 					.map((enemyId) => enemies.find((enemy) => enemy.id === enemyId) ?? null)
@@ -6849,6 +7364,55 @@ export function createArenaCombatSketch(
 				p.stroke(field.color);
 				p.strokeWeight(2.8);
 				p.circle(field.centerX, field.centerY, field.radius * 2);
+			}
+
+			for (const prison of prismPrisons) {
+				const openProgress = Math.min(1, prison.age / 0.24);
+				const scale = 0.58 + easeInQuad(openProgress) * 0.42;
+				const points = getRegularPolygonPoints(
+					prison.centerX,
+					prison.centerY,
+					prison.radius * scale,
+					prison.sides,
+					prison.rotation
+				);
+				const alphaHex = Math.round(
+					(prison.triggered
+						? 1 - prison.activeAge / Math.max(0.0001, prison.activeDuration)
+						: 1) * 200
+				)
+					.toString(16)
+					.padStart(2, '0');
+
+				if (prison.glow) {
+					p.noFill();
+					p.stroke(`${prison.color}22`);
+					p.strokeWeight(prison.lineWidth * 2.1);
+					p.beginShape();
+					for (const point of points) {
+						p.vertex(point.x, point.y);
+					}
+					p.endShape(p.CLOSE);
+				}
+
+				p.noFill();
+				p.stroke(`${prison.color}${alphaHex}`);
+				p.strokeWeight(prison.lineWidth);
+				p.beginShape();
+				for (const point of points) {
+					p.vertex(point.x, point.y);
+				}
+				p.endShape(p.CLOSE);
+
+				p.stroke(`#ecfeff${alphaHex}`);
+				p.strokeWeight(1.8);
+				for (let edgeIndex = 0; edgeIndex < points.length; edgeIndex += 1) {
+					const start = points[edgeIndex];
+					const end = points[(edgeIndex + 1) % points.length];
+					const midX = (start.x + end.x) / 2;
+					const midY = (start.y + end.y) / 2;
+					p.line(start.x, start.y, midX, midY);
+				}
 			}
 			for (const pylon of supportPylons) {
 				getWeaponModuleByInstanceId(pylon.sourceWeaponInstanceId).renderArenaEffect(p, {
@@ -7948,6 +8512,30 @@ export function createArenaCombatSketch(
 					p.circle(enemy.x, enemy.y, visual.radius * 2.55);
 				}
 
+				if (enemy.parasiteBloomTimer > 0) {
+					const progress =
+						enemy.parasiteBloomDuration > 0
+							? enemy.parasiteBloomTimer / enemy.parasiteBloomDuration
+							: 0;
+					const parasiteColor = enemy.parasiteBloomColor ?? '#f472b6';
+					const orbitRadius = visual.radius * (1.7 + (1 - progress) * 0.45);
+					const growthSize = 4.5 + (1 - progress) * 5.5;
+
+					p.noFill();
+					p.stroke(`${parasiteColor}cc`);
+					p.strokeWeight(2);
+					p.circle(enemy.x, enemy.y, visual.radius * 2.95);
+
+					for (let petalIndex = 0; petalIndex < 3; petalIndex += 1) {
+						const angle = p.frameCount * 0.045 + petalIndex * ((Math.PI * 2) / 3);
+						const bloomX = enemy.x + Math.cos(angle) * orbitRadius;
+						const bloomY = enemy.y + Math.sin(angle) * orbitRadius;
+						p.noStroke();
+						p.fill(`${parasiteColor}bb`);
+						p.circle(bloomX, bloomY, growthSize);
+					}
+				}
+
 				if (enemy.chillAmount > 0) {
 					p.noFill();
 					p.stroke(enemy.frozenTimer > 0 ? '#dff6ffdd' : '#7dd3fccc');
@@ -8010,7 +8598,12 @@ export function createArenaCombatSketch(
 					bleedStoredDamage: enemy.bleedStoredDamage ?? 0,
 					bleedDurationRemaining: enemy.bleedDurationRemaining ?? 0,
 					bleedSourceWeaponInstanceId: enemy.bleedSourceWeaponInstanceId ?? null,
-					bleedLifeStealRatio: enemy.bleedLifeStealRatio ?? 0
+					bleedLifeStealRatio: enemy.bleedLifeStealRatio ?? 0,
+					parasiteBloomTimer: enemy.parasiteBloomTimer ?? 0,
+					parasiteBloomDuration: enemy.parasiteBloomDuration ?? 0,
+					parasiteBloomHealRatio: enemy.parasiteBloomHealRatio ?? 0,
+					parasiteBloomPulseRadius: enemy.parasiteBloomPulseRadius ?? 0,
+					parasiteBloomColor: enemy.parasiteBloomColor ?? null
 				}));
 				highestUnlockedLevel = initialResumeState.highestUnlockedLevel;
 				highestClearedLevel = initialResumeState.highestClearedLevel;
@@ -8033,8 +8626,11 @@ export function createArenaCombatSketch(
 				updateForceFields(dt);
 				updateKillSwitchPulses(dt);
 				updateVulnerablePulses(dt);
+				updateParasiteBloomPulses(dt);
+				updateMirrorArrays(dt);
 				updateOathbreakerSigils(dt);
 				updateStasisFields(dt);
+				updatePrismPrisons(dt);
 				updateSupportPylons(dt);
 				updateLaserRods(dt);
 				updateVoidTunnels(dt);

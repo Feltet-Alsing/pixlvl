@@ -52,10 +52,10 @@ Current implemented content counts:
 
 - `5` defined campaigns
 - `50` levels per campaign
-- `69` unique loadout definitions in the core campaign registry
-- `49` weapons
-- `20` utilities
-- `69` definitions in the shared reward-pack pool
+- `72` unique loadout definitions in the core campaign registry
+- `51` weapons
+- `21` utilities
+- `72` definitions in the shared reward-pack pool
 - `23` definitions currently seeded into the cross-campaign shared pool
 
 Current per-campaign definition counts:
@@ -63,15 +63,15 @@ Current per-campaign definition counts:
 - Campaign `1`: `30` definitions (`24` weapons, `6` utilities)
 - Campaign `2`: `37` definitions (`26` weapons, `11` utilities)
 - Campaign `3`: `40` definitions (`25` weapons, `15` utilities)
-- Campaign `4`: `31` definitions (`25` weapons, `6` utilities)
-- Campaign `5`: `31` definitions (`25` weapons, `6` utilities)
+- Campaign `4`: `34` definitions (`27` weapons, `7` utilities)
+- Campaign `5`: `34` definitions (`27` weapons, `7` utilities)
 
 Current rarity distribution across unique definitions:
 
 - `11` normal
 - `16` magic
-- `20` rare
-- `11` exotic
+- `22` rare
+- `12` exotic
 - `11` legendary
 
 ## Risk overview
@@ -117,13 +117,13 @@ The first public release / Season `1` content target should be much larger than 
 Weapon milestone:
 
 - target `150` total weapons for the Season `1` roster
-- current implemented count is `49` weapons
-- remaining gap is `101` additional weapons
+- current implemented count is `51` weapons
+- remaining gap is `99` additional weapons
 
 Important counting rule:
 
 - this milestone tracks weapons only, not utilities
-- the broader shared loadout registry currently sits at `68` total definitions when utilities are included
+- the broader shared loadout registry currently sits at `72` total definitions when utilities are included
 
 Target rarity mix for the full Season `1` weapon roster:
 
@@ -162,6 +162,9 @@ XXXX
 - while `Elemental Mastery` is active, subsequent elemental weapons require `1` fewer infusion of their element to fire, to a minimum cost of `0`
 - `Void Tendrils` has been reworked away from delayed multihit damage into a true void sustain/control weapon: it captures up to `6` non-boss glitches, makes them untargetable for `2` cycles, then consumes them into temporary HP equal to their max health
 - `Void Rift` is now live as an exotic void damage weapon: it opens a narrow player-targeted seam, shreds a compact cluster with high tick damage for about one cycle, then collapses into an AOE pulse whose damage scales with the total damage dealt during the rift
+- `Parasite Bloom` is now live as a rare anomaly sustain weapon: it infects the strongest target for a short window, and if that host dies before the parasite expires it releases a healing pulse that restores pixl health based on the host's max health
+- `Prism Prison` is now live as a rare anomaly trap weapon: it drops a geometric cage over the chosen cluster, stays armed until a glitch first pushes into its edges, then repeatedly cuts intruders for a short active window; each weapon instance can keep only one prison armed or active at a time
+- `Mirror Array` is now live as an exotic anomaly utility: it paints a forward half-arena mirror and reflects shots that pierce through or miss into it back across the arena as splash echoes
 
 ---
 

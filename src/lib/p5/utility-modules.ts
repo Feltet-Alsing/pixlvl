@@ -9,6 +9,7 @@ import {
 	activateElementalCycleBoostUtility,
 	activateElementalInfuserUtility,
 	activateElementalMasteryUtility,
+	activateMirrorArrayUtility,
 	activateOathbreakerSigilUtility,
 	activatePassiveUtilityBehavior,
 	activateShieldPoolUtility,
@@ -107,6 +108,12 @@ const oathbreakerUtilityModule: Partial<UtilityModule> = {
 	}
 };
 
+const mirrorArrayUtilityModule: Partial<UtilityModule> = {
+	activate: (utility, context) => {
+		activateMirrorArrayUtility(utility, context);
+	}
+};
+
 const defaultUtilityIds = [
 	'cycle-booster',
 	'hemorrhage-burst',
@@ -135,7 +142,8 @@ const utilityModulesById: Record<string, Partial<UtilityModule>> = {
 	'cold-boost': elementalCycleBoostUtilityModule,
 	'void-boost': elementalCycleBoostUtilityModule,
 	'elemental-mastery': elementalMasteryUtilityModule,
-	'oathbreaker-sigil': oathbreakerUtilityModule
+	'oathbreaker-sigil': oathbreakerUtilityModule,
+	'mirror-array': mirrorArrayUtilityModule
 };
 
 export function getUtilityModule(utilityId: string): UtilityModule {

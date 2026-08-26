@@ -59,6 +59,11 @@ export interface WeaponActivationContext {
 		sourceWeaponInstanceId: string,
 		target: WeaponTargetState
 	) => void;
+	spawnPrismPrison: (
+		weapon: WeaponDefinition,
+		sourceWeaponInstanceId: string,
+		target: WeaponTargetState
+	) => void;
 	spawnVoidTunnel: (
 		weapon: WeaponDefinition,
 		sourceWeaponInstanceId: string,

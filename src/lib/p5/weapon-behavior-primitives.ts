@@ -39,6 +39,7 @@ export function createTargetedSpecialActivator(
 		| 'spawnTurretMine'
 		| 'spawnSupportPylon'
 		| 'spawnStasisField'
+		| 'spawnPrismPrison'
 		| 'spawnVoidTunnel'
 		| 'spawnVoidTendrils'
 		| 'spawnVoidRift'
@@ -128,6 +129,7 @@ export const specialTypeActivators: Partial<Record<WeaponAttackSpecialType, Weap
 	'execution-lattice': createUntargetedSpecialActivator('spawnExecutionLattice'),
 	'fork-lightning': createUntargetedSpecialActivator('spawnForkLightning'),
 	'stasis-field': createTargetedSpecialActivator('spawnStasisField'),
+	'prism-prison': createTargetedSpecialActivator('spawnPrismPrison'),
 	'void-tunnel': createTargetedSpecialActivator('spawnVoidTunnel'),
 	phaseshift: createUntargetedSpecialActivator('spawnPhaseshift'),
 	'burning-ground': createTargetedSpecialActivator('spawnBurningGroundProjectile'),

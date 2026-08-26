@@ -218,6 +218,12 @@ export interface WeaponAttackBehavior {
 				duration: number;
 		  }
 		| {
+				type: 'parasite-bloom';
+				duration: number;
+				healRatio: number;
+				pulseRadius: number;
+		  }
+		| {
 				type: 'kill-switch';
 				maxRadius: number;
 				expansionSpeed: number;
@@ -289,6 +295,14 @@ export interface WeaponAttackBehavior {
 				type: 'fork-lightning';
 				duration: number;
 				branchWidth: number;
+		  }
+		| {
+				type: 'prism-prison';
+				durationCycles: number;
+				radius: number;
+				sides: number;
+				lineWidth: number;
+				edgeHitCooldown: number;
 		  }
 		| {
 				type: 'flamethrower-cone';
@@ -468,6 +482,13 @@ export interface UtilityDefinition {
 				duration: number;
 				slowMultiplier: number;
 				damageShareRatio: number;
+		  }
+		| {
+				type: 'mirror-array';
+				radiusFactor: number;
+				duration: number;
+				reflectedDamageMultiplier: number;
+				reflectedImpactRadius: number;
 		  };
 	utilityVisual?: UtilityVisual;
 	drop: WeaponDropConfig;
