@@ -1439,8 +1439,7 @@ export function createArenaCombatSketch(
 		) => {
 			return supportPylons.filter(
 				(pylon) =>
-					(!variant || pylon.variant === variant) &&
-					isPointInsideSupportPylon(pylon, x, y, padding)
+					(!variant || pylon.variant === variant) && isPointInsideSupportPylon(pylon, x, y, padding)
 			);
 		};
 
@@ -2962,12 +2961,7 @@ export function createArenaCombatSketch(
 						continue;
 					}
 
-					applyDamageToEnemy(
-						blastEnemyIndex,
-						effectiveDamage,
-						0.14,
-						sourceWeaponInstanceId
-					);
+					applyDamageToEnemy(blastEnemyIndex, effectiveDamage, 0.14, sourceWeaponInstanceId);
 				}
 
 				if (special.detonationBurningGround) {
@@ -4888,11 +4882,7 @@ export function createArenaCombatSketch(
 				);
 
 				if (coldLattice) {
-					applyChillToEnemy(
-						enemy,
-						coldLattice.chillPerSecond * dt,
-						coldLattice.freezeDuration
-					);
+					applyChillToEnemy(enemy, coldLattice.chillPerSecond * dt, coldLattice.freezeDuration);
 
 					const deltaX = coldLattice.centerX - enemy.x;
 					const deltaY = coldLattice.centerY - enemy.y;
