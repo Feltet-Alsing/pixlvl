@@ -28,10 +28,7 @@ export function createUntargetedSpecialActivator(
 		| 'spawnVoidTendrils'
 ): WeaponActivator {
 	return (weapon, _target, context) => {
-		context[spawnKey](
-			weapon.definition,
-			weapon.instanceId
-		);
+		context[spawnKey](weapon.definition, weapon.instanceId);
 		return noPendingMultiplier();
 	};
 }
@@ -110,27 +107,26 @@ export const activateProjectilePattern: WeaponActivator = (weapon, target, conte
 	};
 };
 
-export const specialTypeActivators: Partial<Record<WeaponAttackSpecialType, WeaponActivator>> =
-	{
-		'force-field': createUntargetedSpecialActivator('spawnForceField'),
-		'kill-switch': createUntargetedSpecialActivator('spawnKillSwitchPulse'),
-		'vulnerable-pulse': createUntargetedSpecialActivator('spawnVulnerablePulse'),
-		'laser-sweep': createUntargetedSpecialActivator('spawnLaserSweep'),
-		'needle-fan': createUntargetedSpecialActivator('spawnNeedleFan'),
-		'target-painter': activateTargetPainter,
-		'fan-knives': activateFanKnives,
-		'sniper-line': createUntargetedSpecialActivator('spawnSniperLock'),
-		'execution-lattice': createUntargetedSpecialActivator('spawnExecutionLattice'),
-		'fork-lightning': createUntargetedSpecialActivator('spawnForkLightning'),
-		'stasis-field': createTargetedSpecialActivator('spawnStasisField'),
-		'void-tunnel': createTargetedSpecialActivator('spawnVoidTunnel'),
-		phaseshift: createUntargetedSpecialActivator('spawnPhaseshift'),
-		'burning-ground': createTargetedSpecialActivator('spawnBurningGroundProjectile'),
-		'delayed-bomb': createTargetedSpecialActivator('spawnDelayedBomb'),
-		'flamethrower-cone': createTargetedSpecialActivator('spawnFlamethrowerCone'),
-		'ice-shower': createUntargetedSpecialActivator('spawnIceShower'),
-		'void-tendrils': createUntargetedSpecialActivator('spawnVoidTendrils')
-	};
+export const specialTypeActivators: Partial<Record<WeaponAttackSpecialType, WeaponActivator>> = {
+	'force-field': createUntargetedSpecialActivator('spawnForceField'),
+	'kill-switch': createUntargetedSpecialActivator('spawnKillSwitchPulse'),
+	'vulnerable-pulse': createUntargetedSpecialActivator('spawnVulnerablePulse'),
+	'laser-sweep': createUntargetedSpecialActivator('spawnLaserSweep'),
+	'needle-fan': createUntargetedSpecialActivator('spawnNeedleFan'),
+	'target-painter': activateTargetPainter,
+	'fan-knives': activateFanKnives,
+	'sniper-line': createUntargetedSpecialActivator('spawnSniperLock'),
+	'execution-lattice': createUntargetedSpecialActivator('spawnExecutionLattice'),
+	'fork-lightning': createUntargetedSpecialActivator('spawnForkLightning'),
+	'stasis-field': createTargetedSpecialActivator('spawnStasisField'),
+	'void-tunnel': createTargetedSpecialActivator('spawnVoidTunnel'),
+	phaseshift: createUntargetedSpecialActivator('spawnPhaseshift'),
+	'burning-ground': createTargetedSpecialActivator('spawnBurningGroundProjectile'),
+	'delayed-bomb': createTargetedSpecialActivator('spawnDelayedBomb'),
+	'flamethrower-cone': createTargetedSpecialActivator('spawnFlamethrowerCone'),
+	'ice-shower': createUntargetedSpecialActivator('spawnIceShower'),
+	'void-tendrils': createUntargetedSpecialActivator('spawnVoidTendrils')
+};
 
 export const weaponIdActivators: Record<string, WeaponActivator> = {
 	splitter: activateClosestEnemyVolley,

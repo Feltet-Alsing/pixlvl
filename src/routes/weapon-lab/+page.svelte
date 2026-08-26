@@ -75,17 +75,16 @@
 			agility
 		})
 	);
-	let arenaRemountKey = $derived.by(
-		() =>
-			[
-				selectedWeapon.id,
-				selectedCombatProfile.id,
-				selectedPreset.id,
-				selectedTargeting,
-				xp,
-				defence,
-				agility
-			].join(':')
+	let arenaRemountKey = $derived.by(() =>
+		[
+			selectedWeapon.id,
+			selectedCombatProfile.id,
+			selectedPreset.id,
+			selectedTargeting,
+			xp,
+			defence,
+			agility
+		].join(':')
 	);
 	let arenaSketch = $derived.by(() =>
 		createArenaCombatSketch(weaponLabCampaign, selectedCombatProfile, {
@@ -204,7 +203,12 @@
 					oninput={updateSearchQuery}
 				/>
 				<label class="field-label" for="weapon-select">Selected weapon</label>
-				<select id="weapon-select" class="select-input" value={selectedWeaponId} onchange={updateWeapon}>
+				<select
+					id="weapon-select"
+					class="select-input"
+					value={selectedWeaponId}
+					onchange={updateWeapon}
+				>
 					{#each filteredWeapons as weapon (weapon.id)}
 						<option value={weapon.id}>{weapon.name}</option>
 					{/each}
@@ -227,7 +231,12 @@
 				</select>
 				<p class="helper-text">{selectedCombatProfileOption.description}</p>
 				<label class="field-label" for="preset-select">Enemy preset</label>
-				<select id="preset-select" class="select-input" value={selectedPresetId} onchange={updatePreset}>
+				<select
+					id="preset-select"
+					class="select-input"
+					value={selectedPresetId}
+					onchange={updatePreset}
+				>
 					{#each weaponLabPresets as preset (preset.id)}
 						<option value={preset.id}>{preset.name}</option>
 					{/each}
@@ -249,7 +258,15 @@
 			<div class="panel-block">
 				<h2>Pixl Tuning</h2>
 				<label class="field-label" for="xp-input">XP</label>
-				<input id="xp-input" class="number-input" type="number" min="0" step="10" value={xp} oninput={updateXp} />
+				<input
+					id="xp-input"
+					class="number-input"
+					type="number"
+					min="0"
+					step="10"
+					value={xp}
+					oninput={updateXp}
+				/>
 				<label class="field-label" for="defence-input">Defence</label>
 				<input
 					id="defence-input"
@@ -318,7 +335,9 @@
 							<span>{damageRows[0].rarity}</span>
 						</div>
 						<p class="helper-text">Placement {damageRows[0].placement}</p>
-						<p class="big-metric">{damageRows[0].averageDamagePerCycle.toFixed(1)} avg damage / cycle</p>
+						<p class="big-metric">
+							{damageRows[0].averageDamagePerCycle.toFixed(1)} avg damage / cycle
+						</p>
 						<ul class="damage-list">
 							{#each damageRows as row (row.weaponInstanceId)}
 								<li>
