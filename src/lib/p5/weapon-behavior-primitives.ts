@@ -35,6 +35,7 @@ export function createUntargetedSpecialActivator(
 
 export function createTargetedSpecialActivator(
 	spawnKey:
+		| 'spawnLaserRod'
 		| 'spawnPerimeterMine'
 		| 'spawnTurretMine'
 		| 'spawnSupportPylon'
@@ -115,6 +116,7 @@ export const specialTypeActivators: Partial<Record<WeaponAttackSpecialType, Weap
 	'kill-switch': createUntargetedSpecialActivator('spawnKillSwitchPulse'),
 	'vulnerable-pulse': createUntargetedSpecialActivator('spawnVulnerablePulse'),
 	'laser-sweep': createUntargetedSpecialActivator('spawnLaserSweep'),
+	'laser-rod-network': createTargetedSpecialActivator('spawnLaserRod'),
 	'perimeter-mine': createTargetedSpecialActivator('spawnPerimeterMine'),
 	'turret-mine': createTargetedSpecialActivator('spawnTurretMine'),
 	'support-pylon': createTargetedSpecialActivator('spawnSupportPylon'),

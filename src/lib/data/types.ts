@@ -29,6 +29,7 @@ export type ElementalInfusionType = 'fire' | 'lightning' | 'cold' | 'void';
 export type WeaponSpecialAttackKind =
 	| 'force-field'
 	| 'laser-sweep'
+	| 'laser-rod-network'
 	| 'perimeter-mine'
 	| 'turret-mine'
 	| 'support-pylon'
@@ -51,7 +52,19 @@ export type WeaponSpecialAttackKind =
 	| 'vulnerable-pulse';
 
 export type WeaponTargetingKind =
-	'current-target' | 'nearest-target' | 'furthest-target' | 'strongest-target' | 'weakest-target';
+	| 'current-target'
+	| 'nearest-target'
+	| 'furthest-target'
+	| 'strongest-target'
+	| 'weakest-target'
+	| 'top-left'
+	| 'top-middle'
+	| 'top-right'
+	| 'middle-left'
+	| 'middle-right'
+	| 'bottom-left'
+	| 'bottom-middle'
+	| 'bottom-right';
 
 export interface PixlBaseStats {
 	health: number;
@@ -118,6 +131,17 @@ export interface WeaponAttackBehavior {
 	requiredInfusion?: ElementalInfusionType;
 	requiredInfusionCount?: number;
 	special?:
+		| {
+				type: 'laser-rod-network';
+				variant: 'ember-rods' | 'coldwire-rods' | 'sunder-rods';
+				fieldDurationCycles: number;
+				lineWidth: number;
+				rodLength: number;
+				damagePerSecond?: number;
+				chillPerSecond?: number;
+				freezeDuration?: number;
+				vulnerableDuration?: number;
+		  }
 		| {
 				type: 'perimeter-mine';
 				placementCount?: number;
@@ -431,7 +455,7 @@ export interface UtilityDefinition {
 export interface WeaponDefinition {
 	id: string;
 	name: string;
-	family?: 'mine' | 'pylon';
+	family?: 'mine' | 'pylon' | 'laser-rod';
 	rarity: WeaponRarity;
 	shape: WeaponShape;
 	baseDamage: number;

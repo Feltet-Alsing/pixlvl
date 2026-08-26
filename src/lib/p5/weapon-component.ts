@@ -166,6 +166,24 @@ export interface SupportPylonEffectProps {
 	duration: number;
 }
 
+export interface LaserRodNetworkEffectProps {
+	kind: 'laser-rod-network';
+	variant: 'ember-rods' | 'coldwire-rods' | 'sunder-rods';
+	centerX: number;
+	centerY: number;
+	rodAngle: number;
+	rodLength: number;
+	lineWidth: number;
+	color: string;
+	glow: boolean;
+	age: number;
+	duration: number;
+	links: Array<{
+		x: number;
+		y: number;
+	}>;
+}
+
 export interface LaserSweepEffectProps {
 	kind: 'laser-sweep';
 	arenaCenterX: number;
@@ -297,6 +315,7 @@ export type WeaponArenaEffectProps =
 	| PerimeterMineEffectProps
 	| TurretMineEffectProps
 	| SupportPylonEffectProps
+	| LaserRodNetworkEffectProps
 	| LaserSweepEffectProps
 	| SniperLockEffectProps
 	| SniperChainBurstEffectProps
@@ -1159,6 +1178,46 @@ export function drawForkLightningEffect(p: P5, effect: ForkLightningEffectProps)
 			p.line(previous.x, previous.y, current.x, current.y);
 		}
 	}
+}
+
+export function drawLaserRodNetworkEffect(p: P5, effect: LaserRodNetworkEffectProps) {
+	const lifeRatio = 1 - effect.age / Math.max(0.0001, effect.duration);
+	const pulse = 0.96 + Math.sin(effect.age * 5.8) * 0.04;
+	const rodThickness = Math.max(3, effect.lineWidth * 0.18);
+	const rodHeight = Math.max(10, Math.min(18, effect.rodLength * 0.45));
+	const connectorWidth = Math.max(1.5, Math.min(3, effect.lineWidth * 0.16));
+
+	for (const link of effect.links) {
+		p.stroke(
+			`${effect.color}${Math.round(150 + lifeRatio * 80)
+				.toString(16)
+				.padStart(2, '0')}`
+		);
+		p.strokeWeight(connectorWidth * pulse);
+		p.line(effect.centerX, effect.centerY, link.x, link.y);
+	}
+
+	p.push();
+	p.translate(effect.centerX, effect.centerY);
+	p.noStroke();
+	p.fill(`${effect.color}cc`);
+	p.rectMode(p.CENTER);
+	p.rect(0, 0, rodThickness, rodHeight, rodThickness * 0.35);
+
+	if (effect.variant === 'coldwire-rods') {
+		p.fill('#e0f2feaa');
+		p.rect(0, 0, Math.max(1.5, rodThickness * 0.45), rodHeight * 0.72, rodThickness * 0.18);
+	} else if (effect.variant === 'sunder-rods') {
+		p.stroke('#fff7edaa');
+		p.strokeWeight(1.2);
+		p.line(-rodThickness, -rodHeight * 0.2, rodThickness, rodHeight * 0.2);
+		p.line(-rodThickness, rodHeight * 0.2, rodThickness, -rodHeight * 0.2);
+	} else {
+		p.fill('#fff7edaa');
+		p.circle(0, 0, rodThickness * 0.7);
+	}
+
+	p.pop();
 }
 
 export function drawIceSpikeEffect(p: P5, effect: IceSpikeEffectProps) {

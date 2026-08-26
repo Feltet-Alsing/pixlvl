@@ -1,4 +1,5 @@
 import { getLoadoutItemDefinition } from '$lib/data';
+import { allSelectableWeaponTargetingKinds } from '$lib/game/weapon-targeting';
 import {
 	getPlacementMirrored,
 	getPlacementRotation,
@@ -84,10 +85,7 @@ export function normalizeLoadoutPlacements(
 	const ownedWeaponIds = new Set(ownedWeapons.map((weapon) => weapon.instanceId));
 	const validTargetingKinds = new Set<WeaponTargetingKind>([
 		'current-target',
-		'nearest-target',
-		'furthest-target',
-		'strongest-target',
-		'weakest-target'
+		...allSelectableWeaponTargetingKinds
 	]);
 
 	return loadoutPlacements

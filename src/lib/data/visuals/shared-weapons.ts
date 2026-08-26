@@ -46,6 +46,27 @@ export const sharedProjectileVisualById = {
 		trail: 'pulse',
 		glow: true
 	},
+	'ember-rods': {
+		color: '#fb7185',
+		size: 'small',
+		shape: 'spark',
+		trail: 'pulse',
+		glow: true
+	},
+	'coldwire-rods': {
+		color: '#67e8f9',
+		size: 'small',
+		shape: 'spark',
+		trail: 'pulse',
+		glow: true
+	},
+	'sunder-rods': {
+		color: '#fbbf24',
+		size: 'small',
+		shape: 'diamond',
+		trail: 'pulse',
+		glow: true
+	},
 	'mine-calibrator': {
 		color: '#fb923c',
 		size: 'medium',

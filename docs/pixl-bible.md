@@ -70,8 +70,8 @@ Current rarity distribution across unique definitions:
 - `10` normal
 - `9` magic
 - `11` normal
-- `13` magic
-- `16` rare
+- `14` magic
+- `18` rare
 - `10` exotic
 - `10` legendary
 
@@ -82,8 +82,8 @@ The first public release / Season `1` content target should be much larger than 
 Weapon milestone:
 
 - target `150` total weapons for the Season `1` roster
-- current implemented count is `60` weapons
-- remaining gap is `90` additional weapons
+- current implemented count is `63` weapons
+- remaining gap is `87` additional weapons
 
 Target rarity mix for the full Season `1` weapon roster:
 
@@ -104,6 +104,9 @@ Latest roster pass:
 - the next implemented support package is a helper-oriented pylon set, not a standalone archetype
 - current support pylons: `Mark Beacon`, `Cold Lattice`, `Mine Calibrator`, `Hemorrhage Relay`
 - design rule: pylons should improve existing builds like knives, mines, slower projectiles, and status packages rather than replace them
+- the next helper package is now live as fixed-placement laser rods: `Ember Rods`, `Coldwire Rods`, `Sunder Rods`
+- laser rods use the targeting menu as arena anchor selection with eight fixed positions around the pixl
+- rods are intentionally non-functional alone; they only create damage or debuff lanes when at least two rods of the same weapon are active and linked
 
 ---
 

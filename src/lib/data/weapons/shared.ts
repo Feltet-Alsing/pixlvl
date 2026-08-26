@@ -231,6 +231,123 @@ export const sharedWeapons: LoadoutItemDefinition[] = [
 		role: 'Magic support pylon that chills and subtly compresses enemy movement inside its field so slower and area weapons connect more reliably'
 	},
 	{
+		id: 'ember-rods',
+		name: 'Ember Rods',
+		family: 'laser-rod',
+		rarity: 'magic',
+		shape: {
+			width: 1,
+			height: 2,
+			cells: [
+				[0, 0],
+				[0, 1]
+			]
+		},
+		baseDamage: 8,
+		projectileSpeed: 0,
+		attack: {
+			kind: 'single',
+			projectileCount: 1,
+			cycleInterval: 2,
+			special: {
+				type: 'laser-rod-network',
+				variant: 'ember-rods',
+				fieldDurationCycles: 4,
+				lineWidth: 14,
+				rodLength: 26,
+				damagePerSecond: 18
+			},
+			targeting: 'top-middle'
+		},
+		projectileVisual: sharedProjectileVisualById['ember-rods'],
+		drop: {
+			mode: 'drop',
+			stageStart: 2,
+			stageEnd: 5,
+			perLevelDropChance: 0.07
+		},
+		role: 'Magic helper rods that anchor on fixed arena slots and burn glitches crossing the links only once you have at least two rods online'
+	},
+	{
+		id: 'coldwire-rods',
+		name: 'Coldwire Rods',
+		family: 'laser-rod',
+		rarity: 'rare',
+		shape: {
+			width: 1,
+			height: 2,
+			cells: [
+				[0, 0],
+				[0, 1]
+			]
+		},
+		baseDamage: 3,
+		projectileSpeed: 0,
+		attack: {
+			kind: 'single',
+			projectileCount: 1,
+			cycleInterval: 2,
+			special: {
+				type: 'laser-rod-network',
+				variant: 'coldwire-rods',
+				fieldDurationCycles: 4,
+				lineWidth: 18,
+				rodLength: 28,
+				damagePerSecond: 6,
+				chillPerSecond: 0.85,
+				freezeDuration: 0.55
+			},
+			targeting: 'top-left'
+		},
+		projectileVisual: sharedProjectileVisualById['coldwire-rods'],
+		drop: {
+			mode: 'drop',
+			stageStart: 3,
+			stageEnd: 5,
+			perLevelDropChance: 0.05
+		},
+		role: 'Rare helper rods that weave freezing lanes across fixed anchor points so slow and splash builds can keep enemy packs pinned in transit'
+	},
+	{
+		id: 'sunder-rods',
+		name: 'Sunder Rods',
+		family: 'laser-rod',
+		rarity: 'rare',
+		shape: {
+			width: 1,
+			height: 2,
+			cells: [
+				[0, 0],
+				[0, 1]
+			]
+		},
+		baseDamage: 5,
+		projectileSpeed: 0,
+		attack: {
+			kind: 'single',
+			projectileCount: 1,
+			cycleInterval: 3,
+			special: {
+				type: 'laser-rod-network',
+				variant: 'sunder-rods',
+				fieldDurationCycles: 4.5,
+				lineWidth: 20,
+				rodLength: 30,
+				damagePerSecond: 8,
+				vulnerableDuration: 0.8
+			},
+			targeting: 'top-right'
+		},
+		projectileVisual: sharedProjectileVisualById['sunder-rods'],
+		drop: {
+			mode: 'drop',
+			stageStart: 3,
+			stageEnd: 5,
+			perLevelDropChance: 0.05
+		},
+		role: 'Rare helper rods that score enemies crossing the link and leave them vulnerable so direct-fire follow-up weapons hit materially harder'
+	},
+	{
 		id: 'cluster-mines',
 		name: 'Cluster Mines',
 		family: 'mine',

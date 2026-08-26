@@ -1,6 +1,7 @@
 import type P5 from 'p5';
 
 import { getWeaponDefinition } from '$lib/data';
+import { isPlacementWeaponTargetingKind } from '$lib/game/weapon-targeting';
 import { rollLevelRewardPacks as buildRewardPacksForLevel } from '$lib/game/reward-packs';
 import { applyXpGain, createUpgradeablePixlState } from '$lib/game/upgrades';
 import {
@@ -39,7 +40,8 @@ import type {
 	WeaponProjectileShape,
 	WeaponRarity,
 	WeaponProjectileMotion,
-	WeaponTrailStyle
+	WeaponTrailStyle,
+	WeaponTargetingKind
 } from '$lib/data/types';
 import type { PersistedCampaignProgress, PersistedPixlState } from '$lib/server/game-state';
 import type {
@@ -285,6 +287,26 @@ interface SupportPylonState {
 	bleedDamageMultiplier: number;
 	bleedSpreadRatio: number;
 	bleedSpreadRadius: number;
+}
+
+interface LaserRodState {
+	sourceWeaponInstanceId: string;
+	definitionId: string;
+	variant: 'ember-rods' | 'coldwire-rods' | 'sunder-rods';
+	centerX: number;
+	centerY: number;
+	rodAngle: number;
+	rodLength: number;
+	lineWidth: number;
+	color: string;
+	glow: boolean;
+	age: number;
+	duration: number;
+	damagePerSecond: number;
+	chillPerSecond: number;
+	freezeDuration: number;
+	vulnerableDuration: number;
+	targeting: WeaponTargetingKind;
 }
 
 interface StasisFieldState {
@@ -947,6 +969,7 @@ export function createArenaCombatSketch(
 		let perimeterMines: PerimeterMineState[] = [];
 		let turretMines: TurretMineState[] = [];
 		let supportPylons: SupportPylonState[] = [];
+		let laserRods: LaserRodState[] = [];
 		let turretMineBursts: TurretMineBurstState[] = [];
 		let needleBursts: NeedleBurstState[] = [];
 		let executionLatticeStrikes: ExecutionLatticeStrikeState[] = [];
@@ -1347,6 +1370,7 @@ export function createArenaCombatSketch(
 			perimeterMines = [];
 			turretMines = [];
 			supportPylons = [];
+			laserRods = [];
 			turretMineBursts = [];
 			needleBursts = [];
 			executionLatticeStrikes = [];
@@ -1882,6 +1906,44 @@ export function createArenaCombatSketch(
 			return combatProfile.glitches[enemy.kind].attackPattern === 'siege';
 		};
 
+		const getLaserRodPlacementPoint = (targeting: WeaponTargetingKind) => {
+			if (!isPlacementWeaponTargetingKind(targeting)) {
+				return null;
+			}
+
+			const axisOffset = arenaRadius * 0.64;
+			const offsetByTargeting: Record<
+				Extract<
+					WeaponTargetingKind,
+					| 'top-left'
+					| 'top-middle'
+					| 'top-right'
+					| 'middle-left'
+					| 'middle-right'
+					| 'bottom-left'
+					| 'bottom-middle'
+					| 'bottom-right'
+				>,
+				{ x: number; y: number }
+			> = {
+				'top-left': { x: -axisOffset, y: -axisOffset },
+				'top-middle': { x: 0, y: -axisOffset },
+				'top-right': { x: axisOffset, y: -axisOffset },
+				'middle-left': { x: -axisOffset, y: 0 },
+				'middle-right': { x: axisOffset, y: 0 },
+				'bottom-left': { x: -axisOffset, y: axisOffset },
+				'bottom-middle': { x: 0, y: axisOffset },
+				'bottom-right': { x: axisOffset, y: axisOffset }
+			};
+
+			const offset = offsetByTargeting[targeting];
+
+			return {
+				x: centerX + offset.x,
+				y: centerY + offset.y
+			};
+		};
+
 		const getWeaponTargetFromPool = (
 			targetPool: EnemyState[],
 			targeting: WeaponAttackBehavior['targeting']
@@ -1960,6 +2022,12 @@ export function createArenaCombatSketch(
 		};
 
 		const getWeaponTarget = (targeting: WeaponAttackBehavior['targeting']) => {
+			const placementTarget = getLaserRodPlacementPoint(targeting);
+
+			if (placementTarget) {
+				return placementTarget;
+			}
+
 			if (targeting === 'strongest-target') {
 				return [...enemies].sort((left, right) => right.health - left.health)[0] ?? null;
 			}
@@ -3139,6 +3207,42 @@ export function createArenaCombatSketch(
 			});
 		};
 
+		const spawnLaserRod = (
+			weapon: WeaponDefinition,
+			sourceWeaponInstanceId: string,
+			target: { x: number; y: number }
+		) => {
+			const special = weapon.attack.special;
+
+			if (!special || special.type !== 'laser-rod-network') {
+				return;
+			}
+
+			const sourceWeapon = equippedWeaponByInstanceId.get(sourceWeaponInstanceId);
+			const targeting = sourceWeapon?.targeting ?? weapon.attack.targeting;
+
+			laserRods = laserRods.filter((rod) => rod.sourceWeaponInstanceId !== sourceWeaponInstanceId);
+			laserRods.push({
+				sourceWeaponInstanceId,
+				definitionId: weapon.id,
+				variant: special.variant,
+				centerX: target.x,
+				centerY: target.y,
+				rodAngle: 0,
+				rodLength: special.rodLength,
+				lineWidth: special.lineWidth,
+				color: weapon.projectileVisual.color,
+				glow: weapon.projectileVisual.glow ?? false,
+				age: 0,
+				duration: special.fieldDurationCycles / Math.max(0.001, pixlProgression.attackSpeed),
+				damagePerSecond: special.damagePerSecond ?? 0,
+				chillPerSecond: special.chillPerSecond ?? 0,
+				freezeDuration: special.freezeDuration ?? 0,
+				vulnerableDuration: special.vulnerableDuration ?? 0,
+				targeting
+			});
+		};
+
 		const fireTurretMinePayload = (turret: TurretMineState, payloadWeapon: WeaponDefinition) => {
 			const turretWeapon = equippedWeaponByInstanceId.get(
 				turret.sourceWeaponInstanceId
@@ -3974,6 +4078,7 @@ export function createArenaCombatSketch(
 				spawnKillSwitchPulse,
 				spawnVulnerablePulse,
 				spawnLaserSweep,
+				spawnLaserRod,
 				spawnSupportPylon: (definition, instanceId, pylonTarget) => {
 					spawnSupportPylon(definition, instanceId, pylonTarget as EnemyState);
 				},
@@ -4473,6 +4578,121 @@ export function createArenaCombatSketch(
 
 				if (pylon.age >= pylon.duration) {
 					supportPylons.splice(index, 1);
+				}
+			}
+		};
+
+		const updateLaserRods = (dt: number) => {
+			const previousAgeByInstanceId = new Map(
+				laserRods.map((rod) => [rod.sourceWeaponInstanceId, rod.age])
+			);
+
+			laserRods = equippedWeapons
+				.filter((weapon) => weapon.definition.attack.special?.type === 'laser-rod-network')
+				.map((weapon) => {
+					const special = weapon.definition.attack.special;
+
+					if (!special || special.type !== 'laser-rod-network') {
+						return null;
+					}
+
+					const target = getLaserRodPlacementPoint(weapon.targeting);
+
+					if (!target) {
+						return null;
+					}
+
+					return {
+						sourceWeaponInstanceId: weapon.instanceId,
+						definitionId: weapon.definition.id,
+						variant: special.variant,
+						centerX: target.x,
+						centerY: target.y,
+						rodAngle: 0,
+						rodLength: special.rodLength,
+						lineWidth: special.lineWidth,
+						color: weapon.definition.projectileVisual.color,
+						glow: weapon.definition.projectileVisual.glow ?? false,
+						age: (previousAgeByInstanceId.get(weapon.instanceId) ?? 0) + dt,
+						duration: Number.POSITIVE_INFINITY,
+						damagePerSecond: special.damagePerSecond ?? 0,
+						chillPerSecond: special.chillPerSecond ?? 0,
+						freezeDuration: special.freezeDuration ?? 0,
+						vulnerableDuration: special.vulnerableDuration ?? 0,
+						targeting: weapon.targeting
+					} satisfies LaserRodState;
+				})
+				.filter((rod): rod is LaserRodState => rod !== null);
+
+			if (laserRods.length < 2) {
+				return;
+			}
+
+			for (let leftIndex = 0; leftIndex < laserRods.length - 1; leftIndex += 1) {
+				const leftRod = laserRods[leftIndex];
+
+				for (let rightIndex = leftIndex + 1; rightIndex < laserRods.length; rightIndex += 1) {
+					const rightRod = laserRods[rightIndex];
+
+					if (leftRod.definitionId !== rightRod.definitionId) {
+						continue;
+					}
+
+					const lineWidth = Math.max(leftRod.lineWidth, rightRod.lineWidth);
+					const damagePerSecond = Math.max(leftRod.damagePerSecond, rightRod.damagePerSecond);
+					const chillPerSecond = Math.max(leftRod.chillPerSecond, rightRod.chillPerSecond);
+					const freezeDuration = Math.max(leftRod.freezeDuration, rightRod.freezeDuration);
+					const vulnerableDuration = Math.max(
+						leftRod.vulnerableDuration,
+						rightRod.vulnerableDuration
+					);
+
+					for (let enemyIndex = enemies.length - 1; enemyIndex >= 0; enemyIndex -= 1) {
+						const enemy = enemies[enemyIndex];
+						const enemyRadius = ENEMY_VISUALS[enemy.kind].radius;
+						const distanceToSegment = getDistanceToSegment(
+							enemy.x,
+							enemy.y,
+							leftRod.centerX,
+							leftRod.centerY,
+							rightRod.centerX,
+							rightRod.centerY
+						);
+
+						if (distanceToSegment > lineWidth / 2 + enemyRadius) {
+							continue;
+						}
+
+						if (damagePerSecond > 0) {
+							applyDamageToEnemy(
+								enemyIndex,
+								damagePerSecond * dt,
+								0.06,
+								leftRod.sourceWeaponInstanceId,
+								{
+									applyWeaponHitEffects: false,
+									allowContextHealing: false
+								}
+							);
+						}
+
+						const updatedEnemy = enemies[enemyIndex];
+
+						if (!updatedEnemy) {
+							continue;
+						}
+
+						if (chillPerSecond > 0) {
+							applyChillToEnemy(updatedEnemy, chillPerSecond * dt, freezeDuration);
+						}
+
+						if (vulnerableDuration > 0) {
+							updatedEnemy.vulnerableTimer = Math.max(
+								updatedEnemy.vulnerableTimer,
+								vulnerableDuration
+							);
+						}
+					}
 				}
 			}
 		};
@@ -6050,6 +6270,29 @@ export function createArenaCombatSketch(
 				});
 			}
 
+			for (let rodIndex = 0; rodIndex < laserRods.length; rodIndex += 1) {
+				const rod = laserRods[rodIndex];
+				const links = laserRods
+					.slice(rodIndex + 1)
+					.filter((candidate) => candidate.definitionId === rod.definitionId)
+					.map((candidate) => ({ x: candidate.centerX, y: candidate.centerY }));
+
+				getWeaponModuleByInstanceId(rod.sourceWeaponInstanceId).renderArenaEffect(p, {
+					kind: 'laser-rod-network',
+					variant: rod.variant,
+					centerX: rod.centerX,
+					centerY: rod.centerY,
+					rodAngle: rod.rodAngle,
+					rodLength: rod.rodLength,
+					lineWidth: rod.lineWidth,
+					color: rod.color,
+					glow: rod.glow,
+					age: rod.age,
+					duration: rod.duration,
+					links
+				});
+			}
+
 			for (const tunnel of voidTunnels) {
 				if (
 					getWeaponModuleByInstanceId(tunnel.sourceWeaponInstanceId).renderArenaEffect(p, {
@@ -7176,6 +7419,7 @@ export function createArenaCombatSketch(
 				updateOathbreakerSigils(dt);
 				updateStasisFields(dt);
 				updateSupportPylons(dt);
+				updateLaserRods(dt);
 				updateVoidTunnels(dt);
 				updatePhaseshifts(dt);
 				updateBurningGrounds(dt);

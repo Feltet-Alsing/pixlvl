@@ -5,19 +5,20 @@ const DEFAULT_EMAIL = 'alsing3520@gmail.com';
 
 function printUsage() {
 	console.log(
-		`Usage: yarn grant:dev-inventory [--email address] <definition-id> [definition-id ...]\n\nDefaults to ${DEFAULT_EMAIL} when --email is omitted.`
+		`Usage: yarn grant:dev-inventory [--email address] [--allow-duplicates] <definition-id> [definition-id ...]\n\nDefaults to ${DEFAULT_EMAIL} when --email is omitted.`
 	);
 }
 
 function parseArguments(argv) {
 	const definitionIds = [];
 	let email = DEFAULT_EMAIL;
+	let allowDuplicates = false;
 
 	for (let index = 0; index < argv.length; index += 1) {
 		const arg = argv[index];
 
 		if (arg === '--help' || arg === '-h') {
-			return { showHelp: true, email, definitionIds };
+			return { showHelp: true, email, definitionIds, allowDuplicates };
 		}
 
 		if (arg === '--email') {
@@ -32,13 +33,18 @@ function parseArguments(argv) {
 			continue;
 		}
 
+		if (arg === '--allow-duplicates') {
+			allowDuplicates = true;
+			continue;
+		}
+
 		definitionIds.push(arg);
 	}
 
-	return { showHelp: false, email, definitionIds };
+	return { showHelp: false, email, definitionIds, allowDuplicates };
 }
 
-const { showHelp, email, definitionIds } = parseArguments(process.argv.slice(2));
+const { showHelp, email, definitionIds, allowDuplicates } = parseArguments(process.argv.slice(2));
 
 if (showHelp) {
 	printUsage();
@@ -83,7 +89,7 @@ try {
 	const acquiredAt = new Date().toISOString();
 
 	const grantedWeapons = definitionIds
-		.filter((definitionId) => !existingDefinitionIds.has(definitionId))
+		.filter((definitionId) => allowDuplicates || !existingDefinitionIds.has(definitionId))
 		.map((definitionId) => ({
 			instanceId: randomUUID(),
 			definitionId,
@@ -112,6 +118,7 @@ try {
 			{
 				email,
 				userId,
+				allowDuplicates,
 				requestedDefinitionIds: definitionIds,
 				grantedDefinitionIds: grantedWeapons.map((weapon) => weapon.definitionId),
 				alreadyOwnedDefinitionIds: definitionIds.filter((definitionId) =>

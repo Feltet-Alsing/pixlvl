@@ -17,6 +17,13 @@
 		normalizePersistedLoadoutState
 	} from '$lib/game/loadout-slots';
 	import {
+		normalizeSelectableWeaponTargeting,
+		placementWeaponTargetingOptions,
+		standardWeaponTargetingOptions,
+		targetingLabelByKind,
+		type WeaponTargetingOption
+	} from '$lib/game/weapon-targeting';
+	import {
 		cycleLoadoutRotation,
 		getLoadoutRotationLabel,
 		getPlacementRotation,
@@ -164,13 +171,6 @@
 		`pixlvl-arena-combat-resume-${campaignId}`;
 	const getLoadoutChangeLogStorageKey = (campaignId: number) =>
 		`pixlvl-loadout-change-log-${campaignId}`;
-	const TARGETING_OPTIONS: Array<{ value: WeaponTargetingKind; label: string }> = [
-		{ value: 'nearest-target', label: 'nearest target' },
-		{ value: 'furthest-target', label: 'furthest target' },
-		{ value: 'strongest-target', label: 'strongest target' },
-		{ value: 'weakest-target', label: 'weakest target' }
-	];
-
 	let { data, form }: PageProps = $props();
 	let inventoryPreferencesStorageKey = $derived(
 		`pixlvl-loadout-inventory-preferences-${data.campaignId}`
@@ -505,11 +505,40 @@
 
 		return null;
 	});
-	let selectedWeaponDetails = $derived.by(() => {
-		const normalizeTargetingValue = (targeting: WeaponTargetingKind | undefined) =>
-			targeting === 'current-target' || !targeting ? 'nearest-target' : targeting;
+	const isLaserRodWeapon = (weapon: {
+		family?: LoadoutItemDefinition extends never ? never : 'mine' | 'pylon' | 'laser-rod';
+		attack?: { special?: { type?: string } };
+	}) => weapon.family === 'laser-rod' || weapon.attack?.special?.type === 'laser-rod-network';
+	const getTargetingOptionsForWeapon = (weapon: {
+		family?: 'mine' | 'pylon' | 'laser-rod';
+		attack?: { special?: { type?: string } };
+	}): WeaponTargetingOption[] =>
+		isLaserRodWeapon(weapon) ? placementWeaponTargetingOptions : standardWeaponTargetingOptions;
+	const getTargetingFallbackForWeapon = (weapon: {
+		family?: 'mine' | 'pylon' | 'laser-rod';
+		attack?: { targeting?: WeaponTargetingKind; special?: { type?: string } };
+	}): WeaponTargetingKind => {
+		if (isLaserRodWeapon(weapon)) {
+			return normalizeSelectableWeaponTargeting(weapon.attack?.targeting, 'top-middle');
+		}
 
+		return normalizeSelectableWeaponTargeting(weapon.attack?.targeting, 'nearest-target');
+	};
+	let selectedTargetingOptions = $derived.by(() => {
+		if (selectedPlacedWeapon?.category === 'weapon') {
+			return getTargetingOptionsForWeapon(selectedPlacedWeapon);
+		}
+
+		return standardWeaponTargetingOptions;
+	});
+	let selectedWeaponDetails = $derived.by(() => {
 		if (selectedPlacedWeapon) {
+			const targetingFallback = getTargetingFallbackForWeapon(selectedPlacedWeapon);
+			const targetingValue =
+				selectedPlacedWeapon.category === 'weapon'
+					? normalizeSelectableWeaponTargeting(selectedPlacedWeapon.targeting, targetingFallback)
+					: undefined;
+
 			return {
 				weaponInstanceId: selectedPlacedWeapon.weaponInstanceId,
 				name: selectedPlacedWeapon.name,
@@ -555,10 +584,7 @@
 						: []),
 					{ label: 'Placement', value: `${selectedPlacedWeapon.x}, ${selectedPlacedWeapon.y}` }
 				],
-				targetingValue:
-					selectedPlacedWeapon.category === 'weapon'
-						? normalizeTargetingValue(selectedPlacedWeapon.targeting)
-						: undefined,
+				targetingValue,
 				canRotate: true,
 				canMirror: true,
 				canChangeTargeting: selectedPlacedWeapon.category === 'weapon'
@@ -1521,13 +1547,9 @@
 		draggedWeaponInstanceId = weaponInstanceId;
 		draggedWeaponRotation = rotation;
 		draggedWeaponMirrored = mirrored;
-		draggedWeaponTargeting = (
-			isWeaponDefinition(definition) && definition.attack.targeting === 'current-target'
-				? 'nearest-target'
-				: isWeaponDefinition(definition)
-					? definition.attack.targeting
-					: 'nearest-target'
-		) as WeaponTargetingKind;
+		draggedWeaponTargeting = isWeaponDefinition(definition)
+			? getTargetingFallbackForWeapon(definition)
+			: 'nearest-target';
 		draggedWeaponAnchor = getDefaultDragAnchor(
 			transformWeaponShape(definition.shape, rotation, mirrored)
 		);
@@ -1901,9 +1923,7 @@
 			getPlacedWeaponDragAnchor(event, weapon.shape),
 			weapon.rotation,
 			weapon.mirrored,
-			(weapon.targeting === 'current-target' || !weapon.targeting
-				? 'nearest-target'
-				: weapon.targeting) as WeaponTargetingKind
+			normalizeSelectableWeaponTargeting(weapon.targeting, getTargetingFallbackForWeapon(weapon))
 		);
 	}
 
@@ -1931,9 +1951,7 @@
 			anchor,
 			0,
 			false,
-			(weapon.attack?.targeting === 'current-target' || !weapon.attack?.targeting
-				? 'nearest-target'
-				: weapon.attack.targeting) as WeaponTargetingKind
+			getTargetingFallbackForWeapon(weapon)
 		);
 	}
 
@@ -1977,11 +1995,7 @@
 		draggedWeaponAnchor = getDefaultDragAnchor(weapon.shape);
 		draggedWeaponRotation = 0;
 		draggedWeaponMirrored = false;
-		draggedWeaponTargeting = (
-			weapon.attack?.targeting === 'current-target' || !weapon.attack?.targeting
-				? 'nearest-target'
-				: weapon.attack.targeting
-		) as WeaponTargetingKind;
+		draggedWeaponTargeting = getTargetingFallbackForWeapon(weapon);
 		draggedWeaponPointerId = gesture.pointerId;
 		dragPreviewPointer = { x: gesture.clientX, y: gesture.clientY };
 		hoveredGridOrigin = null;
@@ -2068,12 +2082,20 @@
 	}
 
 	function updatePlacedWeaponTargeting(weaponInstanceId: string, targeting: string) {
-		const normalizedTargeting = TARGETING_OPTIONS.find(
-			(option) => option.value === targeting
-		)?.value;
 		const currentPlacement = draftLoadoutPlacements.find(
 			(entry) => entry.weaponInstanceId === weaponInstanceId
 		);
+		const currentWeapon = loadoutWeapons.find(
+			(entry) => entry.weaponInstanceId === weaponInstanceId
+		);
+
+		if (!currentWeapon || currentWeapon.category !== 'weapon') {
+			return;
+		}
+
+		const normalizedTargeting = getTargetingOptionsForWeapon(currentWeapon).find(
+			(option) => option.value === targeting
+		)?.value;
 
 		if (!normalizedTargeting || currentPlacement?.targeting === normalizedTargeting) {
 			return;
@@ -2086,8 +2108,7 @@
 		);
 		pushChangeLogEntry(
 			`Retargeted ${getLoadoutItemName(weaponInstanceId)}`,
-			TARGETING_OPTIONS.find((option) => option.value === normalizedTargeting)?.label ??
-				normalizedTargeting,
+			targetingLabelByKind[normalizedTargeting] ?? normalizedTargeting,
 			'neutral'
 		);
 	}
@@ -2289,7 +2310,7 @@
 				<LoadoutWeaponDetailsPane
 					detail={selectedWeaponDetails}
 					signedIn={Boolean(data.gameState)}
-					targetingOptions={TARGETING_OPTIONS}
+					targetingOptions={selectedTargetingOptions}
 					showUpgradeControls={false}
 					onRotate={() => {
 						if (selectedPlacedWeaponInstanceId) {

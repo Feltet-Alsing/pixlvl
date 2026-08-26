@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { targetingAbbreviationByKind } from '$lib/game/weapon-targeting';
 	import type {
 		LoadoutRotation,
 		WeaponTargetingKind,
@@ -79,16 +80,11 @@
 
 	function getWeaponLabel(weapon: LoadoutWeapon) {
 		if (weapon.category === 'weapon') {
-			switch (weapon.targeting ?? weapon.attack?.targeting) {
-				case 'nearest-target':
-				case 'current-target':
-					return 'NT';
-				case 'furthest-target':
-					return 'FT';
-				case 'strongest-target':
-					return 'ST';
-				case 'weakest-target':
-					return 'WT';
+			const targetingLabel =
+				targetingAbbreviationByKind[weapon.targeting ?? weapon.attack?.targeting];
+
+			if (targetingLabel) {
+				return targetingLabel;
 			}
 		}
 

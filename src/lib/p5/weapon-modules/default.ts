@@ -1,6 +1,7 @@
 import { activateWeaponBehavior } from '$lib/p5/weapon-behaviors';
 import {
 	drawDefaultWeaponComponent,
+	drawLaserRodNetworkEffect,
 	drawPerimeterMineEffect,
 	drawSupportPylonEffect,
 	drawTurretMineEffect
@@ -49,6 +50,17 @@ const pylonWeaponModule: Partial<WeaponModule> = {
 	}
 };
 
+const laserRodWeaponModule: Partial<WeaponModule> = {
+	renderArenaEffect: (p, effect) => {
+		if (effect.kind === 'laser-rod-network') {
+			drawLaserRodNetworkEffect(p, effect);
+			return true;
+		}
+
+		return false;
+	}
+};
+
 export const defaultProjectileWeaponIds = [
 	'target-painter',
 	'the-knife',
@@ -85,3 +97,6 @@ defaultWeaponModulesById['mark-beacon'] = pylonWeaponModule;
 defaultWeaponModulesById['cold-lattice'] = pylonWeaponModule;
 defaultWeaponModulesById['mine-calibrator'] = pylonWeaponModule;
 defaultWeaponModulesById['hemorrhage-relay'] = pylonWeaponModule;
+defaultWeaponModulesById['ember-rods'] = laserRodWeaponModule;
+defaultWeaponModulesById['coldwire-rods'] = laserRodWeaponModule;
+defaultWeaponModulesById['sunder-rods'] = laserRodWeaponModule;
