@@ -106,6 +106,240 @@ export const sharedWeapons: LoadoutItemDefinition[] = [
 		role: 'Baseline filler weapon that teaches the sweep system'
 	},
 	{
+		id: 'the-mine',
+		name: 'The Mine',
+		family: 'mine',
+		rarity: 'normal',
+		shape: {
+			width: 2,
+			height: 2,
+			cells: [
+				[0, 0],
+				[1, 0],
+				[0, 1],
+				[1, 1]
+			]
+		},
+		baseDamage: 8,
+		projectileSpeed: 0,
+		attack: {
+			kind: 'single',
+			projectileCount: 1,
+			cycleInterval: 1,
+			special: {
+				type: 'perimeter-mine',
+				maxActiveMines: 10,
+				placementRadius: 92,
+				triggerRadius: 14,
+				blastRadius: 48,
+				markerSize: 14
+			},
+			targeting: 'current-target'
+		},
+		projectileVisual: sharedProjectileVisualById['the-mine'],
+		drop: {
+			mode: 'drop',
+			stageStart: 1,
+			stageEnd: 5,
+			perLevelDropChance: 0.12
+		},
+		role: 'Normal perimeter mine that arms outside the pixl and grants all mine effects +20% damage per copy each cycle'
+	},
+	{
+		id: 'cluster-mines',
+		name: 'Cluster Mines',
+		family: 'mine',
+		rarity: 'magic',
+		shape: {
+			width: 4,
+			height: 3,
+			cells: [
+				[0, 0],
+				[1, 0],
+				[2, 0],
+				[1, 1],
+				[2, 1],
+				[3, 1],
+				[1, 2],
+				[2, 2]
+			]
+		},
+		baseDamage: 3,
+		projectileSpeed: 0,
+		attack: {
+			kind: 'single',
+			projectileCount: 5,
+			cycleInterval: 2,
+			special: {
+				type: 'perimeter-mine',
+				placementCount: 5,
+				maxActiveMines: 15,
+				placementRadius: 88,
+				triggerRadius: 10,
+				blastRadius: 24,
+				markerSize: 8
+			},
+			targeting: 'current-target'
+		},
+		projectileVisual: sharedProjectileVisualById['cluster-mines'],
+		drop: {
+			mode: 'drop',
+			stageStart: 2,
+			stageEnd: 5,
+			perLevelDropChance: 0.08
+		},
+		role: 'Magic mine spreader that seeds five small perimeter mines each trigger and adds +1 projectile to all mine-family weapons'
+	},
+	{
+		id: 'shrapnel-mine',
+		name: 'Shrapnel Mine',
+		family: 'mine',
+		rarity: 'rare',
+		shape: {
+			width: 4,
+			height: 3,
+			cells: [
+				[1, 0],
+				[2, 0],
+				[0, 1],
+				[1, 1],
+				[2, 1],
+				[3, 1],
+				[1, 2],
+				[2, 2]
+			]
+		},
+		baseDamage: 10,
+		projectileSpeed: 210,
+		attack: {
+			kind: 'single',
+			projectileCount: 1,
+			cycleInterval: 2,
+			special: {
+				type: 'perimeter-mine',
+				maxActiveMines: 8,
+				placementRadius: 96,
+				triggerRadius: 14,
+				blastRadius: 34,
+				markerSize: 11,
+				detonationShrapnel: {
+					fragmentCount: 20,
+					fragmentDamageMultiplier: 0.4,
+					fragmentSearchRadius: 170,
+					fragmentSpeedMultiplier: 1.45
+				}
+			},
+			targeting: 'current-target'
+		},
+		projectileVisual: sharedProjectileVisualById['shrapnel-mine'],
+		drop: {
+			mode: 'drop',
+			stageStart: 3,
+			stageEnd: 5,
+			perLevelDropChance: 0.06
+		},
+		role: 'Rare mine that detonates into heavy-orb style shrapnel and gives all mines a 20% chance per copy to trigger without being consumed'
+	},
+	{
+		id: 'napalm-mine',
+		name: 'Napalm Mine',
+		family: 'mine',
+		rarity: 'exotic',
+		shape: {
+			width: 4,
+			height: 3,
+			cells: [
+				[1, 0],
+				[2, 0],
+				[0, 1],
+				[1, 1],
+				[2, 1],
+				[3, 1],
+				[1, 2],
+				[2, 2]
+			]
+		},
+		baseDamage: 8,
+		projectileSpeed: 0,
+		attack: {
+			kind: 'single',
+			projectileCount: 1,
+			cycleInterval: 2,
+			special: {
+				type: 'perimeter-mine',
+				maxActiveMines: 8,
+				placementRadius: 94,
+				triggerRadius: 13,
+				blastRadius: 30,
+				markerSize: 12,
+				detonationBurningGround: {
+					radius: 68,
+					durationCycles: 2,
+					tickInterval: 0.35,
+					impactSize: 18,
+					damageMultiplier: 0.8
+				}
+			},
+			targeting: 'current-target'
+		},
+		projectileVisual: sharedProjectileVisualById['napalm-mine'],
+		drop: {
+			mode: 'drop',
+			stageStart: 4,
+			stageEnd: 5,
+			perLevelDropChance: 0.03
+		},
+		role: 'Exotic mine that detonates into a persistent napalm patch, turning each trigger into lingering area denial after the initial blast'
+	},
+	{
+		id: 'turret-mine',
+		name: 'Turret Mine',
+		family: 'mine',
+		rarity: 'legendary',
+		shape: {
+			width: 5,
+			height: 4,
+			cells: [
+				[1, 0],
+				[2, 0],
+				[0, 1],
+				[1, 1],
+				[2, 1],
+				[3, 1],
+				[4, 1],
+				[1, 2],
+				[2, 2],
+				[3, 2],
+				[2, 3]
+			]
+		},
+		baseDamage: 12,
+		projectileSpeed: 260,
+		attack: {
+			kind: 'single',
+			projectileCount: 1,
+			cycleInterval: 4,
+			special: {
+				type: 'turret-mine',
+				placementRadius: 118,
+				turretDurationCycles: 3,
+				markerSize: 13,
+				maxActiveTurrets: 1,
+				projectileSpeedMultiplier: 2.5,
+				fallbackBlastRadius: 36
+			},
+			targeting: 'current-target'
+		},
+		projectileVisual: sharedProjectileVisualById['turret-mine'],
+		drop: {
+			mode: 'drop',
+			stageStart: 5,
+			stageEnd: 5,
+			perLevelDropChance: 0.01
+		},
+		role: 'Legendary mine that deploys a tiny perimeter turret on the arena edge for three sweeps; while active it replicates each other mine weapon that triggers and fires that mine effect from turret position'
+	},
+	{
 		id: 'blaster',
 		name: 'Blaster',
 		rarity: 'magic',
@@ -282,6 +516,82 @@ export const sharedWeapons: LoadoutItemDefinition[] = [
 			perLevelDropChance: 0.08
 		},
 		role: 'Passive rupture utility that detonates enemies whose stored bleed exceeds max health, cashing the whole wound out into a large blood explosion'
+	},
+	{
+		id: 'mine-echo',
+		name: 'Mine Echo',
+		category: 'utility',
+		rarity: 'magic',
+		shape: {
+			width: 4,
+			height: 4,
+			cells: [
+				[1, 0],
+				[2, 0],
+				[0, 1],
+				[1, 1],
+				[2, 1],
+				[3, 1],
+				[0, 2],
+				[1, 2],
+				[2, 2],
+				[3, 2],
+				[1, 3],
+				[2, 3]
+			]
+		},
+		activationKind: 'passive',
+		effect: {
+			type: 'mine-trigger-echo'
+		},
+		utilityVisual: sharedUtilityVisualById['mine-echo'],
+		drop: {
+			mode: 'drop',
+			stageStart: 2,
+			stageEnd: 5,
+			perLevelDropChance: 0.06
+		},
+		role: 'Large magic mine utility that duplicates each mine-family trigger once across the build; extra copies do not stack'
+	},
+	{
+		id: 'gravity-mine-augment',
+		name: 'Gravity Mine Augment',
+		category: 'utility',
+		rarity: 'exotic',
+		shape: {
+			width: 4,
+			height: 4,
+			cells: [
+				[1, 0],
+				[2, 0],
+				[0, 1],
+				[1, 1],
+				[2, 1],
+				[3, 1],
+				[0, 2],
+				[1, 2],
+				[2, 2],
+				[3, 2],
+				[1, 3],
+				[2, 3]
+			]
+		},
+		activationKind: 'passive',
+		requiredInfusion: 'void',
+		requiredInfusionCount: 1,
+		effect: {
+			type: 'mine-gravity-augment',
+			pullRadius: 76,
+			pullStrength: 88
+		},
+		utilityVisual: sharedUtilityVisualById['gravity-mine-augment'],
+		drop: {
+			mode: 'drop',
+			stageStart: 4,
+			stageEnd: 5,
+			perLevelDropChance: 0.03
+		},
+		role: 'Exotic void mine utility that gives each armed mine a gentle gravity field, bending nearby glitches inward whenever one void infusion is available in the current sweep'
 	},
 	{
 		id: 'heavy-orb',

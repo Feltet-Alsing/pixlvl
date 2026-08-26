@@ -58,6 +58,7 @@ const LEVEL_RESET_DELAY = 1.2;
 const CAMPAIGN_LOOP_DELAY = 3;
 const LOADOUT_PREVIEW_MAX_WIDTH = 320;
 const LOADOUT_PREVIEW_BASE_HEIGHT = 240;
+const DEFAULT_MAX_ACTIVE_PERIMETER_MINES = 12;
 
 type WaveStatus = 'running' | 'cleared' | 'defeated' | 'complete';
 type RunMode = 'management' | 'combat';
@@ -139,6 +140,7 @@ interface ProjectileState {
 	impactTargetY: number | null;
 	arrivalEffect: 'burning-ground' | null;
 	arrivalTriggerRadius: number;
+	minePayloadWeaponId: string | null;
 }
 
 interface SniperLockState {
@@ -224,6 +226,42 @@ interface VulnerablePulseState {
 	glow: boolean;
 	age: number;
 	hitEnemyIds: number[];
+}
+
+interface PerimeterMineState {
+	sourceWeaponInstanceId: string;
+	centerX: number;
+	centerY: number;
+	triggerRadius: number;
+	blastRadius: number;
+	markerSize: number;
+	damage: number;
+	color: string;
+	glow: boolean;
+	age: number;
+	hasDetonated: boolean;
+	explosionFlash: number;
+}
+
+interface TurretMineState {
+	sourceWeaponInstanceId: string;
+	centerX: number;
+	centerY: number;
+	markerSize: number;
+	color: string;
+	glow: boolean;
+	age: number;
+	expiresAfterSweepIndex: number;
+	barrelAngle: number;
+	fireFlash: number;
+}
+
+interface TurretMineBurstState {
+	turret: TurretMineState;
+	payloadWeaponId: string;
+	shotsRemaining: number;
+	emissionInterval: number;
+	emissionTimer: number;
 }
 
 interface StasisFieldState {
@@ -684,6 +722,16 @@ export function createArenaCombatSketch(
 		const triggeredUtilities = equippedUtilities.filter(
 			(utility) => utility.definition.activationKind === 'triggered'
 		);
+		const passiveUtilityHasAvailableInfusion = (utility: EquippedUtilityState) => {
+			const requiredInfusion = utility.definition.requiredInfusion;
+			const requiredInfusionCount = Math.max(1, utility.definition.requiredInfusionCount ?? 1);
+
+			if (!requiredInfusion) {
+				return true;
+			}
+
+			return elementalInfusions[requiredInfusion] >= requiredInfusionCount;
+		};
 
 		for (const weapon of equippedWeapons) {
 			let cycleReduction = 0;
@@ -750,8 +798,31 @@ export function createArenaCombatSketch(
 			hemorrhageBurstUtility?.definition.effect.type === 'hemorrhage-burst'
 				? hemorrhageBurstUtility.definition.effect
 				: null;
+		const hasMineTriggerEcho = passiveUtilities.some(
+			(utility) => utility.definition.effect.type === 'mine-trigger-echo'
+		);
+		const getActiveMineGravityAugmentEffect = () => {
+			const utility = passiveUtilities.find(
+				(candidate) =>
+					candidate.definition.effect.type === 'mine-gravity-augment' &&
+					passiveUtilityHasAvailableInfusion(candidate)
+			);
+
+			return utility?.definition.effect.type === 'mine-gravity-augment'
+				? utility.definition.effect
+				: null;
+		};
 		const targetPainterWeapon = equippedWeapons.find(
 			(weapon) => weapon.definition.attack.special?.type === 'target-painter'
+		);
+		const sharedMineDamageMultiplier =
+			1 + equippedWeapons.filter((weapon) => weapon.definition.family === 'mine').length * 0.2;
+		const sharedMineProjectileBonus = equippedWeapons.filter(
+			(weapon) => weapon.definition.id === 'cluster-mines'
+		).length;
+		const sharedMinePersistenceChance = Math.min(
+			1,
+			equippedWeapons.filter((weapon) => weapon.definition.id === 'shrapnel-mine').length * 0.2
 		);
 		const targetPainterEffect =
 			targetPainterWeapon?.definition.attack.special?.type === 'target-painter'
@@ -850,6 +921,9 @@ export function createArenaCombatSketch(
 		let vulnerablePulses: VulnerablePulseState[] = [];
 		let stasisFields: StasisFieldState[] = [];
 		let laserSweeps: LaserSweepState[] = [];
+		let perimeterMines: PerimeterMineState[] = [];
+		let turretMines: TurretMineState[] = [];
+		let turretMineBursts: TurretMineBurstState[] = [];
 		let needleBursts: NeedleBurstState[] = [];
 		let executionLatticeStrikes: ExecutionLatticeStrikeState[] = [];
 		let forkLightningBursts: ForkLightningState[] = [];
@@ -1246,6 +1320,9 @@ export function createArenaCombatSketch(
 			vulnerablePulses = [];
 			stasisFields = [];
 			laserSweeps = [];
+			perimeterMines = [];
+			turretMines = [];
+			turretMineBursts = [];
 			needleBursts = [];
 			executionLatticeStrikes = [];
 			forkLightningBursts = [];
@@ -1285,11 +1362,39 @@ export function createArenaCombatSketch(
 			const sourceDamageMultiplier = sourceWeaponInstanceId
 				? (weaponDamageMultiplierByInstanceId[sourceWeaponInstanceId] ?? 1)
 				: 1;
+			const familyDamageMultiplier = weapon.family === 'mine' ? sharedMineDamageMultiplier : 1;
 
 			return Math.max(
 				1,
-				Math.round(weapon.baseDamage * cycleDamageMultiplier * multiplier * sourceDamageMultiplier)
+				Math.round(
+					weapon.baseDamage *
+						cycleDamageMultiplier *
+						familyDamageMultiplier *
+						multiplier *
+						sourceDamageMultiplier
+				)
 			);
+		};
+
+		const getAdjustedMinePlacementCount = (weapon: WeaponDefinition) => {
+			const special = weapon.attack.special;
+
+			if (!special || special.type !== 'perimeter-mine') {
+				return Math.max(1, weapon.attack.projectileCount);
+			}
+
+			const basePlacementCount = special.placementCount ?? weapon.attack.projectileCount;
+			const familyProjectileBonus = weapon.family === 'mine' ? sharedMineProjectileBonus : 0;
+
+			return Math.max(1, basePlacementCount + familyProjectileBonus);
+		};
+
+		const getTurretMineReplicationShotCount = (weapon: WeaponDefinition) => {
+			if (weapon.family !== 'mine') {
+				return Math.max(1, weapon.attack.projectileCount);
+			}
+
+			return getAdjustedMinePlacementCount(weapon);
 		};
 
 		const rollLevelRewardPacks = () => {
@@ -2602,20 +2707,113 @@ export function createArenaCombatSketch(
 				return;
 			}
 
-			burningGrounds.push({
+			spawnBurningGroundPatch({
+				weapon,
 				sourceWeaponInstanceId,
 				centerX,
 				centerY,
 				radius: special.radius,
-				damagePerTick: getAdjustedWeaponDamage(weapon, 1, sourceWeaponInstanceId),
+				damageMultiplier: 1,
 				tickInterval: special.tickInterval,
-				tickTimer: special.tickInterval,
 				impactSize: special.impactSize,
+				durationCycles: special.durationCycles
+			});
+		};
+
+		const spawnBurningGroundPatch = ({
+			weapon,
+			sourceWeaponInstanceId,
+			centerX,
+			centerY,
+			radius,
+			damageMultiplier,
+			tickInterval,
+			impactSize,
+			durationCycles
+		}: {
+			weapon: WeaponDefinition;
+			sourceWeaponInstanceId: string;
+			centerX: number;
+			centerY: number;
+			radius: number;
+			damageMultiplier: number;
+			tickInterval: number;
+			impactSize: number;
+			durationCycles: number;
+		}) => {
+			burningGrounds.push({
+				sourceWeaponInstanceId,
+				centerX,
+				centerY,
+				radius,
+				damagePerTick: getAdjustedWeaponDamage(weapon, damageMultiplier, sourceWeaponInstanceId),
+				tickInterval,
+				tickTimer: tickInterval,
+				impactSize,
 				color: weapon.projectileVisual.color,
 				glow: weapon.projectileVisual.glow ?? false,
 				age: 0,
-				duration: special.durationCycles / Math.max(0.001, pixlProgression.attackSpeed)
+				duration: durationCycles / Math.max(0.001, pixlProgression.attackSpeed)
 			});
+		};
+
+		const triggerPerimeterMinePayloadAtPoint = ({
+			weapon,
+			sourceWeaponInstanceId,
+			centerX,
+			centerY,
+			primaryHitEnemyId,
+			damage = getAdjustedWeaponDamage(weapon, 1, sourceWeaponInstanceId)
+		}: {
+			weapon: WeaponDefinition;
+			sourceWeaponInstanceId: string;
+			centerX: number;
+			centerY: number;
+			primaryHitEnemyId: number;
+			damage?: number;
+		}) => {
+			const special = weapon.attack.special;
+
+			if (!special || special.type !== 'perimeter-mine') {
+				return;
+			}
+
+			const detonationCopies = hasMineTriggerEcho ? 2 : 1;
+
+			for (let detonationIndex = 0; detonationIndex < detonationCopies; detonationIndex += 1) {
+				for (let blastEnemyIndex = enemies.length - 1; blastEnemyIndex >= 0; blastEnemyIndex -= 1) {
+					const blastEnemy = enemies[blastEnemyIndex];
+					const blastDistance = Math.hypot(blastEnemy.x - centerX, blastEnemy.y - centerY);
+
+					if (blastDistance > special.blastRadius + ENEMY_VISUALS[blastEnemy.kind].radius) {
+						continue;
+					}
+
+					applyDamageToEnemy(blastEnemyIndex, damage, 0.14, sourceWeaponInstanceId);
+				}
+
+				if (special.detonationBurningGround) {
+					spawnBurningGroundPatch({
+						weapon,
+						sourceWeaponInstanceId,
+						centerX,
+						centerY,
+						radius: special.detonationBurningGround.radius,
+						damageMultiplier: special.detonationBurningGround.damageMultiplier ?? 1,
+						tickInterval: special.detonationBurningGround.tickInterval,
+						impactSize: special.detonationBurningGround.impactSize,
+						durationCycles: special.detonationBurningGround.durationCycles
+					});
+				}
+
+				spawnPerimeterMineShrapnelBurst(
+					weapon,
+					sourceWeaponInstanceId,
+					centerX,
+					centerY,
+					primaryHitEnemyId
+				);
+			}
 		};
 
 		const spawnDelayedBomb = (
@@ -2644,6 +2842,179 @@ export function createArenaCombatSketch(
 				hasDetonated: false,
 				explosionFlash: 0
 			});
+		};
+
+		const spawnPerimeterMine = (
+			weapon: WeaponDefinition,
+			sourceWeaponInstanceId: string,
+			target: EnemyState
+		) => {
+			const special = weapon.attack.special;
+
+			if (!special || special.type !== 'perimeter-mine') {
+				return;
+			}
+
+			const placementCount = getAdjustedMinePlacementCount(weapon);
+			const baseAngle = Math.atan2(target.y - centerY, target.x - centerX);
+			const angleOffsetStep = placementCount > 1 ? Math.PI / 7 : Math.PI / 9;
+			const existingMinesFromSource = perimeterMines.filter(
+				(mine) => mine.sourceWeaponInstanceId === sourceWeaponInstanceId && !mine.hasDetonated
+			).length;
+			const maxActiveMines = Math.max(
+				1,
+				special.maxActiveMines ?? DEFAULT_MAX_ACTIVE_PERIMETER_MINES
+			);
+			const availableMineSlots = Math.max(0, maxActiveMines - existingMinesFromSource);
+
+			if (availableMineSlots <= 0) {
+				return;
+			}
+
+			const placementsToSpawn = Math.min(placementCount, availableMineSlots);
+
+			for (let placementIndex = 0; placementIndex < placementsToSpawn; placementIndex += 1) {
+				const offsetIndex = existingMinesFromSource + placementIndex;
+				const angleOffsetDirection = offsetIndex % 2 === 0 ? 1 : -1;
+				const angleOffsetMagnitude = Math.ceil(offsetIndex / 2) * angleOffsetStep;
+				const placementAngle = baseAngle + angleOffsetDirection * angleOffsetMagnitude;
+
+				perimeterMines.push({
+					sourceWeaponInstanceId,
+					centerX: centerX + Math.cos(placementAngle) * special.placementRadius,
+					centerY: centerY + Math.sin(placementAngle) * special.placementRadius,
+					triggerRadius: special.triggerRadius,
+					blastRadius: special.blastRadius,
+					markerSize: special.markerSize,
+					damage: getAdjustedWeaponDamage(weapon, 1, sourceWeaponInstanceId),
+					color: weapon.projectileVisual.color,
+					glow: weapon.projectileVisual.glow ?? false,
+					age: 0,
+					hasDetonated: false,
+					explosionFlash: 0
+				});
+			}
+		};
+
+		const spawnTurretMine = (
+			weapon: WeaponDefinition,
+			sourceWeaponInstanceId: string,
+			target: EnemyState
+		) => {
+			const special = weapon.attack.special;
+
+			if (!special || special.type !== 'turret-mine') {
+				return;
+			}
+
+			const activeTurretsFromSource = turretMines.filter(
+				(turret) => turret.sourceWeaponInstanceId === sourceWeaponInstanceId
+			).length;
+			const maxActiveTurrets = Math.max(1, special.maxActiveTurrets ?? 1);
+
+			if (activeTurretsFromSource >= maxActiveTurrets) {
+				return;
+			}
+
+			const baseAngle = Math.atan2(target.y - centerY, target.x - centerX);
+
+			turretMines.push({
+				sourceWeaponInstanceId,
+				centerX: centerX + Math.cos(baseAngle) * arenaRadius,
+				centerY: centerY + Math.sin(baseAngle) * arenaRadius,
+				markerSize: special.markerSize,
+				color: weapon.projectileVisual.color,
+				glow: weapon.projectileVisual.glow ?? false,
+				age: 0,
+				expiresAfterSweepIndex: currentSweepIndex + Math.max(1, special.turretDurationCycles),
+				barrelAngle: baseAngle,
+				fireFlash: 0
+			});
+		};
+
+		const fireTurretMinePayload = (turret: TurretMineState, payloadWeapon: WeaponDefinition) => {
+			const turretWeapon = equippedWeaponByInstanceId.get(
+				turret.sourceWeaponInstanceId
+			)?.definition;
+
+			if (!turretWeapon || turretWeapon.attack.special?.type !== 'turret-mine') {
+				return false;
+			}
+
+			const target = enemies.reduce<EnemyState | null>((closest, enemy) => {
+				const distance = Math.hypot(enemy.x - turret.centerX, enemy.y - turret.centerY);
+				const closestDistance = closest
+					? Math.hypot(closest.x - turret.centerX, closest.y - turret.centerY)
+					: Number.POSITIVE_INFINITY;
+
+				return distance < closestDistance ? enemy : closest;
+			}, null);
+
+			if (!target) {
+				return false;
+			}
+
+			turret.barrelAngle = Math.atan2(target.y - turret.centerY, target.x - turret.centerX);
+			turret.fireFlash = 0.9;
+
+			spawnProjectile({
+				sourceWeaponInstanceId: turret.sourceWeaponInstanceId,
+				originX: turret.centerX,
+				originY: turret.centerY,
+				target,
+				weapon: payloadWeapon,
+				damage: 0,
+				speed:
+					Math.max(220, payloadWeapon.projectileSpeed || turretWeapon.projectileSpeed) *
+					(turretWeapon.attack.special.projectileSpeedMultiplier ?? 1),
+				size: Math.max(4, PROJECTILE_SIZE_BY_VISUAL[payloadWeapon.projectileVisual.size] * 0.8),
+				shape: payloadWeapon.projectileVisual.shape ?? 'diamond',
+				trail: payloadWeapon.projectileVisual.trail ?? 'pulse',
+				glow: payloadWeapon.projectileVisual.glow ?? true,
+				color: payloadWeapon.projectileVisual.color,
+				motion: 'straight',
+				pierceRemaining: 0,
+				impactRadius: 0,
+				impactRadiusGrowth: 0,
+				maxImpactRadius: 0,
+				ricochetRemaining: 0,
+				sizeGrowth: 0,
+				maxSize: Math.max(4, PROJECTILE_SIZE_BY_VISUAL[payloadWeapon.projectileVisual.size] * 0.8),
+				canSplitOnImpact: false,
+				minePayloadWeaponId: payloadWeapon.id,
+				homingTargetEnemyId: target.id,
+				homingTurnRate: 6
+			});
+
+			return true;
+		};
+
+		const fireTurretMinesForTriggeredWeapon = (weapon: WeaponDefinition) => {
+			if (weapon.family !== 'mine' || weapon.id === 'turret-mine') {
+				return;
+			}
+
+			const shotCount = getTurretMineReplicationShotCount(weapon);
+
+			for (const turret of turretMines) {
+				if (currentSweepIndex >= turret.expiresAfterSweepIndex) {
+					continue;
+				}
+
+				const didFireInitialShot = fireTurretMinePayload(turret, weapon);
+
+				if (!didFireInitialShot || shotCount <= 1) {
+					continue;
+				}
+
+				turretMineBursts.push({
+					turret,
+					payloadWeaponId: weapon.id,
+					shotsRemaining: shotCount - 1,
+					emissionInterval: 0.055,
+					emissionTimer: 0.055
+				});
+			}
 		};
 
 		const spawnLaserSweep = (weapon: WeaponDefinition, sourceWeaponInstanceId: string) => {
@@ -2988,7 +3359,10 @@ export function createArenaCombatSketch(
 			impactTargetX = null,
 			impactTargetY = null,
 			arrivalEffect = null,
-			arrivalTriggerRadius = 0
+			arrivalTriggerRadius = 0,
+			minePayloadWeaponId = null,
+			homingTargetEnemyId,
+			homingTurnRate
 		}: {
 			sourceWeaponInstanceId: string;
 			originX: number;
@@ -3023,6 +3397,9 @@ export function createArenaCombatSketch(
 			impactTargetY?: number | null;
 			arrivalEffect?: 'burning-ground' | null;
 			arrivalTriggerRadius?: number;
+			minePayloadWeaponId?: string | null;
+			homingTargetEnemyId?: number | null;
+			homingTurnRate?: number;
 		}) => {
 			const baseAngle =
 				(angleRadians ??
@@ -3101,13 +3478,15 @@ export function createArenaCombatSketch(
 				hitEnemyIds: [],
 				hitResetInterval,
 				hitResetTimer: hitResetInterval,
-				homingTargetEnemyId: weapon.id === 'heavy-orb' ? (target?.id ?? null) : null,
-				homingTurnRate: weapon.id === 'heavy-orb' ? 2.4 : 0,
+				homingTargetEnemyId:
+					homingTargetEnemyId ?? (weapon.id === 'heavy-orb' ? (target?.id ?? null) : null),
+				homingTurnRate: homingTurnRate ?? (weapon.id === 'heavy-orb' ? 2.4 : 0),
 				collidesWithEnemies,
 				impactTargetX,
 				impactTargetY,
 				arrivalEffect,
-				arrivalTriggerRadius
+				arrivalTriggerRadius,
+				minePayloadWeaponId
 			});
 		};
 
@@ -3283,6 +3662,95 @@ export function createArenaCombatSketch(
 			}
 		};
 
+		const spawnPerimeterMineShrapnelBurst = (
+			weapon: WeaponDefinition,
+			sourceWeaponInstanceId: string,
+			impactX: number,
+			impactY: number,
+			hitEnemyId: number
+		) => {
+			const special = weapon.attack.special;
+
+			if (!special || special.type !== 'perimeter-mine' || !special.detonationShrapnel) {
+				return;
+			}
+
+			const shrapnel = special.detonationShrapnel;
+			const nearbyEnemies = getClosestEnemiesToPoint(
+				impactX,
+				impactY,
+				shrapnel.fragmentCount,
+				shrapnel.fragmentSearchRadius,
+				[hitEnemyId]
+			);
+			const fragmentSize = Math.max(
+				4,
+				PROJECTILE_SIZE_BY_VISUAL[weapon.projectileVisual.size] * 0.45
+			);
+
+			for (const enemy of nearbyEnemies) {
+				spawnProjectile({
+					sourceWeaponInstanceId,
+					originX: impactX,
+					originY: impactY,
+					target: enemy,
+					weapon,
+					damage: getAdjustedWeaponDamage(
+						weapon,
+						shrapnel.fragmentDamageMultiplier,
+						sourceWeaponInstanceId
+					),
+					speed: weapon.projectileSpeed * shrapnel.fragmentSpeedMultiplier,
+					size: fragmentSize,
+					shape: 'spark',
+					trail: 'streak',
+					glow: true,
+					color: '#ffb08f',
+					motion: 'straight',
+					pierceRemaining: Number.POSITIVE_INFINITY,
+					impactRadius: 0,
+					impactRadiusGrowth: 0,
+					maxImpactRadius: 0,
+					ricochetRemaining: 0,
+					sizeGrowth: 0,
+					maxSize: fragmentSize,
+					canSplitOnImpact: false
+				});
+			}
+
+			const remainingFragments = Math.max(0, shrapnel.fragmentCount - nearbyEnemies.length);
+
+			for (let index = 0; index < remainingFragments; index += 1) {
+				spawnProjectile({
+					sourceWeaponInstanceId,
+					originX: impactX,
+					originY: impactY,
+					angleRadians: (index / Math.max(1, remainingFragments)) * Math.PI * 2,
+					weapon,
+					damage: getAdjustedWeaponDamage(
+						weapon,
+						shrapnel.fragmentDamageMultiplier,
+						sourceWeaponInstanceId
+					),
+					speed: weapon.projectileSpeed * shrapnel.fragmentSpeedMultiplier,
+					size: fragmentSize,
+					shape: 'spark',
+					trail: 'streak',
+					glow: true,
+					color: '#ffb08f',
+					motion: 'straight',
+					pierceRemaining: Number.POSITIVE_INFINITY,
+					impactRadius: 0,
+					impactRadiusGrowth: 0,
+					maxImpactRadius: 0,
+					ricochetRemaining: 0,
+					sizeGrowth: 0,
+					maxSize: fragmentSize,
+					canSplitOnImpact: false
+				});
+			}
+		};
+
 		const activateWeapon = (weapon: EquippedWeaponState, target: EnemyState) => {
 			if (weapon.cyclesUntilTrigger > 1) {
 				weapon.cyclesUntilTrigger -= 1;
@@ -3346,6 +3814,12 @@ export function createArenaCombatSketch(
 				spawnSniperLock,
 				spawnExecutionLattice,
 				spawnForkLightning,
+				spawnPerimeterMine: (definition, instanceId, mineTarget) => {
+					spawnPerimeterMine(definition, instanceId, mineTarget as EnemyState);
+				},
+				spawnTurretMine: (definition, instanceId, turretTarget) => {
+					spawnTurretMine(definition, instanceId, turretTarget as EnemyState);
+				},
 				spawnStasisField: (definition, instanceId, stasisTarget) => {
 					spawnStasisField(definition, instanceId, stasisTarget as EnemyState);
 				},
@@ -3398,9 +3872,22 @@ export function createArenaCombatSketch(
 					result.pendingNextWeaponDamageMultiplier
 				);
 			}
+
+			fireTurretMinesForTriggeredWeapon(weapon.definition);
 		};
 
 		const activateUtility = (utility: EquippedUtilityState) => {
+			const requiredInfusion = utility.definition.requiredInfusion;
+			const requiredInfusionCount = Math.max(1, utility.definition.requiredInfusionCount ?? 1);
+
+			if (requiredInfusion) {
+				if (elementalInfusions[requiredInfusion] < requiredInfusionCount) {
+					return;
+				}
+
+				elementalInfusions[requiredInfusion] -= requiredInfusionCount;
+			}
+
 			getUtilityModuleByInstanceId(utility.instanceId).activate(utility, {
 				currentSweepIndex,
 				getShieldPoolForSource: (sourceId) => pixlShieldSources[sourceId] ?? 0,
@@ -3823,6 +4310,101 @@ export function createArenaCombatSketch(
 			}
 		};
 
+		const updatePerimeterMines = (dt: number) => {
+			for (let index = perimeterMines.length - 1; index >= 0; index -= 1) {
+				const mine = perimeterMines[index];
+				mine.age += dt;
+
+				if (!mine.hasDetonated) {
+					for (let enemyIndex = enemies.length - 1; enemyIndex >= 0; enemyIndex -= 1) {
+						const enemy = enemies[enemyIndex];
+						const distanceToMine = Math.hypot(enemy.x - mine.centerX, enemy.y - mine.centerY);
+
+						if (distanceToMine > mine.triggerRadius + ENEMY_VISUALS[enemy.kind].radius) {
+							continue;
+						}
+
+						mine.hasDetonated = true;
+						mine.explosionFlash = 0.24;
+						const sourceWeapon = equippedWeaponByInstanceId.get(
+							mine.sourceWeaponInstanceId
+						)?.definition;
+
+						if (sourceWeapon) {
+							triggerPerimeterMinePayloadAtPoint({
+								weapon: sourceWeapon,
+								sourceWeaponInstanceId: mine.sourceWeaponInstanceId,
+								centerX: mine.centerX,
+								centerY: mine.centerY,
+								primaryHitEnemyId: enemy.id,
+								damage: mine.damage
+							});
+						}
+
+						break;
+					}
+				}
+
+				if (!mine.hasDetonated) {
+					continue;
+				}
+
+				mine.explosionFlash = Math.max(0, mine.explosionFlash - dt);
+
+				if (mine.explosionFlash <= 0) {
+					if (sharedMinePersistenceChance > 0 && Math.random() < sharedMinePersistenceChance) {
+						mine.hasDetonated = false;
+						mine.explosionFlash = 0;
+						mine.age = 0;
+						continue;
+					}
+
+					perimeterMines.splice(index, 1);
+				}
+			}
+		};
+
+		const updateTurretMines = (dt: number) => {
+			for (let index = turretMines.length - 1; index >= 0; index -= 1) {
+				const turret = turretMines[index];
+				turret.age += dt;
+				turret.fireFlash = Math.max(0, turret.fireFlash - dt * 3.5);
+
+				if (currentSweepIndex >= turret.expiresAfterSweepIndex) {
+					turretMines.splice(index, 1);
+					continue;
+				}
+			}
+
+			for (let index = turretMineBursts.length - 1; index >= 0; index -= 1) {
+				const burst = turretMineBursts[index];
+
+				if (!turretMines.includes(burst.turret) || burst.shotsRemaining <= 0) {
+					turretMineBursts.splice(index, 1);
+					continue;
+				}
+
+				burst.emissionTimer -= dt;
+
+				while (burst.emissionTimer <= 0 && burst.shotsRemaining > 0) {
+					const payloadWeapon = getWeaponDefinition(burst.payloadWeaponId);
+					const didFireShot = fireTurretMinePayload(burst.turret, payloadWeapon);
+
+					burst.emissionTimer += burst.emissionInterval;
+
+					if (!didFireShot) {
+						break;
+					}
+
+					burst.shotsRemaining -= 1;
+				}
+
+				if (burst.shotsRemaining <= 0) {
+					turretMineBursts.splice(index, 1);
+				}
+			}
+		};
+
 		const updateDelayedBombs = (dt: number) => {
 			for (let index = delayedBombs.length - 1; index >= 0; index -= 1) {
 				const bomb = delayedBombs[index];
@@ -3936,6 +4518,7 @@ export function createArenaCombatSketch(
 
 		const updateEnemies = (dt: number) => {
 			ensureMarkedEnemy();
+			const mineGravityAugmentEffect = getActiveMineGravityAugmentEffect();
 
 			for (let index = enemies.length - 1; index >= 0; index -= 1) {
 				if (updateBleedOnEnemy(index, dt)) {
@@ -4068,10 +4651,6 @@ export function createArenaCombatSketch(
 					enemy.y += Math.sign(deltaY || 1) * pullStepY;
 				}
 
-				const dx = centerX - enemy.x;
-				const dy = centerY - enemy.y;
-				const distance = Math.hypot(dx, dy) || 1;
-				const desiredRange = Math.max(contactRange + 20, enemy.holdRadius);
 				const confusionMultiplier = enemy.confusionTimer > 0 ? 0.67 : 1;
 				const chillMultiplier = enemy.frozenTimer > 0 ? 0 : 1 - enemy.chillAmount;
 				const oathbreakerSlowMultiplier = getOathbreakerSlowMultiplier(enemy.id);
@@ -4083,6 +4662,83 @@ export function createArenaCombatSketch(
 				if (immobilized) {
 					continue;
 				}
+
+				if (mineGravityAugmentEffect) {
+					let closestMine: PerimeterMineState | null = null;
+					let closestMineDistance = Number.POSITIVE_INFINITY;
+
+					for (const mine of perimeterMines) {
+						if (mine.hasDetonated) {
+							continue;
+						}
+
+						const distanceToMine = Math.hypot(enemy.x - mine.centerX, enemy.y - mine.centerY);
+						const pullReach =
+							mineGravityAugmentEffect.pullRadius + ENEMY_VISUALS[enemy.kind].radius;
+
+						if (distanceToMine > pullReach || distanceToMine >= closestMineDistance) {
+							continue;
+						}
+
+						closestMine = mine;
+						closestMineDistance = distanceToMine;
+					}
+
+					if (closestMine && closestMineDistance > 0.001) {
+						const pullVectorX = closestMine.centerX - enemy.x;
+						const pullVectorY = closestMine.centerY - enemy.y;
+						const pullFalloff =
+							1 -
+							Math.min(
+								1,
+								closestMineDistance /
+									(mineGravityAugmentEffect.pullRadius + ENEMY_VISUALS[enemy.kind].radius)
+							);
+						const pullStep = Math.min(
+							Math.max(0, closestMineDistance - closestMine.triggerRadius * 0.35),
+							mineGravityAugmentEffect.pullStrength * (0.45 + pullFalloff * 0.55) * dt
+						);
+
+						enemy.x += (pullVectorX / closestMineDistance) * pullStep;
+						enemy.y += (pullVectorY / closestMineDistance) * pullStep;
+					}
+				}
+
+				let movementTargetX = centerX;
+				let movementTargetY = centerY;
+				let desiredRange = Math.max(contactRange + 20, enemy.holdRadius);
+
+				if (mineGravityAugmentEffect) {
+					let closestMine: PerimeterMineState | null = null;
+					let closestMineDistance = Number.POSITIVE_INFINITY;
+
+					for (const mine of perimeterMines) {
+						if (mine.hasDetonated) {
+							continue;
+						}
+
+						const distanceToMine = Math.hypot(enemy.x - mine.centerX, enemy.y - mine.centerY);
+						const pullReach =
+							mineGravityAugmentEffect.pullRadius + ENEMY_VISUALS[enemy.kind].radius;
+
+						if (distanceToMine > pullReach || distanceToMine >= closestMineDistance) {
+							continue;
+						}
+
+						closestMine = mine;
+						closestMineDistance = distanceToMine;
+					}
+
+					if (closestMine && closestMineDistance > closestMine.triggerRadius * 0.25) {
+						movementTargetX = closestMine.centerX;
+						movementTargetY = closestMine.centerY;
+						desiredRange = Math.max(0, closestMine.triggerRadius * 0.18);
+					}
+				}
+
+				const dx = movementTargetX - enemy.x;
+				const dy = movementTargetY - enemy.y;
+				const distance = Math.hypot(dx, dy) || 1;
 
 				if (isSiege) {
 					const distanceDelta = distance - desiredRange;
@@ -4769,6 +5425,16 @@ export function createArenaCombatSketch(
 						enemy.id
 					);
 
+					if (projectile.minePayloadWeaponId) {
+						triggerPerimeterMinePayloadAtPoint({
+							weapon: getWeaponDefinition(projectile.minePayloadWeaponId),
+							sourceWeaponInstanceId: projectile.sourceWeaponInstanceId,
+							centerX: projectile.x,
+							centerY: projectile.y,
+							primaryHitEnemyId: enemy.id
+						});
+					}
+
 					applyDamageToEnemy(
 						hitEnemyIndex,
 						projectile.damage,
@@ -5340,6 +6006,44 @@ export function createArenaCombatSketch(
 					const emberY = ground.centerY + Math.sin(angle) * orbit * 0.38;
 					p.fill(emberIndex % 2 === 0 ? '#fff3b088' : '#ff7a2a88');
 					p.circle(emberX, emberY, Math.max(3, ground.impactSize * 0.22));
+				}
+			}
+
+			for (const mine of perimeterMines) {
+				if (
+					getWeaponModuleByInstanceId(mine.sourceWeaponInstanceId).renderArenaEffect(p, {
+						kind: 'perimeter-mine',
+						centerX: mine.centerX,
+						centerY: mine.centerY,
+						triggerRadius: mine.triggerRadius,
+						blastRadius: mine.blastRadius,
+						markerSize: mine.markerSize,
+						color: mine.color,
+						glow: mine.glow,
+						age: mine.age,
+						hasDetonated: mine.hasDetonated,
+						explosionFlash: mine.explosionFlash
+					})
+				) {
+					continue;
+				}
+			}
+
+			for (const turret of turretMines) {
+				if (
+					getWeaponModuleByInstanceId(turret.sourceWeaponInstanceId).renderArenaEffect(p, {
+						kind: 'turret-mine',
+						centerX: turret.centerX,
+						centerY: turret.centerY,
+						markerSize: turret.markerSize,
+						barrelAngle: turret.barrelAngle,
+						color: turret.color,
+						glow: turret.glow,
+						age: turret.age,
+						fireFlash: turret.fireFlash
+					})
+				) {
+					continue;
 				}
 			}
 
@@ -6215,6 +6919,8 @@ export function createArenaCombatSketch(
 				updateVoidTunnels(dt);
 				updatePhaseshifts(dt);
 				updateBurningGrounds(dt);
+				updatePerimeterMines(dt);
+				updateTurretMines(dt);
 				updateDelayedBombs(dt);
 				updateLaserSweeps(dt);
 				updateNeedleBursts(dt);

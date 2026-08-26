@@ -84,6 +84,8 @@ const oathbreakerUtilityModule: Partial<UtilityModule> = {
 const defaultUtilityIds = [
 	'cycle-booster',
 	'hemorrhage-burst',
+	'mine-echo',
+	'gravity-mine-augment',
 	'blood-catalyst',
 	'siphoning-knife'
 ] as const;

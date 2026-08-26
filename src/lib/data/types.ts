@@ -29,6 +29,8 @@ export type ElementalInfusionType = 'fire' | 'lightning' | 'cold' | 'void';
 export type WeaponSpecialAttackKind =
 	| 'force-field'
 	| 'laser-sweep'
+	| 'perimeter-mine'
+	| 'turret-mine'
 	| 'ricochet'
 	| 'life-steal-mark'
 	| 'kill-switch'
@@ -115,6 +117,37 @@ export interface WeaponAttackBehavior {
 	requiredInfusion?: ElementalInfusionType;
 	requiredInfusionCount?: number;
 	special?:
+		| {
+				type: 'perimeter-mine';
+				placementCount?: number;
+				maxActiveMines?: number;
+				placementRadius: number;
+				triggerRadius: number;
+				blastRadius: number;
+				markerSize: number;
+				detonationBurningGround?: {
+					radius: number;
+					durationCycles: number;
+					tickInterval: number;
+					impactSize: number;
+					damageMultiplier?: number;
+				};
+				detonationShrapnel?: {
+					fragmentCount: number;
+					fragmentDamageMultiplier: number;
+					fragmentSearchRadius: number;
+					fragmentSpeedMultiplier: number;
+				};
+		  }
+		| {
+				type: 'turret-mine';
+				placementRadius: number;
+				turretDurationCycles: number;
+				markerSize: number;
+				maxActiveTurrets?: number;
+				projectileSpeedMultiplier?: number;
+				fallbackBlastRadius?: number;
+		  }
 		| {
 				type: 'force-field';
 				maxRadius: number;
@@ -321,6 +354,8 @@ export interface UtilityDefinition {
 	activationKind: UtilityActivationKind;
 	cycleInterval?: number;
 	startCharged?: boolean;
+	requiredInfusion?: ElementalInfusionType;
+	requiredInfusionCount?: number;
 	effect:
 		| {
 				type: 'shield-pool';
@@ -356,6 +391,14 @@ export interface UtilityDefinition {
 				damageMultiplier: number;
 		  }
 		| {
+				type: 'mine-trigger-echo';
+		  }
+		| {
+				type: 'mine-gravity-augment';
+				pullRadius: number;
+				pullStrength: number;
+		  }
+		| {
 				type: 'oathbreaker-sigil';
 				radiusFactor: number;
 				duration: number;
@@ -371,6 +414,7 @@ export interface UtilityDefinition {
 export interface WeaponDefinition {
 	id: string;
 	name: string;
+	family?: 'mine';
 	rarity: WeaponRarity;
 	shape: WeaponShape;
 	baseDamage: number;

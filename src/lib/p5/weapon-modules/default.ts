@@ -1,5 +1,9 @@
 import { activateWeaponBehavior } from '$lib/p5/weapon-behaviors';
-import { drawDefaultWeaponComponent } from '$lib/p5/weapon-component';
+import {
+	drawDefaultWeaponComponent,
+	drawPerimeterMineEffect,
+	drawTurretMineEffect
+} from '$lib/p5/weapon-component';
 import type { WeaponModule } from '$lib/p5/weapon-module-types';
 
 export const defaultWeaponModule: WeaponModule = {
@@ -15,6 +19,22 @@ export const defaultWeaponModule: WeaponModule = {
 export const defaultProjectileWeaponModule: Partial<WeaponModule> = {
 	renderProjectile: defaultWeaponModule.renderProjectile,
 	renderArenaEffect: defaultWeaponModule.renderArenaEffect
+};
+
+const mineWeaponModule: Partial<WeaponModule> = {
+	renderArenaEffect: (p, effect) => {
+		if (effect.kind === 'perimeter-mine') {
+			drawPerimeterMineEffect(p, effect);
+			return true;
+		}
+
+		if (effect.kind === 'turret-mine') {
+			drawTurretMineEffect(p, effect);
+			return true;
+		}
+
+		return false;
+	}
 };
 
 export const defaultProjectileWeaponIds = [
@@ -43,3 +63,9 @@ export const defaultProjectileWeaponIds = [
 export const defaultWeaponModulesById = Object.fromEntries(
 	defaultProjectileWeaponIds.map((weaponId) => [weaponId, defaultProjectileWeaponModule])
 ) as Record<string, Partial<WeaponModule>>;
+
+defaultWeaponModulesById['the-mine'] = mineWeaponModule;
+defaultWeaponModulesById['cluster-mines'] = mineWeaponModule;
+defaultWeaponModulesById['shrapnel-mine'] = mineWeaponModule;
+defaultWeaponModulesById['napalm-mine'] = mineWeaponModule;
+defaultWeaponModulesById['turret-mine'] = mineWeaponModule;

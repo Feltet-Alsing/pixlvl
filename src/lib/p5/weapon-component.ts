@@ -127,6 +127,32 @@ export interface DelayedBombEffectProps {
 	explosionFlash: number;
 }
 
+export interface PerimeterMineEffectProps {
+	kind: 'perimeter-mine';
+	centerX: number;
+	centerY: number;
+	triggerRadius: number;
+	blastRadius: number;
+	markerSize: number;
+	color: string;
+	glow: boolean;
+	age: number;
+	hasDetonated: boolean;
+	explosionFlash: number;
+}
+
+export interface TurretMineEffectProps {
+	kind: 'turret-mine';
+	centerX: number;
+	centerY: number;
+	markerSize: number;
+	barrelAngle: number;
+	color: string;
+	glow: boolean;
+	age: number;
+	fireFlash: number;
+}
+
 export interface LaserSweepEffectProps {
 	kind: 'laser-sweep';
 	arenaCenterX: number;
@@ -255,6 +281,8 @@ export type WeaponArenaEffectProps =
 	| PhaseshiftEffectProps
 	| BurningGroundEffectProps
 	| DelayedBombEffectProps
+	| PerimeterMineEffectProps
+	| TurretMineEffectProps
 	| LaserSweepEffectProps
 	| SniperLockEffectProps
 	| SniperChainBurstEffectProps
@@ -728,6 +756,109 @@ export function drawDelayedBombEffect(p: P5, effect: DelayedBombEffectProps) {
 	p.circle(effect.centerX, effect.centerY, flashRadius * 1.75);
 	p.fill('#ffffffaa');
 	p.circle(effect.centerX, effect.centerY, flashRadius * 0.95);
+}
+
+export function drawPerimeterMineEffect(p: P5, effect: PerimeterMineEffectProps) {
+	if (!effect.hasDetonated) {
+		const pulse = 0.94 + Math.sin(effect.age * 5.5) * 0.05;
+		const ringRadius = effect.blastRadius * (0.92 + pulse * 0.08);
+
+		if (effect.glow) {
+			p.noStroke();
+			p.fill(`${effect.color}22`);
+			p.circle(effect.centerX, effect.centerY, effect.blastRadius * 3.2 * pulse);
+		}
+
+		p.noFill();
+		p.stroke(`${effect.color}66`);
+		p.strokeWeight(1.8);
+		p.circle(effect.centerX, effect.centerY, ringRadius * 2);
+
+		p.push();
+		p.translate(effect.centerX, effect.centerY);
+		p.rotate(effect.age * 0.9);
+		p.noStroke();
+		p.fill('#0b1110f0');
+		p.circle(0, 0, effect.markerSize * 1.55);
+		p.fill(effect.color);
+		for (let spikeIndex = 0; spikeIndex < 4; spikeIndex += 1) {
+			p.push();
+			p.rotate((spikeIndex / 4) * p.TWO_PI + Math.PI / 4);
+			p.rectMode(p.CENTER);
+			p.rect(0, 0, effect.markerSize * 0.9, effect.markerSize * 0.9, 2);
+			p.pop();
+		}
+		p.fill('#dcfce7');
+		p.circle(0, 0, effect.markerSize * 0.42);
+		p.pop();
+
+		p.noFill();
+		p.stroke(`${effect.color}aa`);
+		p.strokeWeight(1.2);
+		p.circle(effect.centerX, effect.centerY, effect.triggerRadius * 2);
+		return;
+	}
+
+	const flashProgress = 1 - effect.explosionFlash / 0.24;
+	const flashRadius = effect.blastRadius * (0.55 + flashProgress * 0.9);
+
+	p.noStroke();
+	p.fill('#ecfccb99');
+	p.circle(effect.centerX, effect.centerY, flashRadius * 2.4);
+	p.fill(`${effect.color}aa`);
+	p.circle(effect.centerX, effect.centerY, flashRadius * 1.85);
+	p.fill('#ffffffbb');
+	p.circle(effect.centerX, effect.centerY, flashRadius);
+}
+
+export function drawTurretMineEffect(p: P5, effect: TurretMineEffectProps) {
+	const pulse = 0.96 + Math.sin(effect.age * 4.8) * 0.04;
+
+	if (effect.glow) {
+		p.noStroke();
+		p.fill(`${effect.color}1f`);
+		p.circle(effect.centerX, effect.centerY, effect.markerSize * 4.2 * pulse);
+	}
+
+	p.push();
+	p.translate(effect.centerX, effect.centerY);
+	p.rotate(effect.barrelAngle);
+	p.rectMode(p.CENTER);
+	p.noStroke();
+	p.fill('#171717ee');
+	p.circle(0, 0, effect.markerSize * 1.8);
+	p.fill(effect.color);
+	p.circle(0, 0, effect.markerSize * 1.18);
+	p.fill('#fff3b0cc');
+	p.circle(0, -effect.markerSize * 0.1, effect.markerSize * 0.34);
+	p.fill('#d4d4d8dd');
+	p.rect(
+		effect.markerSize * 0.42,
+		-effect.markerSize * 0.08,
+		effect.markerSize * 1.15,
+		effect.markerSize * 0.3,
+		2
+	);
+	p.fill('#0f172acc');
+	p.rect(
+		-effect.markerSize * 0.1,
+		effect.markerSize * 0.85,
+		effect.markerSize * 0.34,
+		effect.markerSize * 0.74,
+		2
+	);
+	p.pop();
+
+	if (effect.fireFlash > 0) {
+		const flashRadius = effect.markerSize * (0.65 + effect.fireFlash * 1.4);
+		const flashX = effect.centerX + Math.cos(effect.barrelAngle) * effect.markerSize * 0.95;
+		const flashY = effect.centerY + Math.sin(effect.barrelAngle) * effect.markerSize * 0.95;
+		p.noStroke();
+		p.fill('#fff7edaa');
+		p.circle(flashX, flashY, flashRadius * 1.8);
+		p.fill(`${effect.color}bb`);
+		p.circle(flashX, flashY, flashRadius);
+	}
 }
 
 export function drawLaserSweepEffect(p: P5, effect: LaserSweepEffectProps) {

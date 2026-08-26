@@ -17,6 +17,16 @@ export interface WeaponActivationContext {
 	spawnKillSwitchPulse: (weapon: WeaponDefinition, sourceWeaponInstanceId: string) => void;
 	spawnVulnerablePulse: (weapon: WeaponDefinition, sourceWeaponInstanceId: string) => void;
 	spawnLaserSweep: (weapon: WeaponDefinition, sourceWeaponInstanceId: string) => void;
+	spawnPerimeterMine: (
+		weapon: WeaponDefinition,
+		sourceWeaponInstanceId: string,
+		target: WeaponTargetState
+	) => void;
+	spawnTurretMine: (
+		weapon: WeaponDefinition,
+		sourceWeaponInstanceId: string,
+		target: WeaponTargetState
+	) => void;
 	spawnNeedleFan: (weapon: WeaponDefinition, sourceWeaponInstanceId: string) => void;
 	ensureMarkedEnemy: () => WeaponTargetState | null;
 	assignMarkedEnemy: (target: WeaponTargetState) => void;

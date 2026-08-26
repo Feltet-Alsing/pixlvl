@@ -18,6 +18,41 @@ export const sharedProjectileVisualById = {
 		color: '#67d96f',
 		size: 'small'
 	},
+	'the-mine': {
+		color: '#f8fafc',
+		size: 'medium',
+		shape: 'diamond',
+		trail: 'pulse',
+		glow: true
+	},
+	'cluster-mines': {
+		color: '#5eead4',
+		size: 'small',
+		shape: 'diamond',
+		trail: 'pulse',
+		glow: true
+	},
+	'shrapnel-mine': {
+		color: '#f59e0b',
+		size: 'medium',
+		shape: 'diamond',
+		trail: 'pulse',
+		glow: true
+	},
+	'napalm-mine': {
+		color: '#ef4444',
+		size: 'medium',
+		shape: 'diamond',
+		trail: 'pulse',
+		glow: true
+	},
+	'turret-mine': {
+		color: '#fbbf24',
+		size: 'medium',
+		shape: 'diamond',
+		trail: 'pulse',
+		glow: true
+	},
 	blaster: {
 		color: '#ff4d4d',
 		size: 'large'
@@ -88,6 +123,16 @@ export const sharedUtilityVisualById = {
 	},
 	'siphoning-knife': {
 		color: '#7f1d1d',
+		shape: 'column-glow',
+		glow: true
+	},
+	'mine-echo': {
+		color: '#2dd4bf',
+		shape: 'column-glow',
+		glow: true
+	},
+	'gravity-mine-augment': {
+		color: '#8b5cf6',
 		shape: 'column-glow',
 		glow: true
 	},

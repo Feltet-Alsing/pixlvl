@@ -35,6 +35,8 @@ export function createUntargetedSpecialActivator(
 
 export function createTargetedSpecialActivator(
 	spawnKey:
+		| 'spawnPerimeterMine'
+		| 'spawnTurretMine'
 		| 'spawnStasisField'
 		| 'spawnVoidTunnel'
 		| 'spawnBurningGroundProjectile'
@@ -112,6 +114,8 @@ export const specialTypeActivators: Partial<Record<WeaponAttackSpecialType, Weap
 	'kill-switch': createUntargetedSpecialActivator('spawnKillSwitchPulse'),
 	'vulnerable-pulse': createUntargetedSpecialActivator('spawnVulnerablePulse'),
 	'laser-sweep': createUntargetedSpecialActivator('spawnLaserSweep'),
+	'perimeter-mine': createTargetedSpecialActivator('spawnPerimeterMine'),
+	'turret-mine': createTargetedSpecialActivator('spawnTurretMine'),
 	'needle-fan': createUntargetedSpecialActivator('spawnNeedleFan'),
 	'target-painter': activateTargetPainter,
 	'fan-knives': activateFanKnives,

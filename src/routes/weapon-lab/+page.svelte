@@ -1,6 +1,6 @@
 <script lang="ts">
 	import P5Canvas from '$lib/components/P5Canvas.svelte';
-	import { allUtilityDefinitions, allWeaponDefinitions, getCombatProfile } from '$lib/data';
+	import { allWeaponDefinitions, getCombatProfile } from '$lib/data';
 	import {
 		createWeaponLabLevel,
 		createWeaponLabPixlState,
@@ -10,25 +10,34 @@
 	} from '$lib/game/weapon-lab';
 	import { createArenaCombatSketch } from '$lib/p5/arena-combat-sketch';
 
-	import type { ElementalInfusionType, UtilityDefinition, WeaponDefinition } from '$lib/data/types';
+	import type { WeaponDefinition } from '$lib/data/types';
 
 	type WeaponLabCombatState = Parameters<
 		NonNullable<NonNullable<Parameters<typeof createArenaCombatSketch>[2]>['onCombatStateChange']>
 	>[0];
 
+	const WEAPON_LAB_SELECTION_STORAGE_KEY = 'pixlvl-weapon-lab-selection';
 	const defaultWeapon = allWeaponDefinitions[0] as WeaponDefinition;
 	const defaultCombatProfileId = weaponLabCombatProfiles[0].id;
 	const defaultPresetId = weaponLabPresets[0].id;
-	const infuserUtilityByElement = new Map<ElementalInfusionType, UtilityDefinition>(
-		allUtilityDefinitions.flatMap((definition) =>
-			definition.effect.type === 'elemental-infuser'
-				? [[definition.effect.element, definition]]
-				: []
-		)
-	);
+	const initialSelectedWeaponId = (() => {
+		if (typeof sessionStorage === 'undefined') {
+			return defaultWeapon.id;
+		}
+
+		const savedWeaponId = sessionStorage.getItem(WEAPON_LAB_SELECTION_STORAGE_KEY);
+
+		if (!savedWeaponId) {
+			return defaultWeapon.id;
+		}
+
+		return allWeaponDefinitions.some((weapon) => weapon.id === savedWeaponId)
+			? savedWeaponId
+			: defaultWeapon.id;
+	})();
 
 	let searchQuery = $state('');
-	let selectedWeaponId = $state(defaultWeapon.id);
+	let selectedWeaponId = $state(initialSelectedWeaponId);
 	let combatState = $state.raw<WeaponLabCombatState | null>(null);
 
 	let filteredWeapons = $derived.by(() => {
@@ -64,26 +73,8 @@
 		selectedWeapon.baseDamage * selectedWeapon.attack.projectileCount
 	);
 	let selectedDamagePerSecond = $derived(selectedDamagePerCycle / selectedCycleInterval);
-	let autoInfuserUtility = $derived.by(() => {
-		const requiredInfusion = selectedWeapon.attack.requiredInfusion;
-
-		if (!requiredInfusion) {
-			return null;
-		}
-
-		return infuserUtilityByElement.get(requiredInfusion) ?? null;
-	});
-	let autoSupportUtilities = $derived.by(() => {
-		if (!autoInfuserUtility) {
-			return [];
-		}
-
-		const copies = Math.max(1, requiredInfusionCount);
-
-		return Array.from({ length: copies }, () => autoInfuserUtility);
-	});
 	let syntheticPixlState = $derived.by(() =>
-		createWeaponLabPixlState([...autoSupportUtilities, selectedWeapon], {
+		createWeaponLabPixlState([selectedWeapon], {
 			targeting: 'current-target',
 			xp: 0,
 			defence: 0,
@@ -112,6 +103,11 @@
 
 	function updateWeapon(event: Event) {
 		selectedWeaponId = (event.currentTarget as HTMLSelectElement).value;
+
+		if (typeof sessionStorage !== 'undefined') {
+			sessionStorage.setItem(WEAPON_LAB_SELECTION_STORAGE_KEY, selectedWeaponId);
+		}
+
 		combatState = null;
 	}
 </script>
@@ -202,14 +198,6 @@
 					<div>
 						<dt>Raw damage / second</dt>
 						<dd>{selectedDamagePerSecond.toFixed(1)}</dd>
-					</div>
-					<div>
-						<dt>Auto support</dt>
-						<dd>
-							{autoInfuserUtility
-								? `${autoSupportUtilities.length}x ${autoInfuserUtility.name}`
-								: 'None'}
-						</dd>
 					</div>
 				</dl>
 			</div>

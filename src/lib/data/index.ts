@@ -47,6 +47,13 @@ export const campaigns = {
 const sharedPoolDefinitionIds = new Set([
 	'target-painter',
 	'kill-switch',
+	'the-mine',
+	'cluster-mines',
+	'shrapnel-mine',
+	'napalm-mine',
+	'turret-mine',
+	'mine-echo',
+	'gravity-mine-augment',
 	'oathbreaker-sigil',
 	'deadeye-sniper',
 	'the-knife',

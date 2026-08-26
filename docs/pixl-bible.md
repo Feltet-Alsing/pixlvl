@@ -73,6 +73,29 @@ Current rarity distribution across unique definitions:
 - `8` exotic
 - `9` legendary
 
+### Season 1 weapon roster milestone
+
+The first public release / Season `1` content target should be much larger than the current roster.
+
+Weapon milestone:
+
+- target `150` total weapons for the Season `1` roster
+- current implemented count is `36` weapons
+- remaining gap is `114` additional weapons
+
+Target rarity mix for the full Season `1` weapon roster:
+
+- `25` normal
+- `40` magic
+- `40` rare
+- `30` exotic
+- `15` legendary
+
+This target intentionally keeps `magic` and `rare` as the dominant middle of the roster, with fewer `normal` weapons, fewer `exotic` weapons, and the fewest `legendary` weapons.
+
+The purpose of this milestone is to make the first release feel like a real weapon ecosystem rather than an early foundation set.
+It should support multiple archetypes, repeatable synergy packages, and enough breadth that new campaigns and future seasons can build on top of a stable core library instead of constantly backfilling obvious gaps.
+
 ---
 
 ## Arena model
@@ -517,8 +540,93 @@ The current campaign-local pools are still not large enough on their own to guar
 
 The next weapon-expansion pass should therefore grow the existing shared pool rather than invent it from scratch.
 
+The next concrete weapon pass should be `mines`.
+That pass should be treated as a full shared archetype package rather than a single one-off weapon.
+
 These should not erase campaign identity.
 They should fill tactical gaps, deepen synergy options, and prevent later pools from collapsing into the same few repeated high-rarity outcomes.
+
+#### Next pass: mines
+
+The next serious content pass should focus on mine weapons and mine-adjacent support pieces.
+
+Mine design intent:
+
+- give the roster a real delayed-detonation / area-denial package
+- support anti-swarm, lane denial, and staged burst patterns that do not rely on direct instant-fire weapons
+- create weapons that reward prediction, setup, clustering, forced pathing, or repeated trigger zones
+- open room for synergy hooks like pulls, slows, freezes, marks, vulnerable windows, chained detonations, or corpse-style cleanup effects
+
+Core mine-package rule:
+
+- mines should explicitly synergize with other mines in the same build
+- each additional mine should contribute a shared bonus that improves the whole mine package rather than only its own local effect
+- the baseline mine-family scaling rule should be additive and easy to read so future mine variants can build on top of it cleanly
+
+Baseline shared mine scaling:
+
+- each copy of `The Mine` adds `+20%` damage to all mine effects triggered in that sweep cycle
+- this bonus should be treated as a mine-family multiplier, not a self-contained stat line that only affects one placed instance
+
+##### The Mine
+
+- rarity: `normal`
+- type: `weapon`
+- role: baseline mine keystone and simple perimeter trap
+
+Behavior:
+
+- places a persistent mine in a perimeter ring outside the `pixl`
+- the mine remains armed until a glitch collides with it
+- on collision, the mine explodes and deals its damage in that contact area
+- each copy of `The Mine` adds `+20%` damage to all mines in the sweep cycle
+
+Design purpose:
+
+- establish the mine family as a real archetype from the normal tier upward
+- give early mine builds a readable anchor piece that scales naturally when the player commits to more mines
+- make additional mine placements feel like a package upgrade rather than disconnected duplicate filler
+
+Mine rarity direction:
+
+- normal and magic mines should establish basic trap cadence, delayed pop, or cheap space control
+- rare mines should introduce tactical payoffs such as chaining, shaped blast zones, or anti-elite conversion
+- exotic mines should become build-defining area-control engines or synergy anchors
+- legendary mines should significantly alter board construction, sweep planning, or how enemies are funneled into kill zones
+
+#### Dev inventory seeding workflow
+
+When a new shared archetype is implemented and needs real loadout testing, we should seed it directly into the dev account inventory instead of overloading the weapon lab.
+
+The current canonical workflow is a one-shot Node script that writes the correct `owned_weapons` JSON shape into `pixl_state`.
+This is more reliable than trying to hand-write raw SQL because the payload needs fresh instance ids and the exact persisted weapon object fields.
+It also reads the repo `.env` database context, which avoids accidentally writing to a different Neon database than the app is currently serving from.
+
+Standard command:
+
+```bash
+yarn grant:dev-inventory the-mine cluster-mines shrapnel-mine mine-echo
+```
+
+Optional alternate target account:
+
+```bash
+yarn grant:dev-inventory --email someone@example.com the-mine cluster-mines
+```
+
+Underlying script:
+
+```bash
+yarn grant:dev-inventory --help
+```
+
+Usage notes:
+
+- the command defaults to `alsing3520@gmail.com`, so the normal flow only needs definition ids as trailing arguments
+- replace the trailing arguments with the exact weapons or utilities being tested
+- this appends only missing definitions and preserves the rest of the account inventory
+- update `acknowledged_weapon_definition_ids` in the same write so the newly seeded items do not look unread or partially registered
+- if the loadout UI still does not show the new items immediately, reopen the page against a fresh server response before assuming the seed failed
 
 #### Shared-pool design goals
 
