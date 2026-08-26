@@ -2,6 +2,7 @@ import { activateWeaponBehavior } from '$lib/p5/weapon-behaviors';
 import {
 	drawDefaultWeaponComponent,
 	drawPerimeterMineEffect,
+	drawSupportPylonEffect,
 	drawTurretMineEffect
 } from '$lib/p5/weapon-component';
 import type { WeaponModule } from '$lib/p5/weapon-module-types';
@@ -30,6 +31,17 @@ const mineWeaponModule: Partial<WeaponModule> = {
 
 		if (effect.kind === 'turret-mine') {
 			drawTurretMineEffect(p, effect);
+			return true;
+		}
+
+		return false;
+	}
+};
+
+const pylonWeaponModule: Partial<WeaponModule> = {
+	renderArenaEffect: (p, effect) => {
+		if (effect.kind === 'support-pylon') {
+			drawSupportPylonEffect(p, effect);
 			return true;
 		}
 
@@ -69,3 +81,7 @@ defaultWeaponModulesById['cluster-mines'] = mineWeaponModule;
 defaultWeaponModulesById['shrapnel-mine'] = mineWeaponModule;
 defaultWeaponModulesById['napalm-mine'] = mineWeaponModule;
 defaultWeaponModulesById['turret-mine'] = mineWeaponModule;
+defaultWeaponModulesById['mark-beacon'] = pylonWeaponModule;
+defaultWeaponModulesById['cold-lattice'] = pylonWeaponModule;
+defaultWeaponModulesById['mine-calibrator'] = pylonWeaponModule;
+defaultWeaponModulesById['hemorrhage-relay'] = pylonWeaponModule;

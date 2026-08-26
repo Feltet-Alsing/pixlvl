@@ -153,6 +153,19 @@ export interface TurretMineEffectProps {
 	fireFlash: number;
 }
 
+export interface SupportPylonEffectProps {
+	kind: 'support-pylon';
+	variant: 'mark-beacon' | 'cold-lattice' | 'mine-calibrator' | 'hemorrhage-relay';
+	centerX: number;
+	centerY: number;
+	radius: number;
+	markerSize: number;
+	color: string;
+	glow: boolean;
+	age: number;
+	duration: number;
+}
+
 export interface LaserSweepEffectProps {
 	kind: 'laser-sweep';
 	arenaCenterX: number;
@@ -283,6 +296,7 @@ export type WeaponArenaEffectProps =
 	| DelayedBombEffectProps
 	| PerimeterMineEffectProps
 	| TurretMineEffectProps
+	| SupportPylonEffectProps
 	| LaserSweepEffectProps
 	| SniperLockEffectProps
 	| SniperChainBurstEffectProps
@@ -859,6 +873,91 @@ export function drawTurretMineEffect(p: P5, effect: TurretMineEffectProps) {
 		p.fill(`${effect.color}bb`);
 		p.circle(flashX, flashY, flashRadius);
 	}
+}
+
+export function drawSupportPylonEffect(p: P5, effect: SupportPylonEffectProps) {
+	const lifeRatio = 1 - effect.age / Math.max(0.0001, effect.duration);
+	const pulse = 0.94 + Math.sin(effect.age * 4.4) * 0.05;
+	const glowScale = 1 + (1 - lifeRatio) * 0.08;
+
+	if (effect.glow) {
+		p.noStroke();
+		p.fill(`${effect.color}16`);
+		p.circle(effect.centerX, effect.centerY, effect.radius * 3.1 * pulse * glowScale);
+	}
+
+	p.noFill();
+	p.stroke(`${effect.color}66`);
+	p.strokeWeight(2);
+	p.circle(effect.centerX, effect.centerY, effect.radius * 2);
+
+	if (effect.variant === 'cold-lattice') {
+		p.stroke(`${effect.color}88`);
+		p.strokeWeight(1.1);
+		for (let lineIndex = -2; lineIndex <= 2; lineIndex += 1) {
+			const offset = (effect.radius / 2.5) * lineIndex;
+			p.line(
+				effect.centerX - effect.radius,
+				effect.centerY + offset,
+				effect.centerX + effect.radius,
+				effect.centerY + offset
+			);
+			p.line(
+				effect.centerX + offset,
+				effect.centerY - effect.radius,
+				effect.centerX + offset,
+				effect.centerY + effect.radius
+			);
+		}
+	} else if (effect.variant === 'mark-beacon') {
+		p.stroke(`${effect.color}aa`);
+		p.strokeWeight(1.4);
+		for (let spokeIndex = 0; spokeIndex < 6; spokeIndex += 1) {
+			const angle = (spokeIndex / 6) * p.TWO_PI + effect.age * 0.4;
+			const innerRadius = effect.markerSize * 0.9;
+			p.line(
+				effect.centerX + Math.cos(angle) * innerRadius,
+				effect.centerY + Math.sin(angle) * innerRadius,
+				effect.centerX + Math.cos(angle) * effect.radius,
+				effect.centerY + Math.sin(angle) * effect.radius
+			);
+		}
+	} else if (effect.variant === 'mine-calibrator') {
+		p.push();
+		p.translate(effect.centerX, effect.centerY);
+		p.rotate(effect.age * 0.55 + Math.PI / 4);
+		p.noFill();
+		p.stroke(`${effect.color}aa`);
+		p.strokeWeight(1.6);
+		p.square(0, 0, effect.radius * 1.1);
+		p.pop();
+	} else {
+		p.stroke(`${effect.color}88`);
+		p.strokeWeight(1.4);
+		for (let arcIndex = 0; arcIndex < 3; arcIndex += 1) {
+			const arcRadius = effect.radius * (0.45 + arcIndex * 0.22);
+			p.arc(
+				effect.centerX,
+				effect.centerY,
+				arcRadius * 2,
+				arcRadius * 2,
+				effect.age * 0.9 + arcIndex,
+				effect.age * 0.9 + arcIndex + Math.PI * 0.9
+			);
+		}
+	}
+
+	p.push();
+	p.translate(effect.centerX, effect.centerY);
+	p.rotate(effect.age * 0.8 + Math.PI / 4);
+	p.noStroke();
+	p.fill('#0b0f14ee');
+	p.square(0, 0, effect.markerSize * 1.7, 3);
+	p.fill(effect.color);
+	p.square(0, 0, effect.markerSize, 3);
+	p.fill('#f8fafccc');
+	p.circle(0, 0, effect.markerSize * 0.34);
+	p.pop();
 }
 
 export function drawLaserSweepEffect(p: P5, effect: LaserSweepEffectProps) {

@@ -32,6 +32,34 @@ export const sharedProjectileVisualById = {
 		trail: 'pulse',
 		glow: true
 	},
+	'mark-beacon': {
+		color: '#fde047',
+		size: 'small',
+		shape: 'spark',
+		trail: 'pulse',
+		glow: true
+	},
+	'cold-lattice': {
+		color: '#7dd3fc',
+		size: 'small',
+		shape: 'diamond',
+		trail: 'pulse',
+		glow: true
+	},
+	'mine-calibrator': {
+		color: '#fb923c',
+		size: 'medium',
+		shape: 'diamond',
+		trail: 'pulse',
+		glow: true
+	},
+	'hemorrhage-relay': {
+		color: '#ef4444',
+		size: 'medium',
+		shape: 'spark',
+		trail: 'pulse',
+		glow: true
+	},
 	'shrapnel-mine': {
 		color: '#f59e0b',
 		size: 'medium',

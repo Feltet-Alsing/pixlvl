@@ -31,6 +31,7 @@ export type WeaponSpecialAttackKind =
 	| 'laser-sweep'
 	| 'perimeter-mine'
 	| 'turret-mine'
+	| 'support-pylon'
 	| 'ricochet'
 	| 'life-steal-mark'
 	| 'kill-switch'
@@ -147,6 +148,22 @@ export interface WeaponAttackBehavior {
 				maxActiveTurrets?: number;
 				projectileSpeedMultiplier?: number;
 				fallbackBlastRadius?: number;
+		  }
+		| {
+				type: 'support-pylon';
+				variant: 'mark-beacon' | 'cold-lattice' | 'mine-calibrator' | 'hemorrhage-relay';
+				radius: number;
+				fieldDurationCycles: number;
+				markDamageMultiplier?: number;
+				chillPerSecond?: number;
+				freezeDuration?: number;
+				pullStrength?: number;
+				mineTriggerRadiusBonus?: number;
+				mineBlastRadiusMultiplier?: number;
+				minePayloadDamageMultiplier?: number;
+				bleedDamageMultiplier?: number;
+				bleedSpreadRatio?: number;
+				bleedSpreadRadius?: number;
 		  }
 		| {
 				type: 'force-field';
@@ -414,7 +431,7 @@ export interface UtilityDefinition {
 export interface WeaponDefinition {
 	id: string;
 	name: string;
-	family?: 'mine';
+	family?: 'mine' | 'pylon';
 	rarity: WeaponRarity;
 	shape: WeaponShape;
 	baseDamage: number;

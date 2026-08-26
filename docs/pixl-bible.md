@@ -69,9 +69,11 @@ Current rarity distribution across unique definitions:
 
 - `10` normal
 - `9` magic
-- `13` rare
-- `8` exotic
-- `9` legendary
+- `11` normal
+- `13` magic
+- `16` rare
+- `10` exotic
+- `10` legendary
 
 ### Season 1 weapon roster milestone
 
@@ -80,8 +82,8 @@ The first public release / Season `1` content target should be much larger than 
 Weapon milestone:
 
 - target `150` total weapons for the Season `1` roster
-- current implemented count is `36` weapons
-- remaining gap is `114` additional weapons
+- current implemented count is `60` weapons
+- remaining gap is `90` additional weapons
 
 Target rarity mix for the full Season `1` weapon roster:
 
@@ -95,6 +97,13 @@ This target intentionally keeps `magic` and `rare` as the dominant middle of the
 
 The purpose of this milestone is to make the first release feel like a real weapon ecosystem rather than an early foundation set.
 It should support multiple archetypes, repeatable synergy packages, and enough breadth that new campaigns and future seasons can build on top of a stable core library instead of constantly backfilling obvious gaps.
+
+Latest roster pass:
+
+- the mine package is now complete enough for release-candidate iteration
+- the next implemented support package is a helper-oriented pylon set, not a standalone archetype
+- current support pylons: `Mark Beacon`, `Cold Lattice`, `Mine Calibrator`, `Hemorrhage Relay`
+- design rule: pylons should improve existing builds like knives, mines, slower projectiles, and status packages rather than replace them
 
 ---
 

@@ -146,6 +146,91 @@ export const sharedWeapons: LoadoutItemDefinition[] = [
 		role: 'Normal perimeter mine that arms outside the pixl and grants all mine effects +20% damage per copy each cycle'
 	},
 	{
+		id: 'mark-beacon',
+		name: 'Mark Beacon',
+		family: 'pylon',
+		rarity: 'magic',
+		shape: {
+			width: 3,
+			height: 3,
+			cells: [
+				[1, 0],
+				[0, 1],
+				[1, 1],
+				[2, 1],
+				[1, 2]
+			]
+		},
+		baseDamage: 0,
+		projectileSpeed: 0,
+		attack: {
+			kind: 'single',
+			projectileCount: 1,
+			cycleInterval: 2,
+			special: {
+				type: 'support-pylon',
+				variant: 'mark-beacon',
+				radius: 92,
+				fieldDurationCycles: 2.4,
+				markDamageMultiplier: 1.45
+			},
+			targeting: 'strongest-target'
+		},
+		projectileVisual: sharedProjectileVisualById['mark-beacon'],
+		drop: {
+			mode: 'drop',
+			stageStart: 2,
+			stageEnd: 5,
+			perLevelDropChance: 0.07
+		},
+		role: 'Magic support pylon that tags a forward threat zone so non-pylon weapons hit enemies inside it substantially harder'
+	},
+	{
+		id: 'cold-lattice',
+		name: 'Cold Lattice',
+		family: 'pylon',
+		rarity: 'magic',
+		shape: {
+			width: 4,
+			height: 3,
+			cells: [
+				[1, 0],
+				[2, 0],
+				[0, 1],
+				[1, 1],
+				[2, 1],
+				[3, 1],
+				[1, 2],
+				[2, 2]
+			]
+		},
+		baseDamage: 0,
+		projectileSpeed: 0,
+		attack: {
+			kind: 'single',
+			projectileCount: 1,
+			cycleInterval: 2,
+			special: {
+				type: 'support-pylon',
+				variant: 'cold-lattice',
+				radius: 98,
+				fieldDurationCycles: 2.8,
+				chillPerSecond: 0.75,
+				freezeDuration: 0.5,
+				pullStrength: 54
+			},
+			targeting: 'nearest-target'
+		},
+		projectileVisual: sharedProjectileVisualById['cold-lattice'],
+		drop: {
+			mode: 'drop',
+			stageStart: 2,
+			stageEnd: 5,
+			perLevelDropChance: 0.07
+		},
+		role: 'Magic support pylon that chills and subtly compresses enemy movement inside its field so slower and area weapons connect more reliably'
+	},
+	{
 		id: 'cluster-mines',
 		name: 'Cluster Mines',
 		family: 'mine',
@@ -189,6 +274,55 @@ export const sharedWeapons: LoadoutItemDefinition[] = [
 			perLevelDropChance: 0.08
 		},
 		role: 'Magic mine spreader that seeds five small perimeter mines each trigger and adds +1 projectile to all mine-family weapons'
+	},
+	{
+		id: 'mine-calibrator',
+		name: 'Mine Calibrator',
+		family: 'pylon',
+		rarity: 'rare',
+		shape: {
+			width: 4,
+			height: 4,
+			cells: [
+				[1, 0],
+				[2, 0],
+				[0, 1],
+				[1, 1],
+				[2, 1],
+				[3, 1],
+				[0, 2],
+				[1, 2],
+				[2, 2],
+				[3, 2],
+				[1, 3],
+				[2, 3]
+			]
+		},
+		baseDamage: 0,
+		projectileSpeed: 0,
+		attack: {
+			kind: 'single',
+			projectileCount: 1,
+			cycleInterval: 3,
+			special: {
+				type: 'support-pylon',
+				variant: 'mine-calibrator',
+				radius: 88,
+				fieldDurationCycles: 3.4,
+				mineTriggerRadiusBonus: 8,
+				mineBlastRadiusMultiplier: 1.25,
+				minePayloadDamageMultiplier: 1.25
+			},
+			targeting: 'current-target'
+		},
+		projectileVisual: sharedProjectileVisualById['mine-calibrator'],
+		drop: {
+			mode: 'drop',
+			stageStart: 3,
+			stageEnd: 5,
+			perLevelDropChance: 0.05
+		},
+		role: 'Rare support pylon that tunes mine fields in its radius, widening mine triggers and amplifying the detonation payloads that fire there'
 	},
 	{
 		id: 'shrapnel-mine',
@@ -239,6 +373,51 @@ export const sharedWeapons: LoadoutItemDefinition[] = [
 			perLevelDropChance: 0.06
 		},
 		role: 'Rare mine that detonates into heavy-orb style shrapnel and gives all mines a 20% chance per copy to trigger without being consumed'
+	},
+	{
+		id: 'hemorrhage-relay',
+		name: 'Hemorrhage Relay',
+		family: 'pylon',
+		rarity: 'rare',
+		shape: {
+			width: 4,
+			height: 3,
+			cells: [
+				[1, 0],
+				[2, 0],
+				[0, 1],
+				[1, 1],
+				[2, 1],
+				[3, 1],
+				[1, 2],
+				[2, 2]
+			]
+		},
+		baseDamage: 0,
+		projectileSpeed: 0,
+		attack: {
+			kind: 'single',
+			projectileCount: 1,
+			cycleInterval: 3,
+			special: {
+				type: 'support-pylon',
+				variant: 'hemorrhage-relay',
+				radius: 94,
+				fieldDurationCycles: 3,
+				bleedDamageMultiplier: 1.4,
+				bleedSpreadRatio: 0.35,
+				bleedSpreadRadius: 82
+			},
+			targeting: 'current-target'
+		},
+		projectileVisual: sharedProjectileVisualById['hemorrhage-relay'],
+		drop: {
+			mode: 'drop',
+			stageStart: 3,
+			stageEnd: 5,
+			perLevelDropChance: 0.05
+		},
+		role: 'Rare support pylon that intensifies bleed inside its field and relays part of each bleed tick into nearby enemies to keep knife builds spreading forward'
 	},
 	{
 		id: 'napalm-mine',

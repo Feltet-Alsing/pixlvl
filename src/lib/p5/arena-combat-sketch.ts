@@ -264,6 +264,29 @@ interface TurretMineBurstState {
 	emissionTimer: number;
 }
 
+interface SupportPylonState {
+	sourceWeaponInstanceId: string;
+	variant: 'mark-beacon' | 'cold-lattice' | 'mine-calibrator' | 'hemorrhage-relay';
+	centerX: number;
+	centerY: number;
+	radius: number;
+	markerSize: number;
+	color: string;
+	glow: boolean;
+	age: number;
+	duration: number;
+	markDamageMultiplier: number;
+	chillPerSecond: number;
+	freezeDuration: number;
+	pullStrength: number;
+	mineTriggerRadiusBonus: number;
+	mineBlastRadiusMultiplier: number;
+	minePayloadDamageMultiplier: number;
+	bleedDamageMultiplier: number;
+	bleedSpreadRatio: number;
+	bleedSpreadRadius: number;
+}
+
 interface StasisFieldState {
 	sourceWeaponInstanceId: string;
 	centerX: number;
@@ -923,6 +946,7 @@ export function createArenaCombatSketch(
 		let laserSweeps: LaserSweepState[] = [];
 		let perimeterMines: PerimeterMineState[] = [];
 		let turretMines: TurretMineState[] = [];
+		let supportPylons: SupportPylonState[] = [];
 		let turretMineBursts: TurretMineBurstState[] = [];
 		let needleBursts: NeedleBurstState[] = [];
 		let executionLatticeStrikes: ExecutionLatticeStrikeState[] = [];
@@ -1322,6 +1346,7 @@ export function createArenaCombatSketch(
 			laserSweeps = [];
 			perimeterMines = [];
 			turretMines = [];
+			supportPylons = [];
 			turretMineBursts = [];
 			needleBursts = [];
 			executionLatticeStrikes = [];
@@ -1395,6 +1420,100 @@ export function createArenaCombatSketch(
 			}
 
 			return getAdjustedMinePlacementCount(weapon);
+		};
+
+		const isPointInsideSupportPylon = (
+			pylon: SupportPylonState,
+			x: number,
+			y: number,
+			padding = 0
+		) => {
+			return Math.hypot(x - pylon.centerX, y - pylon.centerY) <= pylon.radius + padding;
+		};
+
+		const getSupportPylonsCoveringPoint = (
+			x: number,
+			y: number,
+			variant?: SupportPylonState['variant'],
+			padding = 0
+		) => {
+			return supportPylons.filter(
+				(pylon) =>
+					(!variant || pylon.variant === variant) &&
+					isPointInsideSupportPylon(pylon, x, y, padding)
+			);
+		};
+
+		const getMarkBeaconDamageMultiplierAtPoint = (x: number, y: number) => {
+			return getSupportPylonsCoveringPoint(x, y, 'mark-beacon').reduce(
+				(multiplier, pylon) => Math.max(multiplier, pylon.markDamageMultiplier),
+				1
+			);
+		};
+
+		const getMineCalibratorEffectAtPoint = (x: number, y: number) => {
+			return getSupportPylonsCoveringPoint(x, y, 'mine-calibrator').reduce(
+				(effect, pylon) => ({
+					mineTriggerRadiusBonus: Math.max(
+						effect.mineTriggerRadiusBonus,
+						pylon.mineTriggerRadiusBonus
+					),
+					mineBlastRadiusMultiplier: Math.max(
+						effect.mineBlastRadiusMultiplier,
+						pylon.mineBlastRadiusMultiplier
+					),
+					minePayloadDamageMultiplier: Math.max(
+						effect.minePayloadDamageMultiplier,
+						pylon.minePayloadDamageMultiplier
+					)
+				}),
+				{
+					mineTriggerRadiusBonus: 0,
+					mineBlastRadiusMultiplier: 1,
+					minePayloadDamageMultiplier: 1
+				}
+			);
+		};
+
+		const getDominantColdLatticeAtPoint = (x: number, y: number, padding = 0) => {
+			let bestPylon: SupportPylonState | null = null;
+			let bestDistance = Number.POSITIVE_INFINITY;
+
+			for (const pylon of supportPylons) {
+				if (pylon.variant !== 'cold-lattice' || !isPointInsideSupportPylon(pylon, x, y, padding)) {
+					continue;
+				}
+
+				const distance = Math.hypot(x - pylon.centerX, y - pylon.centerY);
+
+				if (distance < bestDistance) {
+					bestDistance = distance;
+					bestPylon = pylon;
+				}
+			}
+
+			return bestPylon;
+		};
+
+		const getDominantHemorrhageRelayAtPoint = (x: number, y: number, padding = 0) => {
+			let bestPylon: SupportPylonState | null = null;
+			let bestMultiplier = 1;
+
+			for (const pylon of supportPylons) {
+				if (
+					pylon.variant !== 'hemorrhage-relay' ||
+					!isPointInsideSupportPylon(pylon, x, y, padding)
+				) {
+					continue;
+				}
+
+				if (pylon.bleedDamageMultiplier > bestMultiplier) {
+					bestMultiplier = pylon.bleedDamageMultiplier;
+					bestPylon = pylon;
+				}
+			}
+
+			return bestPylon;
 		};
 
 		const rollLevelRewardPacks = () => {
@@ -1634,12 +1753,20 @@ export function createArenaCombatSketch(
 				return 0;
 			}
 
+			const hemorrhageRelay = getDominantHemorrhageRelayAtPoint(
+				enemy.x,
+				enemy.y,
+				ENEMY_VISUALS[enemy.kind].radius
+			);
+			const effectiveStoredDamage =
+				baseStoredDamage * (hemorrhageRelay?.bleedDamageMultiplier ?? 1);
+
 			const existingSourceHasSiphon = enemy.bleedSourceWeaponInstanceId
 				? knifeSiphonUtilityByFanInstanceId.has(enemy.bleedSourceWeaponInstanceId)
 				: false;
 			const nextSourceHasSiphon = knifeSiphonUtilityByFanInstanceId.has(sourceWeaponInstanceId);
 
-			enemy.bleedStoredDamage += baseStoredDamage;
+			enemy.bleedStoredDamage += effectiveStoredDamage;
 			enemy.bleedDurationRemaining = Math.max(enemy.bleedDurationRemaining, duration);
 			enemy.bleedLifeStealRatio = Math.max(enemy.bleedLifeStealRatio, lifeStealRatio);
 
@@ -1649,7 +1776,7 @@ export function createArenaCombatSketch(
 
 			triggerHemorrhageBurst(enemyIndex);
 
-			return baseStoredDamage / duration;
+			return effectiveStoredDamage / duration;
 		};
 
 		const spawnEnemy = (kind: GlitchKind) => {
@@ -2070,6 +2197,43 @@ export function createArenaCombatSketch(
 				if (enemy.bleedLifeStealRatio > 0 && bleedTickResult.actualDamage > 0) {
 					healPixl(bleedTickResult.actualDamage * enemy.bleedLifeStealRatio);
 				}
+
+				const hemorrhageRelay = getDominantHemorrhageRelayAtPoint(
+					enemy.x,
+					enemy.y,
+					ENEMY_VISUALS[enemy.kind].radius
+				);
+
+				if (
+					hemorrhageRelay &&
+					enemy.bleedSourceWeaponInstanceId &&
+					hemorrhageRelay.bleedSpreadRatio > 0 &&
+					hemorrhageRelay.bleedSpreadRadius > 0
+				) {
+					const [spreadTarget] = getClosestEnemiesToPoint(
+						enemy.x,
+						enemy.y,
+						1,
+						hemorrhageRelay.bleedSpreadRadius,
+						[enemy.id]
+					);
+
+					if (spreadTarget) {
+						const spreadTargetIndex = enemies.findIndex(
+							(candidate) => candidate.id === spreadTarget.id
+						);
+
+						if (spreadTargetIndex >= 0) {
+							applyBleedToEnemy(
+								spreadTargetIndex,
+								baseDamageConsumed * hemorrhageRelay.bleedSpreadRatio,
+								Math.max(dt, enemy.bleedDurationRemaining),
+								enemy.bleedSourceWeaponInstanceId,
+								enemy.bleedLifeStealRatio
+							);
+						}
+					}
+				}
 			}
 
 			const nextEnemy = enemies[enemyIndex];
@@ -2229,6 +2393,10 @@ export function createArenaCombatSketch(
 				sourceWeaponInstanceId
 			) {
 				remainingDamage *= targetPainterEffect.damageMultiplier;
+			}
+
+			if (sourceWeapon?.family !== 'pylon') {
+				remainingDamage *= getMarkBeaconDamageMultiplierAtPoint(enemy.x, enemy.y);
 			}
 
 			if (sourceWeapon?.attack.requiredInfusion && enemy.voidTouchedTimer > 0) {
@@ -2778,6 +2946,11 @@ export function createArenaCombatSketch(
 				return;
 			}
 
+			const mineCalibratorEffect = getMineCalibratorEffectAtPoint(centerX, centerY);
+			const effectiveBlastRadius =
+				special.blastRadius * mineCalibratorEffect.mineBlastRadiusMultiplier;
+			const effectiveDamage = damage * mineCalibratorEffect.minePayloadDamageMultiplier;
+
 			const detonationCopies = hasMineTriggerEcho ? 2 : 1;
 
 			for (let detonationIndex = 0; detonationIndex < detonationCopies; detonationIndex += 1) {
@@ -2785,11 +2958,16 @@ export function createArenaCombatSketch(
 					const blastEnemy = enemies[blastEnemyIndex];
 					const blastDistance = Math.hypot(blastEnemy.x - centerX, blastEnemy.y - centerY);
 
-					if (blastDistance > special.blastRadius + ENEMY_VISUALS[blastEnemy.kind].radius) {
+					if (blastDistance > effectiveBlastRadius + ENEMY_VISUALS[blastEnemy.kind].radius) {
 						continue;
 					}
 
-					applyDamageToEnemy(blastEnemyIndex, damage, 0.14, sourceWeaponInstanceId);
+					applyDamageToEnemy(
+						blastEnemyIndex,
+						effectiveDamage,
+						0.14,
+						sourceWeaponInstanceId
+					);
 				}
 
 				if (special.detonationBurningGround) {
@@ -2929,6 +3107,41 @@ export function createArenaCombatSketch(
 				expiresAfterSweepIndex: currentSweepIndex + Math.max(1, special.turretDurationCycles),
 				barrelAngle: baseAngle,
 				fireFlash: 0
+			});
+		};
+
+		const spawnSupportPylon = (
+			weapon: WeaponDefinition,
+			sourceWeaponInstanceId: string,
+			target: EnemyState
+		) => {
+			const special = weapon.attack.special;
+
+			if (!special || special.type !== 'support-pylon') {
+				return;
+			}
+
+			supportPylons.push({
+				sourceWeaponInstanceId,
+				variant: special.variant,
+				centerX: target.x,
+				centerY: target.y,
+				radius: special.radius,
+				markerSize: Math.max(10, PROJECTILE_SIZE_BY_VISUAL[weapon.projectileVisual.size] * 1.5),
+				color: weapon.projectileVisual.color,
+				glow: weapon.projectileVisual.glow ?? false,
+				age: 0,
+				duration: special.fieldDurationCycles / Math.max(0.001, pixlProgression.attackSpeed),
+				markDamageMultiplier: special.markDamageMultiplier ?? 1,
+				chillPerSecond: special.chillPerSecond ?? 0,
+				freezeDuration: special.freezeDuration ?? 0,
+				pullStrength: special.pullStrength ?? 0,
+				mineTriggerRadiusBonus: special.mineTriggerRadiusBonus ?? 0,
+				mineBlastRadiusMultiplier: special.mineBlastRadiusMultiplier ?? 1,
+				minePayloadDamageMultiplier: special.minePayloadDamageMultiplier ?? 1,
+				bleedDamageMultiplier: special.bleedDamageMultiplier ?? 1,
+				bleedSpreadRatio: special.bleedSpreadRatio ?? 0,
+				bleedSpreadRadius: special.bleedSpreadRadius ?? 0
 			});
 		};
 
@@ -3767,6 +3980,9 @@ export function createArenaCombatSketch(
 				spawnKillSwitchPulse,
 				spawnVulnerablePulse,
 				spawnLaserSweep,
+				spawnSupportPylon: (definition, instanceId, pylonTarget) => {
+					spawnSupportPylon(definition, instanceId, pylonTarget as EnemyState);
+				},
 				spawnNeedleFan,
 				ensureMarkedEnemy,
 				assignMarkedEnemy: (markedTarget) => {
@@ -4256,6 +4472,17 @@ export function createArenaCombatSketch(
 			}
 		};
 
+		const updateSupportPylons = (dt: number) => {
+			for (let index = supportPylons.length - 1; index >= 0; index -= 1) {
+				const pylon = supportPylons[index];
+				pylon.age += dt;
+
+				if (pylon.age >= pylon.duration) {
+					supportPylons.splice(index, 1);
+				}
+			}
+		};
+
 		const updateVoidTunnels = (dt: number) => {
 			for (let index = voidTunnels.length - 1; index >= 0; index -= 1) {
 				const tunnel = voidTunnels[index];
@@ -4314,13 +4541,16 @@ export function createArenaCombatSketch(
 			for (let index = perimeterMines.length - 1; index >= 0; index -= 1) {
 				const mine = perimeterMines[index];
 				mine.age += dt;
+				const mineCalibratorEffect = getMineCalibratorEffectAtPoint(mine.centerX, mine.centerY);
+				const effectiveTriggerRadius =
+					mine.triggerRadius + mineCalibratorEffect.mineTriggerRadiusBonus;
 
 				if (!mine.hasDetonated) {
 					for (let enemyIndex = enemies.length - 1; enemyIndex >= 0; enemyIndex -= 1) {
 						const enemy = enemies[enemyIndex];
 						const distanceToMine = Math.hypot(enemy.x - mine.centerX, enemy.y - mine.centerY);
 
-						if (distanceToMine > mine.triggerRadius + ENEMY_VISUALS[enemy.kind].radius) {
+						if (distanceToMine > effectiveTriggerRadius + ENEMY_VISUALS[enemy.kind].radius) {
 							continue;
 						}
 
@@ -4649,6 +4879,31 @@ export function createArenaCombatSketch(
 					const pullStepY = Math.min(Math.abs(deltaY), tunnel.pullStrength * dt);
 					enemy.x += Math.sign(deltaX || 1) * pullStepX;
 					enemy.y += Math.sign(deltaY || 1) * pullStepY;
+				}
+
+				const coldLattice = getDominantColdLatticeAtPoint(
+					enemy.x,
+					enemy.y,
+					ENEMY_VISUALS[enemy.kind].radius
+				);
+
+				if (coldLattice) {
+					applyChillToEnemy(
+						enemy,
+						coldLattice.chillPerSecond * dt,
+						coldLattice.freezeDuration
+					);
+
+					const deltaX = coldLattice.centerX - enemy.x;
+					const deltaY = coldLattice.centerY - enemy.y;
+					const latticeDistance = Math.hypot(deltaX, deltaY);
+
+					if (latticeDistance > 0.001) {
+						const pullFalloff = 1 - Math.min(1, latticeDistance / coldLattice.radius);
+						const pullStep = coldLattice.pullStrength * (0.35 + pullFalloff * 0.65) * dt;
+						enemy.x += (deltaX / latticeDistance) * pullStep;
+						enemy.y += (deltaY / latticeDistance) * pullStep;
+					}
 				}
 
 				const confusionMultiplier = enemy.confusionTimer > 0 ? 0.67 : 1;
@@ -5790,6 +6045,20 @@ export function createArenaCombatSketch(
 				p.strokeWeight(2.8);
 				p.circle(field.centerX, field.centerY, field.radius * 2);
 			}
+			for (const pylon of supportPylons) {
+				getWeaponModuleByInstanceId(pylon.sourceWeaponInstanceId).renderArenaEffect(p, {
+					kind: 'support-pylon',
+					variant: pylon.variant,
+					centerX: pylon.centerX,
+					centerY: pylon.centerY,
+					radius: pylon.radius,
+					markerSize: pylon.markerSize,
+					color: pylon.color,
+					glow: pylon.glow,
+					age: pylon.age,
+					duration: pylon.duration
+				});
+			}
 
 			for (const tunnel of voidTunnels) {
 				if (
@@ -6916,6 +7185,7 @@ export function createArenaCombatSketch(
 				updateVulnerablePulses(dt);
 				updateOathbreakerSigils(dt);
 				updateStasisFields(dt);
+				updateSupportPylons(dt);
 				updateVoidTunnels(dt);
 				updatePhaseshifts(dt);
 				updateBurningGrounds(dt);

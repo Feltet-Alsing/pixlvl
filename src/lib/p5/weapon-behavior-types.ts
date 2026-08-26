@@ -27,6 +27,11 @@ export interface WeaponActivationContext {
 		sourceWeaponInstanceId: string,
 		target: WeaponTargetState
 	) => void;
+	spawnSupportPylon: (
+		weapon: WeaponDefinition,
+		sourceWeaponInstanceId: string,
+		target: WeaponTargetState
+	) => void;
 	spawnNeedleFan: (weapon: WeaponDefinition, sourceWeaponInstanceId: string) => void;
 	ensureMarkedEnemy: () => WeaponTargetState | null;
 	assignMarkedEnemy: (target: WeaponTargetState) => void;

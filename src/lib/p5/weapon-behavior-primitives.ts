@@ -37,6 +37,7 @@ export function createTargetedSpecialActivator(
 	spawnKey:
 		| 'spawnPerimeterMine'
 		| 'spawnTurretMine'
+		| 'spawnSupportPylon'
 		| 'spawnStasisField'
 		| 'spawnVoidTunnel'
 		| 'spawnBurningGroundProjectile'
@@ -116,6 +117,7 @@ export const specialTypeActivators: Partial<Record<WeaponAttackSpecialType, Weap
 	'laser-sweep': createUntargetedSpecialActivator('spawnLaserSweep'),
 	'perimeter-mine': createTargetedSpecialActivator('spawnPerimeterMine'),
 	'turret-mine': createTargetedSpecialActivator('spawnTurretMine'),
+	'support-pylon': createTargetedSpecialActivator('spawnSupportPylon'),
 	'needle-fan': createUntargetedSpecialActivator('spawnNeedleFan'),
 	'target-painter': activateTargetPainter,
 	'fan-knives': activateFanKnives,
