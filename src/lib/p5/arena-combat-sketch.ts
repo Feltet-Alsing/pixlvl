@@ -3281,11 +3281,7 @@ export function createArenaCombatSketch(
 				return;
 			}
 
-			if (
-				prismPrisons.some(
-					(prison) => prison.sourceWeaponInstanceId === sourceWeaponInstanceId
-				)
-			) {
+			if (prismPrisons.some((prison) => prison.sourceWeaponInstanceId === sourceWeaponInstanceId)) {
 				return;
 			}
 
@@ -7377,9 +7373,8 @@ export function createArenaCombatSketch(
 					prison.rotation
 				);
 				const alphaHex = Math.round(
-					(prison.triggered
-						? 1 - prison.activeAge / Math.max(0.0001, prison.activeDuration)
-						: 1) * 200
+					(prison.triggered ? 1 - prison.activeAge / Math.max(0.0001, prison.activeDuration) : 1) *
+						200
 				)
 					.toString(16)
 					.padStart(2, '0');
