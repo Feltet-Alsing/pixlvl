@@ -34,14 +34,14 @@
 						{/if}
 					</nav>
 
-				{#if data.user && data.session}
-					<p class="app-user">{data.user.name || data.user.email}</p>
-				{:else if !isAuthRoute}
-					<form method="get" action={resolve('/auth/login')}>
-						<input type="hidden" name="next" value={`${page.url.pathname}${page.url.search}`} />
-						<button class="app-session-button" type="submit">Sign in</button>
-					</form>
-				{/if}
+					{#if data.user && data.session}
+						<p class="app-user">{data.user.name || data.user.email}</p>
+					{:else if !isAuthRoute}
+						<form method="get" action={resolve('/auth/login')}>
+							<input type="hidden" name="next" value={`${page.url.pathname}${page.url.search}`} />
+							<button class="app-session-button" type="submit">Sign in</button>
+						</form>
+					{/if}
 				</div>
 			</div>
 		</div>
