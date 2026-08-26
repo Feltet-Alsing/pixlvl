@@ -672,6 +672,8 @@ export interface CampaignBaseline {
 
 export interface CampaignDefinition {
 	campaign: number;
+	name?: string;
+	mode?: 'campaign' | 'endless';
 	stages: number;
 	levelsPerStage: number;
 	totalLevels: number;

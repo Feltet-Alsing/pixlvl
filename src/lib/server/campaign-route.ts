@@ -42,6 +42,7 @@ import {
 	getCampaignRouteNotificationCounts,
 	type NotificationSnapshot
 } from '$lib/game/notifications';
+import { isTopProgressionLeader } from '$lib/server/leaderboard';
 import {
 	getPlacementMirrored,
 	getPlacementRotation,
@@ -76,6 +77,7 @@ export async function loadCampaignRouteData(
 
 	const gameState = userId ? await getOrCreateGameState(userId) : null;
 	const campaignState = userId ? await getCampaignProgressForUser(userId, campaignId) : null;
+	const isTopLeader = userId ? await isTopProgressionLeader(userId) : false;
 	const shopState = userId && gameState ? buildShopState(gameState, userId) : null;
 	const notificationSnapshot: NotificationSnapshot | null = gameState
 		? {
@@ -103,6 +105,7 @@ export async function loadCampaignRouteData(
 		weaponDefinitionsById: weaponDefinitions,
 		gameState,
 		campaignState,
+		isTopLeader,
 		shopState,
 		notificationCounts: getCampaignRouteNotificationCounts(notificationSnapshot, campaignId)
 	};

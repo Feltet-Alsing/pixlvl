@@ -175,6 +175,7 @@
 			livePixlState?.loadoutPlacements ?? { activeSlot: 0, slots: [[], [], []] }
 		)
 	);
+	let isEndlessCampaign = $derived(data.campaign.mode === 'endless');
 	let sketchCampaignLevel = $derived(
 		liveCampaignState?.currentLevel ?? data.campaignState?.currentLevel ?? 1
 	);
@@ -184,7 +185,13 @@
 	let highestClearedLevel = $derived(
 		liveCampaignState?.highestClearedLevel ?? data.campaignState?.highestClearedLevel ?? 0
 	);
-	let currentStage = $derived(Math.ceil(sketchCampaignLevel / data.campaign.levelsPerStage));
+	let currentStage = $derived.by(() => {
+		if (isEndlessCampaign) {
+			return combatOverlay.stage;
+		}
+
+		return Math.ceil(sketchCampaignLevel / data.campaign.levelsPerStage);
+	});
 	let unlockedStages = $derived.by(() =>
 		buildUnlockedStages(
 			data.campaign.stages,
@@ -518,7 +525,7 @@
 		seenArenaDropInstanceIds = new Set();
 		seenArenaRewardPackIds = new Set();
 		showStatsOverlay = defaultStatsOverlayOpen;
-		showStageDrawer = defaultCampaignMenuOpen;
+		showStageDrawer = isEndlessCampaign ? false : defaultCampaignMenuOpen;
 		showLoadoutPreview = true;
 		skipResultsSignal = 0;
 	});
@@ -840,6 +847,11 @@
 	}
 
 	function setCampaignMenuOpen(nextOpen: boolean) {
+		if (isEndlessCampaign) {
+			showStageDrawer = false;
+			return;
+		}
+
 		showStageDrawer = nextOpen;
 
 		const nextUrl = new URL(page.url);
@@ -1042,7 +1054,10 @@
 		return (p: import('p5').default) =>
 			createArenaCombatSketch(data.campaign, data.combatProfile, {
 				persistPath: '/api/game/state',
+				flowMode: data.campaign.mode ?? 'campaign',
 				runMode,
+				rewardsEnabled: !isEndlessCampaign,
+				showPixlCrown: data.isTopLeader ?? false,
 				showLoadoutSketch: false,
 				resumeState: combatResumeState,
 				pixlState: livePixlState ?? data.gameState?.pixlState ?? null,
@@ -1069,7 +1084,7 @@
 <svelte:window bind:innerWidth />
 
 {#snippet campaignDrawerPanel()}
-	{#if showStageDrawer}
+	{#if !isEndlessCampaign && showStageDrawer}
 		<CampaignStageDrawer
 			campaignId={data.campaignId}
 			campaignNumber={data.campaign.campaign}
@@ -1232,7 +1247,7 @@
 						showRecentToggle={true}
 						recentOpen={showChangeLogPopup}
 						recentUnreadCount={unreadChangeLogCount}
-						showCampaignMenuToggle={true}
+						showCampaignMenuToggle={!isEndlessCampaign}
 						showSweeperToggle={true}
 						showStatsToggle={true}
 						onToggleRecent={toggleChangeLogPopup}
@@ -1321,7 +1336,7 @@
 					<P5Canvas class="canvas-frame" sketch={campaignSketch} />
 				{/key}
 
-				{#if !isMobileLayout && showStageDrawer}
+				{#if !isMobileLayout && !isEndlessCampaign && showStageDrawer}
 					<div class="campaign-drawer-overlay">
 						{@render campaignDrawerPanel()}
 					</div>

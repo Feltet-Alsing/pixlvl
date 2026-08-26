@@ -1,6 +1,6 @@
 import type P5 from 'p5';
 
-import { getWeaponDefinition } from '$lib/data';
+import { getCampaignLevel, getWeaponDefinition } from '$lib/data';
 import { isPlacementWeaponTargetingKind } from '$lib/game/weapon-targeting';
 import { rollLevelRewardPacks as buildRewardPacksForLevel } from '$lib/game/reward-packs';
 import { applyXpGain, createUpgradeablePixlState } from '$lib/game/upgrades';
@@ -27,6 +27,7 @@ import {
 } from '$lib/p5/weapon-component';
 import { getUtilityModule } from '$lib/p5/utility-modules';
 import { getWeaponModule } from '$lib/p5/weapon-modules';
+import { drawPixlCrown } from '$lib/p5/pixl-crown';
 import type {
 	CampaignDefinition,
 	CampaignLevel,
@@ -668,6 +669,7 @@ interface ArenaCombatSketchOptions {
 	flowMode?: 'campaign' | 'endless';
 	levelResolver?: (levelIndex: number) => CampaignLevel;
 	rewardsEnabled?: boolean;
+	showPixlCrown?: boolean;
 	showLoadoutSketch?: boolean;
 	resumeState?: ArenaCombatResumeState | null;
 	pixlState?: SharedPixlStateInput | null;
@@ -789,7 +791,7 @@ export function createArenaCombatSketch(
 	return (p: P5) => {
 		const levels = campaign.levels;
 		const runMode = options.runMode ?? 'combat';
-		const flowMode = options.flowMode ?? 'campaign';
+		const flowMode = options.flowMode ?? campaign.mode ?? 'campaign';
 		const endlessMode = flowMode === 'endless';
 		const rewardsEnabled = options.rewardsEnabled ?? true;
 		const resolveLevel = (levelIndex: number) => {
@@ -797,6 +799,10 @@ export function createArenaCombatSketch(
 
 			if (options.levelResolver) {
 				return options.levelResolver(safeIndex);
+			}
+
+			if (campaign.mode === 'endless') {
+				return getCampaignLevel(campaign.campaign, safeIndex + 1);
 			}
 
 			return levels[Math.max(0, Math.min(safeIndex, levels.length - 1))];
@@ -7045,6 +7051,10 @@ export function createArenaCombatSketch(
 				p.stroke(activeShieldColor);
 				p.strokeWeight(3);
 				p.circle(centerX, centerY, combatProfile.collision.pixlRadius * 2.9);
+			}
+
+			if (options.showPixlCrown) {
+				drawPixlCrown(p, centerX, centerY, combatProfile.collision.pixlRadius);
 			}
 			p.pop();
 		};

@@ -8,6 +8,7 @@ import { campaign2 } from './campaigns/campaign-2';
 import { campaign3 } from './campaigns/campaign-3';
 import { campaign4 } from './campaigns/campaign-4';
 import { campaign5 } from './campaigns/campaign-5';
+import { campaign6, createEndlessCampaignLevel } from './campaigns/campaign-6';
 import { shopWeaponDefinitions, shopWeaponPools } from './shop';
 import { anomalyWeapons, controlWeapons, elementalWeapons, sharedWeapons } from './weapons';
 
@@ -41,7 +42,8 @@ export const campaigns = {
 	[campaign2.campaign]: campaign2,
 	[campaign3.campaign]: campaign3,
 	[campaign4.campaign]: campaign4,
-	[campaign5.campaign]: campaign5
+	[campaign5.campaign]: campaign5,
+	[campaign6.campaign]: campaign6
 } as const;
 
 const sharedPoolDefinitionIds = new Set([
@@ -94,7 +96,8 @@ export const campaignWeaponPools = {
 	[campaign2.campaign]: [...sharedPoolWeapons, ...controlWeapons],
 	[campaign3.campaign]: [...sharedPoolWeapons, ...elementalWeapons],
 	[campaign4.campaign]: [...sharedPoolWeapons, ...anomalyWeapons],
-	[campaign5.campaign]: [...sharedPoolWeapons, ...anomalyWeapons]
+	[campaign5.campaign]: [...sharedPoolWeapons, ...anomalyWeapons],
+	[campaign6.campaign]: [...sharedPoolWeapons, ...anomalyWeapons]
 } as const;
 
 export const campaignShopWeaponPools = shopWeaponPools;
@@ -137,6 +140,11 @@ export function getCampaign(campaignId: number): CampaignDefinition {
 
 export function getCampaignLevel(campaignId: number, campaignLevel: number) {
 	const campaign = getCampaign(campaignId);
+
+	if (campaign.mode === 'endless') {
+		return createEndlessCampaignLevel(campaignLevel);
+	}
+
 	const level = campaign.levels.find((entry) => entry.campaignLevel === campaignLevel);
 
 	if (!level) {

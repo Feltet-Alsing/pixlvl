@@ -9,7 +9,13 @@ import {
 import { getWeaponTotalScrapInvested, getWeaponUpgradeLevel } from '$lib/game/weapon-upgrades';
 import { createBaselineUpgradeablePixlState, createUpgradeablePixlState } from '$lib/game/upgrades';
 import { db } from '$lib/server/db';
-import { campaignProgress, pixlState, rewardPack } from '$lib/server/db/schema';
+import {
+	campaignProgress,
+	pixlState,
+	progressionLeaderboard,
+	rewardPack
+} from '$lib/server/db/schema';
+import { syncProgressionLeaderboardForUser } from '$lib/server/leaderboard';
 
 import type {
 	LoadoutPlacement,
@@ -436,6 +442,8 @@ async function ensureGameState(userId: string) {
 			})
 			.where(eq(pixlState.userId, userId));
 	}
+
+	await syncProgressionLeaderboardForUser(userId);
 }
 
 export async function getOrCreateGameState(userId: string): Promise<GameState> {
@@ -806,11 +814,14 @@ export async function updateGameState(userId: string, patch: GameStatePatch): Pr
 		}
 	}
 
+	await syncProgressionLeaderboardForUser(userId);
+
 	return getOrCreateGameState(userId);
 }
 
 export async function resetGameStateForUser(userId: string): Promise<void> {
 	await db.transaction(async (tx) => {
+		await tx.delete(progressionLeaderboard).where(eq(progressionLeaderboard.userId, userId));
 		await tx.delete(rewardPack).where(eq(rewardPack.ownerUserId, userId));
 		await tx.delete(campaignProgress).where(eq(campaignProgress.userId, userId));
 		await tx.delete(pixlState).where(eq(pixlState.userId, userId));

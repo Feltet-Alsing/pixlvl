@@ -20,6 +20,7 @@
 
 			<nav class="app-nav" aria-label="Primary">
 				<a class="app-nav-link" href={resolve('/')}>Main</a>
+				<a class="app-nav-link" href={resolve('/leaderboards')}>Leaderboards</a>
 				<a class="app-nav-link" href={resolve('/campaigns')}>Play</a>
 				<a class="app-nav-link" href={resolve('/shop')}>Shop</a>
 				{#if data.user && data.session}

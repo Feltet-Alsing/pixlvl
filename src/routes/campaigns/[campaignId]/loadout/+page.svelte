@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { beforeNavigate } from '$app/navigation';
 	import { fade } from 'svelte/transition';
-	import { isWeaponDefinition, starterWeaponId } from '$lib/data';
+	import { getCampaignLevel, isWeaponDefinition, starterWeaponId } from '$lib/data';
 	import { formatDisplayNumber } from '$lib/number-format';
 	import LoadoutDraggedShapePreview from '$lib/components/campaigns/LoadoutDraggedShapePreview.svelte';
 	import LoadoutGridBoard from '$lib/components/campaigns/LoadoutGridBoard.svelte';
@@ -296,11 +296,7 @@
 	let liveCampaignLevel = $derived(
 		liveCampaignState?.currentLevel ?? data.campaignState?.currentLevel ?? 1
 	);
-	let liveCampaignLevelData = $derived(
-		data.campaign.levels[
-			Math.max(0, Math.min(liveCampaignLevel - 1, data.campaign.levels.length - 1))
-		] ?? data.campaign.levels[0]
-	);
+	let liveCampaignLevelData = $derived(getCampaignLevel(data.campaignId, liveCampaignLevel));
 	let liveRunStage = $derived(
 		liveCombatProgressOverride?.stage ?? liveCampaignLevelData?.stage ?? 1
 	);
@@ -432,6 +428,7 @@
 		return (p: import('p5').default) =>
 			createArenaCombatSketch(data.campaign, data.combatProfile, {
 				runMode: 'combat',
+				showPixlCrown: data.isTopLeader ?? false,
 				showLoadoutSketch: false,
 				resumeState: combatResumeState,
 				pixlState: hiddenSketchPixlState,

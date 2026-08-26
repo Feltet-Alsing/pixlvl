@@ -1,6 +1,7 @@
 import type P5 from 'p5';
 
 import { baselineCombatProfile } from '$lib/data';
+import { drawPixlCrown } from '$lib/p5/pixl-crown';
 import type { GlitchKind } from '$lib/data/types';
 import type { PersistedPixlState } from '$lib/server/game-state';
 
@@ -110,6 +111,7 @@ function getCanvasSize(canvas: HTMLCanvasElement | null) {
 
 interface PixlIntroSketchOptions {
 	pixlState?: Pick<PersistedPixlState, 'xp' | 'health' | 'attackSpeed'> | null;
+	showCrown?: boolean;
 }
 
 export function createPixlIntroSketch(options: PixlIntroSketchOptions = {}) {
@@ -326,6 +328,9 @@ export function createPixlIntroSketch(options: PixlIntroSketchOptions = {}) {
 			p.strokeWeight(2);
 			p.stroke(flashTimer > 0 ? 255 : 255, flashTimer > 0 ? 96 : 255, flashTimer > 0 ? 96 : 255);
 			p.circle(centerX, centerY, baselineCombatProfile.collision.pixlRadius * 2);
+			if (options.showCrown) {
+				drawPixlCrown(p, centerX, centerY, baselineCombatProfile.collision.pixlRadius);
+			}
 			p.pop();
 		};
 

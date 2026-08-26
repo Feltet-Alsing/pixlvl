@@ -58,6 +58,12 @@ Current implemented content counts:
 - `72` definitions in the shared reward-pack pool
 - `23` definitions currently seeded into the cross-campaign shared pool
 
+Current meta systems:
+
+- a live top-`5` progression leaderboard now exists and is exposed from both the main page and a dedicated leaderboard route
+- leaderboard ranking currently prioritizes the furthest campaign reached, then best cleared level, then pixl level and total XP as tiebreakers
+- the current rank `1` player gets a crown rendered on their pixl in the main intro display and arena views
+
 Current per-campaign definition counts:
 
 - Campaign `1`: `30` definitions (`24` weapons, `6` utilities)
@@ -116,14 +122,14 @@ The first public release / Season `1` content target should be much larger than 
 
 Weapon milestone:
 
-- target `150` total weapons for the Season `1` roster
-- current implemented count is `51` weapons
-- remaining gap is `99` additional weapons
+- target `150` total loadout definitions for the Season `1` roster
+- current implemented count is `72` definitions
+- remaining gap is `78` additional definitions
 
 Important counting rule:
 
-- this milestone tracks weapons only, not utilities
-- the broader shared loadout registry currently sits at `72` total definitions when utilities are included
+- utilities count toward this milestone
+- the current `72 / 150` progress includes both `51` weapons and `21` utilities
 
 Target rarity mix for the full Season `1` weapon roster:
 
@@ -1966,7 +1972,9 @@ Unlock rule:
 
 Access model:
 
-- endless mode should live as its own dedicated route or campaign-adjacent destination rather than pretending to be just another normal campaign
+- endless mode should live inside the campaign shell as a special campaign-mode campaign rather than as a separate one-off container
+- it should reuse the normal arena, loadout, and campaign-route surfaces where that keeps the experience consistent
+- it should still behave differently from finite campaigns in progression and rewards
 - the player should be able to start a fresh run at any time after unlock
 - a run should always begin from wave `1`
 
@@ -2105,8 +2113,9 @@ Implementation direction:
 
 Current implementation progress:
 
-- a standalone endless test route now exists with generated infinite waves, `5`-wave boss checkpoints, `25`-wave major bosses, and escalating health/damage/spawn/wave-size scaling
-- this prototype intentionally skips `Glitch Essence`, endless-shop purchases, unlock gating, and endless-run persistence so the combat loop can be tuned in isolation first
+- endless is now being folded into the normal campaign framework as a dedicated endless campaign entry rather than a standalone test container
+- the current prototype already supports generated infinite waves, `5`-wave boss checkpoints, `25`-wave major bosses, and escalating health/damage/spawn/wave-size scaling inside that shared campaign shell
+- `Glitch Essence`, endless-shop purchases, unlock gating, personal-best tracking, and endless-run persistence are intentionally deferred until the combat structure is locked in
 
 ### Wave pacing update
 

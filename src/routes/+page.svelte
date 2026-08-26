@@ -2,6 +2,7 @@
 	import {
 		baselineCombatProfile,
 		campaigns,
+		getCampaignLevel,
 		getLoadoutItemDefinition,
 		starterWeaponId
 	} from '$lib/data';
@@ -31,16 +32,33 @@
 		acquiredAt: string;
 	}
 
+	interface LeaderboardRow {
+		rank: number;
+		userId: string;
+		displayName: string;
+		email: string;
+		bestCampaignId: number;
+		bestCampaignLevel: number;
+		pixlLevel: number;
+		totalXp: number;
+		updatedAt: string;
+	}
+
 	let { data }: { data: PageServerData } = $props();
 
 	const loginHref = '/auth/login';
 	const dashboardHref = '/dashboard';
 	const campaignsHref = '/campaigns';
+	const leaderboardsHref = '/leaderboards';
 	const campaignCount = Object.keys(campaigns).length;
 	let persistedPixlState = $derived(data.gameState?.pixlState ?? null);
 	let campaignProgressRows = $derived(data.gameState?.campaignProgress ?? []);
+	let topLeaders = $derived((data.topLeaders ?? []) as LeaderboardRow[]);
 	const introSketch = (p: import('p5').default) =>
-		createPixlIntroSketch({ pixlState: data.gameState?.pixlState ?? null })(p);
+		createPixlIntroSketch({
+			pixlState: data.gameState?.pixlState ?? null,
+			showCrown: data.isTopLeader ?? false
+		})(p);
 
 	let primaryCampaignProgress = $derived.by(() => {
 		return (
@@ -62,11 +80,7 @@
 		campaigns[primaryCampaignId as keyof typeof campaigns] ?? Object.values(campaigns)[0]
 	);
 	let currentCampaignLevelData = $derived.by(() => {
-		return (
-			primaryCampaign.levels.find(
-				(level) => level.campaignLevel === (primaryCampaignProgress?.currentLevel ?? 1)
-			) ?? primaryCampaign.levels[0]
-		);
+		return getCampaignLevel(primaryCampaignId, primaryCampaignProgress?.currentLevel ?? 1);
 	});
 	let currentCampaignHref = $derived(`/campaigns/${primaryCampaignId}`);
 	let currentLoadoutHref = $derived(`/campaigns/${primaryCampaignId}/loadout`);
@@ -237,6 +251,22 @@
 	function navigateTo(path: string) {
 		window.location.assign(path);
 	}
+
+	function getLeaderboardProgressLabel(leader: LeaderboardRow) {
+		if (leader.bestCampaignLevel <= 0) {
+			return 'No cleared levels yet';
+		}
+
+		const campaign = campaigns[leader.bestCampaignId as keyof typeof campaigns];
+
+		if (campaign?.mode === 'endless') {
+			return `Endless wave ${leader.bestCampaignLevel}`;
+		}
+
+		const level = getCampaignLevel(leader.bestCampaignId, leader.bestCampaignLevel);
+
+		return `Campaign ${leader.bestCampaignId} · Stage ${level.stage} · Level ${level.stageLevel}`;
+	}
 </script>
 
 <svelte:head>
@@ -403,6 +433,39 @@
 						</p>
 					{/if}
 				</section>
+
+				<section class="panel leaderboard-panel">
+					<div class="section-head">
+						<p class="eyebrow">Top progression</p>
+						<h2>Current leaders</h2>
+					</div>
+
+					{#if topLeaders.length > 0}
+						<div class="leaderboard-list">
+							{#each topLeaders as leader (leader.userId)}
+								<div class="leaderboard-row">
+									<div class="leaderboard-rank">#{leader.rank}</div>
+									<div class="leaderboard-copy">
+										<strong>{leader.displayName}</strong>
+										<span>{getLeaderboardProgressLabel(leader)}</span>
+									</div>
+									<div class="leaderboard-meta">
+										<strong>Lv {leader.pixlLevel}</strong>
+										<span>{leader.totalXp} XP</span>
+									</div>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<p class="muted-copy">No leaderboard entries yet.</p>
+					{/if}
+
+					<div class="route-actions">
+						<button class="secondary" type="button" onclick={() => navigateTo(leaderboardsHref)}>
+							Open full leaderboard
+						</button>
+					</div>
+				</section>
 			</div>
 		{:else}
 			<div class="hero-card panel guest-hero">
@@ -487,6 +550,39 @@
 						</button>
 					</div>
 				</section>
+
+				<section class="panel leaderboard-panel">
+					<div class="section-head">
+						<p class="eyebrow">Top progression</p>
+						<h2>Current leaders</h2>
+					</div>
+
+					{#if topLeaders.length > 0}
+						<div class="leaderboard-list">
+							{#each topLeaders as leader (leader.userId)}
+								<div class="leaderboard-row">
+									<div class="leaderboard-rank">#{leader.rank}</div>
+									<div class="leaderboard-copy">
+										<strong>{leader.displayName}</strong>
+										<span>{getLeaderboardProgressLabel(leader)}</span>
+									</div>
+									<div class="leaderboard-meta">
+										<strong>Lv {leader.pixlLevel}</strong>
+										<span>{leader.totalXp} XP</span>
+									</div>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<p class="muted-copy">No leaderboard entries yet.</p>
+					{/if}
+
+					<div class="route-actions">
+						<button class="secondary" type="button" onclick={() => navigateTo(leaderboardsHref)}>
+							Open full leaderboard
+						</button>
+					</div>
+				</section>
 			</div>
 		{/if}
 	</section>
@@ -564,14 +660,16 @@
 	.recommendation-panel,
 	.snapshot-panel,
 	.build-panel,
-	.loot-panel {
+	.loot-panel,
+	.leaderboard-panel {
 		padding: 1rem;
 		display: grid;
 		gap: 0.9rem;
 	}
 
 	.build-panel,
-	.loot-panel {
+	.loot-panel,
+	.leaderboard-panel {
 		min-height: 100%;
 	}
 
@@ -716,7 +814,8 @@
 	}
 
 	.action-list,
-	.pickup-list {
+	.pickup-list,
+	.leaderboard-list {
 		display: grid;
 		gap: 0.7rem;
 	}
@@ -806,6 +905,53 @@
 		align-items: center;
 	}
 
+	.leaderboard-row {
+		padding: 0.85rem 0.95rem;
+		border-radius: 0.95rem;
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		background: rgba(255, 255, 255, 0.03);
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		gap: 0.75rem;
+		align-items: center;
+	}
+
+	.leaderboard-rank {
+		width: 2.2rem;
+		height: 2.2rem;
+		border-radius: 999px;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 0.78rem;
+		font-weight: 800;
+		background: rgba(117, 255, 174, 0.12);
+		border: 1px solid rgba(117, 255, 174, 0.18);
+		color: #ebffe7;
+	}
+
+	.leaderboard-copy,
+	.leaderboard-meta {
+		display: grid;
+		gap: 0.14rem;
+	}
+
+	.leaderboard-copy strong,
+	.leaderboard-meta strong {
+		margin: 0;
+	}
+
+	.leaderboard-copy span,
+	.leaderboard-meta span {
+		font-size: 0.9rem;
+		line-height: 1.45;
+		color: #c6c6cb;
+	}
+
+	.leaderboard-meta {
+		text-align: right;
+	}
+
 	.pickup-row > div {
 		display: grid;
 		gap: 0.12rem;
@@ -879,6 +1025,15 @@
 
 		.pickup-row {
 			grid-template-columns: 1fr;
+		}
+
+		.leaderboard-row {
+			grid-template-columns: auto minmax(0, 1fr);
+		}
+
+		.leaderboard-meta {
+			grid-column: 2;
+			text-align: left;
 		}
 
 		.route-actions,

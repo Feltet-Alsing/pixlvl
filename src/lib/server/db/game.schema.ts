@@ -106,6 +106,34 @@ export const rewardPack = pgTable(
 	]
 );
 
+export const progressionLeaderboard = pgTable(
+	'progression_leaderboard',
+	{
+		userId: text('user_id')
+			.primaryKey()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		displayName: text('display_name').notNull(),
+		email: text('email').notNull(),
+		bestCampaignId: integer('best_campaign_id').notNull().default(1),
+		bestCampaignLevel: integer('best_campaign_level').notNull().default(0),
+		pixlLevel: integer('pixl_level').notNull().default(1),
+		totalXp: integer('total_xp').notNull().default(0),
+		createdAt: timestamp('created_at').defaultNow().notNull(),
+		updatedAt: timestamp('updated_at')
+			.defaultNow()
+			.$onUpdate(() => new Date())
+			.notNull()
+	},
+	(table) => [
+		index('progression_leaderboard_rank_idx').on(
+			table.bestCampaignId,
+			table.bestCampaignLevel,
+			table.pixlLevel,
+			table.totalXp
+		)
+	]
+);
+
 export const pixlStateRelations = relations(pixlState, ({ one }) => ({
 	user: one(user, {
 		fields: [pixlState.userId],
@@ -123,6 +151,13 @@ export const campaignProgressRelations = relations(campaignProgress, ({ one }) =
 export const rewardPackRelations = relations(rewardPack, ({ one }) => ({
 	user: one(user, {
 		fields: [rewardPack.ownerUserId],
+		references: [user.id]
+	})
+}));
+
+export const progressionLeaderboardRelations = relations(progressionLeaderboard, ({ one }) => ({
+	user: one(user, {
+		fields: [progressionLeaderboard.userId],
 		references: [user.id]
 	})
 }));

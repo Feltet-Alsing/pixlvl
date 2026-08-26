@@ -1,4 +1,4 @@
-import { campaign5 } from '$lib/data/campaigns/campaign-5';
+import { campaign5 } from './campaign-5';
 
 import type {
 	CampaignDefinition,
@@ -7,6 +7,7 @@ import type {
 	XpPerEnemy
 } from '$lib/data/types';
 
+const ENDLESS_CAMPAIGN_ID = 6;
 const WAVES_PER_MAJOR_BRACKET = 25;
 const WAVES_PER_BOSS_CHECKPOINT = 5;
 const BASE_SPAWN_RATE = 14;
@@ -136,7 +137,7 @@ function getTotalXpReward(composition: WaveComposition, xpPerEnemy: XpPerEnemy) 
 	);
 }
 
-export function createEndlessTestLevel(wave: number): CampaignLevel {
+export function createEndlessCampaignLevel(wave: number): CampaignLevel {
 	const safeWave = Math.max(1, Math.floor(wave));
 	const stage = Math.floor((safeWave - 1) / WAVES_PER_MAJOR_BRACKET) + 1;
 	const stageLevel = ((safeWave - 1) % WAVES_PER_MAJOR_BRACKET) + 1;
@@ -153,7 +154,7 @@ export function createEndlessTestLevel(wave: number): CampaignLevel {
 	const scalingMultiplier = scaleByWave(1, safeWave, HEALTH_DAMAGE_GROWTH);
 
 	return {
-		campaign: campaign5.campaign,
+		campaign: ENDLESS_CAMPAIGN_ID,
 		stage,
 		stageLevel,
 		campaignLevel: safeWave,
@@ -173,12 +174,14 @@ export function createEndlessTestLevel(wave: number): CampaignLevel {
 	};
 }
 
-export const endlessTestCampaign: CampaignDefinition = {
-	campaign: campaign5.campaign,
+export const campaign6: CampaignDefinition = {
+	campaign: ENDLESS_CAMPAIGN_ID,
+	name: 'Endless',
+	mode: 'endless',
 	stages: 1,
 	levelsPerStage: WAVES_PER_MAJOR_BRACKET,
 	totalLevels: Number.MAX_SAFE_INTEGER,
 	combatProfile: campaign5.combatProfile,
 	baseline: campaign5.baseline,
-	levels: [createEndlessTestLevel(1)]
+	levels: [createEndlessCampaignLevel(1)]
 };
