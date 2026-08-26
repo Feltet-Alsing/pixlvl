@@ -255,7 +255,7 @@ export const sharedWeapons: LoadoutItemDefinition[] = [
 				fieldDurationCycles: 4,
 				lineWidth: 14,
 				rodLength: 26,
-				damagePerSecond: 18
+				damagePerSecond: 9
 			},
 			targeting: 'top-middle'
 		},
@@ -333,7 +333,7 @@ export const sharedWeapons: LoadoutItemDefinition[] = [
 				fieldDurationCycles: 4.5,
 				lineWidth: 20,
 				rodLength: 30,
-				damagePerSecond: 8,
+				damagePerSecond: 4,
 				vulnerableDuration: 0.8
 			},
 			targeting: 'top-right'
