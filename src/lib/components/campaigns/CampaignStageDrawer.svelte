@@ -290,14 +290,6 @@
 			gap: 0.55rem;
 		}
 
-		.drawer-back-link,
-		.drawer-close {
-			justify-self: start;
-			min-height: 1.9rem;
-			padding: 0 0.7rem;
-			font-size: 0.76rem;
-		}
-
 		.campaign-summary-grid {
 			grid-template-columns: 1fr;
 		}

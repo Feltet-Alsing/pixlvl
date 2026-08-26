@@ -18,19 +18,22 @@
 		<div class="app-header-shell">
 			<a class="app-brand" href={resolve('/')}>pixlvl</a>
 
-			<nav class="app-nav" aria-label="Primary">
-				<a class="app-nav-link" href={resolve('/')}>Main</a>
-				<a class="app-nav-link" href={resolve('/leaderboards')}>Leaderboards</a>
-				<a class="app-nav-link" href={resolve('/campaigns')}>Play</a>
-				<a class="app-nav-link" href={resolve('/shop')}>Shop</a>
-				{#if data.user && data.session}
-					<a class="app-nav-link" href={resolve('/dashboard')}>Dashboard</a>
-				{:else}
-					<a class="app-nav-link" href={resolve('/auth/login')}>Profile</a>
-				{/if}
-			</nav>
+			<div class="app-nav-shell">
+				<nav class="app-nav app-nav-primary" aria-label="Primary navigation">
+					<a class="app-nav-link" href={resolve('/campaigns')}>Play</a>
+					<a class="app-nav-link" href={resolve('/leaderboards')}>Leaderboards</a>
+				</nav>
 
-			<div class="app-session">
+				<div class="app-session">
+					<nav class="app-nav app-nav-secondary" aria-label="Account navigation">
+						<a class="app-nav-link" href={resolve('/shop')}>Shop</a>
+						{#if data.user && data.session}
+							<a class="app-nav-link" href={resolve('/dashboard')}>Dashboard</a>
+						{:else}
+							<a class="app-nav-link" href={resolve('/auth/login')}>Profile</a>
+						{/if}
+					</nav>
+
 				{#if data.user && data.session}
 					<p class="app-user">{data.user.name || data.user.email}</p>
 				{:else if !isAuthRoute}
@@ -39,6 +42,7 @@
 						<button class="app-session-button" type="submit">Sign in</button>
 					</form>
 				{/if}
+				</div>
 			</div>
 		</div>
 	</header>
@@ -100,7 +104,15 @@
 		margin: 0 auto;
 		padding: 0.9rem 1rem;
 		display: flex;
-		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+
+	.app-nav-shell {
+		flex: 1 1 auto;
+		min-width: 0;
+		display: flex;
 		align-items: center;
 		justify-content: space-between;
 		gap: 1rem;
@@ -108,8 +120,7 @@
 
 	.app-brand,
 	.app-nav-link,
-	.app-session-button,
-	.app-user {
+	.app-session-button {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
@@ -136,9 +147,16 @@
 		gap: 0.65rem;
 	}
 
+	.app-nav-primary {
+		justify-content: flex-start;
+	}
+
+	.app-nav-secondary {
+		justify-content: flex-end;
+	}
+
 	.app-nav-link,
-	.app-session-button,
-	.app-user {
+	.app-session-button {
 		padding: 0 1rem;
 		border: 1px solid rgba(255, 255, 255, 0.12);
 		background: rgba(255, 255, 255, 0.04);
@@ -162,6 +180,19 @@
 		margin: 0;
 	}
 
+	.app-user {
+		display: block;
+		padding: 0;
+		border: 0;
+		background: transparent;
+		color: rgba(245, 245, 245, 0.82);
+		font-size: 0.92rem;
+		font-weight: 500;
+		line-height: 1.2;
+		text-align: right;
+		white-space: nowrap;
+	}
+
 	.app-session-button {
 		cursor: pointer;
 		background: #f5f5f5;
@@ -172,7 +203,15 @@
 		.app-header-shell {
 			padding: 0.75rem 0.8rem;
 			gap: 0.7rem;
+			flex-wrap: wrap;
 			align-items: flex-start;
+		}
+
+		.app-nav-shell {
+			width: 100%;
+			flex-direction: column;
+			align-items: stretch;
+			gap: 0.7rem;
 		}
 
 		.app-nav,
@@ -188,21 +227,23 @@
 			padding-bottom: 0.1rem;
 		}
 
+		.app-nav-secondary {
+			justify-content: flex-start;
+		}
+
 		.app-nav::-webkit-scrollbar {
 			display: none;
 		}
 
 		.app-brand,
 		.app-nav-link,
-		.app-session-button,
-		.app-user {
+		.app-session-button {
 			min-height: 2.15rem;
 			font-size: 0.8rem;
 		}
 
 		.app-nav-link,
-		.app-session-button,
-		.app-user {
+		.app-session-button {
 			padding: 0 0.8rem;
 			white-space: nowrap;
 		}
@@ -211,6 +252,8 @@
 			max-width: 100%;
 			overflow: hidden;
 			text-overflow: ellipsis;
+			text-align: left;
+			font-size: 0.82rem;
 		}
 	}
 
@@ -222,8 +265,7 @@
 
 		.app-brand,
 		.app-nav-link,
-		.app-session-button,
-		.app-user {
+		.app-session-button {
 			min-height: 1.95rem;
 			font-size: 0.74rem;
 		}
@@ -239,9 +281,12 @@
 		}
 
 		.app-nav-link,
-		.app-session-button,
-		.app-user {
+		.app-session-button {
 			padding: 0 0.68rem;
+		}
+
+		.app-user {
+			font-size: 0.76rem;
 		}
 	}
 </style>
