@@ -32,7 +32,6 @@
 		stageError?: string;
 		stageSuccess?: string;
 		submit?: SubmitFunction;
-		onClose: () => void;
 	}
 
 	let {
@@ -48,8 +47,7 @@
 		hasCampaignState,
 		stageError,
 		stageSuccess,
-		submit,
-		onClose
+		submit
 	}: Props = $props();
 </script>
 
@@ -57,12 +55,7 @@
 	<div class="campaign-drawer-header">
 		<div class="compact-heading">
 			<p class="eyebrow">Campaign {campaignNumber}</p>
-			<p class="upgrade-note">Swap campaigns or jump to an unlocked stage.</p>
 		</div>
-		<a class="drawer-back-link" href={resolve('/campaigns')}>All campaigns</a>
-		<button class="drawer-close" type="button" aria-label="Close campaign menu" onclick={onClose}>
-			Close
-		</button>
 	</div>
 
 	<div class="drawer-switcher">
@@ -159,7 +152,7 @@
 	}
 
 	.campaign-drawer-header {
-		grid-template-columns: minmax(0, 1fr) auto auto;
+		grid-template-columns: minmax(0, 1fr);
 		align-items: start;
 		gap: 0.75rem;
 	}
@@ -187,7 +180,6 @@
 		margin: 0;
 	}
 
-	.upgrade-note,
 	.stage-card small {
 		margin: 0;
 		color: #c4c4c4;
@@ -199,9 +191,7 @@
 		gap: 0.55rem;
 	}
 
-	.drawer-campaign-link,
-	.drawer-back-link,
-	.drawer-close {
+	.drawer-campaign-link {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
@@ -215,10 +205,6 @@
 		font: inherit;
 		font-size: 0.82rem;
 		font-weight: 600;
-	}
-
-	.drawer-close {
-		cursor: pointer;
 	}
 
 	.drawer-campaign-link.active {

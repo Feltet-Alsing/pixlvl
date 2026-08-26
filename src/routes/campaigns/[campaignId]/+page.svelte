@@ -280,6 +280,9 @@
 	});
 	let defaultCampaignMenuOpen = $derived(page.url.searchParams.get('menu') !== 'closed');
 	let defaultStatsOverlayOpen = $derived(page.url.searchParams.get('stats') === 'open');
+	let showDesktopCampaignRail = $derived(
+		!isMobileLayout && runMode === 'combat' && showStageDrawer
+	);
 	let showDesktopSideRail = $derived(
 		!isMobileLayout && runMode === 'combat' && (showStatsOverlay || showLoadoutPreview)
 	);
@@ -525,7 +528,7 @@
 		seenArenaDropInstanceIds = new Set();
 		seenArenaRewardPackIds = new Set();
 		showStatsOverlay = defaultStatsOverlayOpen;
-		showStageDrawer = isEndlessCampaign ? false : defaultCampaignMenuOpen;
+		showStageDrawer = defaultCampaignMenuOpen;
 		showLoadoutPreview = true;
 		skipResultsSignal = 0;
 	});
@@ -847,11 +850,6 @@
 	}
 
 	function setCampaignMenuOpen(nextOpen: boolean) {
-		if (isEndlessCampaign) {
-			showStageDrawer = false;
-			return;
-		}
-
 		showStageDrawer = nextOpen;
 
 		const nextUrl = new URL(page.url);
@@ -1084,7 +1082,7 @@
 <svelte:window bind:innerWidth />
 
 {#snippet campaignDrawerPanel()}
-	{#if !isEndlessCampaign && showStageDrawer}
+	{#if showStageDrawer}
 		<CampaignStageDrawer
 			campaignId={data.campaignId}
 			campaignNumber={data.campaign.campaign}
@@ -1099,7 +1097,6 @@
 			stageError={form?.stageError}
 			stageSuccess={form?.stageSuccess}
 			submit={selectStage}
-			onClose={() => setCampaignMenuOpen(false)}
 		/>
 	{/if}
 {/snippet}
@@ -1247,7 +1244,7 @@
 						showRecentToggle={true}
 						recentOpen={showChangeLogPopup}
 						recentUnreadCount={unreadChangeLogCount}
-						showCampaignMenuToggle={!isEndlessCampaign}
+						showCampaignMenuToggle={false}
 						showSweeperToggle={true}
 						showStatsToggle={true}
 						onToggleRecent={toggleChangeLogPopup}
@@ -1336,16 +1333,45 @@
 					<P5Canvas class="canvas-frame" sketch={campaignSketch} />
 				{/key}
 
-				{#if !isMobileLayout && !isEndlessCampaign && showStageDrawer}
-					<div class="campaign-drawer-overlay">
-						{@render campaignDrawerPanel()}
-					</div>
+				{#if runMode === 'combat' && (!showStageDrawer || isMobileLayout)}
+					<button
+						class={['campaign-menu-toggle-float', showStageDrawer ? 'open' : '']}
+						type="button"
+						aria-expanded={showStageDrawer}
+						aria-controls="campaign-menu-drawer"
+						onclick={() => {
+							setCampaignMenuOpen(!showStageDrawer);
+						}}
+					>
+						{showStageDrawer ? 'Hide menu' : 'Campaigns'}
+					</button>
 				{/if}
 
 				<div class="overlay-layout">
 					{@render transientArenaOverlays()}
 				</div>
 			</section>
+
+			{#if showDesktopCampaignRail}
+				<div class="desktop-panel-rail desktop-panel-rail-float-start" id="campaign-menu-drawer">
+					<button
+						class={[
+							'campaign-menu-toggle-float',
+							'campaign-menu-toggle-inline',
+							showStageDrawer ? 'open' : ''
+						]}
+						type="button"
+						aria-expanded={showStageDrawer}
+						aria-controls="campaign-menu-drawer"
+						onclick={() => {
+							setCampaignMenuOpen(!showStageDrawer);
+						}}
+					>
+						Hide menu
+					</button>
+					{@render campaignDrawerPanel()}
+				</div>
+			{/if}
 
 			{#if showDesktopSideRail}
 				<div class="desktop-panel-rail desktop-panel-rail-end">
@@ -1357,10 +1383,11 @@
 				</div>
 			{/if}
 		</div>
-
 		{#if isMobileLayout}
 			<div class="mobile-panel-stack">
-				{@render campaignDrawerPanel()}
+				{#if showStageDrawer}
+					{@render campaignDrawerPanel()}
+				{/if}
 				{@render statsOverlayPanel()}
 
 				{#if runMode === 'combat' && showLoadoutPreview}
@@ -1449,14 +1476,19 @@
 		grid-area: left;
 	}
 
-	.campaign-drawer-overlay {
+	.desktop-panel-rail-float-start {
 		position: absolute;
 		left: 1rem;
 		top: 1rem;
-		bottom: 1rem;
 		z-index: 5;
 		width: min(24rem, calc(100% - 2rem));
 		max-width: 100%;
+		max-height: calc(100% - 2rem);
+		display: grid;
+		align-content: start;
+		gap: 0.75rem;
+		overflow-y: auto;
+		padding-right: 0.2rem;
 		pointer-events: auto;
 	}
 
@@ -1690,6 +1722,45 @@
 		justify-content: flex-end;
 		min-width: 0;
 		max-width: 100%;
+	}
+
+	.campaign-menu-toggle-float {
+		position: absolute;
+		left: 1rem;
+		top: 1rem;
+		z-index: 6;
+		min-height: 2.5rem;
+		padding: 0.65rem 0.85rem;
+		border-radius: 999px;
+		border: 1px solid rgba(255, 255, 255, 0.14);
+		background: rgba(10, 10, 10, 0.88);
+		color: #f5f5f5;
+		font: inherit;
+		font-size: 0.82rem;
+		font-weight: 700;
+		letter-spacing: 0.04em;
+		cursor: pointer;
+		box-shadow: 0 18px 38px rgba(0, 0, 0, 0.32);
+		backdrop-filter: blur(12px);
+	}
+
+	.campaign-menu-toggle-float.open {
+		background: rgba(103, 217, 111, 0.16);
+		border-color: rgba(103, 217, 111, 0.34);
+	}
+
+	.campaign-menu-toggle-inline {
+		position: static;
+		justify-self: start;
+		transform: none;
+		box-shadow: 0 12px 26px rgba(0, 0, 0, 0.24);
+	}
+
+	@media (max-width: 860px) {
+		.campaign-menu-toggle-float {
+			top: auto;
+			bottom: 1rem;
+		}
 	}
 
 	.meta-pill {

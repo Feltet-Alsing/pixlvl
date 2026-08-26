@@ -76,81 +76,74 @@
 </script>
 
 <nav class="route-nav" aria-label="Campaign navigation">
-	<div class="nav-links">
-		{#each routeLinks as route (route.key)}
-			{#if route.key === 'arena'}
-				<a
-					class:active={active === route.key}
-					class="route-link"
-					href={resolve(`/campaigns/${campaignId}`)}
-					onclick={(event) => handleRouteClick(event, route.key)}
-				>
-					{route.label}
-					{#if route.badge > 0}
-						<span class="route-badge">{route.badge}</span>
-					{/if}
-				</a>
-			{:else}
-				<a
-					class:active={active === route.key}
-					class="route-link"
-					href={resolve(`/campaigns/${campaignId}/${route.key}`)}
-					onclick={(event) => handleRouteClick(event, route.key)}
-				>
-					{route.label}
-					{#if route.badge > 0}
-						<span class="route-badge">{route.badge}</span>
-					{/if}
-				</a>
-			{/if}
-		{/each}
-
-		{#if showCampaignMenuToggle}
-			<button
-				class:active={campaignMenuEnabled}
-				class="route-link toggle-pill"
-				type="button"
-				onclick={onToggleCampaignMenu}
-			>
-				{campaignMenuEnabled ? 'Hide Campaign Menu' : 'Show Campaign Menu'}
-			</button>
-		{/if}
-
-		{#if showSweeperToggle}
-			<button
-				class:active={sweeperEnabled}
-				class="route-link toggle-pill"
-				type="button"
-				onclick={onToggleSweeper}
-			>
-				{sweeperEnabled ? 'Hide Sweeper' : 'Show Sweeper'}
-			</button>
-		{/if}
-
-		{#if showStatsToggle}
-			<button
-				class:active={statsEnabled}
-				class="route-link toggle-pill"
-				type="button"
-				onclick={onToggleStats}
-			>
-				{statsEnabled ? 'Hide Stats' : 'Show Stats'}
-			</button>
-		{/if}
-
-		{#if showRecentToggle}
-			<button
-				class:active={recentOpen}
-				class="route-link toggle-pill"
-				type="button"
-				onclick={onToggleRecent}
-			>
-				Recent
-				{#if recentUnreadCount > 0}
-					<span class="route-badge recent-badge">{Math.min(99, recentUnreadCount)}</span>
+	<div class="nav-groups">
+		<div class="nav-group nav-group-left">
+			{#each routeLinks as route (route.key)}
+				{#if route.key === 'arena'}
+					<a
+						class:active={active === route.key}
+						class="route-link"
+						href={resolve(`/campaigns/${campaignId}`)}
+						onclick={(event) => handleRouteClick(event, route.key)}
+					>
+						{route.label}
+						{#if route.badge > 0}
+							<span class="route-badge">{route.badge}</span>
+						{/if}
+					</a>
+				{:else}
+					<a
+						class:active={active === route.key}
+						class="route-link"
+						href={resolve(`/campaigns/${campaignId}/${route.key}`)}
+						onclick={(event) => handleRouteClick(event, route.key)}
+					>
+						{route.label}
+						{#if route.badge > 0}
+							<span class="route-badge">{route.badge}</span>
+						{/if}
+					</a>
 				{/if}
-			</button>
-		{/if}
+			{/each}
+		</div>
+
+		<div class="nav-group nav-group-right">
+			{#if showSweeperToggle}
+				<button
+					class:active={sweeperEnabled}
+					class="route-link toggle-pill"
+					type="button"
+					onclick={onToggleSweeper}
+				>
+					{sweeperEnabled ? 'Hide Sweeper' : 'Show Sweeper'}
+				</button>
+			{/if}
+
+			{#if showStatsToggle}
+				<button
+					class:active={statsEnabled}
+					class="route-link toggle-pill"
+					type="button"
+					onclick={onToggleStats}
+				>
+					{statsEnabled ? 'Hide Stats' : 'Show Stats'}
+				</button>
+			{/if}
+
+			{#if showRecentToggle}
+				<button
+					class:active={recentOpen}
+					class="route-link toggle-pill"
+					type="button"
+					onclick={onToggleRecent}
+				>
+					Recent
+					{#if recentUnreadCount > 0}
+						<span class="route-badge recent-badge">{Math.min(99, recentUnreadCount)}</span>
+					{/if}
+				</button>
+			{/if}
+		</div>
 	</div>
 </nav>
 
@@ -162,12 +155,26 @@
 		width: 100%;
 	}
 
-	.nav-links {
+	.nav-groups {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 1rem;
+		min-width: 0;
+		max-width: 100%;
+		width: 100%;
+	}
+
+	.nav-group {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.6rem;
 		min-width: 0;
-		max-width: 100%;
+	}
+
+	.nav-group-right {
+		justify-content: flex-end;
+		margin-left: auto;
 	}
 
 	.route-link {
@@ -218,10 +225,7 @@
 	}
 
 	@media (max-width: 860px) {
-		.nav-links {
-			flex-wrap: nowrap;
-			gap: 0.45rem;
-			width: 100%;
+		.route-nav {
 			justify-content: flex-start;
 			overflow-x: auto;
 			overflow-y: hidden;
@@ -229,8 +233,25 @@
 			scrollbar-width: none;
 		}
 
-		.nav-links::-webkit-scrollbar {
+		.route-nav::-webkit-scrollbar {
 			display: none;
+		}
+
+		.nav-groups {
+			flex-wrap: nowrap;
+			gap: 0.75rem;
+			min-width: 100%;
+			width: max-content;
+		}
+
+		.nav-group {
+			flex-wrap: nowrap;
+		}
+
+		.nav-group-right {
+			margin-left: 0;
+			padding-left: 0.75rem;
+			border-left: 1px solid rgba(255, 255, 255, 0.08);
 		}
 
 		.route-link {
@@ -249,8 +270,12 @@
 	}
 
 	@media (max-width: 480px) {
-		.nav-links {
+		.nav-groups {
 			gap: 0.38rem;
+		}
+
+		.nav-group-right {
+			padding-left: 0.5rem;
 		}
 
 		.route-link {
