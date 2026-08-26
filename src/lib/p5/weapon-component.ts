@@ -92,6 +92,26 @@ export interface VoidTunnelEffectProps {
 	easeInQuad: (value: number) => number;
 }
 
+export interface VoidRiftEffectProps {
+	kind: 'void-rift';
+	centerX: number;
+	centerY: number;
+	angle: number;
+	halfWidth: number;
+	halfHeight: number;
+	age: number;
+	activeDuration: number;
+	collapseAge: number;
+	collapseDuration: number;
+	hasCollapsed: boolean;
+	finalPulseRadius: number;
+	pulseMaxRadius: number;
+	finalPulseDamage: number;
+	color: string;
+	glow: boolean;
+	easeInQuad: (value: number) => number;
+}
+
 export interface PhaseshiftEffectProps {
 	kind: 'phaseshift';
 	centerX: number;
@@ -309,6 +329,7 @@ export type WeaponArenaEffectProps =
 	| VulnerablePulseEffectProps
 	| StasisFieldEffectProps
 	| VoidTunnelEffectProps
+	| VoidRiftEffectProps
 	| PhaseshiftEffectProps
 	| BurningGroundEffectProps
 	| DelayedBombEffectProps
@@ -662,6 +683,114 @@ export function drawVoidTunnelEffect(p: P5, effect: VoidTunnelEffectProps) {
 			.padStart(2, '0')}`
 	);
 	p.ellipse(effect.centerX, effect.centerY, radiusX * 0.22, radiusY * 0.22);
+}
+
+export function drawVoidRiftEffect(p: P5, effect: VoidRiftEffectProps) {
+	p.push();
+	p.translate(effect.centerX, effect.centerY);
+	p.rotate(effect.angle);
+
+	if (!effect.hasCollapsed) {
+		const openProgress = Math.min(1, effect.age / Math.max(0.0001, effect.activeDuration * 0.24));
+		const easedOpen = effect.easeInQuad(openProgress);
+		const shimmer = Math.sin(effect.age * 16) * 2.6;
+		const width = effect.halfWidth * 2 * (0.54 + easedOpen * 0.46);
+		const height = effect.halfHeight * 2 * (0.62 + easedOpen * 0.38);
+		const alphaHex = Math.round((1 - effect.age / effect.activeDuration) * 180)
+			.toString(16)
+			.padStart(2, '0');
+
+		if (effect.glow) {
+			p.noStroke();
+			p.fill(`${effect.color}18`);
+			p.ellipse(0, 0, width * 1.18, height * 1.28);
+			p.fill(`${effect.color}2c`);
+			p.ellipse(0, 0, width * 0.94, height * 1.04);
+		}
+
+		p.noFill();
+		p.stroke(`${effect.color}${alphaHex}`);
+		p.strokeWeight(2.4);
+		p.ellipse(0, 0, width, height + shimmer * 0.45);
+		p.stroke(
+			`#f5f3ff${Math.round((1 - effect.age / effect.activeDuration) * 120)
+				.toString(16)
+				.padStart(2, '0')}`
+		);
+		p.strokeWeight(1.2);
+		p.ellipse(0, 0, width * 0.72, Math.max(10, height * 0.42 + shimmer * 0.2));
+
+		for (let slashIndex = 0; slashIndex < 6; slashIndex += 1) {
+			const t = slashIndex / 5;
+			const slashX = p.lerp(-effect.halfWidth * 0.62, effect.halfWidth * 0.62, t);
+			const slashOffset = Math.sin(effect.age * 10 + slashIndex * 0.9) * effect.halfHeight * 0.22;
+			p.stroke(
+				`${effect.color}${Math.round(110 + t * 90)
+					.toString(16)
+					.padStart(2, '0')}`
+			);
+			p.strokeWeight(1.4);
+			p.line(
+				slashX - 4,
+				-effect.halfHeight * 0.6 + slashOffset,
+				slashX + 4,
+				effect.halfHeight * 0.6 + slashOffset
+			);
+		}
+
+		p.noStroke();
+		p.fill('#050308ee');
+		p.ellipse(0, 0, width * 0.7, Math.max(10, height * 0.28 + shimmer * 0.22));
+		p.fill(`${effect.color}88`);
+		p.ellipse(0, 0, width * 0.2, Math.max(5, height * 0.1));
+		p.pop();
+		return;
+	}
+
+	const collapseProgress = Math.min(
+		1,
+		effect.collapseAge / Math.max(0.0001, effect.collapseDuration)
+	);
+	const easedCollapse = effect.easeInQuad(collapseProgress);
+	const pulseStrength = Math.min(1, effect.finalPulseDamage / 90);
+	const pulseRadius = Math.max(
+		16,
+		effect.finalPulseRadius + (effect.pulseMaxRadius - effect.finalPulseRadius) * easedCollapse
+	);
+	const ringAlphaHex = Math.round((1 - collapseProgress) * (180 + pulseStrength * 40))
+		.toString(16)
+		.padStart(2, '0');
+
+	p.rotate(-effect.angle);
+	if (effect.glow) {
+		p.noStroke();
+		p.fill(
+			`${effect.color}${Math.round((1 - collapseProgress) * 56)
+				.toString(16)
+				.padStart(2, '0')}`
+		);
+		p.circle(0, 0, pulseRadius * (1.4 + pulseStrength * 0.28));
+	}
+
+	p.noFill();
+	p.stroke(`${effect.color}${ringAlphaHex}`);
+	p.strokeWeight(2.8 - collapseProgress * 1.3);
+	p.circle(0, 0, pulseRadius);
+	p.stroke(
+		`#f5f3ff${Math.round((1 - collapseProgress) * 190)
+			.toString(16)
+			.padStart(2, '0')}`
+	);
+	p.strokeWeight(1.6);
+	p.circle(0, 0, Math.max(12, pulseRadius - effect.finalPulseRadius * 0.34));
+	p.noStroke();
+	p.fill(
+		`${effect.color}${Math.round((1 - collapseProgress) * (110 + pulseStrength * 60))
+			.toString(16)
+			.padStart(2, '0')}`
+	);
+	p.circle(0, 0, Math.max(6, effect.finalPulseRadius * 0.18 * (1 - collapseProgress * 0.75)));
+	p.pop();
 }
 
 export function drawPhaseshiftEffect(p: P5, effect: PhaseshiftEffectProps) {

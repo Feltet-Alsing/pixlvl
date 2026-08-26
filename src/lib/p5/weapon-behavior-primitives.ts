@@ -25,7 +25,6 @@ export function createUntargetedSpecialActivator(
 		| 'spawnForkLightning'
 		| 'spawnPhaseshift'
 		| 'spawnIceShower'
-		| 'spawnVoidTendrils'
 ): WeaponActivator {
 	return (weapon, _target, context) => {
 		context[spawnKey](weapon.definition, weapon.instanceId);
@@ -41,6 +40,8 @@ export function createTargetedSpecialActivator(
 		| 'spawnSupportPylon'
 		| 'spawnStasisField'
 		| 'spawnVoidTunnel'
+		| 'spawnVoidTendrils'
+		| 'spawnVoidRift'
 		| 'spawnBurningGroundProjectile'
 		| 'spawnDelayedBomb'
 		| 'spawnFlamethrowerCone'
@@ -133,7 +134,8 @@ export const specialTypeActivators: Partial<Record<WeaponAttackSpecialType, Weap
 	'delayed-bomb': createTargetedSpecialActivator('spawnDelayedBomb'),
 	'flamethrower-cone': createTargetedSpecialActivator('spawnFlamethrowerCone'),
 	'ice-shower': createUntargetedSpecialActivator('spawnIceShower'),
-	'void-tendrils': createUntargetedSpecialActivator('spawnVoidTendrils')
+	'void-tendrils': createTargetedSpecialActivator('spawnVoidTendrils'),
+	'void-rift': createTargetedSpecialActivator('spawnVoidRift')
 };
 
 export const weaponIdActivators: Record<string, WeaponActivator> = {

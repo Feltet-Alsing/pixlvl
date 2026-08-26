@@ -342,6 +342,33 @@ interface VoidTunnelState {
 	claimedEnemyIds: number[];
 }
 
+interface VoidRiftState {
+	sourceWeaponInstanceId: string;
+	centerX: number;
+	centerY: number;
+	angle: number;
+	halfWidth: number;
+	halfHeight: number;
+	pullStrength: number;
+	damagePerTick: number;
+	tickInterval: number;
+	tickTimer: number;
+	maxTargets: number;
+	finalPulseRadius: number;
+	finalPulseBaseDamage: number;
+	finalPulseDamageRatio: number;
+	accumulatedDamage: number;
+	finalPulseDamage: number;
+	color: string;
+	glow: boolean;
+	age: number;
+	activeDuration: number;
+	collapseAge: number;
+	collapseDuration: number;
+	pulseMaxRadius: number;
+	hasCollapsed: boolean;
+}
+
 interface PhaseshiftState {
 	sourceWeaponInstanceId: string;
 	centerX: number;
@@ -519,15 +546,26 @@ interface BlizzardStormState {
 interface VoidTendrilState {
 	sourceWeaponInstanceId: string;
 	enemyId: number | null;
+	startX: number;
+	startY: number;
 	targetX: number;
 	targetY: number;
 	age: number;
-	duration: number;
-	damage: number;
-	healPerHit: number;
+	latchDuration: number;
+	startCycleProgress: number;
+	consumeAtCycleProgress: number;
+	shieldGain: number;
 	color: string;
 	glow: boolean;
-	hasHit: boolean;
+}
+
+interface PixlSwallowPulseState {
+	originX: number;
+	originY: number;
+	color: string;
+	shieldGain: number;
+	age: number;
+	duration: number;
 }
 
 interface HemorrhageBurstState {
@@ -999,7 +1037,9 @@ export function createArenaCombatSketch(
 		let fanKnifeBursts: FanKnifeBurstState[] = [];
 		let iceSpikes: IceSpikeState[] = [];
 		let blizzardStorms: BlizzardStormState[] = [];
+		let voidRifts: VoidRiftState[] = [];
 		let voidTendrils: VoidTendrilState[] = [];
+		let pixlSwallowPulses: PixlSwallowPulseState[] = [];
 		let voidTunnels: VoidTunnelState[] = [];
 		let phaseshifts: PhaseshiftState[] = [];
 		let oathbreakerSigils: OathbreakerSigilState[] = [];
@@ -1403,7 +1443,9 @@ export function createArenaCombatSketch(
 			fanKnifeBursts = [];
 			iceSpikes = [];
 			blizzardStorms = [];
+			voidRifts = [];
 			voidTendrils = [];
+			pixlSwallowPulses = [];
 			voidTunnels = [];
 			phaseshifts = [];
 			oathbreakerSigils = [];
@@ -1879,6 +1921,10 @@ export function createArenaCombatSketch(
 			let closestDistance = Number.POSITIVE_INFINITY;
 
 			for (const enemy of enemies) {
+				if (isEnemyCapturedByVoidTendril(enemy.id)) {
+					continue;
+				}
+
 				const distance = Math.hypot(enemy.x - centerX, enemy.y - centerY);
 
 				if (distance < closestDistance) {
@@ -1895,7 +1941,7 @@ export function createArenaCombatSketch(
 			let closestDistance = Number.POSITIVE_INFINITY;
 
 			for (const enemy of enemies) {
-				if (enemy.kind === 'bulwark') {
+				if (enemy.kind === 'bulwark' || isEnemyCapturedByVoidTendril(enemy.id)) {
 					continue;
 				}
 
@@ -1918,7 +1964,9 @@ export function createArenaCombatSketch(
 			excludeEnemyIds: number[] = []
 		) => {
 			return [...enemies]
-				.filter((enemy) => !excludeEnemyIds.includes(enemy.id))
+				.filter(
+					(enemy) => !excludeEnemyIds.includes(enemy.id) && !isEnemyCapturedByVoidTendril(enemy.id)
+				)
 				.map((enemy) => ({
 					enemy,
 					distance: Math.hypot(enemy.x - originX, enemy.y - originY)
@@ -1934,6 +1982,10 @@ export function createArenaCombatSketch(
 			let furthestDistance = Number.NEGATIVE_INFINITY;
 
 			for (const enemy of enemies) {
+				if (isEnemyCapturedByVoidTendril(enemy.id)) {
+					continue;
+				}
+
 				const distance = Math.hypot(enemy.x - centerX, enemy.y - centerY);
 
 				if (distance > furthestDistance) {
@@ -1947,6 +1999,20 @@ export function createArenaCombatSketch(
 
 		const isRangedEnemy = (enemy: EnemyState) => {
 			return combatProfile.glitches[enemy.kind].attackPattern === 'siege';
+		};
+
+		const isBossEnemy = (enemy: EnemyState) => {
+			return (
+				enemy.kind === 'boss-melee' || enemy.kind === 'boss-ranged' || enemy.kind === 'boss-hybrid'
+			);
+		};
+
+		const isEnemyCapturedByVoidTendril = (enemyId: number) => {
+			return voidTendrils.some((tendril) => tendril.enemyId === enemyId);
+		};
+
+		const getCurrentCycleProgress = () => {
+			return currentSweepIndex + sweepProgress / Math.max(1, pixlProgression.loadoutColumns);
 		};
 
 		const getLaserRodPlacementPoint = (targeting: WeaponTargetingKind) => {
@@ -1991,21 +2057,23 @@ export function createArenaCombatSketch(
 			targetPool: EnemyState[],
 			targeting: WeaponAttackBehavior['targeting']
 		) => {
-			if (targetPool.length === 0) {
+			const targetablePool = targetPool.filter((enemy) => !isEnemyCapturedByVoidTendril(enemy.id));
+
+			if (targetablePool.length === 0) {
 				return null;
 			}
 
 			if (targeting === 'strongest-target') {
-				return [...targetPool].sort((left, right) => right.health - left.health)[0] ?? null;
+				return [...targetablePool].sort((left, right) => right.health - left.health)[0] ?? null;
 			}
 
 			if (targeting === 'weakest-target') {
-				return [...targetPool].sort((left, right) => left.health - right.health)[0] ?? null;
+				return [...targetablePool].sort((left, right) => left.health - right.health)[0] ?? null;
 			}
 
 			if (targeting === 'furthest-target') {
 				return (
-					[...targetPool].sort(
+					[...targetablePool].sort(
 						(left, right) =>
 							Math.hypot(right.x - centerX, right.y - centerY) -
 							Math.hypot(left.x - centerX, left.y - centerY)
@@ -2014,7 +2082,7 @@ export function createArenaCombatSketch(
 			}
 
 			return (
-				[...targetPool].sort(
+				[...targetablePool].sort(
 					(left, right) =>
 						Math.hypot(left.x - centerX, left.y - centerY) -
 						Math.hypot(right.x - centerX, right.y - centerY)
@@ -2043,6 +2111,7 @@ export function createArenaCombatSketch(
 					.filter(
 						(enemy) =>
 							isRangedEnemy(enemy) &&
+							!isEnemyCapturedByVoidTendril(enemy.id) &&
 							!claimedEnemyIds.has(enemy.id) &&
 							Math.hypot(enemy.x - currentTarget.x, enemy.y - currentTarget.y) <= bounceRange
 					)
@@ -2065,6 +2134,7 @@ export function createArenaCombatSketch(
 		};
 
 		const getWeaponTarget = (targeting: WeaponAttackBehavior['targeting']) => {
+			const targetableEnemies = enemies.filter((enemy) => !isEnemyCapturedByVoidTendril(enemy.id));
 			const placementTarget = getLaserRodPlacementPoint(targeting);
 
 			if (placementTarget) {
@@ -2072,11 +2142,11 @@ export function createArenaCombatSketch(
 			}
 
 			if (targeting === 'strongest-target') {
-				return [...enemies].sort((left, right) => right.health - left.health)[0] ?? null;
+				return [...targetableEnemies].sort((left, right) => right.health - left.health)[0] ?? null;
 			}
 
 			if (targeting === 'weakest-target') {
-				return [...enemies].sort((left, right) => left.health - right.health)[0] ?? null;
+				return [...targetableEnemies].sort((left, right) => left.health - right.health)[0] ?? null;
 			}
 
 			if (targeting === 'furthest-target') {
@@ -2086,12 +2156,22 @@ export function createArenaCombatSketch(
 			return getClosestEnemy();
 		};
 
+		const isEnemyTarget = (target: { x: number; y: number } | null): target is EnemyState => {
+			return target !== null && 'id' in target && 'kind' in target;
+		};
+
+		const getEnemyWeaponTarget = (targeting: WeaponAttackBehavior['targeting']) => {
+			const target = getWeaponTarget(targeting);
+			return isEnemyTarget(target) ? target : null;
+		};
+
 		const getMarkedEnemy = () => {
 			if (markedEnemyId === null) {
 				return null;
 			}
 
-			return enemies.find((enemy) => enemy.id === markedEnemyId) ?? null;
+			const markedEnemy = enemies.find((enemy) => enemy.id === markedEnemyId) ?? null;
+			return markedEnemy && !isEnemyCapturedByVoidTendril(markedEnemy.id) ? markedEnemy : null;
 		};
 
 		const assignMarkedEnemy = (enemy: EnemyState | null) => {
@@ -2111,7 +2191,7 @@ export function createArenaCombatSketch(
 				return existingMarkedEnemy;
 			}
 
-			return assignMarkedEnemy(getWeaponTarget('strongest-target'));
+			return assignMarkedEnemy(getEnemyWeaponTarget('strongest-target'));
 		};
 
 		const bounceMarkedEnemy = (originX: number, originY: number, defeatedEnemyId: number) => {
@@ -2132,11 +2212,12 @@ export function createArenaCombatSketch(
 				return assignMarkedEnemy(nearbyEnemy);
 			}
 
-			return assignMarkedEnemy(getWeaponTarget('strongest-target'));
+			return assignMarkedEnemy(getEnemyWeaponTarget('strongest-target'));
 		};
 
 		const getClosestEnemies = (count: number) => {
 			return [...enemies]
+				.filter((enemy) => !isEnemyCapturedByVoidTendril(enemy.id))
 				.sort(
 					(left, right) =>
 						Math.hypot(left.x - centerX, left.y - centerY) -
@@ -2272,6 +2353,10 @@ export function createArenaCombatSketch(
 				return true;
 			}
 
+			if (isEnemyCapturedByVoidTendril(enemy.id)) {
+				return false;
+			}
+
 			if (triggerHemorrhageBurst(enemyIndex)) {
 				return !enemies[enemyIndex] || enemies[enemyIndex].id !== enemy.id;
 			}
@@ -2400,6 +2485,31 @@ export function createArenaCombatSketch(
 			}
 		};
 
+		const consumeEnemyIntoPixlShield = (enemyIndex: number, sourceId: string, color: string) => {
+			const consumedEnemy = enemies[enemyIndex];
+
+			if (!consumedEnemy) {
+				return;
+			}
+
+			if (markedEnemyId === consumedEnemy.id) {
+				markedEnemyId = null;
+			}
+
+			pixlSwallowPulses.push({
+				originX: consumedEnemy.x,
+				originY: consumedEnemy.y,
+				color,
+				shieldGain: consumedEnemy.maxHealth,
+				age: 0,
+				duration: 0.58
+			});
+			pixlFlash = Math.max(pixlFlash, 0.24);
+			waveXp += getXpForEnemyKind(consumedEnemy.kind);
+			addPixlShieldFromSource(sourceId, consumedEnemy.maxHealth, color);
+			enemies.splice(enemyIndex, 1);
+		};
+
 		const applyDamageToPixl = (damage: number) => {
 			let remainingDamage = Math.max(0, damage);
 
@@ -2483,6 +2593,10 @@ export function createArenaCombatSketch(
 			const enemy = enemies[enemyIndex];
 
 			if (!enemy) {
+				return { defeated: false, actualDamage: 0 };
+			}
+
+			if (isEnemyCapturedByVoidTendril(enemy.id)) {
 				return { defeated: false, actualDamage: 0 };
 			}
 
@@ -2949,6 +3063,58 @@ export function createArenaCombatSketch(
 			});
 		};
 
+		const spawnVoidRift = (
+			weapon: WeaponDefinition,
+			sourceWeaponInstanceId: string,
+			target: { x: number; y: number }
+		) => {
+			const special = weapon.attack.special;
+
+			if (!special || special.type !== 'void-rift') {
+				return;
+			}
+
+			const pulseMaxRadius =
+				Math.max(
+					Math.hypot(target.x, target.y),
+					Math.hypot(p.width - target.x, target.y),
+					Math.hypot(target.x, p.height - target.y),
+					Math.hypot(p.width - target.x, p.height - target.y)
+				) + 96;
+			const pulseTravelSpeed = 520;
+			const collapseDuration = Math.max(
+				0.6,
+				(pulseMaxRadius - special.finalPulseRadius) / pulseTravelSpeed
+			);
+
+			voidRifts.push({
+				sourceWeaponInstanceId,
+				centerX: target.x,
+				centerY: target.y,
+				angle: Math.atan2(target.y - centerY, target.x - centerX),
+				halfWidth: special.halfWidth,
+				halfHeight: special.halfHeight,
+				pullStrength: special.pullStrength,
+				damagePerTick: getAdjustedWeaponDamage(weapon, 1, sourceWeaponInstanceId),
+				tickInterval: special.tickInterval,
+				tickTimer: special.tickInterval,
+				maxTargets: special.maxTargets,
+				finalPulseRadius: special.finalPulseRadius,
+				finalPulseBaseDamage: special.finalPulseBaseDamage,
+				finalPulseDamageRatio: special.finalPulseDamageRatio,
+				accumulatedDamage: 0,
+				finalPulseDamage: 0,
+				color: weapon.projectileVisual.color,
+				glow: weapon.projectileVisual.glow ?? false,
+				age: 0,
+				activeDuration: special.durationCycles / Math.max(0.001, pixlProgression.attackSpeed),
+				collapseAge: 0,
+				collapseDuration,
+				pulseMaxRadius,
+				hasCollapsed: false
+			});
+		};
+
 		const spawnPhaseshift = (weapon: WeaponDefinition, sourceWeaponInstanceId: string) => {
 			const special = weapon.attack.special;
 
@@ -3402,7 +3568,7 @@ export function createArenaCombatSketch(
 
 			const target = special.rangedOnly
 				? getRangedEnemyTarget(weapon.attack.targeting)
-				: getWeaponTarget(weapon.attack.targeting);
+				: getEnemyWeaponTarget(weapon.attack.targeting);
 
 			if (!target) {
 				return;
@@ -3593,29 +3759,55 @@ export function createArenaCombatSketch(
 			}
 		};
 
-		const spawnVoidTendrils = (weapon: WeaponDefinition, sourceWeaponInstanceId: string) => {
+		const spawnVoidTendrils = (
+			weapon: WeaponDefinition,
+			sourceWeaponInstanceId: string,
+			target: { x: number; y: number }
+		) => {
 			const special = weapon.attack.special;
 
 			if (!special || special.type !== 'void-tendrils') {
 				return;
 			}
 
-			const targets = getClosestEnemies(Math.max(1, special.targetCount));
+			const eligibleTargets = enemies.filter(
+				(enemy) => !isBossEnemy(enemy) && !isEnemyCapturedByVoidTendril(enemy.id)
+			);
+			const primaryTarget =
+				[...eligibleTargets].sort(
+					(left, right) =>
+						Math.hypot(left.x - target.x, left.y - target.y) -
+						Math.hypot(right.x - target.x, right.y - target.y)
+				)[0] ?? null;
+
+			if (!primaryTarget) {
+				return;
+			}
+
+			const targets = getClosestEnemiesToPoint(
+				primaryTarget.x,
+				primaryTarget.y,
+				Math.max(1, special.targetCount)
+			).filter((enemy) => !isBossEnemy(enemy));
+			const startCycleProgress = getCurrentCycleProgress();
 
 			for (const target of targets) {
 				voidTendrils.push({
 					sourceWeaponInstanceId,
 					enemyId: target.id,
+					startX: target.x,
+					startY: target.y,
 					targetX: target.x,
 					targetY: target.y,
 					age: 0,
-					duration: special.duration,
-					damage: getAdjustedWeaponDamage(weapon, 1, sourceWeaponInstanceId),
-					healPerHit: special.healPerHit,
+					latchDuration: special.latchDuration,
+					startCycleProgress,
+					consumeAtCycleProgress: startCycleProgress + special.consumeDelayCycles,
+					shieldGain: target.maxHealth,
 					color: weapon.projectileVisual.color,
-					glow: weapon.projectileVisual.glow ?? false,
-					hasHit: false
+					glow: weapon.projectileVisual.glow ?? false
 				});
+				target.voidTouchedTimer = Math.max(target.voidTouchedTimer, 999);
 			}
 		};
 
@@ -4105,7 +4297,7 @@ export function createArenaCombatSketch(
 			}
 		};
 
-		const activateWeapon = (weapon: EquippedWeaponState, target: EnemyState) => {
+		const activateWeapon = (weapon: EquippedWeaponState, target: { x: number; y: number }) => {
 			if (weapon.cyclesUntilTrigger > 1) {
 				weapon.cyclesUntilTrigger -= 1;
 				return;
@@ -4184,6 +4376,7 @@ export function createArenaCombatSketch(
 				spawnVoidTunnel: (definition, instanceId, tunnelTarget) => {
 					spawnVoidTunnel(definition, instanceId, tunnelTarget as EnemyState);
 				},
+				spawnVoidRift,
 				spawnPhaseshift,
 				spawnBurningGroundProjectile: (definition, instanceId, burnTarget) => {
 					spawnProjectile({
@@ -4339,7 +4532,7 @@ export function createArenaCombatSketch(
 					elementalInfusions[requiredInfusion] -= requiredInfusionCount;
 				}
 
-				const target = getWeaponTarget(weapon.targeting);
+				const target = getEnemyWeaponTarget(weapon.targeting);
 
 				if (!target) {
 					continue;
@@ -4812,6 +5005,90 @@ export function createArenaCombatSketch(
 			}
 		};
 
+		const updateVoidRifts = (dt: number) => {
+			for (let index = voidRifts.length - 1; index >= 0; index -= 1) {
+				const rift = voidRifts[index];
+				rift.age += dt;
+
+				if (!rift.hasCollapsed) {
+					rift.tickTimer -= dt;
+
+					while (rift.tickTimer <= 0 && rift.age <= rift.activeDuration) {
+						rift.tickTimer += rift.tickInterval;
+
+						const axisX = Math.cos(rift.angle);
+						const axisY = Math.sin(rift.angle);
+						const perpendicularX = -axisY;
+						const perpendicularY = axisX;
+						const targets = enemies
+							.map((enemy, enemyIndex) => {
+								const offsetX = enemy.x - rift.centerX;
+								const offsetY = enemy.y - rift.centerY;
+								const localX = offsetX * axisX + offsetY * axisY;
+								const localY = offsetX * perpendicularX + offsetY * perpendicularY;
+								const normalizedDistance =
+									(localX * localX) / Math.max(1, rift.halfWidth * rift.halfWidth) +
+									(localY * localY) / Math.max(1, rift.halfHeight * rift.halfHeight);
+
+								return {
+									enemyIndex,
+									normalizedDistance,
+									seamOffset: Math.abs(localY)
+								};
+							})
+							.filter(({ normalizedDistance }) => normalizedDistance <= 1)
+							.sort(
+								(left, right) =>
+									left.seamOffset - right.seamOffset ||
+									left.normalizedDistance - right.normalizedDistance
+							)
+							.slice(0, rift.maxTargets);
+
+						for (const target of targets) {
+							const damageResult = applyDamageToEnemy(
+								target.enemyIndex,
+								rift.damagePerTick,
+								0.05,
+								rift.sourceWeaponInstanceId
+							);
+							rift.accumulatedDamage += damageResult.actualDamage;
+						}
+					}
+
+					if (rift.age >= rift.activeDuration) {
+						rift.hasCollapsed = true;
+						rift.finalPulseDamage =
+							rift.finalPulseBaseDamage + rift.accumulatedDamage * rift.finalPulseDamageRatio;
+
+						for (let enemyIndex = enemies.length - 1; enemyIndex >= 0; enemyIndex -= 1) {
+							const enemy = enemies[enemyIndex];
+							const distance = Math.hypot(enemy.x - rift.centerX, enemy.y - rift.centerY);
+
+							if (distance > rift.finalPulseRadius + ENEMY_VISUALS[enemy.kind].radius) {
+								continue;
+							}
+
+							applyDamageToEnemy(
+								enemyIndex,
+								rift.finalPulseDamage,
+								0.08,
+								rift.sourceWeaponInstanceId
+							);
+						}
+
+						pixlFlash = Math.max(pixlFlash, 0.18);
+					}
+					continue;
+				}
+
+				rift.collapseAge += dt;
+
+				if (rift.collapseAge >= rift.collapseDuration) {
+					voidRifts.splice(index, 1);
+				}
+			}
+		};
+
 		const updatePhaseshifts = (dt: number) => {
 			for (let index = phaseshifts.length - 1; index >= 0; index -= 1) {
 				const phaseshift = phaseshifts[index];
@@ -5099,6 +5376,10 @@ export function createArenaCombatSketch(
 				enemy.shieldPulseTimer = Math.max(0, enemy.shieldPulseTimer - dt);
 				enemy.shieldPulseCooldown = Math.max(0, enemy.shieldPulseCooldown - dt);
 
+				if (isEnemyCapturedByVoidTendril(enemy.id)) {
+					continue;
+				}
+
 				for (const phaseshift of phaseshifts) {
 					const insideLane =
 						Math.abs(enemy.y - phaseshift.centerY) <= phaseshift.halfHeight &&
@@ -5197,6 +5478,43 @@ export function createArenaCombatSketch(
 					const pullStepY = Math.min(Math.abs(deltaY), tunnel.pullStrength * dt);
 					enemy.x += Math.sign(deltaX || 1) * pullStepX;
 					enemy.y += Math.sign(deltaY || 1) * pullStepY;
+				}
+
+				for (const rift of voidRifts) {
+					if (rift.hasCollapsed) {
+						continue;
+					}
+
+					const axisX = Math.cos(rift.angle);
+					const axisY = Math.sin(rift.angle);
+					const perpendicularX = -axisY;
+					const perpendicularY = axisX;
+					const offsetX = enemy.x - rift.centerX;
+					const offsetY = enemy.y - rift.centerY;
+					const localX = offsetX * axisX + offsetY * axisY;
+					const localY = offsetX * perpendicularX + offsetY * perpendicularY;
+					const normalizedDistance =
+						(localX * localX) / Math.max(1, rift.halfWidth * rift.halfWidth) +
+						(localY * localY) / Math.max(1, rift.halfHeight * rift.halfHeight);
+
+					if (normalizedDistance > 1.18) {
+						continue;
+					}
+
+					const alongDelta = -localX * 0.22;
+					const seamDelta = -localY;
+					const worldPullX = axisX * alongDelta + perpendicularX * seamDelta;
+					const worldPullY = axisY * alongDelta + perpendicularY * seamDelta;
+					const pullDistance = Math.hypot(worldPullX, worldPullY);
+
+					if (pullDistance <= 0.001) {
+						continue;
+					}
+
+					const pullFalloff = 1 - Math.min(1, normalizedDistance);
+					const pullStep = rift.pullStrength * (0.45 + pullFalloff * 0.55) * dt;
+					enemy.x += (worldPullX / pullDistance) * pullStep;
+					enemy.y += (worldPullY / pullDistance) * pullStep;
 				}
 
 				const coldLattice = getDominantColdLatticeAtPoint(
@@ -5421,7 +5739,7 @@ export function createArenaCombatSketch(
 				const releaseTarget =
 					special?.type === 'sniper-line' && special.rangedOnly
 						? (trackedTarget ?? getRangedEnemyTarget(lock.weapon.attack.targeting))
-						: (trackedTarget ?? getWeaponTarget(lock.weapon.attack.targeting));
+						: (trackedTarget ?? getEnemyWeaponTarget(lock.weapon.attack.targeting));
 
 				if (releaseTarget && special?.type === 'sniper-line' && special.rangedOnly) {
 					const maxChainTargets = Math.max(1, special.maxChainTargets ?? 1);
@@ -5568,7 +5886,7 @@ export function createArenaCombatSketch(
 					cone.angle += delta * Math.min(1, dt * 3.2);
 					cone.enemyId = trackedTarget.id;
 				} else {
-					const fallbackTarget = getWeaponTarget('current-target');
+					const fallbackTarget = getEnemyWeaponTarget('current-target');
 
 					if (fallbackTarget) {
 						const desiredAngle = Math.atan2(fallbackTarget.y - centerY, fallbackTarget.x - centerX);
@@ -5592,7 +5910,7 @@ export function createArenaCombatSketch(
 
 					const releaseTarget =
 						(cone.enemyId !== null && enemies.find((enemy) => enemy.id === cone.enemyId)) ??
-						getWeaponTarget('current-target');
+						getEnemyWeaponTarget('current-target');
 
 					if (releaseTarget) {
 						cone.enemyId = releaseTarget.id;
@@ -5740,7 +6058,20 @@ export function createArenaCombatSketch(
 			}
 		};
 
+		const updatePixlSwallowPulses = (dt: number) => {
+			for (let index = pixlSwallowPulses.length - 1; index >= 0; index -= 1) {
+				const pulse = pixlSwallowPulses[index];
+				pulse.age += dt;
+
+				if (pulse.age >= pulse.duration) {
+					pixlSwallowPulses.splice(index, 1);
+				}
+			}
+		};
+
 		const updateVoidTendrils = (dt: number) => {
+			const currentCycleProgress = getCurrentCycleProgress();
+
 			for (let index = voidTendrils.length - 1; index >= 0; index -= 1) {
 				const tendril = voidTendrils[index];
 				tendril.age += dt;
@@ -5749,27 +6080,41 @@ export function createArenaCombatSketch(
 					(tendril.enemyId !== null && enemies.find((enemy) => enemy.id === tendril.enemyId)) ??
 					null;
 
-				if (trackedTarget) {
-					tendril.targetX = trackedTarget.x;
-					tendril.targetY = trackedTarget.y;
+				if (!trackedTarget) {
+					voidTendrils.splice(index, 1);
+					continue;
 				}
 
-				if (!tendril.hasHit && tendril.age >= tendril.duration * 0.92) {
-					if (trackedTarget) {
-						const enemyIndex = enemies.findIndex((enemy) => enemy.id === trackedTarget.id);
+				const consumeProgress = Math.max(
+					0,
+					Math.min(
+						1,
+						(currentCycleProgress - tendril.startCycleProgress) /
+							Math.max(0.001, tendril.consumeAtCycleProgress - tendril.startCycleProgress)
+					)
+				);
+				const pullProgress = consumeProgress <= 0.7 ? 0 : easeInQuad((consumeProgress - 0.7) / 0.3);
 
-						if (enemyIndex >= 0) {
-							applyDamageToEnemy(enemyIndex, tendril.damage, 0.1, tendril.sourceWeaponInstanceId, {
-								allowOathbreakerShare: true
-							});
-							healPixl(tendril.healPerHit);
-						}
+				if (pullProgress > 0) {
+					trackedTarget.x = tendril.startX + (centerX - tendril.startX) * pullProgress;
+					trackedTarget.y = tendril.startY + (centerY - tendril.startY) * pullProgress;
+				}
+
+				tendril.targetX = trackedTarget.x;
+				tendril.targetY = trackedTarget.y;
+				trackedTarget.voidTouchedTimer = Math.max(trackedTarget.voidTouchedTimer, dt * 2);
+
+				if (currentCycleProgress >= tendril.consumeAtCycleProgress) {
+					const enemyIndex = enemies.findIndex((enemy) => enemy.id === trackedTarget.id);
+
+					if (enemyIndex >= 0) {
+						consumeEnemyIntoPixlShield(
+							enemyIndex,
+							`${tendril.sourceWeaponInstanceId}-void-consume-${trackedTarget.id}`,
+							tendril.color
+						);
 					}
 
-					tendril.hasHit = true;
-				}
-
-				if (tendril.age >= tendril.duration) {
 					voidTendrils.splice(index, 1);
 				}
 			}
@@ -6201,6 +6546,54 @@ export function createArenaCombatSketch(
 				}
 			}
 
+			for (const pulse of pixlSwallowPulses) {
+				const progress = Math.max(0, Math.min(1, pulse.age / pulse.duration));
+				const collapseProgress = easeInQuad(progress);
+				const centerBurst = Math.max(0, (progress - 0.58) / 0.42);
+				const impactSize = Math.min(18, 8 + Math.sqrt(pulse.shieldGain) * 0.9);
+				const streamAlphaHex = Math.round((1 - progress) * 180)
+					.toString(16)
+					.padStart(2, '0');
+				const coreAlphaHex = Math.round((1 - progress) * 220)
+					.toString(16)
+					.padStart(2, '0');
+
+				for (let streamIndex = 0; streamIndex < 4; streamIndex += 1) {
+					const angle = pulse.age * 8 + streamIndex * (Math.PI / 2);
+					const orbitRadius = (1 - collapseProgress) * (12 + streamIndex * 3);
+					const streamX =
+						p.lerp(pulse.originX, centerX, collapseProgress) + Math.cos(angle) * orbitRadius;
+					const streamY =
+						p.lerp(pulse.originY, centerY, collapseProgress) + Math.sin(angle) * orbitRadius;
+
+					p.stroke(`${pulse.color}${streamAlphaHex}`);
+					p.strokeWeight(1.4 + (1 - progress) * 2.2);
+					p.line(streamX, streamY, centerX, centerY);
+					p.noStroke();
+					p.fill(`${pulse.color}${coreAlphaHex}`);
+					p.circle(streamX, streamY, 4 + (1 - progress) * 5);
+				}
+
+				if (centerBurst > 0) {
+					p.noFill();
+					p.stroke(
+						`${pulse.color}${Math.round((1 - centerBurst) * 210)
+							.toString(16)
+							.padStart(2, '0')}`
+					);
+					p.strokeWeight(2.5 - centerBurst * 1.3);
+					p.circle(centerX, centerY, impactSize + centerBurst * 22);
+
+					p.noStroke();
+					p.fill(
+						`${pulse.color}${Math.round((1 - centerBurst) * 120)
+							.toString(16)
+							.padStart(2, '0')}`
+					);
+					p.circle(centerX, centerY, impactSize * (0.9 + centerBurst * 0.7));
+				}
+			}
+
 			p.noFill();
 			p.strokeWeight(2);
 
@@ -6492,6 +6885,28 @@ export function createArenaCombatSketch(
 					age: rod.age,
 					duration: rod.duration,
 					links
+				});
+			}
+
+			for (const rift of voidRifts) {
+				getWeaponModuleByInstanceId(rift.sourceWeaponInstanceId).renderArenaEffect(p, {
+					kind: 'void-rift',
+					centerX: rift.centerX,
+					centerY: rift.centerY,
+					angle: rift.angle,
+					halfWidth: rift.halfWidth,
+					halfHeight: rift.halfHeight,
+					age: rift.age,
+					activeDuration: rift.activeDuration,
+					collapseAge: rift.collapseAge,
+					collapseDuration: rift.collapseDuration,
+					hasCollapsed: rift.hasCollapsed,
+					finalPulseRadius: rift.finalPulseRadius,
+					pulseMaxRadius: rift.pulseMaxRadius,
+					finalPulseDamage: rift.finalPulseDamage,
+					color: rift.color,
+					glow: rift.glow,
+					easeInQuad
 				});
 			}
 
@@ -7297,7 +7712,7 @@ export function createArenaCombatSketch(
 						targetX: tendril.targetX,
 						targetY: tendril.targetY,
 						age: tendril.age,
-						duration: tendril.duration,
+						duration: tendril.latchDuration,
 						color: tendril.color,
 						glow: tendril.glow,
 						easeInQuad
@@ -7306,7 +7721,7 @@ export function createArenaCombatSketch(
 					continue;
 				}
 
-				const normalizedAge = Math.max(0, Math.min(1, tendril.age / tendril.duration));
+				const normalizedAge = Math.max(0, Math.min(1, tendril.age / tendril.latchDuration));
 				const progress = easeInQuad(normalizedAge);
 				const reachX = centerX + (tendril.targetX - centerX) * progress;
 				const reachY = centerY + (tendril.targetY - centerY) * progress;
@@ -7623,6 +8038,7 @@ export function createArenaCombatSketch(
 				updateSupportPylons(dt);
 				updateLaserRods(dt);
 				updateVoidTunnels(dt);
+				updateVoidRifts(dt);
 				updatePhaseshifts(dt);
 				updateBurningGrounds(dt);
 				updatePerimeterMines(dt);
@@ -7636,6 +8052,7 @@ export function createArenaCombatSketch(
 				updateFanKnifeBursts(dt);
 				updateIceSpikes(dt);
 				updateBlizzardStorms(dt);
+				updatePixlSwallowPulses(dt);
 				updateVoidTendrils(dt);
 				updateHemorrhageBursts(dt);
 				updateEnemies(dt);

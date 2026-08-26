@@ -50,30 +50,65 @@ The current project state is materially larger than the original V1 foundation.
 
 Current implemented content counts:
 
-- `4` defined campaigns
+- `5` defined campaigns
 - `50` levels per campaign
-- `49` unique loadout definitions in the core campaign registry
-- `36` weapons
-- `13` utilities
-- `49` definitions in the shared reward-pack pool
-- `9` definitions currently seeded into the cross-campaign shared pool
+- `69` unique loadout definitions in the core campaign registry
+- `49` weapons
+- `20` utilities
+- `69` definitions in the shared reward-pack pool
+- `23` definitions currently seeded into the cross-campaign shared pool
 
 Current per-campaign definition counts:
 
-- Campaign `1`: `16` definitions (`12` weapons, `4` utilities)
-- Campaign `2`: `14` definitions (`9` weapons, `5` utilities)
-- Campaign `3`: `11` definitions (`7` weapons, `4` utilities)
-- Campaign `4`: `8` definitions (`8` weapons, `0` utilities)
+- Campaign `1`: `30` definitions (`24` weapons, `6` utilities)
+- Campaign `2`: `37` definitions (`26` weapons, `11` utilities)
+- Campaign `3`: `40` definitions (`25` weapons, `15` utilities)
+- Campaign `4`: `31` definitions (`25` weapons, `6` utilities)
+- Campaign `5`: `31` definitions (`25` weapons, `6` utilities)
 
 Current rarity distribution across unique definitions:
 
-- `10` normal
-- `9` magic
 - `11` normal
 - `16` magic
 - `20` rare
-- `10` exotic
+- `11` exotic
 - `11` legendary
+
+## Risk overview
+
+These are the main known implementation and release risks worth tracking right now.
+
+### Current active risks
+
+#### Client gameplay bundle size
+
+Status:
+
+- `monitored`, not currently blocking
+
+Current observation:
+
+- the production client build currently emits a large minified chunk of roughly `1.18 MB`
+- the dominant contributor appears to be the bundled `p5` runtime plus gameplay-side canvas code
+- this is considered acceptable for combat-heavy routes in the current phase, but should not spread broadly into non-game routes
+
+Why it matters:
+
+- can slow first-load time for gameplay pages
+- can increase parse and execution cost on lower-end devices
+- becomes more serious if homepage, auth, dashboard, or other non-combat routes begin paying this cost unnecessarily
+
+Current stance:
+
+- acceptable for now because the gameplay loop is intentionally client-heavy
+- not a correctness risk
+- should be revisited if mobile performance, first-load responsiveness, or route isolation becomes an issue
+
+Preferred future mitigation:
+
+- keep `p5` and combat runtime isolated to routes that truly need the canvas
+- avoid pulling gameplay runtime into non-combat surfaces
+- defer any deeper chunk-splitting work until performance symptoms appear or release hardening starts
 
 ### Season 1 weapon roster milestone
 
@@ -82,8 +117,13 @@ The first public release / Season `1` content target should be much larger than 
 Weapon milestone:
 
 - target `150` total weapons for the Season `1` roster
-- current implemented count is `68` weapons
-- remaining gap is `82` additional weapons
+- current implemented count is `49` weapons
+- remaining gap is `101` additional weapons
+
+Important counting rule:
+
+- this milestone tracks weapons only, not utilities
+- the broader shared loadout registry currently sits at `68` total definitions when utilities are included
 
 Target rarity mix for the full Season `1` weapon roster:
 
@@ -120,6 +160,8 @@ XXXX
 - the elemental apex version is now `Elemental Mastery`, a legendary hollow rectangle that fits all four `2x2` infusers inside it
 - `Elemental Mastery` consumes one fire, lightning, cold, and void infusion together, then grants `200%` extra elemental damage across all infused weapons with a deliberately chaotic multi-element pixl aura
 - while `Elemental Mastery` is active, subsequent elemental weapons require `1` fewer infusion of their element to fire, to a minimum cost of `0`
+- `Void Tendrils` has been reworked away from delayed multihit damage into a true void sustain/control weapon: it captures up to `6` non-boss glitches, makes them untargetable for `2` cycles, then consumes them into temporary HP equal to their max health
+- `Void Rift` is now live as an exotic void damage weapon: it opens a narrow player-targeted seam, shreds a compact cluster with high tick damage for about one cycle, then collapses into an AOE pulse whose damage scales with the total damage dealt during the rift
 
 ---
 

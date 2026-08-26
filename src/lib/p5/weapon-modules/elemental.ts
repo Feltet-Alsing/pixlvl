@@ -2,6 +2,7 @@ import {
 	drawBlizzardStormEffect,
 	drawForkLightningEffect,
 	drawIceSpikeEffect,
+	drawVoidRiftEffect,
 	drawVoidTendrilEffect
 } from '$lib/p5/weapon-component';
 import type { WeaponModule } from '$lib/p5/weapon-module-types';
@@ -44,8 +45,20 @@ const voidTendrilsWeaponModule: Partial<WeaponModule> = {
 	}
 };
 
+const voidRiftWeaponModule: Partial<WeaponModule> = {
+	renderArenaEffect: (p, effect) => {
+		if (effect.kind !== 'void-rift') {
+			return false;
+		}
+
+		drawVoidRiftEffect(p, effect);
+		return true;
+	}
+};
+
 export const elementalWeaponModulesById: Record<string, Partial<WeaponModule>> = {
 	'zeus-hammer': forkLightningWeaponModule,
 	blizzard: blizzardWeaponModule,
+	'void-rift': voidRiftWeaponModule,
 	'void-tendrils': voidTendrilsWeaponModule
 };

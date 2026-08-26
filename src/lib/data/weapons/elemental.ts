@@ -641,6 +641,64 @@ export const elementalWeapons: LoadoutItemDefinition[] = [
 		role: 'Exotic cold weapon that blankets the full arena in freezing pressure, applying 50% chill and freezing enemies that reach 100% chill'
 	},
 	{
+		id: 'void-rift',
+		name: 'Void Rift',
+		rarity: 'exotic',
+		shape: {
+			width: 5,
+			height: 3,
+			cells: [
+				[1, 0],
+				[2, 0],
+				[3, 0],
+				[0, 1],
+				[1, 1],
+				[2, 1],
+				[3, 1],
+				[4, 1],
+				[1, 2],
+				[2, 2],
+				[3, 2]
+			]
+		},
+		baseDamage: 9,
+		projectileSpeed: 0,
+		attack: {
+			kind: 'single',
+			projectileCount: 1,
+			cycleInterval: 3,
+			requiredInfusion: 'void',
+			special: {
+				type: 'void-rift',
+				durationCycles: 1.1,
+				tickInterval: 0.18,
+				halfWidth: 68,
+				halfHeight: 52,
+				pullStrength: 170,
+				maxTargets: 4,
+				finalPulseRadius: 78,
+				finalPulseBaseDamage: 16,
+				finalPulseDamageRatio: 0.4
+			},
+			targeting: 'current-target'
+		},
+		projectileVisual: {
+			color: '#a78bfa',
+			size: 'large',
+			shape: 'spark',
+			glow: true,
+			trail: 'pulse'
+		},
+		drop: {
+			mode: 'drop',
+			campaignId: 3,
+			stageStart: 2,
+			stageEnd: 5,
+			perLevelDropChance: 0.035
+		},
+		role: 'Exotic void damage weapon that opens a narrow rift on the chosen target, shreds a compact cluster with high tick damage, then collapses into an AOE pulse scaled by the damage dealt during its lifetime'
+	},
+	{
 		id: 'void-tendrils',
 		name: 'Void Tendrils',
 		rarity: 'exotic',
@@ -671,9 +729,9 @@ export const elementalWeapons: LoadoutItemDefinition[] = [
 			requiredInfusion: 'void',
 			special: {
 				type: 'void-tendrils',
-				targetCount: 4,
-				healPerHit: 5,
-				duration: 0.7
+				targetCount: 6,
+				latchDuration: 0.38,
+				consumeDelayCycles: 2
 			},
 			targeting: 'current-target'
 		},
@@ -691,6 +749,6 @@ export const elementalWeapons: LoadoutItemDefinition[] = [
 			stageEnd: 5,
 			perLevelDropChance: 0.04
 		},
-		role: 'Exotic void weapon that lashes four nearby enemies and heals the pixl for each successful hit'
+		role: 'Exotic void weapon that captures up to six non-boss glitches, makes them untargetable and harmless for two cycles, then drags them into the pixl to convert their max health into temporary HP'
 	}
 ];

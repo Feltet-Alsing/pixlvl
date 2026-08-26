@@ -81,7 +81,16 @@ export interface WeaponActivationContext {
 		target: WeaponTargetState
 	) => void;
 	spawnIceShower: (weapon: WeaponDefinition, sourceWeaponInstanceId: string) => void;
-	spawnVoidTendrils: (weapon: WeaponDefinition, sourceWeaponInstanceId: string) => void;
+	spawnVoidTendrils: (
+		weapon: WeaponDefinition,
+		sourceWeaponInstanceId: string,
+		target: WeaponTargetState
+	) => void;
+	spawnVoidRift: (
+		weapon: WeaponDefinition,
+		sourceWeaponInstanceId: string,
+		target: WeaponTargetState
+	) => void;
 	getClosestEnemies: (count: number) => WeaponTargetState[];
 	fireLineBurst: (
 		target: WeaponTargetState,

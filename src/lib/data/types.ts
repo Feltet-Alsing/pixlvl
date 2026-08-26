@@ -312,8 +312,20 @@ export interface WeaponAttackBehavior {
 		| {
 				type: 'void-tendrils';
 				targetCount: number;
-				healPerHit: number;
-				duration: number;
+				latchDuration: number;
+				consumeDelayCycles: number;
+		  }
+		| {
+				type: 'void-rift';
+				durationCycles: number;
+				tickInterval: number;
+				halfWidth: number;
+				halfHeight: number;
+				pullStrength: number;
+				maxTargets: number;
+				finalPulseRadius: number;
+				finalPulseBaseDamage: number;
+				finalPulseDamageRatio: number;
 		  }
 		| {
 				type: 'void-tunnel';
