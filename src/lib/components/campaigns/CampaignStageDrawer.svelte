@@ -26,6 +26,7 @@
 		currentLevel: number;
 		highestUnlockedLevel: number;
 		highestClearedLevel: number;
+		isEndlessCampaign: boolean;
 		levelsPerStage: number;
 		unlockedStages: CampaignStageSummary[];
 		hasCampaignState: boolean;
@@ -42,6 +43,7 @@
 		currentLevel,
 		highestUnlockedLevel,
 		highestClearedLevel,
+		isEndlessCampaign,
 		levelsPerStage,
 		unlockedStages,
 		hasCampaignState,
@@ -49,6 +51,14 @@
 		stageSuccess,
 		submit
 	}: Props = $props();
+
+	let nextCheckpointUnlockWave = $derived.by(() => {
+		if (!isEndlessCampaign) {
+			return null;
+		}
+
+		return Math.ceil(highestUnlockedLevel / levelsPerStage) * levelsPerStage;
+	});
 </script>
 
 <aside class="campaign-drawer" aria-label="Campaign menu">
@@ -75,22 +85,26 @@
 
 	<div class="campaign-summary-grid">
 		<div class="summary-row">
-			<span>Current stage</span>
+			<span>{isEndlessCampaign ? 'Current checkpoint' : 'Current stage'}</span>
 			<strong>{currentStage}</strong>
 		</div>
 		<div class="summary-row">
-			<span>Current level</span>
+			<span>{isEndlessCampaign ? 'Current wave' : 'Current level'}</span>
 			<strong>{currentLevel}</strong>
 		</div>
 		<div class="summary-row">
-			<span>Unlocked</span>
+			<span>{isEndlessCampaign ? 'Unlocked wave' : 'Unlocked'}</span>
 			<strong>{highestUnlockedLevel}</strong>
 		</div>
 		<div class="summary-row">
-			<span>Cleared</span>
+			<span>{isEndlessCampaign ? 'Best cleared wave' : 'Cleared'}</span>
 			<strong>{highestClearedLevel}</strong>
 		</div>
 	</div>
+
+	{#if nextCheckpointUnlockWave !== null}
+		<p class="feedback checkpoint-hint">Next checkpoint unlocks at wave {nextCheckpointUnlockWave}.</p>
+	{/if}
 
 	{#if stageError}
 		<p class="feedback error">{stageError}</p>
@@ -104,10 +118,14 @@
 				<form method="post" action="?/selectStage" use:enhance={submit}>
 					<input type="hidden" name="stage" value={stage.stage} />
 					<button class:active={stage.isCurrentStage} class="stage-card" type="submit">
-						<span>Stage {stage.stage}</span>
-						<strong>{stage.unlockedLevelCount} / {levelsPerStage} levels</strong>
+						<span>{isEndlessCampaign ? `Checkpoint ${stage.stage}` : `Stage ${stage.stage}`}</span>
+						<strong>
+							{stage.unlockedLevelCount} / {levelsPerStage}
+							{isEndlessCampaign ? 'waves' : 'levels'}
+						</strong>
 						<small>
-							Levels {stage.startLevel}-{stage.endLevel}
+							{isEndlessCampaign ? 'Waves' : 'Levels'}
+							{stage.startLevel}-{stage.endLevel}
 							{stage.isCleared ? ' · cleared' : ''}
 						</small>
 					</button>
@@ -252,6 +270,12 @@
 		border-radius: 1rem;
 		border: 1px solid rgba(255, 255, 255, 0.08);
 		font-size: 0.95rem;
+	}
+
+	.feedback.checkpoint-hint {
+		border-color: rgba(84, 150, 255, 0.22);
+		color: #d7e7ff;
+		background: rgba(84, 150, 255, 0.08);
 	}
 
 	.feedback.error {

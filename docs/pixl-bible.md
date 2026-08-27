@@ -2116,6 +2116,8 @@ Current implementation progress:
 
 - endless is now being folded into the normal campaign framework as a dedicated endless campaign entry rather than a standalone test container
 - the current prototype already supports generated infinite waves, `5`-wave boss checkpoints, `25`-wave major bosses, and escalating health/damage/spawn/wave-size scaling inside that shared campaign shell
+- endless checkpoint selection now uses `25`-wave brackets as real selectable restart entries: clearing wave `25` unlocks wave `26`, clearing wave `50` unlocks wave `51`, and so on
+- when an endless run fails, restart should anchor to the start of the current unlocked `25`-wave checkpoint bracket instead of always resetting to wave `1`
 - `Glitch Essence`, endless-shop purchases, unlock gating, personal-best tracking, and endless-run persistence are intentionally deferred until the combat structure is locked in
 
 ### Wave pacing update

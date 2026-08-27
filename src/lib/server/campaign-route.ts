@@ -800,27 +800,51 @@ export async function selectStageForUser(
 	campaignId: number,
 	formData: FormData
 ): Promise<ActionResult<{ stageError?: string; stageSuccess?: string }>> {
+	const campaign = getCampaign(campaignId);
+	const selectionLabel = campaign.mode === 'endless' ? 'checkpoint selection' : 'stage selection';
+
 	if (!userId) {
 		return {
 			ok: false,
 			status: 401,
-			data: { stageError: 'Sign in to manage stage selection.' }
+			data: { stageError: `Sign in to manage ${selectionLabel}.` }
 		};
 	}
 
-	const campaign = getCampaign(campaignId);
 	const campaignState = await getCampaignProgressForUser(userId, campaignId);
 	const rawStage = formData.get('stage');
 	const stage = typeof rawStage === 'string' ? Number(rawStage) : NaN;
+	const maxSelectableStage =
+		campaign.mode === 'endless'
+			? Math.max(1, Math.ceil(campaignState.highestUnlockedLevel / campaign.levelsPerStage))
+			: campaign.stages;
 
-	if (!Number.isInteger(stage) || stage < 1 || stage > campaign.stages) {
-		return { ok: false, status: 400, data: { stageError: 'Unknown stage selection.' } };
+	if (!Number.isInteger(stage) || stage < 1 || stage > maxSelectableStage) {
+		return {
+			ok: false,
+			status: 400,
+			data: {
+				stageError:
+					campaign.mode === 'endless'
+						? 'Unknown checkpoint selection.'
+						: 'Unknown stage selection.'
+			}
+		};
 	}
 
 	const targetLevel = (stage - 1) * campaign.levelsPerStage + 1;
 
 	if (targetLevel > campaignState.highestUnlockedLevel) {
-		return { ok: false, status: 400, data: { stageError: 'That stage is not unlocked yet.' } };
+		return {
+			ok: false,
+			status: 400,
+			data: {
+				stageError:
+					campaign.mode === 'endless'
+						? `Wave ${targetLevel} checkpoint is not unlocked yet.`
+						: 'That stage is not unlocked yet.'
+			}
+		};
 	}
 
 	await updateGameState(userId, {
@@ -835,7 +859,15 @@ export async function selectStageForUser(
 		]
 	});
 
-	return { ok: true, data: { stageSuccess: `Stage ${stage} selected` } };
+	return {
+		ok: true,
+		data: {
+			stageSuccess:
+				campaign.mode === 'endless'
+					? `Wave ${targetLevel} checkpoint selected`
+					: `Stage ${stage} selected`
+		}
+	};
 }
 
 export async function purchaseUpgradeForUser(

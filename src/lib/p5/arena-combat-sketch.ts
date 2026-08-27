@@ -1322,8 +1322,13 @@ export function createArenaCombatSketch(
 					continue;
 				}
 
-				pixlShieldSources[turret.sourceUtilityInstanceId] =
-					(pixlShieldSources[turret.sourceUtilityInstanceId] ?? 0) + addedShield;
+				const previousShield = pixlShieldSources[turret.sourceUtilityInstanceId] ?? 0;
+				setMineShieldTurretShield(turret.sourceUtilityInstanceId, previousShield + addedShield);
+
+				if ((pixlShieldSources[turret.sourceUtilityInstanceId] ?? 0) <= previousShield) {
+					continue;
+				}
+
 				activeShieldColor = turret.color;
 				didAddShield = true;
 			}
@@ -1435,6 +1440,22 @@ export function createArenaCombatSketch(
 				pixlShieldPool = 0;
 				activeShieldColor = '#60a5fa';
 			}
+		};
+
+		const getMineShieldTurretCap = () => pixlProgression.health * 2;
+
+		const getMineShieldTurretTotal = () =>
+			mineShieldTurrets.reduce(
+				(total, turret) => total + (pixlShieldSources[turret.sourceUtilityInstanceId] ?? 0),
+				0
+			);
+
+		const setMineShieldTurretShield = (sourceId: string, amount: number) => {
+			const existingShield = pixlShieldSources[sourceId] ?? 0;
+			const otherShieldTotal = Math.max(0, getMineShieldTurretTotal() - existingShield);
+			const maxShieldForSource = Math.max(0, getMineShieldTurretCap() - otherShieldTotal);
+
+			pixlShieldSources[sourceId] = Math.min(Math.max(0, amount), maxShieldForSource);
 		};
 
 		const addPixlShieldFromSource = (sourceId: string, amount: number, color: string) => {
@@ -1573,7 +1594,7 @@ export function createArenaCombatSketch(
 
 		const getCurrentStageStartLevelIndex = () => {
 			if (endlessMode) {
-				return 0;
+				return Math.max(0, (currentLevel.stage - 1) * campaign.levelsPerStage);
 			}
 
 			return Math.max(0, (currentLevel.stage - 1) * campaign.levelsPerStage);
@@ -3766,7 +3787,7 @@ export function createArenaCombatSketch(
 				shieldRatioFromMineDamage: effect.shieldRatioFromMineDamage
 			};
 
-			pixlShieldSources[utility.instanceId] = shieldAmount;
+			setMineShieldTurretShield(utility.instanceId, shieldAmount);
 			activeShieldColor = turretState.color;
 
 			const existingIndex = mineShieldTurrets.findIndex(

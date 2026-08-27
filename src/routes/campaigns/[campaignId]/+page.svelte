@@ -192,9 +192,16 @@
 
 		return Math.ceil(sketchCampaignLevel / data.campaign.levelsPerStage);
 	});
+	let selectableStageCount = $derived.by(() => {
+		if (isEndlessCampaign) {
+			return Math.max(1, Math.ceil(highestUnlockedLevel / data.campaign.levelsPerStage));
+		}
+
+		return data.campaign.stages;
+	});
 	let unlockedStages = $derived.by(() =>
 		buildUnlockedStages(
-			data.campaign.stages,
+			selectableStageCount,
 			data.campaign.levelsPerStage,
 			highestUnlockedLevel,
 			highestClearedLevel,
@@ -1091,6 +1098,7 @@
 			currentLevel={sketchCampaignLevel}
 			{highestUnlockedLevel}
 			{highestClearedLevel}
+			{isEndlessCampaign}
 			levelsPerStage={data.campaign.levelsPerStage}
 			{unlockedStages}
 			hasCampaignState={Boolean(data.campaignState)}
