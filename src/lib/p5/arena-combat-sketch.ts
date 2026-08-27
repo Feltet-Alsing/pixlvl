@@ -4908,10 +4908,7 @@ export function createArenaCombatSketch(
 				currentSweepIndex,
 				getShieldPoolForSource: (sourceId) => pixlShieldSources[sourceId] ?? 0,
 				setShieldPoolForSource: (sourceId, shieldPercent) => {
-					setPixlShieldSourceAmount(
-						sourceId,
-						Math.ceil(pixlProgression.health * shieldPercent)
-					);
+					setPixlShieldSourceAmount(sourceId, Math.ceil(pixlProgression.health * shieldPercent));
 				},
 				getMineWeaponDamageTotal,
 				spawnMineShieldTurret,
