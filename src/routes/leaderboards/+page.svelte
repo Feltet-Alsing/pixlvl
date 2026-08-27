@@ -63,7 +63,6 @@
 							<div class="leaderboard-copy">
 								<strong>{leader.displayName}</strong>
 								<span>{getProgressLabel(leader)}</span>
-								<small>{leader.email}</small>
 							</div>
 							<div class="leaderboard-meta">
 								<strong>Lv {leader.pixlLevel}</strong>
