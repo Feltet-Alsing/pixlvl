@@ -14,7 +14,7 @@ const BASE_SPAWN_RATE = 14;
 const BASE_WAVE_SIZE = 24;
 const HEALTH_DAMAGE_GROWTH = 1.2;
 const SPAWN_SIZE_GROWTH = 1.1;
-const DAMAGE_BONUS_PER_WAVE = 20;
+const DAMAGE_BONUS_PER_WAVE = 100;
 
 function scaleByWave(base: number, wave: number, growth: number) {
 	return base * Math.pow(growth, Math.max(0, wave - 1));
