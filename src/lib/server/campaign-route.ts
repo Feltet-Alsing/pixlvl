@@ -825,9 +825,7 @@ export async function selectStageForUser(
 			status: 400,
 			data: {
 				stageError:
-					campaign.mode === 'endless'
-						? 'Unknown checkpoint selection.'
-						: 'Unknown stage selection.'
+					campaign.mode === 'endless' ? 'Unknown checkpoint selection.' : 'Unknown stage selection.'
 			}
 		};
 	}

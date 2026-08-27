@@ -103,7 +103,9 @@
 	</div>
 
 	{#if nextCheckpointUnlockWave !== null}
-		<p class="feedback checkpoint-hint">Next checkpoint unlocks at wave {nextCheckpointUnlockWave}.</p>
+		<p class="feedback checkpoint-hint">
+			Next checkpoint unlocks at wave {nextCheckpointUnlockWave}.
+		</p>
 	{/if}
 
 	{#if stageError}
