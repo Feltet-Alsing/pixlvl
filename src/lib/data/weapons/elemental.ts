@@ -729,7 +729,7 @@ export const elementalWeapons: LoadoutItemDefinition[] = [
 			requiredInfusion: 'void',
 			special: {
 				type: 'void-tendrils',
-				targetCount: 6,
+				targetCount: 3,
 				latchDuration: 0.38,
 				consumeDelayCycles: 2
 			},
@@ -749,6 +749,6 @@ export const elementalWeapons: LoadoutItemDefinition[] = [
 			stageEnd: 5,
 			perLevelDropChance: 0.04
 		},
-		role: 'Exotic void weapon that captures up to six non-boss glitches, makes them untargetable and harmless for two cycles, then drags them into the pixl to convert their max health into temporary HP'
+		role: 'Exotic void weapon that captures up to three non-boss glitches, makes them untargetable and harmless for two cycles, then drags them into the pixl to convert their max health into temporary HP'
 	}
 ];
