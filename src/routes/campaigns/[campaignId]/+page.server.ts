@@ -17,7 +17,7 @@ import {
 	getOrCreateGameState,
 	updateGameState
 } from '$lib/server/game-state';
-import { resetUpgradesForUser } from '$lib/server/campaign-route';
+import { resetUpgradesForUser, selectStageForUser } from '$lib/server/campaign-route';
 import { getPlacementRotation, rotateWeaponShape } from '$lib/game/loadout-rotation';
 
 import type { LoadoutItemDefinition, LoadoutPlacement, OwnedWeaponInstance } from '$lib/data/types';
@@ -273,47 +273,19 @@ export const actions: Actions = {
 		};
 	},
 	selectStage: async ({ request, locals, params }) => {
-		if (!locals.user) {
-			return fail(401, { stageError: 'Sign in to manage stage selection.' });
-		}
-
 		const campaignId = Number(params.campaignId);
 
 		if (!Number.isInteger(campaignId)) {
 			return fail(404, { stageError: 'Campaign not found.' });
 		}
 
-		const campaign = getCampaign(campaignId);
-		const campaignState = await getCampaignProgressForUser(locals.user.id, campaignId);
-		const formData = await request.formData();
-		const rawStage = formData.get('stage');
-		const stage = typeof rawStage === 'string' ? Number(rawStage) : NaN;
+		const result = await selectStageForUser(locals.user?.id, campaignId, await request.formData());
 
-		if (!Number.isInteger(stage) || stage < 1 || stage > campaign.stages) {
-			return fail(400, { stageError: 'Unknown stage selection.' });
+		if (!result.ok) {
+			return fail(result.status, result.data);
 		}
 
-		const targetLevel = (stage - 1) * campaign.levelsPerStage + 1;
-
-		if (targetLevel > campaignState.highestUnlockedLevel) {
-			return fail(400, { stageError: 'That stage is not unlocked yet.' });
-		}
-
-		await updateGameState(locals.user.id, {
-			campaignProgress: [
-				{
-					campaignId,
-					currentLevel: targetLevel,
-					highestUnlockedLevel: campaignState.highestUnlockedLevel,
-					highestClearedLevel: campaignState.highestClearedLevel,
-					completed: campaignState.completed
-				}
-			]
-		});
-
-		return {
-			stageSuccess: `Stage ${stage} selected`
-		};
+		return result.data;
 	},
 	purchaseUpgrade: async ({ request, locals, params }) => {
 		if (!locals.user) {
