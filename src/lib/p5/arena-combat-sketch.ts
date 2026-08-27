@@ -1432,6 +1432,27 @@ export function createArenaCombatSketch(
 
 		const getPixlShieldCap = () => pixlProgression.health * 2;
 
+		const getOtherPixlShieldTotal = (sourceId: string) =>
+			Object.entries(pixlShieldSources).reduce(
+				(total, [currentSourceId, amount]) =>
+					currentSourceId === sourceId ? total : total + Math.max(0, amount),
+				0
+			);
+
+		const getMaxPixlShieldForSource = (sourceId: string) =>
+			Math.max(0, getPixlShieldCap() - getOtherPixlShieldTotal(sourceId));
+
+		const setPixlShieldSourceAmount = (sourceId: string, amount: number) => {
+			const nextAmount = Math.min(Math.max(0, amount), getMaxPixlShieldForSource(sourceId));
+
+			if (nextAmount > 0) {
+				pixlShieldSources[sourceId] = nextAmount;
+				return;
+			}
+
+			delete pixlShieldSources[sourceId];
+		};
+
 		const getMineShieldTurretSourceIds = () =>
 			new Set(mineShieldTurrets.map((turret) => turret.sourceUtilityInstanceId));
 
@@ -1474,15 +1495,7 @@ export function createArenaCombatSketch(
 			);
 
 		const setMineShieldTurretShield = (sourceId: string, amount: number) => {
-			const existingShield = pixlShieldSources[sourceId] ?? 0;
-			const otherTurretShieldTotal = Math.max(0, getMineShieldTurretTotal() - existingShield);
-			const nonTurretShieldTotal = Math.max(0, pixlShieldPool - getMineShieldTurretTotal());
-			const maxShieldForSource = Math.max(
-				0,
-				getPixlShieldCap() - nonTurretShieldTotal - otherTurretShieldTotal
-			);
-
-			pixlShieldSources[sourceId] = Math.min(Math.max(0, amount), maxShieldForSource);
+			setPixlShieldSourceAmount(sourceId, amount);
 		};
 
 		const addPixlShieldFromSource = (sourceId: string, amount: number, color: string) => {
@@ -1490,7 +1503,7 @@ export function createArenaCombatSketch(
 				return;
 			}
 
-			pixlShieldSources[sourceId] = (pixlShieldSources[sourceId] ?? 0) + amount;
+			setPixlShieldSourceAmount(sourceId, (pixlShieldSources[sourceId] ?? 0) + amount);
 			activeShieldColor = color;
 			recalculatePixlShieldPool();
 		};
@@ -1507,8 +1520,9 @@ export function createArenaCombatSketch(
 					continue;
 				}
 
-				pixlShieldSources[utility.instanceId] = Math.ceil(
-					pixlProgression.health * utility.definition.effect.shieldPercent
+				setPixlShieldSourceAmount(
+					utility.instanceId,
+					Math.ceil(pixlProgression.health * utility.definition.effect.shieldPercent)
 				);
 				activeShieldColor = utility.definition.utilityVisual?.color ?? '#60a5fa';
 			}
@@ -4894,7 +4908,10 @@ export function createArenaCombatSketch(
 				currentSweepIndex,
 				getShieldPoolForSource: (sourceId) => pixlShieldSources[sourceId] ?? 0,
 				setShieldPoolForSource: (sourceId, shieldPercent) => {
-					pixlShieldSources[sourceId] = Math.ceil(pixlProgression.health * shieldPercent);
+					setPixlShieldSourceAmount(
+						sourceId,
+						Math.ceil(pixlProgression.health * shieldPercent)
+					);
 				},
 				getMineWeaponDamageTotal,
 				spawnMineShieldTurret,
