@@ -5,6 +5,8 @@ export interface UtilityActivationContext {
 	currentSweepIndex: number;
 	getShieldPoolForSource: (sourceId: string) => number;
 	setShieldPoolForSource: (sourceId: string, amount: number) => void;
+	getMineWeaponDamageTotal: () => number;
+	spawnMineShieldTurret: (utility: EquippedUtilityState, shieldAmount: number) => void;
 	recalculateShieldPool: () => void;
 	setActiveShieldColor: (color: string) => void;
 	addElementalInfusion: (element: ElementalInfusionType) => void;
@@ -142,6 +144,39 @@ export function activateElementalMasteryUtility(
 	}
 
 	context.applyElementalMasteryBoost(damageMultiplier, context.currentSweepIndex + 2);
+}
+
+export function activateMineShieldTurretUtility(
+	utility: EquippedUtilityState,
+	context: UtilityActivationContext,
+	shieldRatioFromMineDamage: number
+) {
+	if (utility.definition.activationKind !== 'triggered') {
+		return;
+	}
+
+	if (context.getShieldPoolForSource(utility.instanceId) > 0) {
+		return;
+	}
+
+	if (utility.cyclesUntilTrigger > 1) {
+		utility.cyclesUntilTrigger -= 1;
+		return;
+	}
+
+	const mineWeaponDamageTotal = context.getMineWeaponDamageTotal();
+
+	if (mineWeaponDamageTotal <= 0) {
+		return;
+	}
+
+	utility.cyclesUntilTrigger = utility.cycleInterval;
+	context.spawnMineShieldTurret(
+		utility,
+		Math.max(1, Math.ceil(mineWeaponDamageTotal * shieldRatioFromMineDamage))
+	);
+	context.recalculateShieldPool();
+	context.setActiveShieldColor(utility.definition.utilityVisual?.color ?? '#67e8f9');
 }
 
 export function activateUtilityBehavior(

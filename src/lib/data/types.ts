@@ -477,6 +477,12 @@ export interface UtilityDefinition {
 				pullStrength: number;
 		  }
 		| {
+				type: 'mine-shield-turret';
+				shieldRatioFromMineDamage: number;
+				placementRadius: number;
+				markerSize: number;
+		  }
+		| {
 				type: 'oathbreaker-sigil';
 				radiusFactor: number;
 				duration: number;

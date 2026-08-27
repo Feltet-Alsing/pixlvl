@@ -62,17 +62,9 @@ function isSpecialPackStage(stage: number) {
 	return stage >= 4 && stage <= 5;
 }
 
-function getEligiblePackDefinitions(stage: number, weaponPool: LoadoutItemDefinition[]) {
+function getEligiblePackDefinitions(weaponPool: LoadoutItemDefinition[]) {
 	return weaponPool.filter((item) => {
 		if (item.drop.mode !== 'drop') {
-			return false;
-		}
-
-		if (item.drop.stageStart && stage < item.drop.stageStart) {
-			return false;
-		}
-
-		if (item.drop.stageEnd && stage > item.drop.stageEnd) {
 			return false;
 		}
 
@@ -281,7 +273,7 @@ function createSpecialRewardPack(
 
 export function rollLevelRewardPacks(input: RollLevelRewardPacksInput): PersistedRewardPack[] {
 	const rewardPackWeaponPool = getRewardPackWeaponPool();
-	const eligibleDefinitions = getEligiblePackDefinitions(input.stage, rewardPackWeaponPool);
+	const eligibleDefinitions = getEligiblePackDefinitions(rewardPackWeaponPool);
 
 	if (eligibleDefinitions.length === 0) {
 		return [];

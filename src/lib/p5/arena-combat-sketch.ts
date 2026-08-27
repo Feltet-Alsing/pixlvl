@@ -286,6 +286,18 @@ interface TurretMineBurstState {
 	emissionTimer: number;
 }
 
+interface MineShieldTurretState {
+	sourceUtilityInstanceId: string;
+	centerX: number;
+	centerY: number;
+	markerSize: number;
+	color: string;
+	glow: boolean;
+	age: number;
+	beamPulse: number;
+	shieldRatioFromMineDamage: number;
+}
+
 interface SupportPylonState {
 	sourceWeaponInstanceId: string;
 	variant: 'mark-beacon' | 'cold-lattice' | 'mine-calibrator' | 'hemorrhage-relay';
@@ -1090,6 +1102,7 @@ export function createArenaCombatSketch(
 		let laserSweeps: LaserSweepState[] = [];
 		let perimeterMines: PerimeterMineState[] = [];
 		let turretMines: TurretMineState[] = [];
+		let mineShieldTurrets: MineShieldTurretState[] = [];
 		let supportPylons: SupportPylonState[] = [];
 		let laserRods: LaserRodState[] = [];
 		let turretMineBursts: TurretMineBurstState[] = [];
@@ -1293,6 +1306,31 @@ export function createArenaCombatSketch(
 
 			cumulativeDamageByWeaponInstanceId[sourceWeaponInstanceId] =
 				(cumulativeDamageByWeaponInstanceId[sourceWeaponInstanceId] ?? 0) + actualDamage;
+
+			const sourceWeapon = equippedWeaponByInstanceId.get(sourceWeaponInstanceId)?.definition;
+
+			if (sourceWeapon?.family !== 'mine' || mineShieldTurrets.length === 0) {
+				return;
+			}
+
+			let didAddShield = false;
+
+			for (const turret of mineShieldTurrets) {
+				const addedShield = actualDamage * turret.shieldRatioFromMineDamage;
+
+				if (addedShield <= 0) {
+					continue;
+				}
+
+				pixlShieldSources[turret.sourceUtilityInstanceId] =
+					(pixlShieldSources[turret.sourceUtilityInstanceId] ?? 0) + addedShield;
+				activeShieldColor = turret.color;
+				didAddShield = true;
+			}
+
+			if (didAddShield) {
+				recalculatePixlShieldPool();
+			}
 		};
 
 		const emitCombatState = () => {
@@ -1503,6 +1541,7 @@ export function createArenaCombatSketch(
 			laserSweeps = [];
 			perimeterMines = [];
 			turretMines = [];
+			mineShieldTurrets = [];
 			supportPylons = [];
 			laserRods = [];
 			turretMineBursts = [];
@@ -1600,6 +1639,16 @@ export function createArenaCombatSketch(
 			}
 
 			return getAdjustedMinePlacementCount(weapon);
+		};
+
+		const getMineWeaponDamageTotal = () => {
+			return equippedWeapons.reduce((total, weapon) => {
+				if (weapon.definition.family !== 'mine') {
+					return total;
+				}
+
+				return total + (cumulativeDamageByWeaponInstanceId[weapon.instanceId] ?? 0);
+			}, 0);
 		};
 
 		const isPointInsideSupportPylon = (
@@ -3688,6 +3737,50 @@ export function createArenaCombatSketch(
 			});
 		};
 
+		const spawnMineShieldTurret = (utility: EquippedUtilityState, shieldAmount: number) => {
+			const effect = utility.definition.effect;
+
+			if (effect.type !== 'mine-shield-turret' || shieldAmount <= 0) {
+				return;
+			}
+
+			const target = enemies.reduce<EnemyState | null>((closest, enemy) => {
+				const distance = Math.hypot(enemy.x - centerX, enemy.y - centerY);
+				const closestDistance = closest
+					? Math.hypot(closest.x - centerX, closest.y - centerY)
+					: Number.POSITIVE_INFINITY;
+
+				return distance < closestDistance ? enemy : closest;
+			}, null);
+			const baseAngle = target ? Math.atan2(target.y - centerY, target.x - centerX) : -Math.PI / 2;
+			const radialDistance = Math.max(arenaRadius, effect.placementRadius);
+			const turretState: MineShieldTurretState = {
+				sourceUtilityInstanceId: utility.instanceId,
+				centerX: centerX + Math.cos(baseAngle) * radialDistance,
+				centerY: centerY + Math.sin(baseAngle) * radialDistance,
+				markerSize: effect.markerSize,
+				color: utility.definition.utilityVisual?.color ?? '#67e8f9',
+				glow: utility.definition.utilityVisual?.glow ?? true,
+				age: 0,
+				beamPulse: 0,
+				shieldRatioFromMineDamage: effect.shieldRatioFromMineDamage
+			};
+
+			pixlShieldSources[utility.instanceId] = shieldAmount;
+			activeShieldColor = turretState.color;
+
+			const existingIndex = mineShieldTurrets.findIndex(
+				(turret) => turret.sourceUtilityInstanceId === utility.instanceId
+			);
+
+			if (existingIndex >= 0) {
+				mineShieldTurrets[existingIndex] = turretState;
+				return;
+			}
+
+			mineShieldTurrets.push(turretState);
+		};
+
 		const spawnSupportPylon = (
 			weapon: WeaponDefinition,
 			sourceWeaponInstanceId: string,
@@ -4755,6 +4848,8 @@ export function createArenaCombatSketch(
 				setShieldPoolForSource: (sourceId, shieldPercent) => {
 					pixlShieldSources[sourceId] = Math.ceil(pixlProgression.health * shieldPercent);
 				},
+				getMineWeaponDamageTotal,
+				spawnMineShieldTurret,
 				recalculateShieldPool: recalculatePixlShieldPool,
 				setActiveShieldColor: (color) => {
 					activeShieldColor = color;
@@ -5651,6 +5746,18 @@ export function createArenaCombatSketch(
 
 				if (burst.shotsRemaining <= 0) {
 					turretMineBursts.splice(index, 1);
+				}
+			}
+		};
+
+		const updateMineShieldTurrets = (dt: number) => {
+			for (let index = mineShieldTurrets.length - 1; index >= 0; index -= 1) {
+				const turret = mineShieldTurrets[index];
+				turret.age += dt;
+				turret.beamPulse += dt;
+
+				if ((pixlShieldSources[turret.sourceUtilityInstanceId] ?? 0) <= 0) {
+					mineShieldTurrets.splice(index, 1);
 				}
 			}
 		};
@@ -7760,6 +7867,26 @@ export function createArenaCombatSketch(
 				}
 			}
 
+			for (const turret of mineShieldTurrets) {
+				if (
+					getUtilityModuleByInstanceId(turret.sourceUtilityInstanceId).renderArenaEffect(p, {
+						kind: 'mine-shield-turret',
+						arenaCenterX: centerX,
+						arenaCenterY: centerY,
+						centerX: turret.centerX,
+						centerY: turret.centerY,
+						markerSize: turret.markerSize,
+						color: turret.color,
+						glow: turret.glow,
+						age: turret.age,
+						beamPulse: turret.beamPulse,
+						shieldRatioFromMineDamage: turret.shieldRatioFromMineDamage
+					})
+				) {
+					continue;
+				}
+			}
+
 			for (const bomb of delayedBombs) {
 				if (
 					getWeaponModuleByInstanceId(bomb.sourceWeaponInstanceId).renderArenaEffect(p, {
@@ -8669,6 +8796,7 @@ export function createArenaCombatSketch(
 				updateBurningGrounds(dt);
 				updatePerimeterMines(dt);
 				updateTurretMines(dt);
+				updateMineShieldTurrets(dt);
 				updateDelayedBombs(dt);
 				updateLaserSweeps(dt);
 				updateNeedleBursts(dt);

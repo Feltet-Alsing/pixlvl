@@ -123,13 +123,13 @@ The first public release / Season `1` content target should be much larger than 
 Weapon milestone:
 
 - target `150` total loadout definitions for the Season `1` roster
-- current implemented count is `72` definitions
-- remaining gap is `78` additional definitions
+- current implemented count is `73` definitions
+- remaining gap is `77` additional definitions
 
 Important counting rule:
 
 - utilities count toward this milestone
-- the current `72 / 150` progress includes both `51` weapons and `21` utilities
+- the current `73 / 150` progress includes both `51` weapons and `22` utilities
 
 Target rarity mix for the full Season `1` weapon roster:
 
@@ -147,6 +147,7 @@ It should support multiple archetypes, repeatable synergy packages, and enough b
 Latest roster pass:
 
 - the mine package is now complete enough for release-candidate iteration
+- `Shield Turret` is now live as a magic mine utility that deploys a perimeter shield emitter, then converts `10%` of total mine-family damage dealt into a rechargeable shield that stays active until broken
 - the next implemented support package is a helper-oriented pylon set, not a standalone archetype
 - current support pylons: `Mark Beacon`, `Cold Lattice`, `Mine Calibrator`, `Hemorrhage Relay`
 - design rule: pylons should improve existing builds like knives, mines, slower projectiles, and status packages rather than replace them

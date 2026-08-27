@@ -802,21 +802,35 @@ export function getLoadoutItemEffectSummary(definition: LoadoutItemDefinition) {
 	switch (definition.effect.type) {
 		case 'shield-pool':
 			return `Adds shield equal to ${Math.round(definition.effect.shieldPercent * 100)}% of max health until broken`;
+		case 'mine-shield-turret':
+			return `Deploys a perimeter shield turret that continuously converts ${Math.round(definition.effect.shieldRatioFromMineDamage * 100)}% of mine-family damage into shield while active, then stays online until that shield breaks`;
 		case 'elemental-infuser':
 			return `Generates 1 ${definition.effect.element} infusion per cycle`;
 		case 'cycle-adjacency-reduction':
 			return `Adjacent items activate ${definition.effect.reduction} cycle faster`;
 		case 'cycle-damage-boost':
 			return `${definition.effect.damageMultiplier}x damage next cycle`;
+		case 'elemental-cycle-boost':
+			return `${definition.effect.damageMultiplier}x ${definition.effect.element} damage next cycle`;
+		case 'elemental-mastery':
+			return `${definition.effect.damageMultiplier}x all elemental damage next cycle`;
 		case 'hemorrhage-burst':
 			return `Bleeding enemies burst when stored bleed exceeds max health`;
 		case 'bleed-catalyst':
 			return `${definition.effect.multiplier}x bleed damage, capped at ${definition.effect.maxTotalMultiplier}x total`;
 		case 'knife-siphon':
 			return `Fan of Knives touching The Knife gains ${Math.round(definition.effect.lifeStealRatio * 100)}% leech and ${definition.effect.damageMultiplier}x damage while this also touches The Knife`;
+		case 'mine-trigger-echo':
+			return 'Duplicates each mine-family trigger once';
+		case 'mine-gravity-augment':
+			return `Armed mines pull nearby enemies within ${Math.round(definition.effect.pullRadius)} range`;
 		case 'oathbreaker-sigil':
 			return `Every ${definition.cycleInterval ?? 3} cycles, chains enemies in a forward half-circle, slows them by ${Math.round((1 - definition.effect.slowMultiplier) * 100)}%, and duplicates ${Math.round(definition.effect.damageShareRatio * 100)}% of direct-hit damage to the other linked enemies`;
+		case 'mirror-array':
+			return `Reflects shots through a forward mirror for ${definition.effect.duration.toFixed(1)} seconds`;
 	}
+
+	return 'Utility effect';
 }
 
 export function formatInventoryCardSummary(group: InventoryWeaponGroup) {

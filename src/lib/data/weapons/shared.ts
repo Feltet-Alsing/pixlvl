@@ -890,6 +890,42 @@ export const sharedWeapons: LoadoutItemDefinition[] = [
 		role: 'Exotic void mine utility that gives each armed mine a gentle gravity field, bending nearby glitches inward whenever one void infusion is available in the current sweep'
 	},
 	{
+		id: 'shield-turret',
+		name: 'Shield Turret',
+		category: 'utility',
+		rarity: 'magic',
+		shape: {
+			width: 3,
+			height: 4,
+			cells: [
+				[1, 0],
+				[0, 1],
+				[1, 1],
+				[2, 1],
+				[0, 2],
+				[1, 2],
+				[2, 2],
+				[1, 3]
+			]
+		},
+		activationKind: 'triggered',
+		cycleInterval: 3,
+		effect: {
+			type: 'mine-shield-turret',
+			shieldRatioFromMineDamage: 0.1,
+			placementRadius: 118,
+			markerSize: 12
+		},
+		utilityVisual: sharedUtilityVisualById['shield-turret'],
+		drop: {
+			mode: 'drop',
+			stageStart: 3,
+			stageEnd: 5,
+			perLevelDropChance: 0.05
+		},
+		role: 'Magic mine utility that deploys a perimeter shield turret; while active, it converts 10% of mine-family damage into shield and stays online until that shield is broken'
+	},
+	{
 		id: 'heavy-orb',
 		name: 'Heavy Orb',
 		rarity: 'legendary',

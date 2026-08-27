@@ -185,6 +185,11 @@ export const sharedUtilityVisualById = {
 		shape: 'column-glow',
 		glow: true
 	},
+	'shield-turret': {
+		color: '#67e8f9',
+		shape: 'ring',
+		glow: true
+	},
 	'oathbreaker-sigil': {
 		color: '#f59e0b',
 		shape: 'ring',

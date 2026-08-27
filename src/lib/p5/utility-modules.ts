@@ -1,6 +1,7 @@
 import type P5 from 'p5';
 
 import {
+	drawMineShieldTurretEffect,
 	drawOathbreakerSigilEffect,
 	type UtilityArenaEffectProps
 } from '$lib/p5/utility-component';
@@ -9,6 +10,7 @@ import {
 	activateElementalCycleBoostUtility,
 	activateElementalInfuserUtility,
 	activateElementalMasteryUtility,
+	activateMineShieldTurretUtility,
 	activateMirrorArrayUtility,
 	activateOathbreakerSigilUtility,
 	activatePassiveUtilityBehavior,
@@ -114,6 +116,26 @@ const mirrorArrayUtilityModule: Partial<UtilityModule> = {
 	}
 };
 
+const mineShieldTurretUtilityModule: Partial<UtilityModule> = {
+	activate: (utility, context) => {
+		const effect = utility.definition.effect;
+
+		if (effect.type !== 'mine-shield-turret') {
+			return;
+		}
+
+		activateMineShieldTurretUtility(utility, context, effect.shieldRatioFromMineDamage);
+	},
+	renderArenaEffect: (p, effect) => {
+		if (effect.kind !== 'mine-shield-turret') {
+			return false;
+		}
+
+		drawMineShieldTurretEffect(p, effect);
+		return true;
+	}
+};
+
 const defaultUtilityIds = [
 	'cycle-booster',
 	'hemorrhage-burst',
@@ -132,6 +154,7 @@ const utilityModulesById: Record<string, Partial<UtilityModule>> = {
 	'shield-matrix': shieldPoolUtilityModule,
 	'shield-array': shieldPoolUtilityModule,
 	'shield-bastion': shieldPoolUtilityModule,
+	'shield-turret': mineShieldTurretUtilityModule,
 	'damage-spire': damageSpireUtilityModule,
 	'fire-infuser': elementalInfuserUtilityModule,
 	'lightning-infuser': elementalInfuserUtilityModule,

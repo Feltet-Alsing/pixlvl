@@ -155,21 +155,35 @@
 		switch (item.effect.type) {
 			case 'shield-pool':
 				return `Shield ${Math.round(item.effect.shieldPercent * 100)}%`;
+			case 'mine-shield-turret':
+				return `Mine shield ${Math.round(item.effect.shieldRatioFromMineDamage * 100)}%`;
 			case 'elemental-infuser':
 				return `${formatLabel(item.effect.element)} infusion`;
 			case 'cycle-adjacency-reduction':
 				return `Adj -${item.effect.reduction}`;
 			case 'cycle-damage-boost':
 				return `${item.effect.damageMultiplier}x boost`;
+			case 'elemental-cycle-boost':
+				return `${item.effect.damageMultiplier}x ${formatLabel(item.effect.element)}`;
+			case 'elemental-mastery':
+				return `${item.effect.damageMultiplier}x mastery`;
 			case 'hemorrhage-burst':
 				return 'Bleed detonation';
 			case 'bleed-catalyst':
 				return `${item.effect.multiplier}x bleed`;
 			case 'knife-siphon':
 				return `${item.effect.lifeStealRatio}x leech`;
+			case 'mine-trigger-echo':
+				return 'Mine echo';
+			case 'mine-gravity-augment':
+				return 'Mine gravity';
 			case 'oathbreaker-sigil':
 				return 'Shared damage zone';
+			case 'mirror-array':
+				return 'Projectile mirror';
 		}
+
+		return 'Utility';
 	}
 
 	function toAlphaColor(color: string, alpha: number) {

@@ -63,6 +63,7 @@ const sharedPoolDefinitionIds = new Set([
 	'turret-mine',
 	'mine-echo',
 	'gravity-mine-augment',
+	'shield-turret',
 	'oathbreaker-sigil',
 	'deadeye-sniper',
 	'the-knife',
