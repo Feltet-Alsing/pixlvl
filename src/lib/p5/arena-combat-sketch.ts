@@ -1430,7 +1430,32 @@ export function createArenaCombatSketch(
 			options.onResumeStateChange?.(resumeState);
 		};
 
+		const getPixlShieldCap = () => pixlProgression.health * 2;
+
+		const getMineShieldTurretSourceIds = () =>
+			new Set(mineShieldTurrets.map((turret) => turret.sourceUtilityInstanceId));
+
+		const clampMineShieldTurretShieldsToCap = () => {
+			const mineShieldTurretSourceIds = getMineShieldTurretSourceIds();
+			const nonTurretShieldTotal = Object.entries(pixlShieldSources).reduce(
+				(total, [sourceId, amount]) =>
+					mineShieldTurretSourceIds.has(sourceId) ? total : total + amount,
+				0
+			);
+			let remainingTurretShieldCap = Math.max(0, getPixlShieldCap() - nonTurretShieldTotal);
+
+			for (const turret of mineShieldTurrets) {
+				const sourceId = turret.sourceUtilityInstanceId;
+				const currentShield = Math.max(0, pixlShieldSources[sourceId] ?? 0);
+				const clampedShield = Math.min(currentShield, remainingTurretShieldCap);
+				pixlShieldSources[sourceId] = clampedShield;
+				remainingTurretShieldCap = Math.max(0, remainingTurretShieldCap - clampedShield);
+			}
+		};
+
 		const recalculatePixlShieldPool = () => {
+			clampMineShieldTurretShieldsToCap();
+
 			pixlShieldPool = Object.values(pixlShieldSources).reduce(
 				(total, amount) => total + amount,
 				0
@@ -1442,8 +1467,6 @@ export function createArenaCombatSketch(
 			}
 		};
 
-		const getMineShieldTurretCap = () => pixlProgression.health * 2;
-
 		const getMineShieldTurretTotal = () =>
 			mineShieldTurrets.reduce(
 				(total, turret) => total + (pixlShieldSources[turret.sourceUtilityInstanceId] ?? 0),
@@ -1452,8 +1475,12 @@ export function createArenaCombatSketch(
 
 		const setMineShieldTurretShield = (sourceId: string, amount: number) => {
 			const existingShield = pixlShieldSources[sourceId] ?? 0;
-			const otherShieldTotal = Math.max(0, getMineShieldTurretTotal() - existingShield);
-			const maxShieldForSource = Math.max(0, getMineShieldTurretCap() - otherShieldTotal);
+			const otherTurretShieldTotal = Math.max(0, getMineShieldTurretTotal() - existingShield);
+			const nonTurretShieldTotal = Math.max(0, pixlShieldPool - getMineShieldTurretTotal());
+			const maxShieldForSource = Math.max(
+				0,
+				getPixlShieldCap() - nonTurretShieldTotal - otherTurretShieldTotal
+			);
 
 			pixlShieldSources[sourceId] = Math.min(Math.max(0, amount), maxShieldForSource);
 		};
