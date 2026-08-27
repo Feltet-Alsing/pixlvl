@@ -738,6 +738,10 @@ export function getEstimatedWeaponDamagePerActivation(
 		return baseDamage * Math.max(1, special.targetCount);
 	}
 
+	if (special?.type === 'laser-rod-network') {
+		return 0;
+	}
+
 	if (special?.type === 'fork-lightning') {
 		return baseDamage * 6;
 	}

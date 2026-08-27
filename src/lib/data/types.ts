@@ -140,6 +140,8 @@ export interface WeaponAttackBehavior {
 				damagePerSecond?: number;
 				chillPerSecond?: number;
 				freezeDuration?: number;
+				fireDamageMultiplier?: number;
+				fireDebuffDuration?: number;
 				vulnerableDuration?: number;
 		  }
 		| {

@@ -87,6 +87,7 @@ interface EnemyState {
 	shieldPulseCooldown: number;
 	confusionTimer: number;
 	voidTouchedTimer: number;
+	fireExposedTimer: number;
 	lifeStealMarkTimer: number;
 	lifeStealMarkRatio: number;
 	parasiteBloomTimer: number;
@@ -334,9 +335,10 @@ interface LaserRodState {
 	glow: boolean;
 	age: number;
 	duration: number;
-	damagePerSecond: number;
 	chillPerSecond: number;
 	freezeDuration: number;
+	fireDamageMultiplier: number;
+	fireDebuffDuration: number;
 	vulnerableDuration: number;
 	targeting: WeaponTargetingKind;
 }
@@ -1978,6 +1980,7 @@ export function createArenaCombatSketch(
 				shieldPulseCooldown: p.random(0, Math.max(0.15, (stats.onHitShieldCooldown ?? 0) * 0.5)),
 				confusionTimer: 0,
 				voidTouchedTimer: 0,
+				fireExposedTimer: 0,
 				lifeStealMarkTimer: 0,
 				lifeStealMarkRatio: 0,
 				parasiteBloomTimer: 0,
@@ -2951,6 +2954,10 @@ export function createArenaCombatSketch(
 				remainingDamage *= 1.3;
 			}
 
+			if (sourceWeapon?.attack.requiredInfusion === 'fire' && enemy.fireExposedTimer > 0) {
+				remainingDamage *= 1.4;
+			}
+
 			if (enemy.vulnerableTimer > 0) {
 				remainingDamage *= 1.33;
 			}
@@ -3906,7 +3913,6 @@ export function createArenaCombatSketch(
 				glow: weapon.projectileVisual.glow ?? false,
 				age: 0,
 				duration: special.fieldDurationCycles / Math.max(0.001, pixlProgression.attackSpeed),
-				damagePerSecond: special.damagePerSecond ?? 0,
 				chillPerSecond: special.chillPerSecond ?? 0,
 				freezeDuration: special.freezeDuration ?? 0,
 				vulnerableDuration: special.vulnerableDuration ?? 0,
@@ -5494,9 +5500,10 @@ export function createArenaCombatSketch(
 						glow: weapon.definition.projectileVisual.glow ?? false,
 						age: (previousAgeByInstanceId.get(weapon.instanceId) ?? 0) + dt,
 						duration: Number.POSITIVE_INFINITY,
-						damagePerSecond: special.damagePerSecond ?? 0,
 						chillPerSecond: special.chillPerSecond ?? 0,
 						freezeDuration: special.freezeDuration ?? 0,
+						fireDamageMultiplier: special.fireDamageMultiplier ?? 1,
+						fireDebuffDuration: special.fireDebuffDuration ?? 0,
 						vulnerableDuration: special.vulnerableDuration ?? 0,
 						targeting: weapon.targeting
 					} satisfies LaserRodState;
@@ -5518,9 +5525,16 @@ export function createArenaCombatSketch(
 					}
 
 					const lineWidth = Math.max(leftRod.lineWidth, rightRod.lineWidth);
-					const damagePerSecond = Math.max(leftRod.damagePerSecond, rightRod.damagePerSecond);
 					const chillPerSecond = Math.max(leftRod.chillPerSecond, rightRod.chillPerSecond);
 					const freezeDuration = Math.max(leftRod.freezeDuration, rightRod.freezeDuration);
+					const fireDamageMultiplier = Math.max(
+						leftRod.fireDamageMultiplier,
+						rightRod.fireDamageMultiplier
+					);
+					const fireDebuffDuration = Math.max(
+						leftRod.fireDebuffDuration,
+						rightRod.fireDebuffDuration
+					);
 					const vulnerableDuration = Math.max(
 						leftRod.vulnerableDuration,
 						rightRod.vulnerableDuration
@@ -5542,19 +5556,6 @@ export function createArenaCombatSketch(
 							continue;
 						}
 
-						if (damagePerSecond > 0) {
-							applyDamageToEnemy(
-								enemyIndex,
-								damagePerSecond * dt,
-								0.06,
-								leftRod.sourceWeaponInstanceId,
-								{
-									applyWeaponHitEffects: false,
-									allowContextHealing: false
-								}
-							);
-						}
-
 						const updatedEnemy = enemies[enemyIndex];
 
 						if (!updatedEnemy) {
@@ -5563,6 +5564,13 @@ export function createArenaCombatSketch(
 
 						if (chillPerSecond > 0) {
 							applyChillToEnemy(updatedEnemy, chillPerSecond * dt, freezeDuration);
+						}
+
+						if (fireDamageMultiplier > 1 && fireDebuffDuration > 0) {
+							updatedEnemy.fireExposedTimer = Math.max(
+								updatedEnemy.fireExposedTimer,
+								fireDebuffDuration
+							);
 						}
 
 						if (vulnerableDuration > 0) {
@@ -5955,6 +5963,7 @@ export function createArenaCombatSketch(
 				enemy.hitFlash = Math.max(0, enemy.hitFlash - dt);
 				enemy.confusionTimer = Math.max(0, enemy.confusionTimer - dt);
 				enemy.voidTouchedTimer = Math.max(0, enemy.voidTouchedTimer - dt);
+				enemy.fireExposedTimer = Math.max(0, enemy.fireExposedTimer - dt);
 				enemy.lifeStealMarkTimer = Math.max(0, enemy.lifeStealMarkTimer - dt);
 				if (enemy.lifeStealMarkTimer <= 0) {
 					enemy.lifeStealMarkRatio = 0;

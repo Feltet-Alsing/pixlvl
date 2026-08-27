@@ -243,7 +243,7 @@ export const sharedWeapons: LoadoutItemDefinition[] = [
 				[0, 1]
 			]
 		},
-		baseDamage: 8,
+		baseDamage: 0,
 		projectileSpeed: 0,
 		attack: {
 			kind: 'single',
@@ -255,7 +255,8 @@ export const sharedWeapons: LoadoutItemDefinition[] = [
 				fieldDurationCycles: 4,
 				lineWidth: 14,
 				rodLength: 26,
-				damagePerSecond: 9
+					fireDamageMultiplier: 1.4,
+					fireDebuffDuration: 0.45
 			},
 			targeting: 'top-middle'
 		},
@@ -266,7 +267,7 @@ export const sharedWeapons: LoadoutItemDefinition[] = [
 			stageEnd: 5,
 			perLevelDropChance: 0.07
 		},
-		role: 'Magic helper rods that anchor on fixed arena slots and burn glitches crossing the links only once you have at least two rods online'
+		role: 'Magic support rods that anchor on fixed arena slots and expose glitches to 40% more fire damage once you have at least two rods online'
 	},
 	{
 		id: 'coldwire-rods',
@@ -281,7 +282,7 @@ export const sharedWeapons: LoadoutItemDefinition[] = [
 				[0, 1]
 			]
 		},
-		baseDamage: 3,
+		baseDamage: 0,
 		projectileSpeed: 0,
 		attack: {
 			kind: 'single',
@@ -293,7 +294,6 @@ export const sharedWeapons: LoadoutItemDefinition[] = [
 				fieldDurationCycles: 4,
 				lineWidth: 18,
 				rodLength: 28,
-				damagePerSecond: 6,
 				chillPerSecond: 0.85,
 				freezeDuration: 0.55
 			},
@@ -306,7 +306,7 @@ export const sharedWeapons: LoadoutItemDefinition[] = [
 			stageEnd: 5,
 			perLevelDropChance: 0.05
 		},
-		role: 'Rare helper rods that weave freezing lanes across fixed anchor points so slow and splash builds can keep enemy packs pinned in transit'
+		role: 'Rare support rods that weave freezing lanes across fixed anchor points so slow and splash builds can keep enemy packs pinned in transit'
 	},
 	{
 		id: 'sunder-rods',
@@ -321,7 +321,7 @@ export const sharedWeapons: LoadoutItemDefinition[] = [
 				[0, 1]
 			]
 		},
-		baseDamage: 5,
+		baseDamage: 0,
 		projectileSpeed: 0,
 		attack: {
 			kind: 'single',
@@ -333,7 +333,6 @@ export const sharedWeapons: LoadoutItemDefinition[] = [
 				fieldDurationCycles: 4.5,
 				lineWidth: 20,
 				rodLength: 30,
-				damagePerSecond: 4,
 				vulnerableDuration: 0.8
 			},
 			targeting: 'top-right'
@@ -345,7 +344,7 @@ export const sharedWeapons: LoadoutItemDefinition[] = [
 			stageEnd: 5,
 			perLevelDropChance: 0.05
 		},
-		role: 'Rare helper rods that score enemies crossing the link and leave them vulnerable so direct-fire follow-up weapons hit materially harder'
+		role: 'Rare support rods that score enemies crossing the link and leave them vulnerable so direct-fire follow-up weapons hit materially harder'
 	},
 	{
 		id: 'cluster-mines',
