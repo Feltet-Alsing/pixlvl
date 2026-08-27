@@ -255,8 +255,8 @@ export const sharedWeapons: LoadoutItemDefinition[] = [
 				fieldDurationCycles: 4,
 				lineWidth: 14,
 				rodLength: 26,
-					fireDamageMultiplier: 1.4,
-					fireDebuffDuration: 0.45
+				fireDamageMultiplier: 1.4,
+				fireDebuffDuration: 0.45
 			},
 			targeting: 'top-middle'
 		},
