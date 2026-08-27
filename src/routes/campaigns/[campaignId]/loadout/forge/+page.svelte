@@ -95,9 +95,7 @@
 	let inventoryWeapons = $derived(
 		buildInventoryWeapons(ownedWeapons, data.weaponDefinitionsById, placementByWeaponInstanceId)
 	);
-	let forgeGroups = $derived(
-		buildInventoryWeaponGroups(inventoryWeapons).filter((group) => group.category === 'weapon')
-	);
+	let forgeGroups = $derived(buildInventoryWeaponGroups(inventoryWeapons));
 	let favoriteGroupIdSet = $derived(new Set(favoriteGroupIds));
 	let activeRaritySet = $derived(new Set(activeRarities));
 	let filteredForgeGroups = $derived(
