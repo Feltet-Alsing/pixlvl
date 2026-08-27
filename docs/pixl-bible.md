@@ -2013,7 +2013,7 @@ Scaling model:
 
 - early endless waves should start around post-campaign power, not tutorial power
 - endless enemy health should multiply by `1.2` each wave
-- endless enemy damage should multiply by `1.2` each wave
+- endless enemy damage should increase by a flat `+20` per wave after wave `1`
 - endless spawn rate should multiply by `1.1` each wave
 - endless wave size should multiply by `1.1` each wave
 - this means each wave should scale from the previous wave rather than from the original baseline only

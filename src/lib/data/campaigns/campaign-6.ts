@@ -14,6 +14,7 @@ const BASE_SPAWN_RATE = 14;
 const BASE_WAVE_SIZE = 24;
 const HEALTH_DAMAGE_GROWTH = 1.2;
 const SPAWN_SIZE_GROWTH = 1.1;
+const DAMAGE_BONUS_PER_WAVE = 20;
 
 function scaleByWave(base: number, wave: number, growth: number) {
 	return base * Math.pow(growth, Math.max(0, wave - 1));
@@ -152,6 +153,7 @@ export function createEndlessCampaignLevel(wave: number): CampaignLevel {
 		: createBaseComposition(waveSize, stage);
 	const xpPerEnemy = getXpPerEnemy(stage, Math.min(stageLevel, 10));
 	const scalingMultiplier = scaleByWave(1, safeWave, HEALTH_DAMAGE_GROWTH);
+	const damageBonus = Math.max(0, safeWave - 1) * DAMAGE_BONUS_PER_WAVE;
 
 	return {
 		campaign: ENDLESS_CAMPAIGN_ID,
@@ -168,9 +170,11 @@ export function createEndlessCampaignLevel(wave: number): CampaignLevel {
 			scaleByWave(BASE_SPAWN_RATE, safeWave, SPAWN_SIZE_GROWTH).toFixed(2)
 		),
 		enemyHealthMultiplier: scalingMultiplier,
-		enemyDamageMultiplier: scalingMultiplier,
+		enemyDamageMultiplier: 1,
+		enemyDamageBonus: damageBonus,
 		bossHealthMultiplier: scalingMultiplier,
-		bossDamageMultiplier: scalingMultiplier
+		bossDamageMultiplier: 1,
+		bossDamageBonus: damageBonus
 	};
 }
 

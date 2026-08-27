@@ -99,6 +99,7 @@ interface EnemyState {
 	frozenTimer: number;
 	moveSpeedMultiplier: number;
 	damageMultiplier: number;
+	damageBonus: number;
 }
 
 interface ProjectileState {
@@ -1256,6 +1257,10 @@ export function createArenaCombatSketch(
 			return currentLevel.enemyDamageMultiplier ?? getEnemyStageMultiplier('damagePerStage');
 		};
 
+		const getEnemyDamageBonus = () => {
+			return currentLevel.enemyDamageBonus ?? 0;
+		};
+
 		const getLoadoutLayout = (): LoadoutLayout => {
 			const loadoutColumnCount = pixlProgression.loadoutColumns;
 			const loadoutRowCount = pixlProgression.loadoutRows;
@@ -1760,6 +1765,14 @@ export function createArenaCombatSketch(
 			return 1 + Math.max(0, stage - 1) * BOSS_DAMAGE_PER_STAGE;
 		};
 
+		const getBossDamageBonus = () => {
+			if (currentLevel.bossDamageBonus !== undefined) {
+				return currentLevel.bossDamageBonus;
+			}
+
+			return currentLevel.enemyDamageBonus ?? 0;
+		};
+
 		const getXpForEnemyKind = (kind: GlitchKind) => {
 			if (kind === 'boss-melee') {
 				return currentLevel.xpPerEnemy.bossMelee ?? 0;
@@ -1788,6 +1801,7 @@ export function createArenaCombatSketch(
 						| 'maxHealth'
 						| 'moveSpeedMultiplier'
 						| 'damageMultiplier'
+						| 'damageBonus'
 					>
 			  >
 			| undefined => {
@@ -1800,7 +1814,8 @@ export function createArenaCombatSketch(
 			return {
 				health: targetHealth,
 				maxHealth: targetHealth,
-				damageMultiplier: getBossDamageMultiplier(currentLevel.stage)
+				damageMultiplier: getBossDamageMultiplier(currentLevel.stage),
+				damageBonus: getBossDamageBonus()
 			};
 		};
 
@@ -1817,6 +1832,7 @@ export function createArenaCombatSketch(
 					| 'maxHealth'
 					| 'moveSpeedMultiplier'
 					| 'damageMultiplier'
+					| 'damageBonus'
 				>
 			>
 		): EnemyState => {
@@ -1862,7 +1878,8 @@ export function createArenaCombatSketch(
 				chillAmount: 0,
 				frozenTimer: 0,
 				moveSpeedMultiplier: overrides?.moveSpeedMultiplier ?? 1,
-				damageMultiplier: overrides?.damageMultiplier ?? getEnemyDamageMultiplier()
+				damageMultiplier: overrides?.damageMultiplier ?? getEnemyDamageMultiplier(),
+				damageBonus: overrides?.damageBonus ?? getEnemyDamageBonus()
 			};
 		};
 
@@ -5740,7 +5757,10 @@ export function createArenaCombatSketch(
 				vy: directionY * speed,
 				damage: Math.max(
 					1,
-					Math.round((stats.projectileDamage ?? stats.contactDamage) * enemy.damageMultiplier)
+					Math.round(
+						(stats.projectileDamage ?? stats.contactDamage) * enemy.damageMultiplier +
+							enemy.damageBonus
+					)
 				),
 				color: stats.projectileColor ?? '#a6f0ff',
 				size: stats.projectileSize ?? 7,
@@ -6098,7 +6118,12 @@ export function createArenaCombatSketch(
 						}
 					}
 
-					applyDamageToPixl(Math.max(1, Math.round(stats.contactDamage * enemy.damageMultiplier)));
+					applyDamageToPixl(
+						Math.max(
+							1,
+							Math.round(stats.contactDamage * enemy.damageMultiplier + enemy.damageBonus)
+						)
+					);
 
 					if (pixlHealth === 0) {
 						return;

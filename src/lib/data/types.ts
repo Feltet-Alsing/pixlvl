@@ -622,8 +622,10 @@ export interface CampaignLevel {
 	spawnRatePerSecond: number;
 	enemyHealthMultiplier?: number;
 	enemyDamageMultiplier?: number;
+	enemyDamageBonus?: number;
 	bossHealthMultiplier?: number;
 	bossDamageMultiplier?: number;
+	bossDamageBonus?: number;
 }
 
 export interface CampaignBaseline {
