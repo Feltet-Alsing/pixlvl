@@ -207,20 +207,71 @@ function normalizeRewardPackKind(kind: unknown): RewardPackKind {
 	return 'normal';
 }
 
-function serializeRewardPackRecord(pack: PersistedRewardPackRecord): PersistedRewardPack {
+function isValidRewardPackCard(card: PersistedRewardPackCard) {
+	return card.definitionId !== 'fan-of-knives' && Boolean(weaponDefinitions[card.definitionId]);
+}
+
+function normalizeRewardPackCards(cards: PersistedRewardPackCard[] | null | undefined) {
+	if (!Array.isArray(cards) || cards.length === 0) {
+		return [];
+	}
+
+	return cards.filter(isValidRewardPackCard).map((card, slotIndex) => ({
+		...card,
+		slotIndex
+	}));
+}
+
+function normalizeRewardPackRecord(pack: PersistedRewardPackRecord): PersistedRewardPackRecord {
+	const cards = normalizeRewardPackCards(pack.cards);
+	const guaranteedSlotIndex =
+		cards.find((card) => card.isGuaranteedSlot)?.slotIndex ?? NO_GUARANTEED_PACK_SLOT_INDEX;
+
 	return {
-		id: pack.id,
-		ownerUserId: pack.ownerUserId,
-		campaignId: pack.campaignId,
-		sourceCampaignLevel: pack.sourceCampaignLevel,
-		kind: normalizeRewardPackKind(pack.kind),
-		droppedAt: pack.droppedAt.toISOString(),
-		openedAt: pack.openedAt ? pack.openedAt.toISOString() : null,
-		status: pack.status === 'opened' ? 'opened' : 'unopened',
-		cardCount: pack.cardCount,
-		guaranteedSlotIndex: pack.guaranteedSlotIndex,
-		contentVersion: pack.contentVersion,
-		cards: pack.cards
+		...pack,
+		cardCount: cards.length,
+		guaranteedSlotIndex,
+		cards
+	};
+}
+
+function areRewardPackCardsEqual(
+	left: PersistedRewardPackCard[],
+	right: PersistedRewardPackCard[]
+) {
+	if (left.length !== right.length) {
+		return false;
+	}
+
+	return left.every((card, index) => {
+		const rightCard = right[index];
+
+		return (
+			rightCard !== undefined &&
+			card.slotIndex === rightCard.slotIndex &&
+			card.definitionId === rightCard.definitionId &&
+			card.rarity === rightCard.rarity &&
+			card.isGuaranteedSlot === rightCard.isGuaranteedSlot
+		);
+	});
+}
+
+function serializeRewardPackRecord(pack: PersistedRewardPackRecord): PersistedRewardPack {
+	const normalizedPack = normalizeRewardPackRecord(pack);
+
+	return {
+		id: normalizedPack.id,
+		ownerUserId: normalizedPack.ownerUserId,
+		campaignId: normalizedPack.campaignId,
+		sourceCampaignLevel: normalizedPack.sourceCampaignLevel,
+		kind: normalizeRewardPackKind(normalizedPack.kind),
+		droppedAt: normalizedPack.droppedAt.toISOString(),
+		openedAt: normalizedPack.openedAt ? normalizedPack.openedAt.toISOString() : null,
+		status: normalizedPack.status === 'opened' ? 'opened' : 'unopened',
+		cardCount: normalizedPack.cardCount,
+		guaranteedSlotIndex: normalizedPack.guaranteedSlotIndex,
+		contentVersion: normalizedPack.contentVersion,
+		cards: normalizedPack.cards
 	};
 }
 
@@ -230,10 +281,7 @@ function normalizeOwnedWeapons(ownedWeapons?: OwnedWeaponInstance[] | null) {
 	}
 
 	const normalizedOwnedWeapons = ownedWeapons
-		.filter(
-			(weapon) =>
-				weapon.definitionId !== 'fan-of-knives' && Boolean(weaponDefinitions[weapon.definitionId])
-		)
+		.filter((weapon) => Boolean(weaponDefinitions[weapon.definitionId]))
 		.map((weapon) => ({
 			...weapon,
 			upgradeLevel: getWeaponUpgradeLevel(weapon),
@@ -415,6 +463,17 @@ async function ensureGameState(userId: string) {
 		normalizedOwnedWeapons
 	);
 	const normalizedScrap = normalizeScrap(storedPixlState.scrap);
+	const storedRewardPacks = await db
+		.select()
+		.from(rewardPack)
+		.where(eq(rewardPack.ownerUserId, userId));
+	const normalizedRewardPacks = storedRewardPacks.map(normalizeRewardPackRecord);
+	const dirtyRewardPacks = normalizedRewardPacks.filter(
+		(normalizedPack, index) =>
+			normalizedPack.cardCount !== storedRewardPacks[index]?.cardCount ||
+			normalizedPack.guaranteedSlotIndex !== storedRewardPacks[index]?.guaranteedSlotIndex ||
+			!areRewardPackCardsEqual(normalizedPack.cards, storedRewardPacks[index]?.cards ?? [])
+	);
 
 	if (
 		normalizedProgression.xp !== storedPixlState.xp ||
@@ -452,6 +511,18 @@ async function ensureGameState(userId: string) {
 				updatedAt: new Date()
 			})
 			.where(eq(pixlState.userId, userId));
+	}
+
+	for (const normalizedPack of dirtyRewardPacks) {
+		await db
+			.update(rewardPack)
+			.set({
+				cardCount: normalizedPack.cardCount,
+				guaranteedSlotIndex: normalizedPack.guaranteedSlotIndex,
+				cards: normalizedPack.cards,
+				updatedAt: new Date()
+			})
+			.where(eq(rewardPack.id, normalizedPack.id));
 	}
 
 	await syncProgressionLeaderboardForUser(userId);

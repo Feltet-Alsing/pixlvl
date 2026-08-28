@@ -160,7 +160,6 @@
 	}
 
 	.eyebrow,
-	.leaderboard-copy small,
 	.leaderboard-meta small {
 		font-size: 0.75rem;
 		font-weight: 700;

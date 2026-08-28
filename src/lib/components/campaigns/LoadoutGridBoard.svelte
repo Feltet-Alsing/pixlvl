@@ -80,8 +80,8 @@
 
 	function getWeaponLabel(weapon: LoadoutWeapon) {
 		if (weapon.category === 'weapon') {
-			const targetingLabel =
-				targetingAbbreviationByKind[weapon.targeting ?? weapon.attack?.targeting];
+			const targetingKind = weapon.targeting ?? weapon.attack?.targeting;
+			const targetingLabel = targetingKind ? targetingAbbreviationByKind[targetingKind] : null;
 
 			if (targetingLabel) {
 				return targetingLabel;
