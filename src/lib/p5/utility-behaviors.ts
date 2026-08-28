@@ -5,6 +5,7 @@ export interface UtilityActivationContext {
 	currentSweepIndex: number;
 	getShieldPoolForSource: (sourceId: string) => number;
 	setShieldPoolForSource: (sourceId: string, amount: number) => void;
+	getUtilityShieldOutputMultiplier: (sourceId: string) => number;
 	getMineWeaponDamageTotal: () => number;
 	spawnMineShieldTurret: (utility: EquippedUtilityState, shieldAmount: number) => void;
 	recalculateShieldPool: () => void;

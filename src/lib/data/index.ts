@@ -49,6 +49,11 @@ export const campaigns = {
 const sharedPoolDefinitionIds = new Set([
 	'target-painter',
 	'kill-switch',
+	'shield-booster',
+	'projectile-speed-booster',
+	'lifesteal-booster',
+	'shieldsteal-booster',
+	'damage-booster',
 	'the-mine',
 	'cluster-mines',
 	'mark-beacon',

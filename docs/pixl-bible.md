@@ -2250,6 +2250,15 @@ Initial utility set:
   - 1x5 vertical footprint
   - triggered utility
   - grants +20% damage to all weapons for the rest of the current cycle
+- Booster utilities
+  - 1x1 footprint
+  - passive utilities
+  - only one copy of each booster can be equipped in a loadout even when the booster is not legendary
+  - `Shield Booster`: normal rarity, adjacent shield utilities grant +25% shield
+  - `Projectile Speed Booster`: magic rarity, adjacent weapons gain +100% projectile speed
+  - `Lifesteal Booster`: rare rarity, adjacent weapons gain +10% lifesteal
+  - `Shieldsteal Booster`: exotic rarity, adjacent weapons gain +10% shield steal
+  - `Damage Booster`: legendary rarity, adjacent weapons deal +50% damage
 
 Utilities should begin dropping in mid-Campaign 2 so the player learns them before Campaign 3 begins to lean on utility-aware builds.
 

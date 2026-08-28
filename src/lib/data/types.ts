@@ -418,6 +418,7 @@ export interface UtilityDefinition {
 	name: string;
 	category: 'utility';
 	rarity: WeaponRarity;
+	uniquePerLoadout?: boolean;
 	shape: WeaponShape;
 	activationKind: UtilityActivationKind;
 	cycleInterval?: number;
@@ -437,6 +438,26 @@ export interface UtilityDefinition {
 				type: 'cycle-adjacency-reduction';
 				reduction: number;
 				minimumCycleInterval: number;
+		  }
+		| {
+				type: 'adjacent-weapon-damage-boost';
+				damageMultiplier: number;
+		  }
+		| {
+				type: 'adjacent-shield-boost';
+				shieldMultiplier: number;
+		  }
+		| {
+				type: 'adjacent-projectile-speed-boost';
+				projectileSpeedMultiplier: number;
+		  }
+		| {
+				type: 'adjacent-weapon-lifesteal-boost';
+				lifeStealRatio: number;
+		  }
+		| {
+				type: 'adjacent-weapon-shield-steal-boost';
+				shieldStealRatio: number;
 		  }
 		| {
 				type: 'cycle-damage-boost';
@@ -511,6 +532,7 @@ export interface WeaponDefinition {
 	name: string;
 	family?: 'mine' | 'pylon' | 'laser-rod';
 	rarity: WeaponRarity;
+	uniquePerLoadout?: boolean;
 	shape: WeaponShape;
 	baseDamage: number;
 	projectileSpeed: number;

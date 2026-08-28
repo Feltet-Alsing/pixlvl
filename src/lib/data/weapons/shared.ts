@@ -782,6 +782,131 @@ export const sharedWeapons: LoadoutItemDefinition[] = [
 		role: 'Early splitter weapon that launches three projectiles at different enemies when available'
 	},
 	{
+		id: 'shield-booster',
+		name: 'Shield Booster',
+		category: 'utility',
+		rarity: 'normal',
+		uniquePerLoadout: true,
+		shape: {
+			width: 1,
+			height: 1,
+			cells: [[0, 0]]
+		},
+		activationKind: 'passive',
+		effect: {
+			type: 'adjacent-shield-boost',
+			shieldMultiplier: 1.25
+		},
+		utilityVisual: sharedUtilityVisualById['shield-booster'],
+		drop: {
+			mode: 'drop',
+			stageStart: 2,
+			stageEnd: 5,
+			perLevelDropChance: 0.08
+		},
+		role: 'Normal passive booster that makes touching shield utilities grant 25% more shield'
+	},
+	{
+		id: 'projectile-speed-booster',
+		name: 'Projectile Speed Booster',
+		category: 'utility',
+		rarity: 'magic',
+		uniquePerLoadout: true,
+		shape: {
+			width: 1,
+			height: 1,
+			cells: [[0, 0]]
+		},
+		activationKind: 'passive',
+		effect: {
+			type: 'adjacent-projectile-speed-boost',
+			projectileSpeedMultiplier: 2
+		},
+		utilityVisual: sharedUtilityVisualById['projectile-speed-booster'],
+		drop: {
+			mode: 'drop',
+			stageStart: 2,
+			stageEnd: 5,
+			perLevelDropChance: 0.07
+		},
+		role: 'Magic passive booster that doubles the projectile speed of touching weapons'
+	},
+	{
+		id: 'lifesteal-booster',
+		name: 'Lifesteal Booster',
+		category: 'utility',
+		rarity: 'rare',
+		uniquePerLoadout: true,
+		shape: {
+			width: 1,
+			height: 1,
+			cells: [[0, 0]]
+		},
+		activationKind: 'passive',
+		effect: {
+			type: 'adjacent-weapon-lifesteal-boost',
+			lifeStealRatio: 0.1
+		},
+		utilityVisual: sharedUtilityVisualById['lifesteal-booster'],
+		drop: {
+			mode: 'drop',
+			stageStart: 3,
+			stageEnd: 5,
+			perLevelDropChance: 0.05
+		},
+		role: 'Rare passive booster that gives touching weapons 10% lifesteal on the damage they deal'
+	},
+	{
+		id: 'shieldsteal-booster',
+		name: 'Shieldsteal Booster',
+		category: 'utility',
+		rarity: 'exotic',
+		uniquePerLoadout: true,
+		shape: {
+			width: 1,
+			height: 1,
+			cells: [[0, 0]]
+		},
+		activationKind: 'passive',
+		effect: {
+			type: 'adjacent-weapon-shield-steal-boost',
+			shieldStealRatio: 0.1
+		},
+		utilityVisual: sharedUtilityVisualById['shieldsteal-booster'],
+		drop: {
+			mode: 'drop',
+			stageStart: 4,
+			stageEnd: 5,
+			perLevelDropChance: 0.03
+		},
+		role: 'Exotic passive booster that lets touching weapons convert 10% of their damage into pixl shield'
+	},
+	{
+		id: 'damage-booster',
+		name: 'Damage Booster',
+		category: 'utility',
+		rarity: 'legendary',
+		uniquePerLoadout: true,
+		shape: {
+			width: 1,
+			height: 1,
+			cells: [[0, 0]]
+		},
+		activationKind: 'passive',
+		effect: {
+			type: 'adjacent-weapon-damage-boost',
+			damageMultiplier: 1.5
+		},
+		utilityVisual: sharedUtilityVisualById['damage-booster'],
+		drop: {
+			mode: 'drop',
+			stageStart: 5,
+			stageEnd: 5,
+			perLevelDropChance: 0.015
+		},
+		role: 'Legendary passive booster that makes touching weapons deal 50% more damage'
+	},
+	{
 		id: 'hemorrhage-burst',
 		name: 'Hemorrhage Burst',
 		category: 'utility',

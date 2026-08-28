@@ -215,6 +215,7 @@ function validateLoadoutPlacements(
 	const ownedWeaponById = buildOwnedWeaponById(ownedWeapons);
 	const seenWeaponInstanceIds = new Set<string>();
 	const equippedLegendaryDefinitionIds = new Set<string>();
+	const equippedUniqueDefinitionIds = new Set<string>();
 	let hasEquippedTheKnife = false;
 
 	for (const placement of placements) {
@@ -253,6 +254,17 @@ function validateLoadoutPlacements(
 			}
 
 			equippedLegendaryDefinitionIds.add(definition.id);
+		}
+
+		if (definition.uniquePerLoadout) {
+			if (equippedUniqueDefinitionIds.has(definition.id)) {
+				return {
+					ok: false,
+					error: `Only one copy of ${definition.name} can be equipped in a loadout at a time.`
+				};
+			}
+
+			equippedUniqueDefinitionIds.add(definition.id);
 		}
 
 		const rotation = getPlacementRotation(placement);

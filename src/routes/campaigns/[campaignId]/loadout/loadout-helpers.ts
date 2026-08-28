@@ -820,6 +820,16 @@ export function getLoadoutItemEffectSummary(definition: LoadoutItemDefinition) {
 			return `Generates 1 ${definition.effect.element} infusion per cycle`;
 		case 'cycle-adjacency-reduction':
 			return `Adjacent items activate ${definition.effect.reduction} cycle faster`;
+		case 'adjacent-weapon-damage-boost':
+			return `Adjacent weapons deal ${Math.round((definition.effect.damageMultiplier - 1) * 100)}% more damage`;
+		case 'adjacent-shield-boost':
+			return `Adjacent shield utilities grant ${Math.round((definition.effect.shieldMultiplier - 1) * 100)}% more shield`;
+		case 'adjacent-projectile-speed-boost':
+			return `Adjacent weapons gain ${Math.round((definition.effect.projectileSpeedMultiplier - 1) * 100)}% projectile speed`;
+		case 'adjacent-weapon-lifesteal-boost':
+			return `Adjacent weapons gain ${Math.round(definition.effect.lifeStealRatio * 100)}% lifesteal`;
+		case 'adjacent-weapon-shield-steal-boost':
+			return `Adjacent weapons gain ${Math.round(definition.effect.shieldStealRatio * 100)}% shield steal`;
 		case 'cycle-damage-boost':
 			return `${definition.effect.damageMultiplier}x damage next cycle`;
 		case 'elemental-cycle-boost':

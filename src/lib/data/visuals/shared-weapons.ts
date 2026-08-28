@@ -160,6 +160,31 @@ export const sharedProjectileVisualById = {
 } satisfies Record<string, WeaponProjectileVisual>;
 
 export const sharedUtilityVisualById = {
+	'shield-booster': {
+		color: '#60a5fa',
+		shape: 'column-glow',
+		glow: true
+	},
+	'projectile-speed-booster': {
+		color: '#22d3ee',
+		shape: 'column-glow',
+		glow: true
+	},
+	'lifesteal-booster': {
+		color: '#fb7185',
+		shape: 'column-glow',
+		glow: true
+	},
+	'shieldsteal-booster': {
+		color: '#a78bfa',
+		shape: 'column-glow',
+		glow: true
+	},
+	'damage-booster': {
+		color: '#facc15',
+		shape: 'column-glow',
+		glow: true
+	},
 	'hemorrhage-burst': {
 		color: '#dc2626',
 		shape: 'ring',

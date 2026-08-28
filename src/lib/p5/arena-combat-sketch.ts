@@ -939,6 +939,87 @@ export function createArenaCombatSketch(
 
 			return elementalInfusions[requiredInfusion] >= requiredInfusionCount;
 		};
+		const placedCellsByWeaponInstanceId = Object.fromEntries(
+			equippedWeapons.map((weapon) => [
+				weapon.instanceId,
+				getPlacedShapeCells(weapon.shape, weapon.placementX, weapon.placementY)
+			])
+		) as Record<string, Array<[number, number]>>;
+		const placedCellsByUtilityInstanceId = Object.fromEntries(
+			equippedUtilities.map((utility) => [
+				utility.instanceId,
+				getPlacedShapeCells(utility.shape, utility.placementX, utility.placementY)
+			])
+		) as Record<string, Array<[number, number]>>;
+		const weaponAdjacencyDamageMultiplierByInstanceId = Object.fromEntries(
+			equippedWeapons.map((weapon) => [weapon.instanceId, 1])
+		) as Record<string, number>;
+		const weaponProjectileSpeedMultiplierByInstanceId = Object.fromEntries(
+			equippedWeapons.map((weapon) => [weapon.instanceId, 1])
+		) as Record<string, number>;
+		const weaponLifeStealRatioByInstanceId = Object.fromEntries(
+			equippedWeapons.map((weapon) => [weapon.instanceId, 0])
+		) as Record<string, number>;
+		const weaponShieldStealRatioByInstanceId = Object.fromEntries(
+			equippedWeapons.map((weapon) => [weapon.instanceId, 0])
+		) as Record<string, number>;
+		const utilityShieldOutputMultiplierByInstanceId = Object.fromEntries(
+			triggeredUtilities.map((utility) => [utility.instanceId, 1])
+		) as Record<string, number>;
+
+		for (const passiveUtility of passiveUtilities) {
+			const passiveUtilityCells = placedCellsByUtilityInstanceId[passiveUtility.instanceId];
+
+			for (const weapon of equippedWeapons) {
+				if (
+					!doCellsTouchByEdge(placedCellsByWeaponInstanceId[weapon.instanceId], passiveUtilityCells)
+				) {
+					continue;
+				}
+
+				switch (passiveUtility.definition.effect.type) {
+					case 'adjacent-weapon-damage-boost':
+						weaponAdjacencyDamageMultiplierByInstanceId[weapon.instanceId] *=
+							passiveUtility.definition.effect.damageMultiplier;
+						break;
+					case 'adjacent-projectile-speed-boost':
+						weaponProjectileSpeedMultiplierByInstanceId[weapon.instanceId] *=
+							passiveUtility.definition.effect.projectileSpeedMultiplier;
+						break;
+					case 'adjacent-weapon-lifesteal-boost':
+						weaponLifeStealRatioByInstanceId[weapon.instanceId] +=
+							passiveUtility.definition.effect.lifeStealRatio;
+						break;
+					case 'adjacent-weapon-shield-steal-boost':
+						weaponShieldStealRatioByInstanceId[weapon.instanceId] +=
+							passiveUtility.definition.effect.shieldStealRatio;
+						break;
+				}
+			}
+
+			if (passiveUtility.definition.effect.type !== 'adjacent-shield-boost') {
+				continue;
+			}
+
+			for (const utility of triggeredUtilities) {
+				if (
+					utility.definition.effect.type !== 'shield-pool' &&
+					utility.definition.effect.type !== 'mine-shield-turret'
+				) {
+					continue;
+				}
+
+				if (
+					doCellsTouchByEdge(
+						placedCellsByUtilityInstanceId[utility.instanceId],
+						passiveUtilityCells
+					)
+				) {
+					utilityShieldOutputMultiplierByInstanceId[utility.instanceId] *=
+						passiveUtility.definition.effect.shieldMultiplier;
+				}
+			}
+		}
 
 		for (const weapon of equippedWeapons) {
 			let cycleReduction = 0;
@@ -1054,6 +1135,47 @@ export function createArenaCombatSketch(
 			sourceWeaponInstanceId !== undefined &&
 			sourceWeaponInstanceId !== null &&
 			sourceWeaponInstanceId === socketedKnifeAssembly?.knifeInstanceId;
+		const getWeaponLifeStealRatio = (sourceWeaponInstanceId: string | null | undefined) => {
+			let lifeStealRatio = sourceWeaponInstanceId
+				? (weaponLifeStealRatioByInstanceId[sourceWeaponInstanceId] ?? 0)
+				: 0;
+
+			if (activeKnifeSiphonEffect && isSocketedKnifeSource(sourceWeaponInstanceId)) {
+				lifeStealRatio += activeKnifeSiphonEffect.lifeStealRatio;
+			}
+
+			return lifeStealRatio;
+		};
+		const getWeaponShieldStealRatio = (
+			sourceWeapon: WeaponDefinition | null,
+			sourceWeaponInstanceId: string | null | undefined
+		) => {
+			const baseShieldStealRatio =
+				sourceWeapon?.attack.special?.type === 'shield-steal'
+					? sourceWeapon.attack.special.shieldRatio
+					: 0;
+
+			return (
+				baseShieldStealRatio +
+				(sourceWeaponInstanceId
+					? (weaponShieldStealRatioByInstanceId[sourceWeaponInstanceId] ?? 0)
+					: 0)
+			);
+		};
+		const getAdjustedProjectileSpeed = (
+			weapon: WeaponDefinition,
+			sourceWeaponInstanceId: string | null | undefined,
+			baseSpeed = weapon.projectileSpeed
+		) =>
+			Math.max(
+				0,
+				baseSpeed *
+					(sourceWeaponInstanceId
+						? (weaponProjectileSpeedMultiplierByInstanceId[sourceWeaponInstanceId] ?? 1)
+						: 1)
+			);
+		const getUtilityShieldOutputMultiplier = (utilityInstanceId: string) =>
+			utilityShieldOutputMultiplierByInstanceId[utilityInstanceId] ?? 1;
 		const hasActiveKnifeInstance = (sourceWeaponInstanceId: string) =>
 			projectiles.some(
 				(projectile) =>
@@ -1547,7 +1669,11 @@ export function createArenaCombatSketch(
 
 				setPixlShieldSourceAmount(
 					utility.instanceId,
-					Math.ceil(pixlProgression.health * utility.definition.effect.shieldPercent)
+					Math.ceil(
+						pixlProgression.health *
+							utility.definition.effect.shieldPercent *
+							getUtilityShieldOutputMultiplier(utility.instanceId)
+					)
 				);
 				activeShieldColor = utility.definition.utilityVisual?.color ?? '#60a5fa';
 			}
@@ -1674,6 +1800,9 @@ export function createArenaCombatSketch(
 			const sourceDamageMultiplier = sourceWeaponInstanceId
 				? (weaponDamageMultiplierByInstanceId[sourceWeaponInstanceId] ?? 1)
 				: 1;
+			const adjacencyDamageMultiplier = sourceWeaponInstanceId
+				? (weaponAdjacencyDamageMultiplierByInstanceId[sourceWeaponInstanceId] ?? 1)
+				: 1;
 			const familyDamageMultiplier = weapon.family === 'mine' ? sharedMineDamageMultiplier : 1;
 			const elementalDamageMultiplier = weapon.attack.requiredInfusion
 				? elementalCycleDamageMultipliers[weapon.attack.requiredInfusion]
@@ -1687,6 +1816,7 @@ export function createArenaCombatSketch(
 						cycleDamageMultiplier *
 						elementalDamageMultiplier *
 						familyDamageMultiplier *
+						adjacencyDamageMultiplier *
 						multiplier *
 						sourceDamageMultiplier *
 						knifePackageDamageMultiplier
@@ -2760,6 +2890,19 @@ export function createArenaCombatSketch(
 			enemy.bleedLifeStealRatio = 0;
 			recordWeaponDamage(burstSourceWeaponInstanceId ?? undefined, executeDamage);
 
+			const burstShieldStealRatio = getWeaponShieldStealRatio(
+				burstSourceWeapon,
+				burstSourceWeaponInstanceId
+			);
+
+			if (burstShieldStealRatio > 0 && burstSourceWeaponInstanceId) {
+				addPixlShieldFromSource(
+					`${burstSourceWeaponInstanceId}-shield-steal`,
+					executeDamage * burstShieldStealRatio,
+					burstSourceWeapon?.projectileVisual.color ?? '#a78bfa'
+				);
+			}
+
 			if (burstLifeStealRatio > 0) {
 				healPixl(Math.min(enemy.health, effectiveStoredBleed) * burstLifeStealRatio);
 			}
@@ -3094,6 +3237,12 @@ export function createArenaCombatSketch(
 			const sourceWeapon = sourceWeaponInstanceId
 				? (equippedWeaponByInstanceId.get(sourceWeaponInstanceId)?.definition ?? null)
 				: null;
+			const sourceShieldStealRatio = applyWeaponHitEffects
+				? getWeaponShieldStealRatio(sourceWeapon, sourceWeaponInstanceId)
+				: 0;
+			const sourceLifeStealRatio = applyWeaponHitEffects
+				? getWeaponLifeStealRatio(sourceWeaponInstanceId)
+				: 0;
 
 			if (
 				targetPainterEffect &&
@@ -3135,19 +3284,18 @@ export function createArenaCombatSketch(
 			if (remainingDamage <= 0) {
 				enemy.hitFlash = Math.max(enemy.hitFlash, hitFlash);
 				recordWeaponDamage(sourceWeaponInstanceId, actualDamage);
-				if (
-					applyWeaponHitEffects &&
-					sourceWeapon?.attack.special?.type === 'shield-steal' &&
-					sourceWeaponInstanceId
-				) {
+				if (applyWeaponHitEffects && sourceShieldStealRatio > 0 && sourceWeaponInstanceId) {
 					addPixlShieldFromSource(
 						`${sourceWeaponInstanceId}-shield-steal`,
-						actualDamage * sourceWeapon.attack.special.shieldRatio,
-						sourceWeapon.projectileVisual.color
+						actualDamage * sourceShieldStealRatio,
+						sourceWeapon?.projectileVisual.color ?? '#a78bfa'
 					);
 				}
 				if (allowContextHealing) {
 					applyBlackHoleLifeSteal(enemy, actualDamage);
+				}
+				if (sourceLifeStealRatio > 0 && actualDamage > 0) {
+					healPixl(actualDamage * sourceLifeStealRatio);
 				}
 				if (enemy.lifeStealMarkTimer > 0 && actualDamage > 0) {
 					healPixl(actualDamage * enemy.lifeStealMarkRatio);
@@ -3180,27 +3328,18 @@ export function createArenaCombatSketch(
 			enemy.health -= totalDamage;
 			enemy.hitFlash = Math.max(enemy.hitFlash, hitFlash);
 			recordWeaponDamage(sourceWeaponInstanceId, actualDamage);
-			if (
-				applyWeaponHitEffects &&
-				sourceWeapon?.attack.special?.type === 'shield-steal' &&
-				sourceWeaponInstanceId
-			) {
+			if (applyWeaponHitEffects && sourceShieldStealRatio > 0 && sourceWeaponInstanceId) {
 				addPixlShieldFromSource(
 					`${sourceWeaponInstanceId}-shield-steal`,
-					actualDamage * sourceWeapon.attack.special.shieldRatio,
-					sourceWeapon.projectileVisual.color
+					actualDamage * sourceShieldStealRatio,
+					sourceWeapon?.projectileVisual.color ?? '#a78bfa'
 				);
 			}
 			if (allowContextHealing) {
 				applyBlackHoleLifeSteal(enemy, actualDamage);
 			}
-			if (
-				applyWeaponHitEffects &&
-				actualDamage > 0 &&
-				activeKnifeSiphonEffect &&
-				isSocketedKnifeSource(sourceWeaponInstanceId)
-			) {
-				healPixl(actualDamage * activeKnifeSiphonEffect.lifeStealRatio);
+			if (sourceLifeStealRatio > 0 && actualDamage > 0) {
+				healPixl(actualDamage * sourceLifeStealRatio);
 			}
 			if (enemy.lifeStealMarkTimer > 0 && actualDamage > 0) {
 				healPixl(actualDamage * enemy.lifeStealMarkRatio);
@@ -3249,16 +3388,12 @@ export function createArenaCombatSketch(
 				: null;
 
 			if (bleedSpec && sourceWeaponInstanceId) {
-				const knifeSiphon = isSocketedKnifeSource(sourceWeaponInstanceId)
-					? activeKnifeSiphonEffect
-					: null;
-
 				applyBleedToEnemy(
 					enemyIndex,
 					Math.max(0, actualDamage * bleedSpec.damageRatio),
 					bleedSpec.duration,
 					sourceWeaponInstanceId,
-					knifeSiphon?.lifeStealRatio ?? 0
+					sourceLifeStealRatio
 				);
 			}
 
@@ -4078,9 +4213,12 @@ export function createArenaCombatSketch(
 				target,
 				weapon: payloadWeapon,
 				damage: 0,
-				speed:
+				speed: getAdjustedProjectileSpeed(
+					payloadWeapon,
+					turret.sourceWeaponInstanceId,
 					Math.max(220, payloadWeapon.projectileSpeed || turretWeapon.projectileSpeed) *
-					(turretWeapon.attack.special.projectileSpeedMultiplier ?? 1),
+						(turretWeapon.attack.special.projectileSpeedMultiplier ?? 1)
+				),
 				size: Math.max(4, PROJECTILE_SIZE_BY_VISUAL[payloadWeapon.projectileVisual.size] * 0.8),
 				shape: payloadWeapon.projectileVisual.shape ?? 'diamond',
 				trail: payloadWeapon.projectileVisual.trail ?? 'pulse',
@@ -4475,7 +4613,7 @@ export function createArenaCombatSketch(
 			weapon,
 			angleOffsetRadians = 0,
 			damage = getAdjustedWeaponDamage(weapon, 1, sourceWeaponInstanceId),
-			speed = weapon.projectileSpeed,
+			speed = getAdjustedProjectileSpeed(weapon, sourceWeaponInstanceId),
 			size = PROJECTILE_SIZE_BY_VISUAL[weapon.projectileVisual.size],
 			shape = weapon.projectileVisual.shape ?? 'square',
 			trail = weapon.projectileVisual.trail ?? 'none',
@@ -4769,7 +4907,11 @@ export function createArenaCombatSketch(
 						special.fragmentDamageMultiplier,
 						projectile.sourceWeaponInstanceId
 					),
-					speed: weapon.projectileSpeed * special.fragmentSpeedMultiplier,
+					speed: getAdjustedProjectileSpeed(
+						weapon,
+						projectile.sourceWeaponInstanceId,
+						weapon.projectileSpeed * special.fragmentSpeedMultiplier
+					),
 					size: Math.max(4, projectile.size * 0.45),
 					shape: 'spark',
 					trail: 'streak',
@@ -4801,7 +4943,11 @@ export function createArenaCombatSketch(
 						special.fragmentDamageMultiplier,
 						projectile.sourceWeaponInstanceId
 					),
-					speed: weapon.projectileSpeed * special.fragmentSpeedMultiplier,
+					speed: getAdjustedProjectileSpeed(
+						weapon,
+						projectile.sourceWeaponInstanceId,
+						weapon.projectileSpeed * special.fragmentSpeedMultiplier
+					),
 					size: Math.max(4, projectile.size * 0.45),
 					shape: 'spark',
 					trail: 'streak',
@@ -4858,7 +5004,11 @@ export function createArenaCombatSketch(
 						shrapnel.fragmentDamageMultiplier,
 						sourceWeaponInstanceId
 					),
-					speed: weapon.projectileSpeed * shrapnel.fragmentSpeedMultiplier,
+					speed: getAdjustedProjectileSpeed(
+						weapon,
+						sourceWeaponInstanceId,
+						weapon.projectileSpeed * shrapnel.fragmentSpeedMultiplier
+					),
 					size: fragmentSize,
 					shape: 'spark',
 					trail: 'streak',
@@ -4890,7 +5040,11 @@ export function createArenaCombatSketch(
 						shrapnel.fragmentDamageMultiplier,
 						sourceWeaponInstanceId
 					),
-					speed: weapon.projectileSpeed * shrapnel.fragmentSpeedMultiplier,
+					speed: getAdjustedProjectileSpeed(
+						weapon,
+						sourceWeaponInstanceId,
+						weapon.projectileSpeed * shrapnel.fragmentSpeedMultiplier
+					),
 					size: fragmentSize,
 					shape: 'spark',
 					trail: 'streak',
@@ -4972,7 +5126,7 @@ export function createArenaCombatSketch(
 						target: burnTarget as EnemyState,
 						weapon: definition,
 						damage: 0,
-						speed: Math.max(280, definition.projectileSpeed),
+						speed: Math.max(280, getAdjustedProjectileSpeed(definition, instanceId)),
 						size: PROJECTILE_SIZE_BY_VISUAL[definition.projectileVisual.size] * 1.15,
 						motion: 'accelerate',
 						waveAmplitude: 5,
@@ -5031,6 +5185,7 @@ export function createArenaCombatSketch(
 				setShieldPoolForSource: (sourceId, shieldPercent) => {
 					setPixlShieldSourceAmount(sourceId, Math.ceil(pixlProgression.health * shieldPercent));
 				},
+				getUtilityShieldOutputMultiplier,
 				getMineWeaponDamageTotal,
 				spawnMineShieldTurret,
 				recalculateShieldPool: recalculatePixlShieldPool,

@@ -113,6 +113,7 @@ function sanitizeLoadoutPlacements(
 	const occupiedCells = new Set<string>();
 	const seenWeaponInstanceIds = new Set<string>();
 	const equippedLegendaryDefinitionIds = new Set<string>();
+	const equippedUniqueDefinitionIds = new Set<string>();
 	let hasEquippedTheKnife = false;
 
 	for (const placement of placements) {
@@ -137,6 +138,10 @@ function sanitizeLoadoutPlacements(
 		}
 
 		if (definition.rarity === 'legendary' && equippedLegendaryDefinitionIds.has(definition.id)) {
+			continue;
+		}
+
+		if (definition.uniquePerLoadout && equippedUniqueDefinitionIds.has(definition.id)) {
 			continue;
 		}
 
@@ -172,6 +177,10 @@ function sanitizeLoadoutPlacements(
 		seenWeaponInstanceIds.add(placement.weaponInstanceId);
 		if (definition.rarity === 'legendary') {
 			equippedLegendaryDefinitionIds.add(definition.id);
+		}
+
+		if (definition.uniquePerLoadout) {
+			equippedUniqueDefinitionIds.add(definition.id);
 		}
 
 		for (const key of occupiedByPlacement) {

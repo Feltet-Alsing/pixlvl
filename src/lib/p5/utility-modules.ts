@@ -44,7 +44,11 @@ const shieldPoolUtilityModule: Partial<UtilityModule> = {
 			return;
 		}
 
-		activateShieldPoolUtility(utility, context, effect.shieldPercent);
+		activateShieldPoolUtility(
+			utility,
+			context,
+			effect.shieldPercent * context.getUtilityShieldOutputMultiplier(utility.instanceId)
+		);
 	}
 };
 
@@ -124,7 +128,12 @@ const mineShieldTurretUtilityModule: Partial<UtilityModule> = {
 			return;
 		}
 
-		activateMineShieldTurretUtility(utility, context, effect.shieldRatioFromMineDamage);
+		activateMineShieldTurretUtility(
+			utility,
+			context,
+			effect.shieldRatioFromMineDamage *
+				context.getUtilityShieldOutputMultiplier(utility.instanceId)
+		);
 	},
 	renderArenaEffect: (p, effect) => {
 		if (effect.kind !== 'mine-shield-turret') {
@@ -138,6 +147,11 @@ const mineShieldTurretUtilityModule: Partial<UtilityModule> = {
 
 const defaultUtilityIds = [
 	'cycle-booster',
+	'shield-booster',
+	'projectile-speed-booster',
+	'lifesteal-booster',
+	'shieldsteal-booster',
+	'damage-booster',
 	'hemorrhage-burst',
 	'mine-echo',
 	'gravity-mine-augment',
