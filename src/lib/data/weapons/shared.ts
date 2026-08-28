@@ -55,11 +55,11 @@ export const sharedWeapons: LoadoutItemDefinition[] = [
 				[0, 2]
 			]
 		},
-		baseDamage: 5,
-		projectileSpeed: 560,
+		baseDamage: 10,
+		projectileSpeed: 1120,
 		attack: {
 			kind: 'single',
-			projectileCount: 3,
+			projectileCount: 1,
 			special: {
 				type: 'bleed-hit',
 				damageRatio: 2.5,
@@ -810,7 +810,43 @@ export const sharedWeapons: LoadoutItemDefinition[] = [
 			stageEnd: 5,
 			perLevelDropChance: 0.08
 		},
-		role: 'Passive rupture utility that detonates enemies whose stored bleed exceeds max health, cashing the whole wound out into a large blood explosion'
+		role: 'Passive knife utility that executes enemies whose Knife bleed exceeds max health and ricochets the excess bleed into the nearest target'
+	},
+	{
+		id: 'bloodfork',
+		name: 'Bloodfork',
+		category: 'utility',
+		rarity: 'exotic',
+		shape: {
+			width: 4,
+			height: 4,
+			cells: [
+				[1, 0],
+				[2, 0],
+				[0, 1],
+				[1, 1],
+				[2, 1],
+				[3, 1],
+				[1, 2],
+				[2, 2],
+				[3, 2],
+				[1, 3],
+				[2, 3]
+			]
+		},
+		activationKind: 'passive',
+		effect: {
+			type: 'knife-ricochet-fork',
+			forkCount: 2
+		},
+		utilityVisual: sharedUtilityVisualById.bloodfork,
+		drop: {
+			mode: 'drop',
+			stageStart: 4,
+			stageEnd: 5,
+			perLevelDropChance: 0.03
+		},
+		role: 'Exotic knife support utility that makes each Hemorrhage ricochet fork into two extra projectiles'
 	},
 	{
 		id: 'mine-echo',
@@ -972,42 +1008,50 @@ export const sharedWeapons: LoadoutItemDefinition[] = [
 		role: 'Legendary heavy orb that locks onto its spawned target, slowly homes in, and cracks on impact into heavy shrapnel'
 	},
 	{
-		id: 'fan-of-knives',
-		name: 'Fan of Knives',
-		rarity: 'rare',
+		id: 'bloodbound-sheath',
+		name: 'Bloodbound Sheath',
+		rarity: 'exotic',
 		shape: {
-			width: 3,
-			height: 3,
+			width: 4,
+			height: 5,
 			cells: [
+				[0, 0],
 				[1, 0],
+				[2, 0],
+				[3, 0],
 				[0, 1],
-				[1, 1],
-				[2, 1],
-				[1, 2]
+				[3, 1],
+				[0, 2],
+				[2, 2],
+				[3, 2],
+				[0, 3],
+				[2, 3],
+				[3, 3],
+				[0, 4],
+				[1, 4],
+				[2, 4],
+				[3, 4]
 			]
 		},
-		baseDamage: 4,
-		projectileSpeed: 430,
+		baseDamage: 0,
+		projectileSpeed: 0,
 		attack: {
 			kind: 'single',
-			projectileCount: 18,
-			cycleInterval: 2,
+			projectileCount: 0,
+			cycleInterval: 1,
 			special: {
-				type: 'fan-knives',
-				projectileCount: 18,
-				radiusFactor: 0.56,
-				burstArcDegrees: 360
+				type: 'knife-sheath'
 			},
 			targeting: 'current-target'
 		},
-		projectileVisual: sharedProjectileVisualById['fan-of-knives'],
+		projectileVisual: sharedProjectileVisualById['bloodbound-sheath'],
 		drop: {
 			mode: 'drop',
-			stageStart: 3,
+			stageStart: 4,
 			stageEnd: 5,
-			perLevelDropChance: 0.06
+			perLevelDropChance: 0.03
 		},
-		role: 'Rare radial knife burst that fans twelve blades out from the pixl and becomes a bleed spreader when adjacent to The Knife'
+		role: 'Exotic knife frame whose hollow core sockets The Knife and boosts its direct-hit damage by 5x'
 	},
 	{
 		id: 'tide-caster',
@@ -1186,8 +1230,7 @@ export const sharedWeapons: LoadoutItemDefinition[] = [
 		activationKind: 'passive',
 		effect: {
 			type: 'knife-siphon',
-			lifeStealRatio: 0.5,
-			damageMultiplier: 2
+			lifeStealRatio: 0.25
 		},
 		utilityVisual: sharedUtilityVisualById['siphoning-knife'],
 		drop: {
@@ -1196,7 +1239,7 @@ export const sharedWeapons: LoadoutItemDefinition[] = [
 			stageEnd: 5,
 			perLevelDropChance: 0.015
 		},
-		role: 'Legendary passive that empowers Fan of Knives when it sits adjacent to both The Knife and this relic, adding heavy lifesteal and a raw damage spike'
+		role: 'Legendary passive that lets the assembled Knife shell leech 25% of the total damage it deals while The Knife is socketed in Bloodbound Sheath'
 	},
 	{
 		id: 'oathbreaker-sigil',

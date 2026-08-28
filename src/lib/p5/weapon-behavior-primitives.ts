@@ -13,6 +13,8 @@ function noPendingMultiplier(): WeaponActivationResult {
 	return { pendingNextWeaponDamageMultiplier: null };
 }
 
+export const activateNoopSpecial: WeaponActivator = () => noPendingMultiplier();
+
 export function createUntargetedSpecialActivator(
 	spawnKey:
 		| 'spawnForceField'
@@ -57,11 +59,6 @@ export const activateTargetPainter: WeaponActivator = (weapon, target, context) 
 	const painterTarget = context.ensureMarkedEnemy() ?? target;
 	context.assignMarkedEnemy(painterTarget);
 	context.fireProjectile(painterTarget, weapon.definition, weapon.instanceId);
-	return noPendingMultiplier();
-};
-
-export const activateFanKnives: WeaponActivator = (weapon, target, context) => {
-	context.spawnFanKnifeBurst(weapon.definition, weapon.instanceId, target);
 	return noPendingMultiplier();
 };
 
@@ -118,13 +115,13 @@ export const specialTypeActivators: Partial<Record<WeaponAttackSpecialType, Weap
 	'kill-switch': createUntargetedSpecialActivator('spawnKillSwitchPulse'),
 	'vulnerable-pulse': createUntargetedSpecialActivator('spawnVulnerablePulse'),
 	'laser-sweep': createUntargetedSpecialActivator('spawnLaserSweep'),
+	'knife-sheath': activateNoopSpecial,
 	'laser-rod-network': createTargetedSpecialActivator('spawnLaserRod'),
 	'perimeter-mine': createTargetedSpecialActivator('spawnPerimeterMine'),
 	'turret-mine': createTargetedSpecialActivator('spawnTurretMine'),
 	'support-pylon': createTargetedSpecialActivator('spawnSupportPylon'),
 	'needle-fan': createUntargetedSpecialActivator('spawnNeedleFan'),
 	'target-painter': activateTargetPainter,
-	'fan-knives': activateFanKnives,
 	'sniper-line': createUntargetedSpecialActivator('spawnSniperLock'),
 	'execution-lattice': createUntargetedSpecialActivator('spawnExecutionLattice'),
 	'fork-lightning': createUntargetedSpecialActivator('spawnForkLightning'),

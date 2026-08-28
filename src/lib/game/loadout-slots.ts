@@ -113,6 +113,7 @@ function sanitizeLoadoutPlacements(
 	const occupiedCells = new Set<string>();
 	const seenWeaponInstanceIds = new Set<string>();
 	const equippedLegendaryDefinitionIds = new Set<string>();
+	let hasEquippedTheKnife = false;
 
 	for (const placement of placements) {
 		if (seenWeaponInstanceIds.has(placement.weaponInstanceId)) {
@@ -126,6 +127,14 @@ function sanitizeLoadoutPlacements(
 		}
 
 		const definition = getLoadoutItemDefinition(ownedWeapon.definitionId);
+
+		if (definition.id === 'the-knife') {
+			if (hasEquippedTheKnife) {
+				continue;
+			}
+
+			hasEquippedTheKnife = true;
+		}
 
 		if (definition.rarity === 'legendary' && equippedLegendaryDefinitionIds.has(definition.id)) {
 			continue;

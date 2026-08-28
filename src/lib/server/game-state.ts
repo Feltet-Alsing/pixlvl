@@ -1,6 +1,12 @@
 import { and, eq, inArray, type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
 
-import { baselineCombatProfile, campaigns, getCampaign, starterWeaponId } from '$lib/data';
+import {
+	baselineCombatProfile,
+	campaigns,
+	getCampaign,
+	starterWeaponId,
+	weaponDefinitions
+} from '$lib/data';
 import { getOwnedWeaponDefinitionIds } from '$lib/game/notifications';
 import {
 	createPersistedLoadoutState,
@@ -223,11 +229,16 @@ function normalizeOwnedWeapons(ownedWeapons?: OwnedWeaponInstance[] | null) {
 		return createStarterOwnedWeapons();
 	}
 
-	const normalizedOwnedWeapons = ownedWeapons.map((weapon) => ({
-		...weapon,
-		upgradeLevel: getWeaponUpgradeLevel(weapon),
-		totalScrapInvested: getWeaponTotalScrapInvested(weapon)
-	}));
+	const normalizedOwnedWeapons = ownedWeapons
+		.filter(
+			(weapon) =>
+				weapon.definitionId !== 'fan-of-knives' && Boolean(weaponDefinitions[weapon.definitionId])
+		)
+		.map((weapon) => ({
+			...weapon,
+			upgradeLevel: getWeaponUpgradeLevel(weapon),
+			totalScrapInvested: getWeaponTotalScrapInvested(weapon)
+		}));
 
 	const hasStarter = normalizedOwnedWeapons.some(
 		(weapon) => weapon.instanceId === STARTER_WEAPON_INSTANCE_ID

@@ -46,11 +46,6 @@ export interface WeaponActivationContext {
 		sourceWeaponInstanceId: string,
 		angleOffsetRadians?: number
 	) => void;
-	spawnFanKnifeBurst: (
-		weapon: WeaponDefinition,
-		sourceWeaponInstanceId: string,
-		target: WeaponTargetState
-	) => void;
 	spawnSniperLock: (weapon: WeaponDefinition, sourceWeaponInstanceId: string) => void;
 	spawnExecutionLattice: (weapon: WeaponDefinition, sourceWeaponInstanceId: string) => void;
 	spawnForkLightning: (weapon: WeaponDefinition, sourceWeaponInstanceId: string) => void;

@@ -29,6 +29,7 @@ export type ElementalInfusionType = 'fire' | 'lightning' | 'cold' | 'void';
 export type WeaponSpecialAttackKind =
 	| 'force-field'
 	| 'laser-sweep'
+	| 'knife-sheath'
 	| 'laser-rod-network'
 	| 'perimeter-mine'
 	| 'turret-mine'
@@ -132,6 +133,9 @@ export interface WeaponAttackBehavior {
 	requiredInfusionCount?: number;
 	special?:
 		| {
+				type: 'knife-sheath';
+		  }
+		| {
 				type: 'laser-rod-network';
 				variant: 'ember-rods' | 'coldwire-rods' | 'sunder-rods';
 				fieldDurationCycles: number;
@@ -196,6 +200,7 @@ export interface WeaponAttackBehavior {
 				maxRadius: number;
 				expansionSpeed: number;
 				lineWidth: number;
+				pushDistance?: number;
 				burstCount?: number;
 				offsetDistance?: number;
 				burstDelay?: number;
@@ -245,12 +250,6 @@ export interface WeaponAttackBehavior {
 				type: 'bleed-hit';
 				damageRatio: number;
 				duration: number;
-		  }
-		| {
-				type: 'fan-knives';
-				projectileCount: number;
-				radiusFactor: number;
-				burstArcDegrees: number;
 		  }
 		| {
 				type: 'next-weapon-boost';
@@ -468,7 +467,10 @@ export interface UtilityDefinition {
 		| {
 				type: 'knife-siphon';
 				lifeStealRatio: number;
-				damageMultiplier: number;
+		  }
+		| {
+				type: 'knife-ricochet-fork';
+				forkCount: number;
 		  }
 		| {
 				type: 'mine-trigger-echo';

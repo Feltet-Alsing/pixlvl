@@ -6,25 +6,21 @@ export const controlWeapons: LoadoutItemDefinition[] = [
 		name: 'Force Field',
 		rarity: 'exotic',
 		shape: {
-			width: 5,
-			height: 5,
+			width: 4,
+			height: 4,
 			cells: [
 				[0, 0],
 				[1, 0],
 				[2, 0],
 				[3, 0],
-				[4, 0],
 				[0, 1],
-				[4, 1],
+				[3, 1],
 				[0, 2],
-				[4, 2],
+				[3, 2],
 				[0, 3],
-				[4, 3],
-				[0, 4],
-				[1, 4],
-				[2, 4],
-				[3, 4],
-				[4, 4]
+				[1, 3],
+				[2, 3],
+				[3, 3]
 			]
 		},
 		baseDamage: 30,
@@ -32,12 +28,13 @@ export const controlWeapons: LoadoutItemDefinition[] = [
 		attack: {
 			kind: 'single',
 			projectileCount: 1,
-			cycleInterval: 3,
+			cycleInterval: 2,
 			special: {
 				type: 'force-field',
 				maxRadius: 156,
 				expansionSpeed: 440,
-				lineWidth: 22
+				lineWidth: 22,
+				pushDistance: 72
 			},
 			targeting: 'current-target'
 		},
@@ -55,7 +52,7 @@ export const controlWeapons: LoadoutItemDefinition[] = [
 			stageEnd: 5,
 			perLevelDropChance: 0.03
 		},
-		role: 'Expanding 360 wave that detonates outward from the pixl and pulses once every three sweep cycles'
+		role: 'Expanding 360 wave that detonates outward from the pixl, pulses every two sweep cycles, and throws glitches further outward'
 	},
 	{
 		id: 'lazer-rail',

@@ -696,6 +696,10 @@ export function getEstimatedWeaponProjectilesPerActivation(
 		return projectileCount + Math.max(0, special.fragmentCount);
 	}
 
+	if (special?.type === 'knife-sheath') {
+		return 0;
+	}
+
 	return projectileCount;
 }
 
@@ -739,6 +743,10 @@ export function getEstimatedWeaponDamagePerActivation(
 	}
 
 	if (special?.type === 'laser-rod-network') {
+		return 0;
+	}
+
+	if (special?.type === 'knife-sheath') {
 		return 0;
 	}
 
@@ -819,11 +827,13 @@ export function getLoadoutItemEffectSummary(definition: LoadoutItemDefinition) {
 		case 'elemental-mastery':
 			return `${definition.effect.damageMultiplier}x all elemental damage next cycle`;
 		case 'hemorrhage-burst':
-			return `Bleeding enemies burst when stored bleed exceeds max health`;
+			return `The Knife executes enemies when stored bleed exceeds max health and ricochets the excess bleed to the nearest target`;
 		case 'bleed-catalyst':
 			return `${definition.effect.multiplier}x bleed damage, capped at ${definition.effect.maxTotalMultiplier}x total`;
+		case 'knife-ricochet-fork':
+			return `Hemorrhage adds ${definition.effect.forkCount} extra ricochet projectiles`;
 		case 'knife-siphon':
-			return `Fan of Knives touching The Knife gains ${Math.round(definition.effect.lifeStealRatio * 100)}% leech and ${definition.effect.damageMultiplier}x damage while this also touches The Knife`;
+			return `While The Knife is socketed in Bloodbound Sheath, it leeches ${Math.round(definition.effect.lifeStealRatio * 100)}% of its total damage`;
 		case 'mine-trigger-echo':
 			return 'Duplicates each mine-family trigger once';
 		case 'mine-gravity-augment':

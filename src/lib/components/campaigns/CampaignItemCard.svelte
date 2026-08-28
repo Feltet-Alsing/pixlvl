@@ -168,11 +168,13 @@
 			case 'elemental-mastery':
 				return `${item.effect.damageMultiplier}x mastery`;
 			case 'hemorrhage-burst':
-				return 'Bleed detonation';
+				return 'Bleed ricochet';
 			case 'bleed-catalyst':
 				return `${item.effect.multiplier}x bleed`;
+			case 'knife-ricochet-fork':
+				return 'Ricochet fork';
 			case 'knife-siphon':
-				return `${item.effect.lifeStealRatio}x leech`;
+				return 'Socketed Knife leech';
 			case 'mine-trigger-echo':
 				return 'Mine echo';
 			case 'mine-gravity-augment':

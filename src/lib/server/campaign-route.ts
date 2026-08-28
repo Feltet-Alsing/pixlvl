@@ -215,6 +215,7 @@ function validateLoadoutPlacements(
 	const ownedWeaponById = buildOwnedWeaponById(ownedWeapons);
 	const seenWeaponInstanceIds = new Set<string>();
 	const equippedLegendaryDefinitionIds = new Set<string>();
+	let hasEquippedTheKnife = false;
 
 	for (const placement of placements) {
 		if (seenWeaponInstanceIds.has(placement.weaponInstanceId)) {
@@ -234,6 +235,14 @@ function validateLoadoutPlacements(
 		}
 
 		const definition = getLoadoutItemDefinition(ownedWeapon.definitionId);
+
+		if (definition.id === 'the-knife') {
+			if (hasEquippedTheKnife) {
+				return { ok: false, error: 'Only one copy of The Knife can be equipped at a time.' };
+			}
+
+			hasEquippedTheKnife = true;
+		}
 
 		if (definition.rarity === 'legendary') {
 			if (equippedLegendaryDefinitionIds.has(definition.id)) {

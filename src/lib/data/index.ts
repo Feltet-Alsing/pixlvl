@@ -68,7 +68,8 @@ const sharedPoolDefinitionIds = new Set([
 	'deadeye-sniper',
 	'the-knife',
 	'hemorrhage-burst',
-	'fan-of-knives',
+	'bloodfork',
+	'bloodbound-sheath',
 	'blood-catalyst',
 	'siphoning-knife'
 ]);

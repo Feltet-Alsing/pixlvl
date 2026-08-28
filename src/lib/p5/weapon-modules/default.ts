@@ -68,7 +68,6 @@ export const defaultProjectileWeaponIds = [
 	'blaster',
 	'splitter',
 	'heavy-orb',
-	'fan-of-knives',
 	'tide-caster',
 	'ricochet-zigzag',
 	'arc-caster',

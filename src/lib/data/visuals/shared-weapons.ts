@@ -14,6 +14,13 @@ export const sharedProjectileVisualById = {
 		shape: 'knife',
 		trail: 'streak'
 	},
+	'bloodbound-sheath': {
+		color: '#b91c1c',
+		size: 'medium',
+		shape: 'diamond',
+		trail: 'pulse',
+		glow: true
+	},
 	'pea-shooter': {
 		color: '#67d96f',
 		size: 'small'
@@ -129,13 +136,6 @@ export const sharedProjectileVisualById = {
 		shape: 'orb',
 		glow: true
 	},
-	'fan-of-knives': {
-		color: '#fca5a5',
-		size: 'small',
-		shape: 'diamond',
-		trail: 'streak',
-		glow: true
-	},
 	'tide-caster': {
 		color: '#67e8f9',
 		size: 'medium',
@@ -172,6 +172,11 @@ export const sharedUtilityVisualById = {
 	},
 	'siphoning-knife': {
 		color: '#7f1d1d',
+		shape: 'column-glow',
+		glow: true
+	},
+	bloodfork: {
+		color: '#fb7185',
 		shape: 'column-glow',
 		glow: true
 	},

@@ -11,7 +11,6 @@ import {
 	buildSpawnQueue,
 	createRewardPackId,
 	doCellsTouchByEdge,
-	doLoadoutEntriesTouch,
 	ENEMY_VISUALS,
 	getCanvasSize,
 	getLoadoutPreviewCanvasSize,
@@ -62,6 +61,7 @@ const CAMPAIGN_LOOP_DELAY = 3;
 const LOADOUT_PREVIEW_MAX_WIDTH = 320;
 const LOADOUT_PREVIEW_BASE_HEIGHT = 240;
 const DEFAULT_MAX_ACTIVE_PERIMETER_MINES = 12;
+const MAX_ACTIVE_HEMORRHAGE_FORK_PROJECTILES = 6;
 
 type WaveStatus = 'running' | 'cleared' | 'defeated' | 'complete';
 type RunMode = 'management' | 'combat';
@@ -76,6 +76,7 @@ interface EnemyState {
 	bleedStoredDamage: number;
 	bleedDurationRemaining: number;
 	bleedSourceWeaponInstanceId: string | null;
+	bleedRicochetStep: number;
 	bleedLifeStealRatio: number;
 	attackTimer: number;
 	hitFlash: number;
@@ -202,6 +203,7 @@ interface ForceFieldState {
 	maxRadius: number;
 	expansionSpeed: number;
 	lineWidth: number;
+	pushDistance: number;
 	damage: number;
 	color: string;
 	glow: boolean;
@@ -484,7 +486,7 @@ interface LaserSweepState {
 
 interface NeedleBurstState {
 	sourceWeaponInstanceId: string;
-	enemyId: number;
+	enemyId: number | null;
 	targetX: number;
 	targetY: number;
 	maxReach: number;
@@ -548,22 +550,6 @@ interface FlamethrowerConeState {
 	expiresAfterSweepIndex: number;
 }
 
-interface FanKnifeBurstState {
-	sourceWeaponInstanceId: string;
-	baseAngle: number;
-	angleStep: number;
-	spinRate: number;
-	projectileCount: number;
-	projectilesReleased: number;
-	projectilesPerEmission: number;
-	emissionInterval: number;
-	emissionTimer: number;
-	damage: number;
-	color: string;
-	glow: boolean;
-	age: number;
-}
-
 interface IceSpikeState {
 	sourceWeaponInstanceId: string;
 	enemyId: number | null;
@@ -622,12 +608,30 @@ interface PixlSwallowPulseState {
 }
 
 interface HemorrhageBurstState {
-	centerX: number;
-	centerY: number;
-	radius: number;
+	startX: number;
+	startY: number;
+	endX: number;
+	endY: number;
+	targetEnemyId: number | null;
+	bleedRicochet: number;
+	bleedDuration: number;
+	sourceWeaponInstanceId: string | null;
+	ricochetStep: number;
+	lifeStealRatio: number;
+	hasApplied: boolean;
 	age: number;
 	duration: number;
 	color: string;
+}
+
+interface KnifeTrailSegmentState {
+	startX: number;
+	startY: number;
+	endX: number;
+	endY: number;
+	color: string;
+	age: number;
+	duration: number;
 }
 
 interface OathbreakerSigilState {
@@ -833,53 +837,6 @@ export function createArenaCombatSketch(
 			options.pixlState?.loadoutPlacements,
 			pixlProgression.loadoutColumns
 		);
-		const adjacentInstanceIdsByInstanceId = new Map<string, Set<string>>();
-
-		for (const entry of equippedLoadoutEntries) {
-			adjacentInstanceIdsByInstanceId.set(entry.instanceId, new Set<string>());
-		}
-
-		for (let leftIndex = 0; leftIndex < equippedLoadoutEntries.length; leftIndex += 1) {
-			for (
-				let rightIndex = leftIndex + 1;
-				rightIndex < equippedLoadoutEntries.length;
-				rightIndex += 1
-			) {
-				const leftEntry = equippedLoadoutEntries[leftIndex];
-				const rightEntry = equippedLoadoutEntries[rightIndex];
-
-				if (!doLoadoutEntriesTouch(leftEntry, rightEntry)) {
-					continue;
-				}
-
-				adjacentInstanceIdsByInstanceId.get(leftEntry.instanceId)?.add(rightEntry.instanceId);
-				adjacentInstanceIdsByInstanceId.get(rightEntry.instanceId)?.add(leftEntry.instanceId);
-			}
-		}
-
-		const loadoutEntryByInstanceId = new Map(
-			equippedLoadoutEntries.map((entry) => [entry.instanceId, entry])
-		);
-		const getAdjacentEntries = (instanceId: string) => {
-			const adjacentInstanceIds = adjacentInstanceIdsByInstanceId.get(instanceId);
-
-			if (!adjacentInstanceIds) {
-				return [] as EquippedLoadoutEntry[];
-			}
-
-			return [...adjacentInstanceIds]
-				.map((adjacentInstanceId) => loadoutEntryByInstanceId.get(adjacentInstanceId))
-				.filter((entry): entry is EquippedLoadoutEntry => Boolean(entry));
-		};
-		const hasAdjacentDefinition = (instanceId: string, definitionId: string) => {
-			for (const entry of getAdjacentEntries(instanceId)) {
-				if (entry.definition.id === definitionId) {
-					return true;
-				}
-			}
-
-			return false;
-		};
 		const equippedWeapons = buildEquippedWeapons(equippedLoadoutEntries);
 		const equippedUtilities = buildEquippedUtilities(equippedLoadoutEntries);
 		const equippedWeaponByInstanceId = new Map(
@@ -892,6 +849,80 @@ export function createArenaCombatSketch(
 			getWeaponModule(equippedWeaponByInstanceId.get(instanceId)?.definition.id ?? '');
 		const getUtilityModuleByInstanceId = (instanceId: string) =>
 			getUtilityModule(equippedUtilityByInstanceId.get(instanceId)?.definition.id ?? '');
+		const getEntryCells = (entry: EquippedLoadoutEntry) =>
+			getPlacedShapeCells(entry.shape, entry.placementX, entry.placementY);
+		const getEntryBounds = (cells: Array<[number, number]>) => ({
+			minX: Math.min(...cells.map(([x]) => x)),
+			maxX: Math.max(...cells.map(([x]) => x)),
+			minY: Math.min(...cells.map(([, y]) => y)),
+			maxY: Math.max(...cells.map(([, y]) => y))
+		});
+		const buildCellKey = (x: number, y: number) => `${x}:${y}`;
+		const getBloodboundSheathSocketCells = (entry: EquippedLoadoutEntry) => {
+			const occupiedCellKeys = new Set(getEntryCells(entry).map(([x, y]) => buildCellKey(x, y)));
+			const socketCells: Array<[number, number]> = [];
+
+			for (let localY = 0; localY < entry.shape.height; localY += 1) {
+				for (let localX = 0; localX < entry.shape.width; localX += 1) {
+					const absoluteX = entry.placementX + localX;
+					const absoluteY = entry.placementY + localY;
+					const cellKey = buildCellKey(absoluteX, absoluteY);
+
+					if (!occupiedCellKeys.has(cellKey)) {
+						socketCells.push([absoluteX, absoluteY]);
+					}
+				}
+			}
+
+			return socketCells;
+		};
+		const getSocketedKnifeAssembly = () => {
+			const knifeEntry = equippedLoadoutEntries.find(
+				(entry) => entry.definition.id === 'the-knife'
+			);
+			const sheathEntries = equippedLoadoutEntries.filter(
+				(entry) => entry.definition.id === 'bloodbound-sheath'
+			);
+
+			if (!knifeEntry || sheathEntries.length === 0) {
+				return null;
+			}
+
+			const knifeCells = getEntryCells(knifeEntry);
+			const knifeCellKeys = new Set(knifeCells.map(([x, y]) => buildCellKey(x, y)));
+			const knifeBounds = getEntryBounds(knifeCells);
+
+			for (const sheathEntry of sheathEntries) {
+				const socketCells = getBloodboundSheathSocketCells(sheathEntry);
+
+				if (socketCells.length === 0) {
+					continue;
+				}
+
+				const socketCellKeys = new Set(socketCells.map(([x, y]) => buildCellKey(x, y)));
+				const socketBounds = getEntryBounds(socketCells);
+
+				if (
+					knifeBounds.minX !== socketBounds.minX ||
+					knifeBounds.maxX !== socketBounds.maxX ||
+					knifeBounds.minY !== socketBounds.minY ||
+					knifeBounds.maxY !== socketBounds.maxY
+				) {
+					continue;
+				}
+
+				if (![...knifeCellKeys].every((cellKey) => socketCellKeys.has(cellKey))) {
+					continue;
+				}
+
+				return {
+					knifeInstanceId: knifeEntry.instanceId,
+					sheathInstanceId: sheathEntry.instanceId
+				};
+			}
+
+			return null;
+		};
 		const passiveUtilities = equippedUtilities.filter(
 			(utility) => utility.definition.activationKind === 'passive'
 		);
@@ -974,6 +1005,13 @@ export function createArenaCombatSketch(
 			hemorrhageBurstUtility?.definition.effect.type === 'hemorrhage-burst'
 				? hemorrhageBurstUtility.definition.effect
 				: null;
+		const knifeRicochetForkEffects = passiveUtilities.flatMap((utility) =>
+			utility.definition.effect.type === 'knife-ricochet-fork' ? [utility.definition.effect] : []
+		);
+		const knifeRicochetForkCount = Math.min(
+			5,
+			knifeRicochetForkEffects.reduce((count, effect) => count + Math.max(0, effect.forkCount), 0)
+		);
 		const hasMineTriggerEcho = passiveUtilities.some(
 			(utility) => utility.definition.effect.type === 'mine-trigger-echo'
 		);
@@ -1004,40 +1042,31 @@ export function createArenaCombatSketch(
 			targetPainterWeapon?.definition.attack.special?.type === 'target-painter'
 				? targetPainterWeapon.definition.attack.special
 				: null;
-		const knifeSiphonUtilityByFanInstanceId = new Map<
-			string,
-			{ damageMultiplier: number; lifeStealRatio: number }
-		>();
-		const fanOfKnivesBleedEnabledInstanceIds = new Set<string>();
-
-		for (const weapon of equippedWeapons) {
-			if (weapon.definition.id !== 'fan-of-knives') {
-				continue;
-			}
-
-			const touchesKnife = hasAdjacentDefinition(weapon.instanceId, 'the-knife');
-
-			if (touchesKnife) {
-				fanOfKnivesBleedEnabledInstanceIds.add(weapon.instanceId);
-			}
-
-			for (const utility of passiveUtilities) {
-				if (utility.definition.effect.type !== 'knife-siphon') {
-					continue;
-				}
-
-				const siphonTouchesKnife = hasAdjacentDefinition(utility.instanceId, 'the-knife');
-
-				if (!touchesKnife || !siphonTouchesKnife) {
-					continue;
-				}
-
-				knifeSiphonUtilityByFanInstanceId.set(weapon.instanceId, {
-					damageMultiplier: utility.definition.effect.damageMultiplier,
-					lifeStealRatio: utility.definition.effect.lifeStealRatio
-				});
-			}
-		}
+		const socketedKnifeAssembly = getSocketedKnifeAssembly();
+		const knifeSiphonEffect = socketedKnifeAssembly
+			? passiveUtilities.find((utility) => utility.definition.effect.type === 'knife-siphon')
+			: null;
+		const activeKnifeSiphonEffect =
+			knifeSiphonEffect?.definition.effect.type === 'knife-siphon'
+				? knifeSiphonEffect.definition.effect
+				: null;
+		const isSocketedKnifeSource = (sourceWeaponInstanceId: string | null | undefined) =>
+			sourceWeaponInstanceId !== undefined &&
+			sourceWeaponInstanceId !== null &&
+			sourceWeaponInstanceId === socketedKnifeAssembly?.knifeInstanceId;
+		const hasActiveKnifeInstance = (sourceWeaponInstanceId: string) =>
+			projectiles.some(
+				(projectile) =>
+					projectile.weaponId === 'the-knife' &&
+					projectile.sourceWeaponInstanceId === sourceWeaponInstanceId
+			) ||
+			hemorrhageBursts.some((burst) => burst.sourceWeaponInstanceId === sourceWeaponInstanceId) ||
+			enemies.some(
+				(enemy) =>
+					enemy.bleedSourceWeaponInstanceId === sourceWeaponInstanceId &&
+					enemy.bleedStoredDamage > 0 &&
+					enemy.bleedDurationRemaining > 0
+			);
 		const equippedWeaponColumns = [
 			...new Set(
 				[
@@ -1112,7 +1141,6 @@ export function createArenaCombatSketch(
 		let executionLatticeStrikes: ExecutionLatticeStrikeState[] = [];
 		let forkLightningBursts: ForkLightningState[] = [];
 		let flamethrowerCones: FlamethrowerConeState[] = [];
-		let fanKnifeBursts: FanKnifeBurstState[] = [];
 		let iceSpikes: IceSpikeState[] = [];
 		let blizzardStorms: BlizzardStormState[] = [];
 		let voidRifts: VoidRiftState[] = [];
@@ -1125,6 +1153,7 @@ export function createArenaCombatSketch(
 		let burningGrounds: BurningGroundState[] = [];
 		let delayedBombs: DelayedBombState[] = [];
 		let hemorrhageBursts: HemorrhageBurstState[] = [];
+		let knifeTrailSegments: KnifeTrailSegmentState[] = [];
 		let sniperLocks: SniperLockState[] = [];
 		let sniperChainBursts: SniperChainBurstState[] = [];
 		let centerX = 0;
@@ -1490,12 +1519,6 @@ export function createArenaCombatSketch(
 			}
 		};
 
-		const getMineShieldTurretTotal = () =>
-			mineShieldTurrets.reduce(
-				(total, turret) => total + (pixlShieldSources[turret.sourceUtilityInstanceId] ?? 0),
-				0
-			);
-
 		const setMineShieldTurretShield = (sourceId: string, amount: number) => {
 			setPixlShieldSourceAmount(sourceId, amount);
 		};
@@ -1613,7 +1636,6 @@ export function createArenaCombatSketch(
 			executionLatticeStrikes = [];
 			forkLightningBursts = [];
 			flamethrowerCones = [];
-			fanKnifeBursts = [];
 			iceSpikes = [];
 			blizzardStorms = [];
 			voidRifts = [];
@@ -1626,6 +1648,7 @@ export function createArenaCombatSketch(
 			burningGrounds = [];
 			delayedBombs = [];
 			hemorrhageBursts = [];
+			knifeTrailSegments = [];
 			sniperLocks = [];
 			sniperChainBursts = [];
 			spawnQueue = shuffleInPlace(buildSpawnQueue(currentLevel), p);
@@ -1655,6 +1678,7 @@ export function createArenaCombatSketch(
 			const elementalDamageMultiplier = weapon.attack.requiredInfusion
 				? elementalCycleDamageMultipliers[weapon.attack.requiredInfusion]
 				: 1;
+			const knifePackageDamageMultiplier = isSocketedKnifeSource(sourceWeaponInstanceId) ? 5 : 1;
 
 			return Math.max(
 				1,
@@ -1664,7 +1688,8 @@ export function createArenaCombatSketch(
 						elementalDamageMultiplier *
 						familyDamageMultiplier *
 						multiplier *
-						sourceDamageMultiplier
+						sourceDamageMultiplier *
+						knifePackageDamageMultiplier
 				)
 			);
 		};
@@ -1969,6 +1994,7 @@ export function createArenaCombatSketch(
 				bleedStoredDamage: 0,
 				bleedDurationRemaining: 0,
 				bleedSourceWeaponInstanceId: null,
+				bleedRicochetStep: 0,
 				bleedLifeStealRatio: 0,
 				attackTimer: initialAttackTimer,
 				hitFlash: 0,
@@ -2010,20 +2036,6 @@ export function createArenaCombatSketch(
 			}
 		};
 
-		const getKnifeBleedSpec = () => {
-			const knifeSpecial = getWeaponDefinition('the-knife').attack.special;
-
-			if (knifeSpecial?.type === 'bleed-hit') {
-				return knifeSpecial;
-			}
-
-			return {
-				type: 'bleed-hit' as const,
-				damageRatio: 2.5,
-				duration: 10
-			};
-		};
-
 		const resolveBleedSourceSpec = (
 			sourceWeapon: WeaponDefinition | null,
 			sourceWeaponInstanceId: string | undefined
@@ -2036,13 +2048,6 @@ export function createArenaCombatSketch(
 				return sourceWeapon.attack.special;
 			}
 
-			if (
-				sourceWeapon.id === 'fan-of-knives' &&
-				fanOfKnivesBleedEnabledInstanceIds.has(sourceWeaponInstanceId)
-			) {
-				return getKnifeBleedSpec();
-			}
-
 			return null;
 		};
 
@@ -2051,7 +2056,11 @@ export function createArenaCombatSketch(
 			baseStoredDamage: number,
 			duration: number,
 			sourceWeaponInstanceId: string,
-			lifeStealRatio: number
+			lifeStealRatio: number,
+			options: {
+				allowHemorrhageBurst?: boolean;
+				ricochetStep?: number;
+			} = {}
 		) => {
 			const enemy = enemies[enemyIndex];
 
@@ -2071,20 +2080,24 @@ export function createArenaCombatSketch(
 			const effectiveStoredDamage =
 				baseStoredDamage * (hemorrhageRelay?.bleedDamageMultiplier ?? 1);
 
-			const existingSourceHasSiphon = enemy.bleedSourceWeaponInstanceId
-				? knifeSiphonUtilityByFanInstanceId.has(enemy.bleedSourceWeaponInstanceId)
-				: false;
-			const nextSourceHasSiphon = knifeSiphonUtilityByFanInstanceId.has(sourceWeaponInstanceId);
+			const existingSourceHasSiphon =
+				Boolean(activeKnifeSiphonEffect) &&
+				isSocketedKnifeSource(enemy.bleedSourceWeaponInstanceId);
+			const nextSourceHasSiphon =
+				Boolean(activeKnifeSiphonEffect) && isSocketedKnifeSource(sourceWeaponInstanceId);
 
 			enemy.bleedStoredDamage += effectiveStoredDamage;
 			enemy.bleedDurationRemaining = Math.max(enemy.bleedDurationRemaining, duration);
+			enemy.bleedRicochetStep = Math.max(enemy.bleedRicochetStep, options.ricochetStep ?? 0);
 			enemy.bleedLifeStealRatio = Math.max(enemy.bleedLifeStealRatio, lifeStealRatio);
 
 			if (!enemy.bleedSourceWeaponInstanceId || nextSourceHasSiphon || !existingSourceHasSiphon) {
 				enemy.bleedSourceWeaponInstanceId = sourceWeaponInstanceId;
 			}
 
-			triggerHemorrhageBurst(enemyIndex);
+			if (options.allowHemorrhageBurst ?? true) {
+				triggerHemorrhageBurst(enemyIndex);
+			}
 
 			return effectiveStoredDamage / duration;
 		};
@@ -2428,6 +2441,98 @@ export function createArenaCombatSketch(
 				.slice(0, count);
 		};
 
+		const getRicochetTargets = (
+			originX: number,
+			originY: number,
+			targeting: WeaponTargetingKind | undefined,
+			count: number,
+			excludeEnemyIds: number[] = []
+		) => {
+			const eligibleTargets = enemies.filter(
+				(enemy) => !excludeEnemyIds.includes(enemy.id) && !isEnemyCapturedByVoidTendril(enemy.id)
+			);
+
+			const byDistanceFromOrigin = (left: EnemyState, right: EnemyState) =>
+				Math.hypot(left.x - originX, left.y - originY) -
+				Math.hypot(right.x - originX, right.y - originY);
+
+			if (targeting === 'strongest-target') {
+				return [...eligibleTargets]
+					.sort((left, right) => right.health - left.health || byDistanceFromOrigin(left, right))
+					.slice(0, count);
+			}
+
+			if (targeting === 'weakest-target') {
+				return [...eligibleTargets]
+					.sort((left, right) => left.health - right.health || byDistanceFromOrigin(left, right))
+					.slice(0, count);
+			}
+
+			if (targeting === 'furthest-target') {
+				return [...eligibleTargets]
+					.sort(
+						(left, right) =>
+							Math.hypot(right.x - centerX, right.y - centerY) -
+							Math.hypot(left.x - centerX, left.y - centerY)
+					)
+					.slice(0, count);
+			}
+
+			return [...eligibleTargets].sort(byDistanceFromOrigin).slice(0, count);
+		};
+
+		const getReservedHemorrhageTargetIds = (
+			sourceWeaponInstanceId: string | null,
+			ricochetStep: number
+		) => {
+			if (!sourceWeaponInstanceId) {
+				return [] as number[];
+			}
+
+			return hemorrhageBursts
+				.filter(
+					(burst) =>
+						!burst.hasApplied &&
+						burst.sourceWeaponInstanceId === sourceWeaponInstanceId &&
+						burst.ricochetStep === ricochetStep &&
+						burst.targetEnemyId !== null
+				)
+				.map((burst) => burst.targetEnemyId)
+				.filter((targetEnemyId): targetEnemyId is number => targetEnemyId !== null);
+		};
+
+		const getActiveHemorrhageForkProjectileCount = (sourceWeaponInstanceId: string | null) => {
+			if (!sourceWeaponInstanceId) {
+				return 0;
+			}
+
+			return hemorrhageBursts.filter(
+				(burst) => !burst.hasApplied && burst.sourceWeaponInstanceId === sourceWeaponInstanceId
+			).length;
+		};
+
+		const recordKnifeTrailSegment = (
+			startX: number,
+			startY: number,
+			endX: number,
+			endY: number,
+			color = '#dc2626'
+		) => {
+			if (Math.hypot(endX - startX, endY - startY) < 1.5) {
+				return;
+			}
+
+			knifeTrailSegments.push({
+				startX,
+				startY,
+				endX,
+				endY,
+				color,
+				age: 0,
+				duration: 0.62
+			});
+		};
+
 		const normalizeAngleDelta = (fromAngle: number, toAngle: number) => {
 			let delta = toAngle - fromAngle;
 
@@ -2613,43 +2718,92 @@ export function createArenaCombatSketch(
 			}
 
 			const effectiveStoredBleed = enemy.bleedStoredDamage * bleedCatalystMultiplier;
+			const burstSourceWeaponInstanceId = enemy.bleedSourceWeaponInstanceId;
+			const burstLifeStealRatio = enemy.bleedLifeStealRatio;
+			const burstDuration = enemy.bleedDurationRemaining;
+			const burstRicochetStep = enemy.bleedRicochetStep;
 			const threshold = enemy.maxHealth * hemorrhageBurstEffect.thresholdRatio;
+			const burstSourceWeaponState = burstSourceWeaponInstanceId
+				? (equippedWeaponByInstanceId.get(burstSourceWeaponInstanceId) ?? null)
+				: null;
+			const burstSourceWeapon = burstSourceWeaponState?.definition ?? null;
 
-			if (effectiveStoredBleed < threshold) {
+			if (effectiveStoredBleed < threshold || burstSourceWeapon?.id !== 'the-knife') {
 				return false;
 			}
 
-			const burstDamage = effectiveStoredBleed;
+			const burstBleedRicochet = Math.max(0, effectiveStoredBleed - threshold);
 			const burstCenterX = enemy.x;
 			const burstCenterY = enemy.y;
-			const burstRadius = Math.min(p.width, p.height) * hemorrhageBurstEffect.radiusFactor * 0.33;
+			const executeDamage = Math.max(0, enemy.health);
+			const availableForkProjectileBudget = Math.max(
+				0,
+				MAX_ACTIVE_HEMORRHAGE_FORK_PROJECTILES -
+					getActiveHemorrhageForkProjectileCount(burstSourceWeaponInstanceId)
+			);
+			const reservedTargetEnemyIds = getReservedHemorrhageTargetIds(
+				burstSourceWeaponInstanceId,
+				burstRicochetStep + 1
+			);
+			const burstTargets = getRicochetTargets(
+				burstCenterX,
+				burstCenterY,
+				burstSourceWeaponState?.targeting,
+				Math.min(1 + knifeRicochetForkCount, availableForkProjectileBudget),
+				[enemy.id, ...reservedTargetEnemyIds]
+			);
 
 			enemy.bleedStoredDamage = 0;
 			enemy.bleedDurationRemaining = 0;
 			enemy.bleedSourceWeaponInstanceId = null;
+			enemy.bleedRicochetStep = 0;
 			enemy.bleedLifeStealRatio = 0;
-			hemorrhageBursts.push({
-				centerX: burstCenterX,
-				centerY: burstCenterY,
-				radius: burstRadius,
-				age: 0,
-				duration: 0.42,
-				color: '#dc2626'
-			});
+			recordWeaponDamage(burstSourceWeaponInstanceId ?? undefined, executeDamage);
 
-			for (let targetIndex = enemies.length - 1; targetIndex >= 0; targetIndex -= 1) {
-				const targetEnemy = enemies[targetIndex];
-				const distance = Math.hypot(targetEnemy.x - burstCenterX, targetEnemy.y - burstCenterY);
+			if (burstLifeStealRatio > 0) {
+				healPixl(Math.min(enemy.health, effectiveStoredBleed) * burstLifeStealRatio);
+			}
 
-				if (distance > burstRadius + ENEMY_VISUALS[targetEnemy.kind].radius) {
+			for (const [targetIndex, burstTarget] of burstTargets.entries()) {
+				const branchBleedRicochet = burstBleedRicochet;
+
+				if (branchBleedRicochet <= 0) {
 					continue;
 				}
 
-				applyDamageToEnemy(targetIndex, burstDamage, 0.14, undefined, {
-					applyWeaponHitEffects: false,
-					allowContextHealing: false
+				const burstTravelDistance = Math.hypot(
+					burstTarget.x - burstCenterX,
+					burstTarget.y - burstCenterY
+				);
+				const normalizedTravelDistance = Math.min(
+					1.5,
+					burstTravelDistance / Math.max(1, arenaRadius)
+				);
+				const bounceTravelMultiplier = Math.max(0.26, Math.pow(0.72, burstRicochetStep));
+				const burstTravelDuration = Math.min(
+					0.725,
+					(0.1 + (Math.exp(normalizedTravelDistance * 1.85) - 1) * 0.06) * bounceTravelMultiplier
+				);
+
+				hemorrhageBursts.push({
+					startX: burstCenterX,
+					startY: burstCenterY,
+					endX: burstTarget.x,
+					endY: burstTarget.y,
+					targetEnemyId: burstTarget.id,
+					bleedRicochet: branchBleedRicochet,
+					bleedDuration: burstDuration,
+					sourceWeaponInstanceId: burstSourceWeaponInstanceId,
+					ricochetStep: burstRicochetStep + 1,
+					lifeStealRatio: burstLifeStealRatio,
+					hasApplied: false,
+					age: 0,
+					duration: burstTravelDuration,
+					color: targetIndex === 0 ? '#dc2626' : '#fb7185'
 				});
 			}
+
+			awardEnemyDefeat(enemyIndex);
 
 			return true;
 		};
@@ -2673,6 +2827,7 @@ export function createArenaCombatSketch(
 				enemy.bleedStoredDamage = 0;
 				enemy.bleedDurationRemaining = 0;
 				enemy.bleedSourceWeaponInstanceId = null;
+				enemy.bleedRicochetStep = 0;
 				enemy.bleedLifeStealRatio = 0;
 				return false;
 			}
@@ -2732,7 +2887,8 @@ export function createArenaCombatSketch(
 								baseDamageConsumed * hemorrhageRelay.bleedSpreadRatio,
 								Math.max(dt, enemy.bleedDurationRemaining),
 								enemy.bleedSourceWeaponInstanceId,
-								enemy.bleedLifeStealRatio
+								enemy.bleedLifeStealRatio,
+								{ ricochetStep: enemy.bleedRicochetStep }
 							);
 						}
 					}
@@ -2749,6 +2905,7 @@ export function createArenaCombatSketch(
 				nextEnemy.bleedStoredDamage = 0;
 				nextEnemy.bleedDurationRemaining = 0;
 				nextEnemy.bleedSourceWeaponInstanceId = null;
+				nextEnemy.bleedRicochetStep = 0;
 				nextEnemy.bleedLifeStealRatio = 0;
 			}
 
@@ -2914,6 +3071,7 @@ export function createArenaCombatSketch(
 			options: {
 				applyWeaponHitEffects?: boolean;
 				allowContextHealing?: boolean;
+				allowHemorrhageBurst?: boolean;
 				allowOathbreakerShare?: boolean;
 			} = {}
 		) => {
@@ -3036,6 +3194,14 @@ export function createArenaCombatSketch(
 			if (allowContextHealing) {
 				applyBlackHoleLifeSteal(enemy, actualDamage);
 			}
+			if (
+				applyWeaponHitEffects &&
+				actualDamage > 0 &&
+				activeKnifeSiphonEffect &&
+				isSocketedKnifeSource(sourceWeaponInstanceId)
+			) {
+				healPixl(actualDamage * activeKnifeSiphonEffect.lifeStealRatio);
+			}
 			if (enemy.lifeStealMarkTimer > 0 && actualDamage > 0) {
 				healPixl(actualDamage * enemy.lifeStealMarkRatio);
 			}
@@ -3083,10 +3249,9 @@ export function createArenaCombatSketch(
 				: null;
 
 			if (bleedSpec && sourceWeaponInstanceId) {
-				const knifeSiphon =
-					sourceWeapon?.id === 'fan-of-knives'
-						? knifeSiphonUtilityByFanInstanceId.get(sourceWeaponInstanceId)
-						: null;
+				const knifeSiphon = isSocketedKnifeSource(sourceWeaponInstanceId)
+					? activeKnifeSiphonEffect
+					: null;
 
 				applyBleedToEnemy(
 					enemyIndex,
@@ -3142,7 +3307,7 @@ export function createArenaCombatSketch(
 			}
 
 			if (enemy.health <= 0) {
-				if (triggerHemorrhageBurst(enemyIndex)) {
+				if ((options.allowHemorrhageBurst ?? true) && triggerHemorrhageBurst(enemyIndex)) {
 					return { defeated: true, actualDamage };
 				}
 
@@ -3185,48 +3350,6 @@ export function createArenaCombatSketch(
 			}
 		};
 
-		const updateFanKnifeBursts = (dt: number) => {
-			for (let index = fanKnifeBursts.length - 1; index >= 0; index -= 1) {
-				const burst = fanKnifeBursts[index];
-				burst.age += dt;
-				burst.emissionTimer -= dt;
-
-				while (burst.emissionTimer <= 0 && burst.projectilesReleased < burst.projectileCount) {
-					burst.emissionTimer += burst.emissionInterval;
-
-					const volleyCount = Math.min(
-						burst.projectilesPerEmission,
-						burst.projectileCount - burst.projectilesReleased
-					);
-					const spinAngle = burst.baseAngle + burst.age * burst.spinRate;
-
-					for (let volleyIndex = 0; volleyIndex < volleyCount; volleyIndex += 1) {
-						const angleRadians = spinAngle + volleyIndex * burst.angleStep;
-
-						spawnProjectile({
-							sourceWeaponInstanceId: burst.sourceWeaponInstanceId,
-							originX: centerX,
-							originY: centerY,
-							angleRadians,
-							weapon: getWeaponDefinition('fan-of-knives'),
-							damage: burst.damage,
-							shape: 'knife',
-							trail: 'streak',
-							glow: burst.glow,
-							color: burst.color,
-							motion: 'straight'
-						});
-					}
-
-					burst.projectilesReleased += volleyCount;
-				}
-
-				if (burst.projectilesReleased >= burst.projectileCount) {
-					fanKnifeBursts.splice(index, 1);
-				}
-			}
-		};
-
 		const spawnForceField = (weapon: WeaponDefinition, sourceWeaponInstanceId: string) => {
 			const special = weapon.attack.special;
 
@@ -3251,6 +3374,7 @@ export function createArenaCombatSketch(
 					maxRadius: special.maxRadius,
 					expansionSpeed: special.expansionSpeed,
 					lineWidth: special.lineWidth,
+					pushDistance: Math.max(0, special.pushDistance ?? special.lineWidth + 24),
 					damage: getAdjustedWeaponDamage(weapon, 1, sourceWeaponInstanceId),
 					color: weapon.projectileVisual.color,
 					glow: weapon.projectileVisual.glow ?? false,
@@ -3914,6 +4038,8 @@ export function createArenaCombatSketch(
 				age: 0,
 				duration: special.fieldDurationCycles / Math.max(0.001, pixlProgression.attackSpeed),
 				chillPerSecond: special.chillPerSecond ?? 0,
+				fireDamageMultiplier: special.fireDamageMultiplier ?? 1,
+				fireDebuffDuration: special.fireDebuffDuration ?? 0,
 				freezeDuration: special.freezeDuration ?? 0,
 				vulnerableDuration: special.vulnerableDuration ?? 0,
 				targeting
@@ -4526,6 +4652,22 @@ export function createArenaCombatSketch(
 			sourceWeaponInstanceId: string,
 			angleOffsetRadians = 0
 		) => {
+			if (weapon.id === 'the-knife' && hasActiveKnifeInstance(sourceWeaponInstanceId)) {
+				return;
+			}
+
+			if (weapon.id === 'the-knife') {
+				spawnProjectile({
+					sourceWeaponInstanceId,
+					originX: centerX,
+					originY: centerY,
+					target,
+					weapon,
+					angleOffsetRadians
+				});
+				return;
+			}
+
 			spawnProjectile({
 				sourceWeaponInstanceId,
 				originX: centerX,
@@ -4768,6 +4910,10 @@ export function createArenaCombatSketch(
 		};
 
 		const activateWeapon = (weapon: EquippedWeaponState, target: { x: number; y: number }) => {
+			if (weapon.definition.attack.special?.type === 'knife-sheath') {
+				return;
+			}
+
 			if (weapon.cyclesUntilTrigger > 1) {
 				weapon.cyclesUntilTrigger -= 1;
 				return;
@@ -4799,37 +4945,6 @@ export function createArenaCombatSketch(
 						instanceId,
 						angleOffsetRadians
 					);
-				},
-				spawnFanKnifeBurst: (definition, instanceId, burstTarget) => {
-					const knifeSiphon = knifeSiphonUtilityByFanInstanceId.get(instanceId);
-					const damageMultiplier = knifeSiphon?.damageMultiplier ?? 1;
-					const burstSpecial = definition.attack.special;
-
-					if (burstSpecial?.type !== 'fan-knives') {
-						return;
-					}
-
-					const projectileCount = Math.max(1, burstSpecial.projectileCount);
-					const projectilesPerEmission = 3;
-					const angleStep =
-						((burstSpecial.burstArcDegrees / 180) * Math.PI) / projectilesPerEmission;
-					const baseAngle = Math.atan2(burstTarget.y - centerY, burstTarget.x - centerX);
-
-					fanKnifeBursts.push({
-						sourceWeaponInstanceId: instanceId,
-						baseAngle,
-						angleStep,
-						spinRate: Math.PI * 5.5,
-						projectileCount,
-						projectilesReleased: 0,
-						projectilesPerEmission,
-						emissionInterval: 0.026,
-						emissionTimer: 0,
-						damage: getAdjustedWeaponDamage(definition, damageMultiplier, instanceId),
-						color: definition.projectileVisual.color,
-						glow: true,
-						age: 0
-					});
 				},
 				spawnSniperLock,
 				spawnExecutionLattice,
@@ -5193,9 +5308,8 @@ export function createArenaCombatSketch(
 					field.hitEnemyIds = [...field.hitEnemyIds, enemy.id];
 					const directionX = distance > 0 ? (enemy.x - field.centerX) / distance : 1;
 					const directionY = distance > 0 ? (enemy.y - field.centerY) / distance : 0;
-					const pushDistance = field.lineWidth + enemyRadius + 12;
-					enemy.x += directionX * pushDistance;
-					enemy.y += directionY * pushDistance;
+					enemy.x += directionX * (field.pushDistance + enemyRadius);
+					enemy.y += directionY * (field.pushDistance + enemyRadius);
 					applyDamageToEnemy(enemyIndex, field.damage, 0.1, field.sourceWeaponInstanceId);
 				}
 
@@ -5866,10 +5980,64 @@ export function createArenaCombatSketch(
 		const updateHemorrhageBursts = (dt: number) => {
 			for (let index = hemorrhageBursts.length - 1; index >= 0; index -= 1) {
 				const burst = hemorrhageBursts[index];
+				const previousProgress = Math.min(1, burst.age / Math.max(0.0001, burst.duration));
+				const previousHeadX = p.lerp(burst.startX, burst.endX, previousProgress);
+				const previousHeadY = p.lerp(burst.startY, burst.endY, previousProgress);
 				burst.age += dt;
 
-				if (burst.age >= burst.duration) {
+				if (burst.targetEnemyId !== null) {
+					const target = enemies.find((enemy) => enemy.id === burst.targetEnemyId) ?? null;
+
+					if (target) {
+						burst.endX = target.x;
+						burst.endY = target.y;
+					}
+				}
+
+				const nextProgress = Math.min(1, burst.age / Math.max(0.0001, burst.duration));
+				const nextHeadX = p.lerp(burst.startX, burst.endX, nextProgress);
+				const nextHeadY = p.lerp(burst.startY, burst.endY, nextProgress);
+				recordKnifeTrailSegment(previousHeadX, previousHeadY, nextHeadX, nextHeadY, burst.color);
+
+				if (!burst.hasApplied && burst.age >= burst.duration) {
+					burst.hasApplied = true;
+
+					if (
+						burst.targetEnemyId !== null &&
+						burst.sourceWeaponInstanceId &&
+						burst.bleedDuration > 0 &&
+						burst.bleedRicochet > 0
+					) {
+						const targetIndex = enemies.findIndex(
+							(candidate) => candidate.id === burst.targetEnemyId
+						);
+
+						if (targetIndex >= 0) {
+							applyBleedToEnemy(
+								targetIndex,
+								burst.bleedRicochet,
+								burst.bleedDuration,
+								burst.sourceWeaponInstanceId,
+								burst.lifeStealRatio,
+								{ ricochetStep: burst.ricochetStep }
+							);
+						}
+					}
+				}
+
+				if (burst.age >= burst.duration + 0.08) {
 					hemorrhageBursts.splice(index, 1);
+				}
+			}
+		};
+
+		const updateKnifeTrailSegments = (dt: number) => {
+			for (let index = knifeTrailSegments.length - 1; index >= 0; index -= 1) {
+				const segment = knifeTrailSegments[index];
+				segment.age += dt;
+
+				if (segment.age >= segment.duration) {
+					knifeTrailSegments.splice(index, 1);
 				}
 			}
 		};
@@ -6827,6 +6995,10 @@ export function createArenaCombatSketch(
 						projectile.originY +
 						projectile.directionY * projectile.distanceTravelled +
 						projectile.perpendicularY * waveOffset;
+				}
+
+				if (projectile.weaponId === 'the-knife') {
+					recordKnifeTrailSegment(projectile.lastX, projectile.lastY, projectile.x, projectile.y);
 				}
 
 				if (!projectile.arrivalEffect && !projectile.reflectedByMirror) {
@@ -8016,50 +8188,125 @@ export function createArenaCombatSketch(
 
 			for (const burst of hemorrhageBursts) {
 				const progress = Math.min(1, burst.age / Math.max(0.0001, burst.duration));
-				const alphaHex = Math.round((1 - progress) * 180)
+				const alphaHex = Math.round((1 - progress) * 210)
 					.toString(16)
 					.padStart(2, '0');
-				const splashRadius = burst.radius * (0.18 + progress * 0.92);
-				const coreRadius = burst.radius * (0.62 + (1 - progress) * 0.18);
+				const markerAlphaHex = Math.round((1 - Math.min(1, progress * 1.35)) * 255)
+					.toString(16)
+					.padStart(2, '0');
+				const headX = p.lerp(burst.startX, burst.endX, progress);
+				const headY = p.lerp(burst.startY, burst.endY, progress);
+				const tailProgress = Math.max(0, progress - 0.22) / 0.78;
+				const tailX = p.lerp(burst.startX, burst.endX, tailProgress);
+				const tailY = p.lerp(burst.startY, burst.endY, tailProgress);
+				const angle = Math.atan2(burst.endY - burst.startY, burst.endX - burst.startX);
+				const directionX = Math.cos(angle);
+				const directionY = Math.sin(angle);
+				const normalX = -Math.sin(angle);
+				const normalY = Math.cos(angle);
+				const bladeLength = 16;
+				const bladeWidth = 4.8;
+				const handleLength = 7;
+				const handleWidth = 2.6;
+				const guardWidth = 5.4;
+				const markerSize = 9 + (1 - progress) * 4;
+
+				p.stroke(`#7f1d1d${markerAlphaHex}`);
+				p.strokeWeight(3.4 * (1 - progress * 0.35));
+				p.line(
+					burst.startX - markerSize,
+					burst.startY - markerSize,
+					burst.startX + markerSize,
+					burst.startY + markerSize
+				);
+				p.line(
+					burst.startX + markerSize,
+					burst.startY - markerSize,
+					burst.startX - markerSize,
+					burst.startY + markerSize
+				);
+				p.stroke(`#ef4444${markerAlphaHex}`);
+				p.strokeWeight(1.5 * (1 - progress * 0.25));
+				p.line(
+					burst.startX - markerSize,
+					burst.startY - markerSize,
+					burst.startX + markerSize,
+					burst.startY + markerSize
+				);
+				p.line(
+					burst.startX + markerSize,
+					burst.startY - markerSize,
+					burst.startX - markerSize,
+					burst.startY + markerSize
+				);
+
+				p.noFill();
+				p.stroke(`${burst.color}${alphaHex}`);
+				p.strokeWeight(6 * (1 - progress * 0.45));
+				p.line(tailX, tailY, headX, headY);
+				p.stroke(`#fecaca${alphaHex}`);
+				p.strokeWeight(2.2);
+				p.line(tailX, tailY, headX, headY);
 
 				p.noStroke();
-				p.fill(`#2f0808${alphaHex}`);
-				p.circle(burst.centerX, burst.centerY, coreRadius * 1.7);
-				p.fill(`${burst.color}${alphaHex}`);
-				p.circle(burst.centerX, burst.centerY, coreRadius * 1.2);
 				p.fill(`#7f1d1d${alphaHex}`);
-				p.circle(burst.centerX, burst.centerY, coreRadius * 0.7);
-
-				for (let dropletIndex = 0; dropletIndex < 11; dropletIndex += 1) {
-					const angle = (dropletIndex / 11) * p.TWO_PI + dropletIndex * 0.37;
-					const travel = splashRadius * (0.52 + (dropletIndex % 4) * 0.18);
-					const dropletX = burst.centerX + Math.cos(angle) * travel;
-					const dropletY = burst.centerY + Math.sin(angle) * travel * 0.82;
-					const dropletSize = Math.max(4, burst.radius * (0.16 - dropletIndex * 0.007));
-
-					p.fill(dropletIndex % 3 === 0 ? `#fecaca${alphaHex}` : `${burst.color}${alphaHex}`);
-					p.circle(dropletX, dropletY, dropletSize * (1.1 - progress * 0.18));
-					p.fill(`#7f1d1d${alphaHex}`);
-					p.circle(
-						dropletX + Math.cos(angle) * dropletSize * 0.08,
-						dropletY + Math.sin(angle) * dropletSize * 0.08,
-						dropletSize * 0.52
-					);
-				}
-
-				for (let streakIndex = 0; streakIndex < 5; streakIndex += 1) {
-					const angle = (streakIndex / 5) * p.TWO_PI + 0.24;
-					const innerX = burst.centerX + Math.cos(angle) * coreRadius * 0.4;
-					const innerY = burst.centerY + Math.sin(angle) * coreRadius * 0.4;
-					const outerX = burst.centerX + Math.cos(angle) * splashRadius * 0.92;
-					const outerY = burst.centerY + Math.sin(angle) * splashRadius * 0.92;
-
-					p.stroke(`#7f1d1d${alphaHex}`);
-					p.strokeWeight(Math.max(1.2, burst.radius * 0.08));
-					p.line(innerX, innerY, outerX, outerY);
-				}
+				p.quad(
+					headX + directionX * bladeLength,
+					headY + directionY * bladeLength,
+					headX - directionX * (bladeLength * 0.12) + normalX * bladeWidth,
+					headY - directionY * (bladeLength * 0.12) + normalY * bladeWidth,
+					headX - directionX * (bladeLength + handleLength * 0.35) + normalX * bladeWidth * 0.22,
+					headY - directionY * (bladeLength + handleLength * 0.35) + normalY * bladeWidth * 0.22,
+					headX - directionX * (bladeLength + handleLength * 0.35) - normalX * bladeWidth * 0.22,
+					headY - directionY * (bladeLength + handleLength * 0.35) - normalY * bladeWidth * 0.22
+				);
+				p.fill(`#fee2e2${alphaHex}`);
+				p.quad(
+					headX + directionX * bladeLength * 0.8,
+					headY + directionY * bladeLength * 0.8,
+					headX - directionX * (bladeLength * 0.02) + normalX * bladeWidth * 0.46,
+					headY - directionY * (bladeLength * 0.02) + normalY * bladeWidth * 0.46,
+					headX - directionX * (bladeLength * 0.88) + normalX * bladeWidth * 0.08,
+					headY - directionY * (bladeLength * 0.88) + normalY * bladeWidth * 0.08,
+					headX - directionX * (bladeLength * 0.88) - normalX * bladeWidth * 0.08,
+					headY - directionY * (bladeLength * 0.88) - normalY * bladeWidth * 0.08
+				);
+				p.fill(`#fca5a5${alphaHex}`);
+				p.quad(
+					headX - directionX * (bladeLength * 0.98) + normalX * guardWidth,
+					headY - directionY * (bladeLength * 0.98) + normalY * guardWidth,
+					headX - directionX * (bladeLength * 1.08) + normalX * guardWidth,
+					headY - directionY * (bladeLength * 1.08) + normalY * guardWidth,
+					headX - directionX * (bladeLength * 1.08) - normalX * guardWidth,
+					headY - directionY * (bladeLength * 1.08) - normalY * guardWidth,
+					headX - directionX * (bladeLength * 0.98) - normalX * guardWidth,
+					headY - directionY * (bladeLength * 0.98) - normalY * guardWidth
+				);
+				p.fill(`#450a0a${alphaHex}`);
+				p.quad(
+					headX - directionX * (bladeLength * 1.08) + normalX * handleWidth,
+					headY - directionY * (bladeLength * 1.08) + normalY * handleWidth,
+					headX - directionX * (bladeLength * 1.08 + handleLength) + normalX * handleWidth,
+					headY - directionY * (bladeLength * 1.08 + handleLength) + normalY * handleWidth,
+					headX - directionX * (bladeLength * 1.08 + handleLength) - normalX * handleWidth,
+					headY - directionY * (bladeLength * 1.08 + handleLength) - normalY * handleWidth,
+					headX - directionX * (bladeLength * 1.08) - normalX * handleWidth,
+					headY - directionY * (bladeLength * 1.08) - normalY * handleWidth
+				);
 
 				p.noStroke();
+			}
+
+			for (const segment of knifeTrailSegments) {
+				const progress = Math.min(1, segment.age / Math.max(0.0001, segment.duration));
+				const alphaHex = Math.round((1 - progress) * 120)
+					.toString(16)
+					.padStart(2, '0');
+
+				p.noFill();
+				p.stroke(`${segment.color}${alphaHex}`);
+				p.strokeWeight(1.1 * (1 - progress * 0.2));
+				p.line(segment.startX, segment.startY, segment.endX, segment.endY);
 			}
 
 			for (const sweep of laserSweeps) {
@@ -8874,12 +9121,12 @@ export function createArenaCombatSketch(
 				updateExecutionLatticeStrikes(dt);
 				updateForkLightningBursts(dt);
 				updateFlamethrowerCones(dt);
-				updateFanKnifeBursts(dt);
 				updateIceSpikes(dt);
 				updateBlizzardStorms(dt);
 				updatePixlSwallowPulses(dt);
 				updateVoidTendrils(dt);
 				updateHemorrhageBursts(dt);
+				updateKnifeTrailSegments(dt);
 				updateEnemies(dt);
 				updateEnemyProjectiles(dt);
 				updateSniperChainBursts(dt);

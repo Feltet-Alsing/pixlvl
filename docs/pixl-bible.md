@@ -981,16 +981,16 @@ The package should currently consist of:
 
 - `The Knife`: base bleed applier
 - `Hemorrhage Burst`: threshold rupture utility
-- `Fan of Knives`: radial stack builder
+- `Bloodbound Sheath`: exotic knife-frame amplifier
 - `Blood Catalyst`: bleed multiplier utility
 - `Siphoning Knife`: legendary finisher modifier
 
 The intended play pattern is:
 
 1. `The Knife` establishes early single-target wound pressure
-2. `Fan of Knives` multiplies wound application once the build has enough support
+2. `Hemorrhage Burst` converts overstacked bleed into controlled local wound spread
 3. `Blood Catalyst` scales all stored bleed into serious kill pressure
-4. `Hemorrhage Burst` converts overstacked bleed into local AOE clears
+4. `Bloodbound Sheath` turns `The Knife` into a late-game carry by dramatically increasing its direct-hit damage
 5. `Siphoning Knife` turns the completed knife shell into a sustain-and-burst endgame package
 
 ##### The Knife
@@ -1016,7 +1016,7 @@ Damage direction:
 Design note:
 
 - `The Knife` is intentionally weak as raw damage
-- its purpose is to seed heavy stored bleed early and let later pieces convert that pressure into payoff
+- its purpose is to seed heavy stored bleed early and then scale into a true carry once the rest of the package is assembled
 
 ##### Hemorrhage Burst
 
@@ -1028,40 +1028,41 @@ Effect direction:
 
 - if an enemy's stored bleed exceeds its current maximum health, that enemy bursts
 - the burst creates a blood explosion around the target
-- the explosion deals AOE damage equal to all stored bleed consumed at the moment of rupture
+- the explosion deals only modest immediate local damage
+- enemies hit by the rupture inherit a reduced fresh copy of that consumed bleed so the wound pressure can cascade outward over time
 
 Rule direction:
 
 - the rupture consumes all stored bleed on the target when it explodes
-- the explosion should be a meaningfully large local radius, roughly `15%` to `20%` of the visible screen
-- the explosion itself should not recursively trigger further hemorrhage bursts unless a later legendary explicitly adds that behavior
+- the explosion should stay a tight local radius rather than filling most of the screen
+- the rupture-seeded bleed can cause later follow-up bursts, but the explosion itself should not recursively detonate the whole chain in the same frame unless a later legendary explicitly adds that behavior
 
 Design purpose:
 
 - gives the bleed package its first real density answer
 - rewards overstacking wounds on elites or frontliners and then cashing them out into nearby packs
 
-##### Fan of Knives
+##### Bloodbound Sheath
 
-- rarity: `rare`
+- rarity: `exotic`
 - type: `weapon`
-- cadence: `2` cycles
-- role: radial bleed stack builder
+- role: knife-frame amplifier and late-game carry unlock
 
-Activation rule:
+Assembly rule:
 
-- gains its full payoff behavior when combined with `The Knife`
+- has a hollow internal socket shaped for `The Knife`
+- the bonus activates only when `The Knife` is placed fully inside that socket
+- this is an explicit socket rule, not an adjacency rule
 
-Attack direction:
+Effect direction:
 
-- throws `12` knives in a circle around the `pixl`
-- the visual should fan outward clearly rather than reading as an instant ring pop
-- the animation should sell a radial knife burst with outward motion and slight spread timing if needed
+- while socketed, `The Knife` gains `x5` direct-hit damage
+- later extensions may also grant `The Knife` pierce, ricochet, or another carry-facing payoff, but the first version should focus on the raw damage multiplier
 
 Design purpose:
 
-- converts the bleed package from one-target setup into real multi-target wound coverage
-- still relies on other pieces for actual AOE cashout, keeping the archetype staged rather than self-contained too early
+- solves the core scaling issue where `The Knife` starts correctly as a low-base-damage bleed weapon but falls off too hard later
+- keeps `The Knife` itself as the main character of the package instead of handing the payoff role to a separate proc engine
 
 ##### Blood Catalyst
 
@@ -1088,22 +1089,22 @@ Implementation note:
 ##### Siphoning Knife
 
 - rarity: `legendary`
-- type: `weapon` or `utility-keystone`
+- type: `utility-keystone`
 - role: completed knife-package finisher
 
 Activation rule:
 
-- gains its defining effect when combined with both `Fan of Knives` and `The Knife`
+- gains its defining effect while `The Knife` is socketed inside `Bloodbound Sheath`
 
 Effect direction:
 
-- `Fan of Knives` projectiles gain life leech equal to `50%` of damage dealt
-- `Fan of Knives` direct raw damage gains an additional `x2` multiplier
+- `The Knife` and knife-sourced bleed gain life leech equal to `50%` of damage dealt
+- `The Knife` gains an additional `x2` damage multiplier
 
 Design purpose:
 
-- turns the radial knife shell from pure setup into a self-sustaining late-game payoff engine
-- creates a satisfying final package where the same radial burst both stacks bleed and helps the `pixl` survive sustained pressure
+- turns the assembled knife shell into a self-sustaining late-game payoff engine
+- creates a satisfying final package where the same core weapon both stacks wounds and helps the `pixl` survive sustained pressure
 
 ##### Bleed-package dependency rule
 
@@ -1111,8 +1112,10 @@ This package introduces a new type of named loadout dependency.
 
 Current direction:
 
-- `combined with` should mean the named item must connect through the named anchor in the active loadout when the package calls one out explicitly
-- for the knife package, `The Knife` is the anchor: `Fan of Knives` and `Siphoning Knife` each need to touch `The Knife`, but do not need to touch each other
+- `combined with` should mean the named item must satisfy the explicit package rule attached to that effect
+- for the knife package, that rule is socketing, not adjacency
+- `The Knife` is the anchor piece and `Bloodbound Sheath` is the socket piece
+- `Siphoning Knife` checks whether the knife package is assembled, not whether specific pieces are touching each other
 - the dependent item should still function at a baseline without the combo piece unless explicitly marked otherwise
 - the combo bonus should be visible in the loadout UI so the player can tell when the condition is active
 
@@ -1129,10 +1132,11 @@ Locked rule interpretation:
 
 - `The Knife` bleed scales from final modified direct-hit damage
 - `Hemorrhage Burst` consumes all currently stored bleed on rupture
-- hemorrhage explosion size should be tuned around `15%` to `20%` of visible screen space
+- hemorrhage explosion size should stay tight and readable because its primary value is seeded wound spread, not full-screen immediate damage
 - `Blood Catalyst` doubles bleed damage per copy but clamps at `x6` total final multiplier
-- `Siphoning Knife` grants `50%` life leech to `Fan of Knives` damage only
-- combo conditions require adjacency in the loadout, not just simultaneous equip
+- `Bloodbound Sheath` boosts `The Knife` direct-hit damage by `x5` while socketed
+- `Siphoning Knife` grants `50%` life leech and an additional `x2` damage multiplier to the assembled knife package
+- combo conditions for the knife package require socketing and assembled-state checks, not adjacency
 
 #### Shared-pool implementation philosophy
 

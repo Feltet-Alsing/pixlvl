@@ -40,7 +40,7 @@ function getXpPerEnemy(stage: number, stageLevel: number): XpPerEnemy {
 }
 
 function createBaseComposition(totalEnemies: number, stage: number): WaveComposition {
-	let biters = Math.max(2, Math.round(totalEnemies * 0.26));
+	const biters = Math.max(2, Math.round(totalEnemies * 0.26));
 	let swarmers = Math.round(totalEnemies * 0.24);
 	let tankers = Math.round(totalEnemies * 0.14);
 	let shard = Math.round(totalEnemies * 0.1);
