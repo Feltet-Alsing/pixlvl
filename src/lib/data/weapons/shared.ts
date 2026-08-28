@@ -926,7 +926,8 @@ export const sharedWeapons: LoadoutItemDefinition[] = [
 		effect: {
 			type: 'hemorrhage-burst',
 			thresholdRatio: 1,
-			radiusFactor: 0.18
+			radiusFactor: 0.18,
+			bounceCount: 100
 		},
 		utilityVisual: sharedUtilityVisualById['hemorrhage-burst'],
 		drop: {
@@ -935,7 +936,7 @@ export const sharedWeapons: LoadoutItemDefinition[] = [
 			stageEnd: 5,
 			perLevelDropChance: 0.08
 		},
-		role: 'Passive knife utility that executes enemies whose Knife bleed exceeds max health and ricochets the excess bleed into the nearest target'
+		role: 'Passive knife utility that lets each Knife chain ricochet a fixed number of times, carrying its bleed packet through nearby targets until the bounce budget runs out'
 	},
 	{
 		id: 'bloodfork',

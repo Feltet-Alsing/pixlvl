@@ -837,7 +837,7 @@ export function getLoadoutItemEffectSummary(definition: LoadoutItemDefinition) {
 		case 'elemental-mastery':
 			return `${definition.effect.damageMultiplier}x all elemental damage next cycle`;
 		case 'hemorrhage-burst':
-			return `The Knife executes enemies when stored bleed exceeds max health and ricochets the excess bleed to the nearest target`;
+			return `Each Knife can ricochet up to ${definition.effect.bounceCount} times, carrying its bleed through nearby targets`;
 		case 'bleed-catalyst':
 			return `${definition.effect.multiplier}x bleed damage, capped at ${definition.effect.maxTotalMultiplier}x total`;
 		case 'knife-ricochet-fork':

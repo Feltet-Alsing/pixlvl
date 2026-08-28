@@ -479,6 +479,7 @@ export interface UtilityDefinition {
 				type: 'hemorrhage-burst';
 				thresholdRatio: number;
 				radiusFactor: number;
+				bounceCount: number;
 		  }
 		| {
 				type: 'bleed-catalyst';

@@ -1176,19 +1176,6 @@ export function createArenaCombatSketch(
 			);
 		const getUtilityShieldOutputMultiplier = (utilityInstanceId: string) =>
 			utilityShieldOutputMultiplierByInstanceId[utilityInstanceId] ?? 1;
-		const hasActiveKnifeInstance = (sourceWeaponInstanceId: string) =>
-			projectiles.some(
-				(projectile) =>
-					projectile.weaponId === 'the-knife' &&
-					projectile.sourceWeaponInstanceId === sourceWeaponInstanceId
-			) ||
-			hemorrhageBursts.some((burst) => burst.sourceWeaponInstanceId === sourceWeaponInstanceId) ||
-			enemies.some(
-				(enemy) =>
-					enemy.bleedSourceWeaponInstanceId === sourceWeaponInstanceId &&
-					enemy.bleedStoredDamage > 0 &&
-					enemy.bleedDurationRemaining > 0
-			);
 		const equippedWeaponColumns = [
 			...new Set(
 				[
@@ -1228,6 +1215,7 @@ export function createArenaCombatSketch(
 		let pixlHealth = pixlProgression.health;
 		let pixlShieldPool = 0;
 		let pixlShieldSources: Record<string, number> = {};
+		let knifeRemainingRicochetsByInstanceId: Record<string, number> = {};
 		let pendingNextWeaponDamageMultiplier = 1;
 		let markedEnemyId: number | null = null;
 		let weaponDamageMultiplierByInstanceId = Object.fromEntries(
@@ -1727,6 +1715,7 @@ export function createArenaCombatSketch(
 			pixlHealth = pixlProgression.health;
 			pixlShieldPool = 0;
 			pixlShieldSources = {};
+			knifeRemainingRicochetsByInstanceId = {};
 			pendingNextWeaponDamageMultiplier = 1;
 			weaponDamageMultiplierByInstanceId = Object.fromEntries(
 				equippedWeapons.map((weapon) => [weapon.instanceId, 1])
@@ -2223,10 +2212,6 @@ export function createArenaCombatSketch(
 
 			if (!enemy.bleedSourceWeaponInstanceId || nextSourceHasSiphon || !existingSourceHasSiphon) {
 				enemy.bleedSourceWeaponInstanceId = sourceWeaponInstanceId;
-			}
-
-			if (options.allowHemorrhageBurst ?? true) {
-				triggerHemorrhageBurst(enemyIndex);
 			}
 
 			return effectiveStoredDamage / duration;
@@ -2852,20 +2837,25 @@ export function createArenaCombatSketch(
 			const burstLifeStealRatio = enemy.bleedLifeStealRatio;
 			const burstDuration = enemy.bleedDurationRemaining;
 			const burstRicochetStep = enemy.bleedRicochetStep;
-			const threshold = enemy.maxHealth * hemorrhageBurstEffect.thresholdRatio;
 			const burstSourceWeaponState = burstSourceWeaponInstanceId
 				? (equippedWeaponByInstanceId.get(burstSourceWeaponInstanceId) ?? null)
 				: null;
 			const burstSourceWeapon = burstSourceWeaponState?.definition ?? null;
+			const remainingRicochets = burstSourceWeaponInstanceId
+				? (knifeRemainingRicochetsByInstanceId[burstSourceWeaponInstanceId] ?? 0)
+				: 0;
 
-			if (effectiveStoredBleed < threshold || burstSourceWeapon?.id !== 'the-knife') {
+			if (
+				effectiveStoredBleed <= 0 ||
+				burstSourceWeapon?.id !== 'the-knife' ||
+				remainingRicochets <= 0
+			) {
 				return false;
 			}
 
-			const burstBleedRicochet = Math.max(0, effectiveStoredBleed - threshold);
+			const burstBleedRicochet = effectiveStoredBleed;
 			const burstCenterX = enemy.x;
 			const burstCenterY = enemy.y;
-			const executeDamage = Math.max(0, enemy.health);
 			const availableForkProjectileBudget = Math.max(
 				0,
 				MAX_ACTIVE_HEMORRHAGE_FORK_PROJECTILES -
@@ -2879,32 +2869,25 @@ export function createArenaCombatSketch(
 				burstCenterX,
 				burstCenterY,
 				burstSourceWeaponState?.targeting,
-				Math.min(1 + knifeRicochetForkCount, availableForkProjectileBudget),
+				Math.min(1 + knifeRicochetForkCount, availableForkProjectileBudget, remainingRicochets),
 				[enemy.id, ...reservedTargetEnemyIds]
 			);
+
+			if (burstTargets.length === 0) {
+				return false;
+			}
 
 			enemy.bleedStoredDamage = 0;
 			enemy.bleedDurationRemaining = 0;
 			enemy.bleedSourceWeaponInstanceId = null;
 			enemy.bleedRicochetStep = 0;
 			enemy.bleedLifeStealRatio = 0;
-			recordWeaponDamage(burstSourceWeaponInstanceId ?? undefined, executeDamage);
 
-			const burstShieldStealRatio = getWeaponShieldStealRatio(
-				burstSourceWeapon,
-				burstSourceWeaponInstanceId
-			);
-
-			if (burstShieldStealRatio > 0 && burstSourceWeaponInstanceId) {
-				addPixlShieldFromSource(
-					`${burstSourceWeaponInstanceId}-shield-steal`,
-					executeDamage * burstShieldStealRatio,
-					burstSourceWeapon?.projectileVisual.color ?? '#a78bfa'
+			if (burstSourceWeaponInstanceId) {
+				knifeRemainingRicochetsByInstanceId[burstSourceWeaponInstanceId] = Math.max(
+					0,
+					remainingRicochets - burstTargets.length
 				);
-			}
-
-			if (burstLifeStealRatio > 0) {
-				healPixl(Math.min(enemy.health, effectiveStoredBleed) * burstLifeStealRatio);
 			}
 
 			for (const [targetIndex, burstTarget] of burstTargets.entries()) {
@@ -2946,8 +2929,6 @@ export function createArenaCombatSketch(
 				});
 			}
 
-			awardEnemyDefeat(enemyIndex);
-
 			return true;
 		};
 
@@ -2960,10 +2941,6 @@ export function createArenaCombatSketch(
 
 			if (isEnemyCapturedByVoidTendril(enemy.id)) {
 				return false;
-			}
-
-			if (triggerHemorrhageBurst(enemyIndex)) {
-				return !enemies[enemyIndex] || enemies[enemyIndex].id !== enemy.id;
 			}
 
 			if (enemy.bleedStoredDamage <= 0 || enemy.bleedDurationRemaining <= 0) {
@@ -2984,16 +2961,26 @@ export function createArenaCombatSketch(
 			enemy.bleedDurationRemaining = Math.max(0, enemy.bleedDurationRemaining - dt);
 
 			if (baseDamageConsumed > 0) {
+				const bleedSourceWeaponInstanceId = enemy.bleedSourceWeaponInstanceId;
 				const bleedTickResult = applyDamageToEnemy(
 					enemyIndex,
 					baseDamageConsumed * bleedCatalystMultiplier,
 					0.03,
-					enemy.bleedSourceWeaponInstanceId ?? undefined,
+					bleedSourceWeaponInstanceId ?? undefined,
 					{
 						applyWeaponHitEffects: false,
 						allowContextHealing: false
 					}
 				);
+
+				if (
+					bleedTickResult.defeated &&
+					bleedSourceWeaponInstanceId &&
+					equippedWeaponByInstanceId.get(bleedSourceWeaponInstanceId)?.definition.id === 'the-knife'
+				) {
+					knifeRemainingRicochetsByInstanceId[bleedSourceWeaponInstanceId] =
+						(knifeRemainingRicochetsByInstanceId[bleedSourceWeaponInstanceId] ?? 0) + 1;
+				}
 
 				if (enemy.bleedLifeStealRatio > 0 && bleedTickResult.actualDamage > 0) {
 					healPixl(bleedTickResult.actualDamage * enemy.bleedLifeStealRatio);
@@ -3443,6 +3430,7 @@ export function createArenaCombatSketch(
 
 			if (enemy.health <= 0) {
 				if ((options.allowHemorrhageBurst ?? true) && triggerHemorrhageBurst(enemyIndex)) {
+					awardEnemyDefeat(enemyIndex);
 					return { defeated: true, actualDamage };
 				}
 
@@ -4790,11 +4778,9 @@ export function createArenaCombatSketch(
 			sourceWeaponInstanceId: string,
 			angleOffsetRadians = 0
 		) => {
-			if (weapon.id === 'the-knife' && hasActiveKnifeInstance(sourceWeaponInstanceId)) {
-				return;
-			}
-
 			if (weapon.id === 'the-knife') {
+				knifeRemainingRicochetsByInstanceId[sourceWeaponInstanceId] =
+					hemorrhageBurstEffect?.bounceCount ?? 0;
 				spawnProjectile({
 					sourceWeaponInstanceId,
 					originX: centerX,
