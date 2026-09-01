@@ -69,7 +69,6 @@
 	</div>
 
 	<div class="drawer-switcher">
-		<p class="drawer-label">Campaign</p>
 		<div class="drawer-campaign-links">
 			{#each campaignRoutes as campaignRoute (campaignRoute.campaignId)}
 				<a
@@ -189,7 +188,6 @@
 	}
 
 	.eyebrow,
-	.drawer-label,
 	.summary-row span,
 	.stage-card span {
 		font-size: 0.72rem;

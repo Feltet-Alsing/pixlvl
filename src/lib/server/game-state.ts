@@ -3,6 +3,7 @@ import { and, eq, inArray, type InferInsertModel, type InferSelectModel } from '
 import {
 	baselineCombatProfile,
 	campaigns,
+	dungeons,
 	getCampaign,
 	starterWeaponId,
 	weaponDefinitions
@@ -17,6 +18,7 @@ import { createBaselineUpgradeablePixlState, createUpgradeablePixlState } from '
 import { db } from '$lib/server/db';
 import {
 	campaignProgress,
+	dungeonProgress,
 	pixlState,
 	progressionLeaderboard,
 	rewardPack
@@ -24,6 +26,8 @@ import {
 import { syncProgressionLeaderboardForUser } from '$lib/server/leaderboard';
 
 import type {
+	DungeonKeyId,
+	DungeonKeyInventory,
 	LoadoutPlacement,
 	OwnedWeaponInstance,
 	PersistedLoadoutState,
@@ -34,6 +38,7 @@ import type {
 
 export type PersistedPixlState = InferSelectModel<typeof pixlState>;
 export type PersistedCampaignProgress = InferSelectModel<typeof campaignProgress>;
+export type PersistedDungeonProgress = InferSelectModel<typeof dungeonProgress>;
 export type PersistedRewardPackRecord = InferSelectModel<typeof rewardPack>;
 
 const REWARD_PACK_SOURCE_LEVELS_PER_STAGE = 10;
@@ -41,6 +46,7 @@ const REWARD_PACK_SOURCE_LEVELS_PER_STAGE = 10;
 export interface GameState {
 	pixlState: PersistedPixlState;
 	campaignProgress: PersistedCampaignProgress[];
+	dungeonProgress: PersistedDungeonProgress[];
 	rewardPacks: PersistedRewardPack[];
 }
 
@@ -48,7 +54,7 @@ export interface GameStatePatch {
 	pixlState?: Partial<
 		Pick<
 			PersistedPixlState,
-			'xp' | 'scrap' | 'defence' | 'agility' | 'ownedWeapons' | 'loadoutPlacements'
+			'xp' | 'scrap' | 'defence' | 'agility' | 'dungeonKeys' | 'ownedWeapons' | 'loadoutPlacements'
 		>
 	>;
 	rewardPacks?: PersistedRewardPack[];
@@ -60,6 +66,16 @@ export interface GameStatePatch {
 			>
 		> & {
 			campaignId: number;
+		}
+	>;
+	dungeonProgress?: Array<
+		Partial<
+			Pick<
+				PersistedDungeonProgress,
+				'currentFloor' | 'highestUnlockedFloor' | 'highestClearedFloor' | 'runActive' | 'completed'
+			>
+		> & {
+			dungeonId: number;
 		}
 	>;
 }
@@ -76,6 +92,7 @@ export interface OpenRewardPacksResult {
 }
 
 const defaultCampaigns = Object.values(campaigns).map((campaign) => campaign.campaign);
+const defaultDungeons = Object.values(dungeons).map((dungeon) => dungeon.dungeonId);
 const STARTER_WEAPON_INSTANCE_ID = 'starter-pea-shooter';
 const STARTER_PACK_CAMPAIGN_ID = 1;
 const STARTER_PACK_SOURCE_LEVEL = 0;
@@ -114,6 +131,16 @@ function createStarterLoadoutPlacements(): LoadoutPlacement[] {
 			rotation: 0
 		}
 	];
+}
+
+function createDefaultDungeonKeys(): DungeonKeyInventory {
+	return {
+		'dungeon-1-key': 0,
+		'dungeon-2-key': 0,
+		'dungeon-3-key': 0,
+		'dungeon-4-key': 0,
+		'dungeon-5-key': 0
+	};
 }
 
 function createOwnedWeaponInstanceId() {
@@ -200,7 +227,7 @@ function createStarterRewardPack(userId: string): PersistedRewardPack {
 }
 
 function normalizeRewardPackKind(kind: unknown): RewardPackKind {
-	if (kind === 'special' || kind === 'rare') {
+	if (kind === 'special' || kind === 'rare' || kind === 'dungeon') {
 		return kind;
 	}
 
@@ -336,6 +363,26 @@ function normalizeScrap(value: unknown) {
 	return Math.max(0, Math.floor(value));
 }
 
+function normalizeDungeonKeys(value: DungeonKeyInventory | null | undefined): DungeonKeyInventory {
+	const defaults = createDefaultDungeonKeys();
+
+	if (!value || typeof value !== 'object') {
+		return defaults;
+	}
+
+	const normalizedEntries = Object.entries(defaults).map(([key, fallback]) => {
+		const nextValue = (value as Partial<Record<DungeonKeyId, unknown>>)[key as DungeonKeyId];
+
+		if (typeof nextValue !== 'number' || !Number.isFinite(nextValue)) {
+			return [key, fallback] as const;
+		}
+
+		return [key, Math.max(0, Math.floor(nextValue))] as const;
+	});
+
+	return Object.fromEntries(normalizedEntries) as DungeonKeyInventory;
+}
+
 function createStarterLoadoutState(): PersistedLoadoutState {
 	return createPersistedLoadoutState(0, [createStarterLoadoutPlacements(), [], []]);
 }
@@ -357,6 +404,7 @@ function createDefaultPixlState(userId: string): InferInsertModel<typeof pixlSta
 		loadoutColumns: baselineState.loadoutColumns,
 		acknowledgedPerkPoints: baselineState.perkPoints,
 		acknowledgedWeaponDefinitionIds: [starterWeaponId],
+		dungeonKeys: createDefaultDungeonKeys(),
 		ownedWeapons: createStarterOwnedWeapons(),
 		loadoutPlacements: createStarterLoadoutState()
 	};
@@ -372,6 +420,22 @@ function createDefaultCampaignProgress(
 		currentLevel: 1,
 		highestUnlockedLevel: 1,
 		highestClearedLevel: 0,
+		completed: false,
+		lastPlayedAt: new Date()
+	};
+}
+
+function createDefaultDungeonProgress(
+	userId: string,
+	dungeonId: number
+): InferInsertModel<typeof dungeonProgress> {
+	return {
+		userId,
+		dungeonId,
+		currentFloor: 1,
+		highestUnlockedFloor: 1,
+		highestClearedFloor: 0,
+		runActive: false,
 		completed: false,
 		lastPlayedAt: new Date()
 	};
@@ -426,6 +490,21 @@ async function ensureGameState(userId: string) {
 			.onConflictDoNothing();
 	}
 
+	const existingDungeonProgress = await db
+		.select({ dungeonId: dungeonProgress.dungeonId })
+		.from(dungeonProgress)
+		.where(eq(dungeonProgress.userId, userId));
+
+	const existingDungeonIds = new Set(existingDungeonProgress.map((entry) => entry.dungeonId));
+	const missingDungeons = defaultDungeons.filter((dungeonId) => !existingDungeonIds.has(dungeonId));
+
+	if (missingDungeons.length > 0) {
+		await db
+			.insert(dungeonProgress)
+			.values(missingDungeons.map((dungeonId) => createDefaultDungeonProgress(userId, dungeonId)))
+			.onConflictDoNothing();
+	}
+
 	if (needsStarterPackSeed) {
 		const starterPack = createStarterRewardPack(userId);
 
@@ -458,6 +537,7 @@ async function ensureGameState(userId: string) {
 	const normalizedAcknowledgedPerkPoints = normalizeAcknowledgedPerkPoints(
 		storedPixlState.acknowledgedPerkPoints
 	);
+	const normalizedDungeonKeys = normalizeDungeonKeys(storedPixlState.dungeonKeys);
 	const normalizedAcknowledgedWeaponDefinitionIds = normalizeAcknowledgedWeaponDefinitionIds(
 		storedPixlState.acknowledgedWeaponDefinitionIds,
 		normalizedOwnedWeapons
@@ -487,6 +567,7 @@ async function ensureGameState(userId: string) {
 		normalizedProgression.loadoutRows !== storedPixlState.loadoutRows ||
 		normalizedProgression.loadoutColumns !== storedPixlState.loadoutColumns ||
 		normalizedAcknowledgedPerkPoints !== storedPixlState.acknowledgedPerkPoints ||
+		normalizedDungeonKeys !== storedPixlState.dungeonKeys ||
 		normalizedAcknowledgedWeaponDefinitionIds !== storedPixlState.acknowledgedWeaponDefinitionIds ||
 		normalizedOwnedWeapons !== storedPixlState.ownedWeapons ||
 		normalizedLoadoutPlacements !== storedPixlState.loadoutPlacements
@@ -505,6 +586,7 @@ async function ensureGameState(userId: string) {
 				loadoutRows: normalizedProgression.loadoutRows,
 				loadoutColumns: normalizedProgression.loadoutColumns,
 				acknowledgedPerkPoints: normalizedAcknowledgedPerkPoints,
+				dungeonKeys: normalizedDungeonKeys,
 				acknowledgedWeaponDefinitionIds: normalizedAcknowledgedWeaponDefinitionIds,
 				ownedWeapons: normalizedOwnedWeapons,
 				loadoutPlacements: normalizedLoadoutPlacements,
@@ -536,6 +618,10 @@ export async function getOrCreateGameState(userId: string): Promise<GameState> {
 		.select()
 		.from(campaignProgress)
 		.where(eq(campaignProgress.userId, userId));
+	const storedDungeonProgress = await db
+		.select()
+		.from(dungeonProgress)
+		.where(eq(dungeonProgress.userId, userId));
 
 	if (!storedPixlState) {
 		throw new Error(`Unable to load pixl state for user ${userId}`);
@@ -546,6 +632,7 @@ export async function getOrCreateGameState(userId: string): Promise<GameState> {
 		campaignProgress: storedCampaignProgress.sort(
 			(left, right) => left.campaignId - right.campaignId
 		),
+		dungeonProgress: storedDungeonProgress.sort((left, right) => left.dungeonId - right.dungeonId),
 		rewardPacks: (await db.select().from(rewardPack).where(eq(rewardPack.ownerUserId, userId)))
 			.map(serializeRewardPackRecord)
 			.sort(
@@ -802,6 +889,9 @@ export async function updateGameState(userId: string, patch: GameStatePatch): Pr
 		const scrap = toNonNegativeInteger(patch.pixlState.scrap) ?? storedPixlState.scrap;
 		const defence = toNonNegativeInteger(patch.pixlState.defence) ?? storedPixlState.defence;
 		const agility = toNonNegativeInteger(patch.pixlState.agility) ?? storedPixlState.agility;
+		const dungeonKeys = patch.pixlState.dungeonKeys
+			? normalizeDungeonKeys(patch.pixlState.dungeonKeys)
+			: undefined;
 		const normalizedProgression = createUpgradeablePixlState({ xp, defence, agility });
 		const ownedWeapons = Array.isArray(patch.pixlState.ownedWeapons)
 			? normalizeOwnedWeapons(patch.pixlState.ownedWeapons)
@@ -827,6 +917,7 @@ export async function updateGameState(userId: string, patch: GameStatePatch): Pr
 		nextPixlState.attackSpeed = normalizedProgression.attackSpeed;
 		nextPixlState.loadoutRows = normalizedProgression.loadoutRows;
 		nextPixlState.loadoutColumns = normalizedProgression.loadoutColumns;
+		if (dungeonKeys !== undefined) nextPixlState.dungeonKeys = dungeonKeys;
 		if (ownedWeapons !== undefined) nextPixlState.ownedWeapons = ownedWeapons;
 		if (loadoutPlacements !== undefined) nextPixlState.loadoutPlacements = loadoutPlacements;
 
@@ -896,6 +987,55 @@ export async function updateGameState(userId: string, patch: GameStatePatch): Pr
 		}
 	}
 
+	if (patch.dungeonProgress && patch.dungeonProgress.length > 0) {
+		for (const entry of patch.dungeonProgress) {
+			const dungeon = dungeons[entry.dungeonId as keyof typeof dungeons];
+
+			if (!dungeon) {
+				throw new Error(`Unknown dungeon ${entry.dungeonId}`);
+			}
+
+			const currentFloor = Math.min(
+				toPositiveInteger(entry.currentFloor) ?? 1,
+				dungeon.totalLevels
+			);
+			const highestUnlockedFloor = Math.max(
+				currentFloor,
+				Math.min(toPositiveInteger(entry.highestUnlockedFloor) ?? currentFloor, dungeon.totalLevels)
+			);
+			const highestClearedFloor = Math.min(
+				toNonNegativeInteger(entry.highestClearedFloor) ?? 0,
+				highestUnlockedFloor
+			);
+			const runActive = entry.runActive ?? false;
+			const completed = entry.completed ?? highestClearedFloor >= dungeon.totalLevels;
+
+			await db
+				.insert(dungeonProgress)
+				.values({
+					...createDefaultDungeonProgress(userId, entry.dungeonId),
+					currentFloor,
+					highestUnlockedFloor,
+					highestClearedFloor,
+					runActive,
+					completed,
+					lastPlayedAt: new Date()
+				})
+				.onConflictDoUpdate({
+					target: [dungeonProgress.userId, dungeonProgress.dungeonId],
+					set: {
+						currentFloor,
+						highestUnlockedFloor,
+						highestClearedFloor,
+						runActive,
+						completed,
+						lastPlayedAt: new Date(),
+						updatedAt: new Date()
+					}
+				});
+		}
+	}
+
 	await syncProgressionLeaderboardForUser(userId);
 
 	return getOrCreateGameState(userId);
@@ -905,6 +1045,7 @@ export async function resetGameStateForUser(userId: string): Promise<void> {
 	await db.transaction(async (tx) => {
 		await tx.delete(progressionLeaderboard).where(eq(progressionLeaderboard.userId, userId));
 		await tx.delete(rewardPack).where(eq(rewardPack.ownerUserId, userId));
+		await tx.delete(dungeonProgress).where(eq(dungeonProgress.userId, userId));
 		await tx.delete(campaignProgress).where(eq(campaignProgress.userId, userId));
 		await tx.delete(pixlState).where(eq(pixlState.userId, userId));
 	});
@@ -922,6 +1063,21 @@ export async function getCampaignProgressForUser(userId: string, campaignId: num
 		throw new Error(
 			`Unable to load campaign progress for user ${userId} and campaign ${campaignId}`
 		);
+	}
+
+	return progress;
+}
+
+export async function getDungeonProgressForUser(userId: string, dungeonId: number) {
+	await ensureGameState(userId);
+
+	const [progress] = await db
+		.select()
+		.from(dungeonProgress)
+		.where(and(eq(dungeonProgress.userId, userId), eq(dungeonProgress.dungeonId, dungeonId)));
+
+	if (!progress) {
+		throw new Error(`Unable to load dungeon progress for user ${userId} and dungeon ${dungeonId}`);
 	}
 
 	return progress;

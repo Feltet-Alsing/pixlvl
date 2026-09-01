@@ -27,6 +27,15 @@ export type LoadoutRotation = 0 | 1 | 2 | 3;
 export type ElementalInfusionType = 'fire' | 'lightning' | 'cold' | 'void';
 
 export type WeaponSpecialAttackKind =
+	| 'judgment-rune'
+	| 'ascendance-rune'
+	| 'rune-reiterator'
+	| 'binding-rune'
+	| 'sunbrand-rune'
+	| 'idol-of-echoes'
+	| 'slowing-rune'
+	| 'healing-rune'
+	| 'sun-rune'
 	| 'force-field'
 	| 'laser-sweep'
 	| 'knife-sheath'
@@ -67,6 +76,10 @@ export type WeaponTargetingKind =
 	| 'bottom-middle'
 	| 'bottom-right';
 
+export type VanishRuneCycleTarget = 'cycle-1' | 'cycle-2' | 'cycle-3' | 'cycle-4';
+
+export type LoadoutPlacementTargetingKind = WeaponTargetingKind | VanishRuneCycleTarget;
+
 export interface PixlBaseStats {
 	health: number;
 	attackSpeed: number;
@@ -83,8 +96,8 @@ export interface GlitchStats {
 	contactDamage: number;
 	attackSpeed: number;
 	moveSpeed: number;
-	attackPattern?: 'melee' | 'siege' | 'hybrid';
-	supportPattern?: 'shield-nearest-non-bulwark';
+	attackPattern?: 'melee' | 'siege' | 'hybrid' | 'beam';
+	supportPattern?: 'shield-nearest-non-bulwark' | 'heal-frontline-ally';
 	preferredRange?: number;
 	orbitSpeed?: number;
 	projectileSpeed?: number;
@@ -93,18 +106,30 @@ export interface GlitchStats {
 	projectileSize?: number;
 	allyShieldAmount?: number;
 	allyShieldDuration?: number;
+	allyHealAmount?: number;
+	allyHealRatio?: number;
 	onHitShieldDuration?: number;
 	onHitShieldCooldown?: number;
 	onHitShieldDamageReduction?: number;
+	beamColor?: string;
+	beamWidth?: number;
+	beamDamage?: number;
+	beamDuration?: number;
+	beamTickInterval?: number;
 	shieldColor?: string;
 }
+
+export type DungeonExclusiveEnemyKind = 'golem' | 'sunpriest' | 'soldier' | 'high-priest';
+
+export type CombatEnemyKind = GlitchKind | DungeonExclusiveEnemyKind;
 
 export interface CombatProfile {
 	id: string;
 	pixl: PixlBaseStats;
 	projectileSpeed: number;
 	collision: CollisionConfig;
-	glitches: Record<GlitchKind, GlitchStats>;
+	glitches: Record<GlitchKind, GlitchStats> &
+		Partial<Record<DungeonExclusiveEnemyKind, GlitchStats>>;
 }
 
 export interface WeaponShape {
@@ -132,6 +157,94 @@ export interface WeaponAttackBehavior {
 	requiredInfusion?: ElementalInfusionType;
 	requiredInfusionCount?: number;
 	special?:
+		| {
+				type: 'judgment-rune';
+				baseDamagePerTick: number;
+				damageGrowthPerCycle: number;
+				maxBaseDamagePerTick: number;
+				tickInterval: number;
+				damageMultiplierPerTriggeredRune: number;
+				minTriggeredRuneCountToRefresh: number;
+				orbitRadius: number;
+				damageRadius: number;
+				sunRadius: number;
+				orbitsPerCycle: number;
+				baseDurationCycles: number;
+				durationCyclesPerUniqueRune: number;
+				castDuration: number;
+		  }
+		| {
+				type: 'ascendance-rune';
+				requiredUniqueRuneCount: number;
+				damageMultiplier: number;
+				buffDurationCycles: number;
+				successCooldownCycles: number;
+				castDuration: number;
+		  }
+		| {
+				type: 'rune-reiterator';
+				replayDelay: number;
+				castDuration: number;
+		  }
+		| {
+				type: 'binding-rune';
+				radius: number;
+				durationCycles: number;
+				damageMultiplierPerHit: number;
+				impactSize: number;
+				castDuration: number;
+		  }
+		| {
+				type: 'sunbrand-rune';
+				radius: number;
+				durationCycles: number;
+				brandDurationCycles: number;
+				burstBaseDamage: number;
+				triggerDamageMultiplier: number;
+				impactSize: number;
+				castDuration: number;
+		  }
+		| {
+				type: 'idol-of-echoes';
+				echoDelay: number;
+				echoEfficiency: number;
+		  }
+		| {
+				type: 'slowing-rune';
+				radius: number;
+				durationCycles: number;
+				slowDurationCycles: number;
+				slowMultiplier: number;
+				impactSize: number;
+				castDuration: number;
+		  }
+		| {
+				type: 'healing-rune';
+				healFlat: number;
+				healMaxHealthRatio: number;
+				durationCycles: number;
+				maxRadiusFactor: number;
+				castDuration: number;
+		  }
+		| {
+				type: 'sun-rune';
+				radius: number;
+				durationCycles: number;
+				tickInterval: number;
+				impactSize: number;
+				castDuration: number;
+		  }
+		| {
+				type: 'natures-wrath';
+				latchDuration: number;
+				healPulseRatio: number;
+				pulseInterval: number;
+				durationCycles: number;
+				successCooldownCycles: number;
+		  }
+		| {
+				type: 'pea-ascender';
+		  }
 		| {
 				type: 'knife-sheath';
 		  }
@@ -392,13 +505,16 @@ export interface WeaponAttackBehavior {
 }
 
 export interface WeaponDropConfig {
-	mode: 'starter' | 'drop' | 'shop';
+	mode: 'starter' | 'drop' | 'shop' | 'dungeon-pack';
 	campaignId?: number;
+	dungeonId?: number;
 	stageStart?: number;
 	stageEnd?: number;
 	perLevelDropChance?: number;
 	perEnemyDropChance?: number;
 }
+
+export type LoadoutItemRewardMarker = 'ancient';
 
 export interface ShopItemConfig {
 	campaignId: number;
@@ -418,6 +534,7 @@ export interface UtilityDefinition {
 	name: string;
 	category: 'utility';
 	rarity: WeaponRarity;
+	rewardMarker?: LoadoutItemRewardMarker;
 	uniquePerLoadout?: boolean;
 	shape: WeaponShape;
 	activationKind: UtilityActivationKind;
@@ -521,6 +638,12 @@ export interface UtilityDefinition {
 				duration: number;
 				reflectedDamageMultiplier: number;
 				reflectedImpactRadius: number;
+		  }
+		| {
+				type: 'vanish-rune';
+				requiredUniqueRuneCount: number;
+				durationCycles: number;
+				successCooldownCycles: number;
 		  };
 	utilityVisual?: UtilityVisual;
 	drop: WeaponDropConfig;
@@ -533,6 +656,7 @@ export interface WeaponDefinition {
 	name: string;
 	family?: 'mine' | 'pylon' | 'laser-rod';
 	rarity: WeaponRarity;
+	rewardMarker?: LoadoutItemRewardMarker;
 	uniquePerLoadout?: boolean;
 	shape: WeaponShape;
 	baseDamage: number;
@@ -560,7 +684,12 @@ export interface OwnedWeaponInstance {
 
 export type RewardPackStatus = 'unopened' | 'opened';
 
-export type RewardPackKind = 'normal' | 'special' | 'rare';
+export type RewardPackKind = 'normal' | 'special' | 'rare' | 'dungeon';
+
+export type DungeonKeyId =
+	'dungeon-1-key' | 'dungeon-2-key' | 'dungeon-3-key' | 'dungeon-4-key' | 'dungeon-5-key';
+
+export type DungeonKeyInventory = Record<DungeonKeyId, number>;
 
 export interface PersistedRewardPackCard {
 	slotIndex: number;
@@ -603,7 +732,7 @@ export interface LoadoutPlacement {
 	y: number;
 	rotation: LoadoutRotation;
 	mirrored?: boolean;
-	targeting?: WeaponTargetingKind;
+	targeting?: LoadoutPlacementTargetingKind;
 }
 
 export type LoadoutSlotIndex = 0 | 1 | 2;
@@ -715,4 +844,44 @@ export interface CampaignDefinition {
 	combatProfile: string;
 	baseline: CampaignBaseline;
 	levels: CampaignLevel[];
+}
+
+export type DungeonEnemyKind = CombatEnemyKind;
+
+export type DungeonWaveComposition = Partial<Record<DungeonEnemyKind, number>>;
+
+export type DungeonXpPerEnemy = Partial<Record<DungeonEnemyKind, number>>;
+
+export interface DungeonFloor {
+	dungeonId: number;
+	stage: 1;
+	floor: number;
+	dungeonLevel: number;
+	isBossFloor: boolean;
+	totalEnemies: number;
+	composition: DungeonWaveComposition;
+	xpPerEnemy?: DungeonXpPerEnemy;
+	totalXpReward?: number;
+	spawnRatePerSecond: number;
+	enemyHealthMultiplier?: number;
+	enemyDamageMultiplier?: number;
+	bossHealthMultiplier?: number;
+	bossDamageMultiplier?: number;
+	bossDamageBonus?: number;
+}
+
+export type CombatLevelDefinition = CampaignLevel | DungeonFloor;
+
+export interface DungeonDefinition {
+	dungeonId: number;
+	sourceCampaignId: number;
+	keyId: DungeonKeyId;
+	name: string;
+	rewardPackName: string;
+	theme: string;
+	stages: 1;
+	levelsPerStage: 5;
+	totalLevels: 5;
+	combatProfile: string;
+	floors: DungeonFloor[];
 }

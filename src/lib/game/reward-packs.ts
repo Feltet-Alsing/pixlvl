@@ -1,4 +1,4 @@
-import { getRewardPackWeaponPool } from '$lib/data';
+import { getDungeon, getDungeonRewardPackWeaponPool, getRewardPackWeaponPool } from '$lib/data';
 
 import type {
 	LoadoutItemDefinition,
@@ -9,9 +9,18 @@ import type {
 } from '$lib/data/types';
 
 const PACK_CARD_COUNT = 5;
+const DUNGEON_PACK_CARD_COUNT = 2;
 const GUARANTEED_PACK_SLOT_INDEX = 4;
 const NO_GUARANTEED_PACK_SLOT_INDEX = -1;
 const SPECIAL_PACK_LEGENDARY_CHANCE = 0.2;
+
+const DUNGEON_PACK_SLOT_RARITY_WEIGHTS: Record<WeaponRarity, number> = {
+	normal: 25,
+	magic: 30,
+	rare: 20,
+	exotic: 15,
+	legendary: 10
+};
 
 const NORMAL_SLOT_RARITY_WEIGHTS: Record<WeaponRarity, number> = {
 	normal: 10,
@@ -35,6 +44,13 @@ interface RollLevelRewardPacksInput {
 	isStageBoss: boolean;
 	isCampaignBoss: boolean;
 	sourceCampaignLevel: number;
+	randomFloat: () => number;
+	randomIndex: (maxExclusive: number) => number;
+	createPackId: () => string;
+}
+
+interface RollDungeonRewardPackInput {
+	dungeonId: number;
 	randomFloat: () => number;
 	randomIndex: (maxExclusive: number) => number;
 	createPackId: () => string;
@@ -328,4 +344,63 @@ export function rollLevelRewardPacks(input: RollLevelRewardPacksInput): Persiste
 	}
 
 	return rewardPacks;
+}
+
+export function createDungeonRewardPack(
+	input: RollDungeonRewardPackInput
+): PersistedRewardPack | null {
+	const dungeon = getDungeon(input.dungeonId);
+	const eligibleDefinitions = getDungeonRewardPackWeaponPool(input.dungeonId).filter(
+		(item) => item.drop.mode === 'dungeon-pack' && item.drop.dungeonId === input.dungeonId
+	);
+
+	if (eligibleDefinitions.length < DUNGEON_PACK_CARD_COUNT) {
+		return null;
+	}
+
+	const cards: PersistedRewardPackCard[] = [];
+	const selectedDefinitionIds = new Set<string>();
+
+	for (let slotIndex = 0; slotIndex < DUNGEON_PACK_CARD_COUNT; slotIndex += 1) {
+		const rarity = chooseWeightedNormalSlotRarity(
+			eligibleDefinitions,
+			input.randomFloat,
+			selectedDefinitionIds,
+			DUNGEON_PACK_SLOT_RARITY_WEIGHTS
+		);
+
+		if (!rarity) {
+			return null;
+		}
+
+		const definition = chooseRandomPackDefinition(
+			eligibleDefinitions,
+			rarity,
+			input.randomIndex,
+			selectedDefinitionIds,
+			['magic', 'rare', 'exotic', 'legendary', 'normal']
+		);
+
+		if (!definition) {
+			return null;
+		}
+
+		selectedDefinitionIds.add(definition.id);
+		cards.push(createRewardPackCard(slotIndex, definition, false));
+	}
+
+	return {
+		id: input.createPackId(),
+		ownerUserId: '',
+		campaignId: dungeon.sourceCampaignId,
+		sourceCampaignLevel: dungeon.totalLevels,
+		kind: 'dungeon',
+		droppedAt: new Date().toISOString(),
+		openedAt: null,
+		status: 'unopened',
+		cardCount: cards.length,
+		guaranteedSlotIndex: NO_GUARANTEED_PACK_SLOT_INDEX,
+		contentVersion: 1,
+		cards
+	};
 }

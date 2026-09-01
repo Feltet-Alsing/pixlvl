@@ -6,12 +6,13 @@ import { rollLevelRewardPacks as buildRewardPacksForLevel } from '$lib/game/rewa
 import { applyXpGain, createUpgradeablePixlState } from '$lib/game/upgrades';
 import {
 	buildEquippedLoadoutEntries,
-	buildEquippedUtilities,
 	buildEquippedWeapons,
+	buildEquippedUtilities,
 	buildSpawnQueue,
 	createRewardPackId,
 	doCellsTouchByEdge,
 	ENEMY_VISUALS,
+	getCombatCompositionCount,
 	getCanvasSize,
 	getLoadoutPreviewCanvasSize,
 	getPlacedShapeCells,
@@ -28,10 +29,13 @@ import { getUtilityModule } from '$lib/p5/utility-modules';
 import { getWeaponModule } from '$lib/p5/weapon-modules';
 import { drawPixlCrown } from '$lib/p5/pixl-crown';
 import type {
+	CombatEnemyKind,
+	CombatLevelDefinition,
 	CampaignDefinition,
 	CampaignLevel,
 	CombatProfile,
 	GlitchKind,
+	GlitchStats,
 	OwnedWeaponInstance,
 	PersistedRewardPack,
 	WeaponAttackBehavior,
@@ -49,6 +53,7 @@ import type {
 	EquippedUtilityState,
 	EquippedWeaponState
 } from '$lib/p5/campaign-runtime';
+import type { WeaponActivationResult } from '$lib/p5/weapon-behavior-types';
 
 const MAX_WIDTH = 760;
 const BASE_HEIGHT = 520;
@@ -62,13 +67,15 @@ const LOADOUT_PREVIEW_MAX_WIDTH = 320;
 const LOADOUT_PREVIEW_BASE_HEIGHT = 240;
 const DEFAULT_MAX_ACTIVE_PERIMETER_MINES = 12;
 const MAX_ACTIVE_HEMORRHAGE_FORK_PROJECTILES = 6;
+const PIXL_SHIELD_CAP_MULTIPLIER = 4;
+const PLAYER_SHIELD_GAIN_MULTIPLIER = 2;
 
 type WaveStatus = 'running' | 'cleared' | 'defeated' | 'complete';
 type RunMode = 'management' | 'combat';
 
 interface EnemyState {
 	id: number;
-	kind: GlitchKind;
+	kind: CombatEnemyKind;
 	x: number;
 	y: number;
 	health: number;
@@ -87,6 +94,15 @@ interface EnemyState {
 	shieldPulseTimer: number;
 	shieldPulseCooldown: number;
 	confusionTimer: number;
+	slowTimer: number;
+	slowMultiplier: number;
+	sunbrandTimer: number;
+	sunbrandBaseDamage: number;
+	sunbrandTriggerDamageMultiplier: number;
+	sunbrandSourceWeaponInstanceId: string | null;
+	bindingRuneHitCount: number;
+	bindingRuneDamageMultiplierPerHit: number;
+	bindingRuneSourceWeaponInstanceId: string | null;
 	voidTouchedTimer: number;
 	fireExposedTimer: number;
 	lifeStealMarkTimer: number;
@@ -192,6 +208,39 @@ interface EnemyProjectileState {
 	size: number;
 	age: number;
 	maxAge: number;
+}
+
+interface EnemyBeamState {
+	sourceEnemyId: number;
+	age: number;
+	duration: number;
+	tickInterval: number;
+	tickTimer: number;
+	damage: number;
+	width: number;
+	color: string;
+	glow: boolean;
+}
+
+interface StoneWardState {
+	sourceUtilityInstanceId: string;
+	radius: number;
+	lineWidth: number;
+	color: string;
+	glow: boolean;
+	pulse: number;
+	shield: number;
+	maxShield: number;
+}
+
+interface VanishRuneState {
+	sourceUtilityInstanceId: string;
+	age: number;
+	duration: number;
+	radius: number;
+	color: string;
+	glow: boolean;
+	pulse: number;
 }
 
 interface ForceFieldState {
@@ -455,6 +504,144 @@ interface BurningGroundState {
 	duration: number;
 }
 
+interface RuneCastState {
+	sourceWeaponInstanceId: string;
+	variant:
+		| 'judgment-rune'
+		| 'ascendance-rune'
+		| 'sun-rune'
+		| 'healing-rune'
+		| 'slowing-rune'
+		| 'sunbrand-rune'
+		| 'binding-rune'
+		| 'rune-reiterator';
+	centerX: number;
+	centerY: number;
+	runeSize: number;
+	color: string;
+	glow: boolean;
+	age: number;
+	duration: number;
+}
+
+interface SunRuneState {
+	sourceWeaponInstanceId: string;
+	centerX: number;
+	centerY: number;
+	radius: number;
+	damagePerPulse: number;
+	waveThickness: number;
+	impactSize: number;
+	color: string;
+	glow: boolean;
+	age: number;
+	duration: number;
+	hitEnemyIds: number[];
+}
+
+interface HealingRuneState {
+	sourceWeaponInstanceId: string;
+	centerX: number;
+	centerY: number;
+	radius: number;
+	color: string;
+	glow: boolean;
+	age: number;
+	duration: number;
+}
+
+interface SlowingRuneState {
+	sourceWeaponInstanceId: string;
+	centerX: number;
+	centerY: number;
+	radius: number;
+	slowMultiplier: number;
+	slowDuration: number;
+	waveThickness: number;
+	impactSize: number;
+	color: string;
+	glow: boolean;
+	age: number;
+	duration: number;
+	hitEnemyIds: number[];
+}
+
+interface SunbrandRuneState {
+	sourceWeaponInstanceId: string;
+	centerX: number;
+	centerY: number;
+	radius: number;
+	brandDuration: number;
+	burstBaseDamage: number;
+	triggerDamageMultiplier: number;
+	waveThickness: number;
+	impactSize: number;
+	color: string;
+	glow: boolean;
+	age: number;
+	duration: number;
+	hitEnemyIds: number[];
+}
+
+interface BindingRuneState {
+	sourceWeaponInstanceId: string;
+	centerX: number;
+	centerY: number;
+	radius: number;
+	damageMultiplierPerHit: number;
+	waveThickness: number;
+	impactSize: number;
+	color: string;
+	glow: boolean;
+	age: number;
+	duration: number;
+	hitEnemyIds: number[];
+}
+
+interface JudgmentRuneState {
+	sourceWeaponInstanceId: string;
+	baseDamagePerTick: number;
+	damageMultiplier: number;
+	damagePerTick: number;
+	damageGrowthPerCycle: number;
+	maxBaseDamagePerTick: number;
+	nextDamageGrowthSweepIndex: number;
+	damageRadius: number;
+	orbitRadius: number;
+	sunRadius: number;
+	orbitAngle: number;
+	orbitAngularSpeed: number;
+	tickInterval: number;
+	tickTimer: number;
+	color: string;
+	glow: boolean;
+	age: number;
+	duration: number;
+}
+
+interface PendingRuneEchoState {
+	runeType:
+		| 'ascendance-rune'
+		| 'sun-rune'
+		| 'healing-rune'
+		| 'slowing-rune'
+		| 'sunbrand-rune'
+		| 'binding-rune';
+	weapon: WeaponDefinition;
+	sourceWeaponInstanceId: string;
+	delay: number;
+	efficiencyMultiplier: number;
+}
+
+interface TriggeredRuneReplayState {
+	runeType: PendingRuneEchoState['runeType'];
+	weapon: WeaponDefinition;
+	sourceWeaponInstanceId: string;
+}
+
+type TriggeredSweepRuneType =
+	PendingRuneEchoState['runeType'] | 'rune-reiterator' | 'judgment-rune';
+
 interface DelayedBombState {
 	sourceWeaponInstanceId: string;
 	centerX: number;
@@ -598,6 +785,21 @@ interface VoidTendrilState {
 	glow: boolean;
 }
 
+interface NaturesWrathState {
+	sourceWeaponInstanceId: string;
+	enemyId: number | null;
+	targetX: number;
+	targetY: number;
+	age: number;
+	latchDuration: number;
+	duration: number;
+	pulseInterval: number;
+	pulseTimer: number;
+	healAmount: number;
+	color: string;
+	glow: boolean;
+}
+
 interface PixlSwallowPulseState {
 	originX: number;
 	originY: number;
@@ -680,13 +882,15 @@ interface LoadoutLayout {
 type SharedPixlStateInput = Pick<
 	PersistedPixlState,
 	'xp' | 'defence' | 'agility' | 'ownedWeapons' | 'loadoutPlacements'
->;
+> & {
+	dungeonKeys?: PersistedPixlState['dungeonKeys'];
+};
 
 interface ArenaCombatSketchOptions {
 	persistPath?: string;
 	runMode?: RunMode;
 	flowMode?: 'campaign' | 'endless';
-	levelResolver?: (levelIndex: number) => CampaignLevel;
+	levelResolver?: (levelIndex: number) => CombatLevelDefinition;
 	rewardsEnabled?: boolean;
 	showPixlCrown?: boolean;
 	showLoadoutSketch?: boolean;
@@ -715,6 +919,15 @@ interface ArenaCombatSketchOptions {
 			tankers: number;
 			shard: number;
 			bulwark: number;
+			shielder: number;
+			zerglitch: number;
+			bossMelee: number;
+			bossRanged: number;
+			bossHybrid: number;
+			golem: number;
+			sunpriest: number;
+			soldier: number;
+			highPriest: number;
 		};
 		latestCompletedCycle: number;
 		weaponDamageRows: Array<{
@@ -739,6 +952,7 @@ interface ArenaCombatSketchOptions {
 		attackSpeed: number;
 		loadoutRows: number;
 		loadoutColumns: number;
+		dungeonKeys: PersistedPixlState['dungeonKeys'];
 		ownedWeapons: OwnedWeaponInstance[];
 		rewardPacks: PersistedRewardPack[];
 		currentLevel: number;
@@ -768,7 +982,7 @@ export interface ArenaCombatResumeState {
 	markedEnemyId?: number | null;
 	activeShieldColor: string;
 	enemyId: number;
-	spawnQueue: GlitchKind[];
+	spawnQueue: CombatEnemyKind[];
 	enemies: EnemyState[];
 	highestUnlockedLevel: number;
 	highestClearedLevel: number;
@@ -808,6 +1022,18 @@ export function createArenaCombatSketch(
 	options: ArenaCombatSketchOptions = {}
 ) {
 	return (p: P5) => {
+		const isCampaignLevel = (level: CombatLevelDefinition): level is CampaignLevel => {
+			return 'campaignLevel' in level;
+		};
+
+		const getResolvedLevelNumber = (level: CombatLevelDefinition) => {
+			return isCampaignLevel(level) ? level.campaignLevel : level.dungeonLevel;
+		};
+
+		const getResolvedStageLevelNumber = (level: CombatLevelDefinition) => {
+			return isCampaignLevel(level) ? level.stageLevel : level.floor;
+		};
+
 		const levels = campaign.levels;
 		const runMode = options.runMode ?? 'combat';
 		const flowMode = options.flowMode ?? campaign.mode ?? 'campaign';
@@ -849,8 +1075,38 @@ export function createArenaCombatSketch(
 			getWeaponModule(equippedWeaponByInstanceId.get(instanceId)?.definition.id ?? '');
 		const getUtilityModuleByInstanceId = (instanceId: string) =>
 			getUtilityModule(equippedUtilityByInstanceId.get(instanceId)?.definition.id ?? '');
+		const getIdolOfEchoesEffect = () => {
+			for (const weapon of equippedWeapons) {
+				const special = weapon.definition.attack.special;
+
+				if (special?.type === 'idol-of-echoes') {
+					return special;
+				}
+			}
+
+			return null;
+		};
+		const ascenderWeapon =
+			equippedWeapons.find((weapon) => weapon.definition.id === 'the-ascender') ?? null;
+		const ascendedPeaShooters = equippedWeapons.filter(
+			(weapon) => weapon.definition.id === 'pea-shooter'
+		);
+		const hasActiveAscender = ascenderWeapon !== null && ascendedPeaShooters.length > 0;
 		const getEntryCells = (entry: EquippedLoadoutEntry) =>
 			getPlacedShapeCells(entry.shape, entry.placementX, entry.placementY);
+		const replayableRuneSpecialTypes = new Set<PendingRuneEchoState['runeType']>([
+			'ascendance-rune',
+			'sun-rune',
+			'healing-rune',
+			'slowing-rune',
+			'sunbrand-rune',
+			'binding-rune'
+		]);
+		const trackedSweepRuneSpecialTypes = new Set<TriggeredSweepRuneType>([
+			...replayableRuneSpecialTypes,
+			'rune-reiterator',
+			'judgment-rune'
+		]);
 		const getEntryBounds = (cells: Array<[number, number]>) => ({
 			minX: Math.min(...cells.map(([x]) => x)),
 			maxX: Math.max(...cells.map(([x]) => x)),
@@ -1156,10 +1412,11 @@ export function createArenaCombatSketch(
 					: 0;
 
 			return (
-				baseShieldStealRatio +
-				(sourceWeaponInstanceId
-					? (weaponShieldStealRatioByInstanceId[sourceWeaponInstanceId] ?? 0)
-					: 0)
+				(baseShieldStealRatio +
+					(sourceWeaponInstanceId
+						? (weaponShieldStealRatioByInstanceId[sourceWeaponInstanceId] ?? 0)
+						: 0)) *
+				PLAYER_SHIELD_GAIN_MULTIPLIER
 			);
 		};
 		const getAdjustedProjectileSpeed = (
@@ -1187,6 +1444,15 @@ export function createArenaCombatSketch(
 		const persistenceEnabled = Boolean(
 			options.persistPath && options.pixlState && options.campaignState
 		);
+		const getEnemyStats = (kind: CombatEnemyKind) => {
+			const stats = combatProfile.glitches[kind];
+
+			if (!stats) {
+				throw new Error(`Missing combat profile glitch stats for ${kind}`);
+			}
+
+			return stats;
+		};
 
 		let canvas: HTMLCanvasElement | null = null;
 		let currentLevelIndex = Math.max(
@@ -1199,9 +1465,17 @@ export function createArenaCombatSketch(
 		let status: WaveStatus = 'running';
 		let statusTimer = 0;
 		let currentSweepIndex = 0;
+		let currentLevelElapsedTime = 0;
 		let spawnAccumulator = 0;
 		let sweepProgress = 0;
 		let bankedXp = pixlProgression.xp;
+		let dungeonKeys: PersistedPixlState['dungeonKeys'] = {
+			'dungeon-1-key': options.pixlState?.dungeonKeys?.['dungeon-1-key'] ?? 0,
+			'dungeon-2-key': options.pixlState?.dungeonKeys?.['dungeon-2-key'] ?? 0,
+			'dungeon-3-key': options.pixlState?.dungeonKeys?.['dungeon-3-key'] ?? 0,
+			'dungeon-4-key': options.pixlState?.dungeonKeys?.['dungeon-4-key'] ?? 0,
+			'dungeon-5-key': options.pixlState?.dungeonKeys?.['dungeon-5-key'] ?? 0
+		};
 		const ownedWeapons = [...(options.pixlState?.ownedWeapons ?? [])];
 		let waveXp = 0;
 		let waveDrops: OwnedWeaponInstance[] = [];
@@ -1221,6 +1495,9 @@ export function createArenaCombatSketch(
 		let weaponDamageMultiplierByInstanceId = Object.fromEntries(
 			equippedWeapons.map((weapon) => [weapon.instanceId, 1])
 		) as Record<string, number>;
+		let ascenderBeamTickTimersByInstanceId = Object.fromEntries(
+			ascendedPeaShooters.map((weapon) => [weapon.instanceId, 0.2])
+		) as Record<string, number>;
 		let elementalInfusions = createEmptyElementalInfusions();
 		let cycleDamageMultiplier = 1;
 		let cycleDamageBuffExpiresAfterSweepIndex: number | null = null;
@@ -1230,10 +1507,12 @@ export function createArenaCombatSketch(
 		let activeShieldColor = '#60a5fa';
 		let pixlFlash = 0;
 		let enemyId = 0;
-		let spawnQueue: GlitchKind[] = [];
+		let spawnQueue: CombatEnemyKind[] = [];
 		let enemies: EnemyState[] = [];
 		let projectiles: ProjectileState[] = [];
 		let enemyProjectiles: EnemyProjectileState[] = [];
+		let enemyBeams: EnemyBeamState[] = [];
+		let activeVanishRune: VanishRuneState | null = null;
 		let forceFields: ForceFieldState[] = [];
 		let killSwitchPulses: KillSwitchPulseState[] = [];
 		let vulnerablePulses: VulnerablePulseState[] = [];
@@ -1255,11 +1534,24 @@ export function createArenaCombatSketch(
 		let blizzardStorms: BlizzardStormState[] = [];
 		let voidRifts: VoidRiftState[] = [];
 		let voidTendrils: VoidTendrilState[] = [];
+		let naturesWraths: NaturesWrathState[] = [];
 		let pixlSwallowPulses: PixlSwallowPulseState[] = [];
 		let voidTunnels: VoidTunnelState[] = [];
 		let phaseshifts: PhaseshiftState[] = [];
 		let oathbreakerSigils: OathbreakerSigilState[] = [];
 		let mirrorArrays: MirrorArrayState[] = [];
+		let runeCasts: RuneCastState[] = [];
+		let sunRunes: SunRuneState[] = [];
+		let healingRunes: HealingRuneState[] = [];
+		let slowingRunes: SlowingRuneState[] = [];
+		let sunbrandRunes: SunbrandRuneState[] = [];
+		let bindingRunes: BindingRuneState[] = [];
+		let judgmentRunes: JudgmentRuneState[] = [];
+		let pendingRuneEchoes: PendingRuneEchoState[] = [];
+		let currentSweepTriggeredRuneTypes = new Set<TriggeredSweepRuneType>();
+		let currentSweepTriggeredRuneCount = 0;
+		let triggeredRuneReplays: TriggeredRuneReplayState[] = [];
+		let lastTriggeredRuneReplayIndexByWeaponInstanceId: Record<string, number> = {};
 		let burningGrounds: BurningGroundState[] = [];
 		let delayedBombs: DelayedBombState[] = [];
 		let hemorrhageBursts: HemorrhageBurstState[] = [];
@@ -1296,6 +1588,7 @@ export function createArenaCombatSketch(
 					attackSpeed: pixlProgression.attackSpeed,
 					loadoutRows: pixlProgression.loadoutRows,
 					loadoutColumns: pixlProgression.loadoutColumns,
+					dungeonKeys,
 					ownedWeapons,
 					rewardPacks,
 					currentLevel: optimisticCurrentLevel,
@@ -1320,6 +1613,7 @@ export function createArenaCombatSketch(
 						xp: pixlProgression.xp,
 						defence: pixlProgression.defence,
 						agility: pixlProgression.agility,
+						dungeonKeys,
 						ownedWeapons
 					},
 					rewardPacks,
@@ -1349,6 +1643,7 @@ export function createArenaCombatSketch(
 				attackSpeed: pixlProgression.attackSpeed,
 				loadoutRows: pixlProgression.loadoutRows,
 				loadoutColumns: pixlProgression.loadoutColumns,
+				dungeonKeys,
 				ownedWeapons,
 				rewardPacks: [],
 				currentLevel: nextCurrentLevel,
@@ -1389,7 +1684,7 @@ export function createArenaCombatSketch(
 			p.pop();
 		};
 
-		const getEnemyContactRange = (kind: GlitchKind) =>
+		const getEnemyContactRange = (kind: CombatEnemyKind) =>
 			Math.max(
 				combatProfile.collision.contactRange,
 				(pixlShieldPool > 0
@@ -1400,7 +1695,7 @@ export function createArenaCombatSketch(
 		const getEnemyStageMultiplier = (scalingKey: 'healthPerStage' | 'damagePerStage') => {
 			const perStage = campaign.baseline.enemyStageScaling?.[scalingKey] ?? 0;
 
-			return 1 + Math.max(0, currentLevel.stage - 1) * perStage;
+			return Math.pow(1 + perStage, Math.max(0, currentLevel.stage - 1));
 		};
 
 		const getEnemyHealthMultiplier = () => {
@@ -1412,7 +1707,7 @@ export function createArenaCombatSketch(
 		};
 
 		const getEnemyDamageBonus = () => {
-			return currentLevel.enemyDamageBonus ?? 0;
+			return ('enemyDamageBonus' in currentLevel ? currentLevel.enemyDamageBonus : undefined) ?? 0;
 		};
 
 		const getLoadoutLayout = (): LoadoutLayout => {
@@ -1482,8 +1777,8 @@ export function createArenaCombatSketch(
 		const emitCombatState = () => {
 			const combatState = {
 				stage: currentLevel.stage,
-				stageLevel: currentLevel.stageLevel,
-				campaignLevel: currentLevel.campaignLevel,
+				stageLevel: getResolvedStageLevelNumber(currentLevel),
+				campaignLevel: getResolvedLevelNumber(currentLevel),
 				pixlHealth: Math.ceil(pixlHealth),
 				maxPixlHealth: pixlProgression.health,
 				pixlShieldPool: Math.ceil(pixlShieldPool),
@@ -1495,11 +1790,20 @@ export function createArenaCombatSketch(
 				statusTimerRemaining: status === 'running' ? 0 : Math.max(0, statusTimer),
 				remainingEnemies: enemies.length + spawnQueue.length,
 				composition: {
-					biters: currentLevel.composition.biters ?? 0,
-					swarmers: currentLevel.composition.swarmers ?? 0,
-					tankers: currentLevel.composition.tankers ?? 0,
-					shard: currentLevel.composition.shard ?? 0,
-					bulwark: currentLevel.composition.bulwark ?? 0
+					biters: getCombatCompositionCount(currentLevel, 'biter'),
+					swarmers: getCombatCompositionCount(currentLevel, 'swarmer'),
+					tankers: getCombatCompositionCount(currentLevel, 'tanker'),
+					shard: getCombatCompositionCount(currentLevel, 'shard'),
+					bulwark: getCombatCompositionCount(currentLevel, 'bulwark'),
+					shielder: getCombatCompositionCount(currentLevel, 'shielder'),
+					zerglitch: getCombatCompositionCount(currentLevel, 'zerglitch'),
+					bossMelee: getCombatCompositionCount(currentLevel, 'boss-melee'),
+					bossRanged: getCombatCompositionCount(currentLevel, 'boss-ranged'),
+					bossHybrid: getCombatCompositionCount(currentLevel, 'boss-hybrid'),
+					golem: getCombatCompositionCount(currentLevel, 'golem'),
+					sunpriest: getCombatCompositionCount(currentLevel, 'sunpriest'),
+					soldier: getCombatCompositionCount(currentLevel, 'soldier'),
+					highPriest: getCombatCompositionCount(currentLevel, 'high-priest')
 				},
 				latestCompletedCycle: currentSweepIndex,
 				weaponDamageRows: equippedWeapons
@@ -1536,7 +1840,7 @@ export function createArenaCombatSketch(
 		const emitResumeState = () => {
 			const resumeState: ArenaCombatResumeState = {
 				campaignId: campaign.campaign,
-				currentLevel: currentLevel.campaignLevel,
+				currentLevel: getResolvedLevelNumber(currentLevel),
 				status,
 				levelRewardsCommitted,
 				statusTimer,
@@ -1571,7 +1875,7 @@ export function createArenaCombatSketch(
 			options.onResumeStateChange?.(resumeState);
 		};
 
-		const getPixlShieldCap = () => pixlProgression.health * 2;
+		const getPixlShieldCap = () => pixlProgression.health * PIXL_SHIELD_CAP_MULTIPLIER;
 
 		const getOtherPixlShieldTotal = (sourceId: string) =>
 			Object.entries(pixlShieldSources).reduce(
@@ -1596,6 +1900,96 @@ export function createArenaCombatSketch(
 
 		const getMineShieldTurretSourceIds = () =>
 			new Set(mineShieldTurrets.map((turret) => turret.sourceUtilityInstanceId));
+
+		const getStoneWardSourceShield = (sourceId: string) =>
+			Math.max(0, pixlShieldSources[sourceId] ?? 0);
+
+		const getMaxStoneWardShield = (sourceId: string) => {
+			const stoneWard = triggeredUtilities.find((utility) => utility.instanceId === sourceId);
+
+			if (!stoneWard || stoneWard.definition.id !== 'stone-ward') {
+				return 0;
+			}
+
+			if (stoneWard.definition.effect.type !== 'shield-pool') {
+				return 0;
+			}
+
+			return Math.ceil(
+				pixlProgression.health *
+					stoneWard.definition.effect.shieldPercent *
+					getUtilityShieldOutputMultiplier(sourceId)
+			);
+		};
+
+		const getActiveStoneWards = (): StoneWardState[] => {
+			const stoneWards = triggeredUtilities.filter(
+				(utility) => utility.definition.id === 'stone-ward'
+			);
+			const activeWards: StoneWardState[] = [];
+
+			for (const utility of stoneWards) {
+				const shield = getStoneWardSourceShield(utility.instanceId);
+
+				if (shield <= 0) {
+					continue;
+				}
+
+				const lineWidth = 8;
+				const maxShield = Math.max(shield, getMaxStoneWardShield(utility.instanceId));
+				activeWards.push({
+					sourceUtilityInstanceId: utility.instanceId,
+					radius: combatProfile.collision.pixlRadius + 34 + activeWards.length * 12,
+					lineWidth,
+					color: utility.definition.utilityVisual?.color ?? '#cbd5e1',
+					glow: utility.definition.utilityVisual?.glow ?? true,
+					pulse: pixlAuraClock,
+					shield,
+					maxShield
+				});
+			}
+
+			return activeWards;
+		};
+
+		const applyDamageToShieldSource = (sourceId: string, damage: number) => {
+			const currentShield = getStoneWardSourceShield(sourceId);
+			const absorbed = Math.min(currentShield, Math.max(0, damage));
+
+			if (absorbed <= 0) {
+				return 0;
+			}
+
+			setPixlShieldSourceAmount(sourceId, currentShield - absorbed);
+			recalculatePixlShieldPool();
+			return absorbed;
+		};
+
+		const clampEnemyOutsideStoneWard = (enemy: EnemyState) => {
+			const enemyRadius = ENEMY_VISUALS[enemy.kind].radius;
+			const activeStoneWards = [...getActiveStoneWards()].sort(
+				(left, right) => right.radius - left.radius
+			);
+
+			for (const ward of activeStoneWards) {
+				const dx = enemy.x - centerX;
+				const dy = enemy.y - centerY;
+				const distance = Math.hypot(dx, dy);
+				const minimumDistance = ward.radius + enemyRadius;
+
+				if (distance >= minimumDistance) {
+					continue;
+				}
+
+				const normalX = distance > 0.001 ? dx / distance : 1;
+				const normalY = distance > 0.001 ? dy / distance : 0;
+				enemy.x = centerX + normalX * minimumDistance;
+				enemy.y = centerY + normalY * minimumDistance;
+				return ward;
+			}
+
+			return null;
+		};
 
 		const clampMineShieldTurretShieldsToCap = () => {
 			const mineShieldTurretSourceIds = getMineShieldTurretSourceIds();
@@ -1627,6 +2021,21 @@ export function createArenaCombatSketch(
 				pixlShieldPool = 0;
 				activeShieldColor = '#60a5fa';
 			}
+		};
+
+		const hasActiveVanishRune = () =>
+			activeVanishRune !== null && activeVanishRune.age < activeVanishRune.duration;
+
+		const applyVanishRune = (utility: EquippedUtilityState, durationCycles: number) => {
+			activeVanishRune = {
+				sourceUtilityInstanceId: utility.instanceId,
+				age: 0,
+				duration: Math.max(1, durationCycles) / Math.max(0.001, pixlProgression.attackSpeed),
+				radius: combatProfile.collision.pixlRadius + 22,
+				color: utility.definition.utilityVisual?.color ?? '#86efac',
+				glow: utility.definition.utilityVisual?.glow ?? true,
+				pulse: pixlAuraClock
+			};
 		};
 
 		const setMineShieldTurretShield = (sourceId: string, amount: number) => {
@@ -1707,6 +2116,7 @@ export function createArenaCombatSketch(
 			status = 'running';
 			statusTimer = 0;
 			currentSweepIndex = 0;
+			currentLevelElapsedTime = 0;
 			spawnAccumulator = 0;
 			sweepProgress = 0;
 			waveXp = 0;
@@ -1715,10 +2125,14 @@ export function createArenaCombatSketch(
 			pixlHealth = pixlProgression.health;
 			pixlShieldPool = 0;
 			pixlShieldSources = {};
+			enemyBeams = [];
 			knifeRemainingRicochetsByInstanceId = {};
 			pendingNextWeaponDamageMultiplier = 1;
 			weaponDamageMultiplierByInstanceId = Object.fromEntries(
 				equippedWeapons.map((weapon) => [weapon.instanceId, 1])
+			) as Record<string, number>;
+			ascenderBeamTickTimersByInstanceId = Object.fromEntries(
+				ascendedPeaShooters.map((weapon) => [weapon.instanceId, 0.2])
 			) as Record<string, number>;
 			activeShieldColor = '#60a5fa';
 			resetUtilityCooldowns();
@@ -1734,6 +2148,7 @@ export function createArenaCombatSketch(
 			enemies = [];
 			projectiles = [];
 			enemyProjectiles = [];
+			activeVanishRune = null;
 			forceFields = [];
 			killSwitchPulses = [];
 			vulnerablePulses = [];
@@ -1755,11 +2170,24 @@ export function createArenaCombatSketch(
 			blizzardStorms = [];
 			voidRifts = [];
 			voidTendrils = [];
+			naturesWraths = [];
 			pixlSwallowPulses = [];
 			voidTunnels = [];
 			phaseshifts = [];
 			oathbreakerSigils = [];
 			mirrorArrays = [];
+			runeCasts = [];
+			sunRunes = [];
+			healingRunes = [];
+			slowingRunes = [];
+			sunbrandRunes = [];
+			bindingRunes = [];
+			judgmentRunes = [];
+			pendingRuneEchoes = [];
+			currentSweepTriggeredRuneTypes = new Set<TriggeredSweepRuneType>();
+			currentSweepTriggeredRuneCount = 0;
+			triggeredRuneReplays = [];
+			lastTriggeredRuneReplayIndexByWeaponInstanceId = {};
 			burningGrounds = [];
 			delayedBombs = [];
 			hemorrhageBursts = [];
@@ -1769,7 +2197,7 @@ export function createArenaCombatSketch(
 			spawnQueue = shuffleInPlace(buildSpawnQueue(currentLevel), p);
 
 			if (spawnQueue.length > 0) {
-				spawnEnemy(spawnQueue.shift() as GlitchKind);
+				spawnEnemy(spawnQueue.shift() as CombatEnemyKind);
 			}
 		};
 
@@ -1796,7 +2224,7 @@ export function createArenaCombatSketch(
 			const elementalDamageMultiplier = weapon.attack.requiredInfusion
 				? elementalCycleDamageMultipliers[weapon.attack.requiredInfusion]
 				: 1;
-			const knifePackageDamageMultiplier = isSocketedKnifeSource(sourceWeaponInstanceId) ? 5 : 1;
+			const knifePackageDamageMultiplier = isSocketedKnifeSource(sourceWeaponInstanceId) ? 2.5 : 1;
 
 			return Math.max(
 				1,
@@ -1953,7 +2381,7 @@ export function createArenaCombatSketch(
 		};
 
 		const rollLevelRewardPacks = () => {
-			if (!rewardsEnabled) {
+			if (!rewardsEnabled || !isCampaignLevel(currentLevel)) {
 				return [] as PersistedRewardPack[];
 			}
 
@@ -1978,11 +2406,94 @@ export function createArenaCombatSketch(
 		const getBossAnchorHealth = (stage: number) => {
 			return Math.max(
 				1,
-				Math.round(BOSS_HEALTH_ANCHOR_BASE * (1 + Math.max(0, stage - 1) * BOSS_HEALTH_PER_STAGE))
+				Math.round(
+					BOSS_HEALTH_ANCHOR_BASE * Math.pow(1 + BOSS_HEALTH_PER_STAGE, Math.max(0, stage - 1))
+				)
 			);
 		};
 
-		const getBossTargetHealth = (kind: GlitchKind, stage: number) => {
+		const isBossEnemyKind = (kind: CombatEnemyKind) => {
+			return (
+				kind === 'boss-melee' ||
+				kind === 'boss-ranged' ||
+				kind === 'boss-hybrid' ||
+				kind === 'high-priest'
+			);
+		};
+
+		const isBossFocusedSingleTargetWeapon = (weapon: WeaponDefinition | null) => {
+			if (!weapon) {
+				return false;
+			}
+
+			const specialType = weapon.attack.special?.type;
+
+			if (weapon.attack.projectileCount !== 1) {
+				return false;
+			}
+
+			if ((weapon.attack.impactRadius ?? 0) > 0 || (weapon.attack.pierceCount ?? 0) > 0) {
+				return false;
+			}
+
+			return ![
+				'force-field',
+				'kill-switch',
+				'laser-sweep',
+				'needle-fan',
+				'execution-lattice',
+				'fork-lightning',
+				'burning-ground',
+				'delayed-bomb',
+				'flamethrower-cone',
+				'ice-shower',
+				'natures-wrath',
+				'void-tendrils',
+				'void-rift',
+				'void-tunnel',
+				'perimeter-mine',
+				'turret-mine',
+				'support-pylon',
+				'laser-rod-network'
+			].includes(specialType ?? '');
+		};
+
+		const isAoeOrMultiTargetWeapon = (weapon: WeaponDefinition | null) => {
+			if (!weapon) {
+				return false;
+			}
+
+			const specialType = weapon.attack.special?.type;
+
+			return (
+				weapon.attack.projectileCount > 1 ||
+				(weapon.attack.impactRadius ?? 0) > 0 ||
+				(weapon.attack.pierceCount ?? 0) > 0 ||
+				weapon.family === 'mine' ||
+				[
+					'force-field',
+					'kill-switch',
+					'laser-sweep',
+					'needle-fan',
+					'execution-lattice',
+					'fork-lightning',
+					'burning-ground',
+					'delayed-bomb',
+					'flamethrower-cone',
+					'ice-shower',
+					'natures-wrath',
+					'void-tendrils',
+					'void-rift',
+					'void-tunnel',
+					'perimeter-mine',
+					'turret-mine',
+					'support-pylon',
+					'laser-rod-network'
+				].includes(specialType ?? '')
+			);
+		};
+
+		const getBossTargetHealth = (kind: CombatEnemyKind, stage: number) => {
 			const anchorHealth = getBossAnchorHealth(stage);
 			const stageIndex = Math.max(
 				0,
@@ -2001,6 +2512,10 @@ export function createArenaCombatSketch(
 
 			if (kind === 'boss-hybrid') {
 				targetHealth = anchorHealth * 40;
+			}
+
+			if (kind === 'high-priest') {
+				targetHealth = Math.max(getEnemyStats(kind).health, anchorHealth * 40);
 			}
 
 			if (targetHealth === null) {
@@ -2027,27 +2542,29 @@ export function createArenaCombatSketch(
 				return currentLevel.bossDamageBonus;
 			}
 
-			return currentLevel.enemyDamageBonus ?? 0;
+			return ('enemyDamageBonus' in currentLevel ? currentLevel.enemyDamageBonus : undefined) ?? 0;
 		};
 
-		const getXpForEnemyKind = (kind: GlitchKind) => {
+		const getXpForEnemyKind = (kind: CombatEnemyKind) => {
+			const xpPerEnemy = (currentLevel.xpPerEnemy ?? {}) as Record<string, number | undefined>;
+
 			if (kind === 'boss-melee') {
-				return currentLevel.xpPerEnemy.bossMelee ?? 0;
+				return xpPerEnemy.bossMelee ?? 0;
 			}
 
 			if (kind === 'boss-ranged') {
-				return currentLevel.xpPerEnemy.bossRanged ?? 0;
+				return xpPerEnemy.bossRanged ?? 0;
 			}
 
 			if (kind === 'boss-hybrid') {
-				return currentLevel.xpPerEnemy.bossHybrid ?? 0;
+				return xpPerEnemy.bossHybrid ?? 0;
 			}
 
-			return currentLevel.xpPerEnemy[kind] ?? 0;
+			return xpPerEnemy[kind] ?? 0;
 		};
 
 		const getBossEnemyOverrides = (
-			kind: GlitchKind
+			kind: CombatEnemyKind
 		):
 			| Partial<
 					Pick<
@@ -2077,7 +2594,7 @@ export function createArenaCombatSketch(
 		};
 
 		const createEnemyState = (
-			kind: GlitchKind,
+			kind: CombatEnemyKind,
 			x: number,
 			y: number,
 			overrides?: Partial<
@@ -2093,15 +2610,16 @@ export function createArenaCombatSketch(
 				>
 			>
 		): EnemyState => {
-			const stats = combatProfile.glitches[kind];
+			const stats = getEnemyStats(kind);
 			const attackInterval = 1 / stats.attackSpeed;
 			const preferredRange = stats.preferredRange ?? getEnemyContactRange(kind);
-			const holdRadius =
-				stats.attackPattern === 'siege' ? FIXED_SPAWN_RADIUS : preferredRange + p.random(-12, 16);
+			const prefersRangeControl = stats.attackPattern === 'siege' || stats.attackPattern === 'beam';
+			const holdRadius = prefersRangeControl
+				? FIXED_SPAWN_RADIUS
+				: preferredRange + p.random(-12, 16);
 			const healthMultiplier = getEnemyHealthMultiplier();
 			const scaledHealth = Math.max(1, Math.round(stats.health * healthMultiplier));
-			const initialAttackTimer =
-				stats.attackPattern === 'siege' ? attackInterval * 2.5 : attackInterval;
+			const initialAttackTimer = prefersRangeControl ? attackInterval * 2.5 : attackInterval;
 
 			return {
 				id: enemyId,
@@ -2124,6 +2642,15 @@ export function createArenaCombatSketch(
 				shieldPulseTimer: 0,
 				shieldPulseCooldown: p.random(0, Math.max(0.15, (stats.onHitShieldCooldown ?? 0) * 0.5)),
 				confusionTimer: 0,
+				slowTimer: 0,
+				slowMultiplier: 1,
+				sunbrandTimer: 0,
+				sunbrandBaseDamage: 0,
+				sunbrandTriggerDamageMultiplier: 0,
+				sunbrandSourceWeaponInstanceId: null,
+				bindingRuneHitCount: 0,
+				bindingRuneDamageMultiplierPerHit: 0,
+				bindingRuneSourceWeaponInstanceId: null,
 				voidTouchedTimer: 0,
 				fireExposedTimer: 0,
 				lifeStealMarkTimer: 0,
@@ -2217,7 +2744,7 @@ export function createArenaCombatSketch(
 			return effectiveStoredDamage / duration;
 		};
 
-		const spawnEnemy = (kind: GlitchKind) => {
+		const spawnEnemy = (kind: CombatEnemyKind) => {
 			const angle = p.random(p.TWO_PI);
 			const x = centerX + Math.cos(angle) * FIXED_SPAWN_RADIUS;
 			const y = centerY + Math.sin(angle) * FIXED_SPAWN_RADIUS;
@@ -2227,7 +2754,7 @@ export function createArenaCombatSketch(
 		};
 
 		const spawnEnemyAtPosition = (
-			kind: GlitchKind,
+			kind: CombatEnemyKind,
 			x: number,
 			y: number,
 			overrides?: Partial<
@@ -2264,6 +2791,33 @@ export function createArenaCombatSketch(
 			}
 
 			return closestEnemy;
+		};
+
+		const getFrontlineHealTarget = (sourceEnemyId: number) => {
+			let bestEnemy: EnemyState | null = null;
+			let bestScore = 0;
+
+			for (const enemy of enemies) {
+				if (
+					enemy.id === sourceEnemyId ||
+					enemy.health >= enemy.maxHealth ||
+					isEnemyCapturedByVoidTendril(enemy.id)
+				) {
+					continue;
+				}
+
+				const missingHealthRatio = 1 - enemy.health / Math.max(1, enemy.maxHealth);
+				const distanceToPixl = Math.hypot(enemy.x - centerX, enemy.y - centerY);
+				const frontlineRatio = 1 - Math.min(1, distanceToPixl / Math.max(1, FIXED_SPAWN_RADIUS));
+				const score = missingHealthRatio * 1.5 + frontlineRatio;
+
+				if (score > bestScore) {
+					bestScore = score;
+					bestEnemy = enemy;
+				}
+			}
+
+			return bestEnemy;
 		};
 
 		const getClosestShieldableEnemy = () => {
@@ -2328,17 +2882,25 @@ export function createArenaCombatSketch(
 		};
 
 		const isRangedEnemy = (enemy: EnemyState) => {
-			return combatProfile.glitches[enemy.kind].attackPattern === 'siege';
+			const attackPattern = getEnemyStats(enemy.kind).attackPattern;
+
+			return attackPattern === 'siege' || attackPattern === 'beam';
 		};
 
 		const isBossEnemy = (enemy: EnemyState) => {
 			return (
-				enemy.kind === 'boss-melee' || enemy.kind === 'boss-ranged' || enemy.kind === 'boss-hybrid'
+				enemy.kind === 'boss-melee' ||
+				enemy.kind === 'boss-ranged' ||
+				enemy.kind === 'boss-hybrid' ||
+				enemy.kind === 'high-priest'
 			);
 		};
 
 		const isEnemyCapturedByVoidTendril = (enemyId: number) => {
-			return voidTendrils.some((tendril) => tendril.enemyId === enemyId);
+			return (
+				voidTendrils.some((tendril) => tendril.enemyId === enemyId) ||
+				naturesWraths.some((tendril) => tendril.enemyId === enemyId)
+			);
 		};
 
 		const getCurrentCycleProgress = () => {
@@ -2877,6 +3439,8 @@ export function createArenaCombatSketch(
 				return false;
 			}
 
+			const bleedPerBranch = burstBleedRicochet / burstTargets.length;
+
 			enemy.bleedStoredDamage = 0;
 			enemy.bleedDurationRemaining = 0;
 			enemy.bleedSourceWeaponInstanceId = null;
@@ -2891,7 +3455,7 @@ export function createArenaCombatSketch(
 			}
 
 			for (const [targetIndex, burstTarget] of burstTargets.entries()) {
-				const branchBleedRicochet = burstBleedRicochet;
+				const branchBleedRicochet = bleedPerBranch;
 
 				if (branchBleedRicochet <= 0) {
 					continue;
@@ -3124,7 +3688,26 @@ export function createArenaCombatSketch(
 			enemies.splice(enemyIndex, 1);
 		};
 
+		const consumeEnemyIntoNatureHeal = (enemyIndex: number) => {
+			const consumedEnemy = enemies[enemyIndex];
+
+			if (!consumedEnemy) {
+				return;
+			}
+
+			if (markedEnemyId === consumedEnemy.id) {
+				markedEnemyId = null;
+			}
+
+			waveXp += getXpForEnemyKind(consumedEnemy.kind);
+			enemies.splice(enemyIndex, 1);
+		};
+
 		const applyDamageToPixl = (damage: number) => {
+			if (hasActiveVanishRune()) {
+				return;
+			}
+
 			let remainingDamage = Math.max(0, damage);
 
 			if (pixlShieldPool > 0) {
@@ -3215,7 +3798,7 @@ export function createArenaCombatSketch(
 				return { defeated: false, actualDamage: 0 };
 			}
 
-			const stats = combatProfile.glitches[enemy.kind];
+			const stats = getEnemyStats(enemy.kind);
 			let remainingDamage = damage;
 			let actualDamage = 0;
 			const applyWeaponHitEffects = options.applyWeaponHitEffects ?? true;
@@ -3240,6 +3823,18 @@ export function createArenaCombatSketch(
 				remainingDamage *= targetPainterEffect.damageMultiplier;
 			}
 
+			if (
+				enemy.bindingRuneHitCount > 0 &&
+				enemy.bindingRuneDamageMultiplierPerHit > 1 &&
+				applyWeaponHitEffects &&
+				sourceWeaponInstanceId
+			) {
+				remainingDamage *= Math.pow(
+					enemy.bindingRuneDamageMultiplierPerHit,
+					enemy.bindingRuneHitCount
+				);
+			}
+
 			if (sourceWeapon?.family !== 'pylon') {
 				remainingDamage *= getMarkBeaconDamageMultiplierAtPoint(enemy.x, enemy.y);
 			}
@@ -3254,6 +3849,14 @@ export function createArenaCombatSketch(
 
 			if (enemy.vulnerableTimer > 0) {
 				remainingDamage *= 1.33;
+			}
+
+			if (sourceWeapon && isBossEnemyKind(enemy.kind)) {
+				if (isBossFocusedSingleTargetWeapon(sourceWeapon)) {
+					remainingDamage *= 1.75;
+				} else if (isAoeOrMultiTargetWeapon(sourceWeapon)) {
+					remainingDamage *= 0.6;
+				}
 			}
 
 			if (enemy.supportShieldPool > 0) {
@@ -3330,6 +3933,33 @@ export function createArenaCombatSketch(
 			}
 			if (enemy.lifeStealMarkTimer > 0 && actualDamage > 0) {
 				healPixl(actualDamage * enemy.lifeStealMarkRatio);
+			}
+			if (
+				applyWeaponHitEffects &&
+				actualDamage > 0 &&
+				enemy.bindingRuneHitCount > 0 &&
+				enemy.bindingRuneDamageMultiplierPerHit > 1 &&
+				sourceWeaponInstanceId
+			) {
+				enemy.bindingRuneHitCount += 1;
+			}
+			if (
+				applyWeaponHitEffects &&
+				actualDamage > 0 &&
+				enemy.sunbrandTimer > 0 &&
+				enemy.sunbrandSourceWeaponInstanceId &&
+				sourceWeaponInstanceId !== enemy.sunbrandSourceWeaponInstanceId
+			) {
+				const burstDamage =
+					enemy.sunbrandBaseDamage + actualDamage * enemy.sunbrandTriggerDamageMultiplier;
+				const sunbrandSourceWeaponInstanceId = enemy.sunbrandSourceWeaponInstanceId;
+				enemy.sunbrandTimer = 0;
+				enemy.sunbrandBaseDamage = 0;
+				enemy.sunbrandTriggerDamageMultiplier = 0;
+				enemy.sunbrandSourceWeaponInstanceId = null;
+				applyDamageToEnemy(enemyIndex, burstDamage, 0.12, sunbrandSourceWeaponInstanceId, {
+					applyWeaponHitEffects: false
+				});
 			}
 
 			if (applyWeaponHitEffects && sourceWeapon?.attack.special?.type === 'vulnerable-hit') {
@@ -3873,6 +4503,510 @@ export function createArenaCombatSketch(
 			});
 		};
 
+		const spawnSunRune = (
+			weapon: WeaponDefinition,
+			sourceWeaponInstanceId: string,
+			_target: EnemyState | null,
+			efficiencyMultiplier = 1,
+			allowEcho = true
+		) => {
+			const special = weapon.attack.special;
+
+			if (!special || special.type !== 'sun-rune') {
+				return;
+			}
+
+			runeCasts.push({
+				sourceWeaponInstanceId,
+				variant: 'sun-rune',
+				centerX,
+				centerY: centerY - Math.max(34, arenaRadius * 0.18),
+				runeSize: Math.max(10, special.impactSize * 1.2),
+				color: weapon.projectileVisual.color,
+				glow: weapon.projectileVisual.glow ?? false,
+				age: 0,
+				duration: special.castDuration
+			});
+
+			sunRunes.push({
+				sourceWeaponInstanceId,
+				centerX,
+				centerY,
+				radius: arenaRadius * special.radius,
+				damagePerPulse: getAdjustedWeaponDamage(
+					weapon,
+					efficiencyMultiplier,
+					sourceWeaponInstanceId
+				),
+				waveThickness: Math.max(10, special.impactSize * 0.9),
+				impactSize: special.impactSize,
+				color: weapon.projectileVisual.color,
+				glow: weapon.projectileVisual.glow ?? false,
+				age: 0,
+				duration: special.durationCycles / Math.max(0.001, pixlProgression.attackSpeed),
+				hitEnemyIds: []
+			});
+
+			if (!allowEcho) {
+				return;
+			}
+
+			const idolEffect = getIdolOfEchoesEffect();
+
+			if (!idolEffect) {
+				return;
+			}
+
+			pendingRuneEchoes.push({
+				runeType: 'sun-rune',
+				weapon,
+				sourceWeaponInstanceId,
+				delay: idolEffect.echoDelay,
+				efficiencyMultiplier: idolEffect.echoEfficiency
+			});
+		};
+
+		const spawnHealingRune = (
+			weapon: WeaponDefinition,
+			sourceWeaponInstanceId: string,
+			_target: EnemyState | null,
+			efficiencyMultiplier = 1,
+			allowEcho = true
+		) => {
+			const special = weapon.attack.special;
+
+			if (!special || special.type !== 'healing-rune') {
+				return;
+			}
+
+			runeCasts.push({
+				sourceWeaponInstanceId,
+				variant: 'healing-rune',
+				centerX,
+				centerY: centerY - Math.max(34, arenaRadius * 0.18),
+				runeSize: 14,
+				color: weapon.projectileVisual.color,
+				glow: weapon.projectileVisual.glow ?? false,
+				age: 0,
+				duration: special.castDuration
+			});
+
+			healPixl(
+				Math.max(
+					1,
+					Math.round(
+						(pixlProgression.health * special.healMaxHealthRatio + special.healFlat) *
+							efficiencyMultiplier
+					)
+				)
+			);
+
+			healingRunes.push({
+				sourceWeaponInstanceId,
+				centerX,
+				centerY,
+				radius: Math.max(48, arenaRadius * special.maxRadiusFactor),
+				color: weapon.projectileVisual.color,
+				glow: weapon.projectileVisual.glow ?? false,
+				age: 0,
+				duration: special.durationCycles / Math.max(0.001, pixlProgression.attackSpeed)
+			});
+
+			if (!allowEcho) {
+				return;
+			}
+
+			const idolEffect = getIdolOfEchoesEffect();
+
+			if (!idolEffect) {
+				return;
+			}
+
+			pendingRuneEchoes.push({
+				runeType: 'healing-rune',
+				weapon,
+				sourceWeaponInstanceId,
+				delay: idolEffect.echoDelay,
+				efficiencyMultiplier: idolEffect.echoEfficiency
+			});
+		};
+
+		const spawnSlowingRune = (
+			weapon: WeaponDefinition,
+			sourceWeaponInstanceId: string,
+			_target: EnemyState | null,
+			efficiencyMultiplier = 1,
+			allowEcho = true
+		) => {
+			const special = weapon.attack.special;
+
+			if (!special || special.type !== 'slowing-rune') {
+				return;
+			}
+
+			runeCasts.push({
+				sourceWeaponInstanceId,
+				variant: 'slowing-rune',
+				centerX,
+				centerY: centerY - Math.max(34, arenaRadius * 0.18),
+				runeSize: Math.max(10, special.impactSize * 1.15),
+				color: weapon.projectileVisual.color,
+				glow: weapon.projectileVisual.glow ?? false,
+				age: 0,
+				duration: special.castDuration
+			});
+
+			slowingRunes.push({
+				sourceWeaponInstanceId,
+				centerX,
+				centerY,
+				radius: arenaRadius * special.radius,
+				slowMultiplier: 1 - (1 - special.slowMultiplier) * efficiencyMultiplier,
+				slowDuration: special.slowDurationCycles / Math.max(0.001, pixlProgression.attackSpeed),
+				waveThickness: Math.max(10, special.impactSize * 0.92),
+				impactSize: special.impactSize,
+				color: weapon.projectileVisual.color,
+				glow: weapon.projectileVisual.glow ?? false,
+				age: 0,
+				duration: special.durationCycles / Math.max(0.001, pixlProgression.attackSpeed),
+				hitEnemyIds: []
+			});
+
+			if (!allowEcho) {
+				return;
+			}
+
+			const idolEffect = getIdolOfEchoesEffect();
+
+			if (!idolEffect) {
+				return;
+			}
+
+			pendingRuneEchoes.push({
+				runeType: 'slowing-rune',
+				weapon,
+				sourceWeaponInstanceId,
+				delay: idolEffect.echoDelay,
+				efficiencyMultiplier: idolEffect.echoEfficiency
+			});
+		};
+
+		const spawnSunbrandRune = (
+			weapon: WeaponDefinition,
+			sourceWeaponInstanceId: string,
+			_target: EnemyState | null,
+			efficiencyMultiplier = 1,
+			allowEcho = true
+		) => {
+			const special = weapon.attack.special;
+
+			if (!special || special.type !== 'sunbrand-rune') {
+				return;
+			}
+
+			runeCasts.push({
+				sourceWeaponInstanceId,
+				variant: 'sunbrand-rune',
+				centerX,
+				centerY: centerY - Math.max(34, arenaRadius * 0.18),
+				runeSize: Math.max(10, special.impactSize * 1.18),
+				color: weapon.projectileVisual.color,
+				glow: weapon.projectileVisual.glow ?? false,
+				age: 0,
+				duration: special.castDuration
+			});
+
+			sunbrandRunes.push({
+				sourceWeaponInstanceId,
+				centerX,
+				centerY,
+				radius: arenaRadius * special.radius,
+				brandDuration: special.brandDurationCycles / Math.max(0.001, pixlProgression.attackSpeed),
+				burstBaseDamage: special.burstBaseDamage * efficiencyMultiplier,
+				triggerDamageMultiplier: special.triggerDamageMultiplier * efficiencyMultiplier,
+				waveThickness: Math.max(10, special.impactSize * 0.92),
+				impactSize: special.impactSize,
+				color: weapon.projectileVisual.color,
+				glow: weapon.projectileVisual.glow ?? false,
+				age: 0,
+				duration: special.durationCycles / Math.max(0.001, pixlProgression.attackSpeed),
+				hitEnemyIds: []
+			});
+
+			if (!allowEcho) {
+				return;
+			}
+
+			const idolEffect = getIdolOfEchoesEffect();
+
+			if (!idolEffect) {
+				return;
+			}
+
+			pendingRuneEchoes.push({
+				runeType: 'sunbrand-rune',
+				weapon,
+				sourceWeaponInstanceId,
+				delay: idolEffect.echoDelay,
+				efficiencyMultiplier: idolEffect.echoEfficiency
+			});
+		};
+
+		const spawnBindingRune = (
+			weapon: WeaponDefinition,
+			sourceWeaponInstanceId: string,
+			_target: EnemyState | null,
+			efficiencyMultiplier = 1,
+			allowEcho = true
+		) => {
+			const special = weapon.attack.special;
+
+			if (!special || special.type !== 'binding-rune') {
+				return;
+			}
+
+			runeCasts.push({
+				sourceWeaponInstanceId,
+				variant: 'binding-rune',
+				centerX,
+				centerY: centerY - Math.max(34, arenaRadius * 0.18),
+				runeSize: Math.max(10, special.impactSize * 1.12),
+				color: weapon.projectileVisual.color,
+				glow: weapon.projectileVisual.glow ?? false,
+				age: 0,
+				duration: special.castDuration
+			});
+
+			bindingRunes.push({
+				sourceWeaponInstanceId,
+				centerX,
+				centerY,
+				radius: arenaRadius * special.radius,
+				damageMultiplierPerHit: 1 + (special.damageMultiplierPerHit - 1) * efficiencyMultiplier,
+				waveThickness: Math.max(10, special.impactSize * 0.92),
+				impactSize: special.impactSize,
+				color: weapon.projectileVisual.color,
+				glow: weapon.projectileVisual.glow ?? false,
+				age: 0,
+				duration: special.durationCycles / Math.max(0.001, pixlProgression.attackSpeed),
+				hitEnemyIds: []
+			});
+
+			if (!allowEcho) {
+				return;
+			}
+
+			const idolEffect = getIdolOfEchoesEffect();
+
+			if (!idolEffect) {
+				return;
+			}
+
+			pendingRuneEchoes.push({
+				runeType: 'binding-rune',
+				weapon,
+				sourceWeaponInstanceId,
+				delay: idolEffect.echoDelay,
+				efficiencyMultiplier: idolEffect.echoEfficiency
+			});
+		};
+
+		const spawnRuneReiterator = (weapon: WeaponDefinition, sourceWeaponInstanceId: string) => {
+			const special = weapon.attack.special;
+
+			if (!special || special.type !== 'rune-reiterator') {
+				return;
+			}
+
+			runeCasts.push({
+				sourceWeaponInstanceId,
+				variant: 'rune-reiterator',
+				centerX,
+				centerY: centerY - Math.max(34, arenaRadius * 0.18),
+				runeSize: 14,
+				color: weapon.projectileVisual.color,
+				glow: weapon.projectileVisual.glow ?? false,
+				age: 0,
+				duration: special.castDuration
+			});
+
+			const replayStartIndex =
+				lastTriggeredRuneReplayIndexByWeaponInstanceId[sourceWeaponInstanceId] ?? 0;
+			const replaysSinceLastTrigger = triggeredRuneReplays.slice(replayStartIndex);
+			lastTriggeredRuneReplayIndexByWeaponInstanceId[sourceWeaponInstanceId] =
+				triggeredRuneReplays.length;
+
+			for (const [replayIndex, replay] of replaysSinceLastTrigger.entries()) {
+				pendingRuneEchoes.push({
+					runeType: replay.runeType,
+					weapon: replay.weapon,
+					sourceWeaponInstanceId: replay.sourceWeaponInstanceId,
+					delay: special.replayDelay * (replayIndex + 1),
+					efficiencyMultiplier: 1
+				});
+			}
+		};
+
+		const spawnAscendanceRune = (
+			weapon: WeaponDefinition,
+			sourceWeaponInstanceId: string
+		): WeaponActivationResult => {
+			const special = weapon.attack.special;
+
+			if (!special || special.type !== 'ascendance-rune') {
+				return {
+					pendingNextWeaponDamageMultiplier: null,
+					didActivate: false,
+					nextCyclesUntilTrigger: null
+				};
+			}
+
+			if (currentSweepTriggeredRuneTypes.size < special.requiredUniqueRuneCount) {
+				return {
+					pendingNextWeaponDamageMultiplier: null,
+					didActivate: false,
+					nextCyclesUntilTrigger: null
+				};
+			}
+
+			runeCasts.push({
+				sourceWeaponInstanceId,
+				variant: 'ascendance-rune',
+				centerX,
+				centerY: centerY - Math.max(36, arenaRadius * 0.2),
+				runeSize: 12,
+				color: weapon.projectileVisual.color,
+				glow: weapon.projectileVisual.glow ?? false,
+				age: 0,
+				duration: special.castDuration
+			});
+
+			healPixl(pixlProgression.health);
+			cycleDamageMultiplier = Math.max(cycleDamageMultiplier, special.damageMultiplier);
+			cycleDamageBuffExpiresAfterSweepIndex = Math.max(
+				cycleDamageBuffExpiresAfterSweepIndex ?? 0,
+				currentSweepIndex + special.buffDurationCycles
+			);
+
+			return {
+				pendingNextWeaponDamageMultiplier: null,
+				didActivate: true,
+				nextCyclesUntilTrigger: special.successCooldownCycles
+			};
+		};
+
+		const spawnJudgmentRune = (
+			weapon: WeaponDefinition,
+			sourceWeaponInstanceId: string,
+			target: EnemyState | null
+		): WeaponActivationResult => {
+			const special = weapon.attack.special;
+
+			if (!special || special.type !== 'judgment-rune') {
+				return {
+					pendingNextWeaponDamageMultiplier: null,
+					didActivate: false,
+					nextCyclesUntilTrigger: null
+				};
+			}
+
+			const uniqueTriggeredRuneCount = Array.from(currentSweepTriggeredRuneTypes).filter(
+				(runeType) => replayableRuneSpecialTypes.has(runeType as PendingRuneEchoState['runeType'])
+			).length;
+			const durationCycles =
+				special.baseDurationCycles + uniqueTriggeredRuneCount * special.durationCyclesPerUniqueRune;
+			const triggeredRuneCount = currentSweepTriggeredRuneCount;
+			const damageMultiplier =
+				1 + currentSweepTriggeredRuneCount * special.damageMultiplierPerTriggeredRune;
+			const canRefreshPersistentOrb = triggeredRuneCount >= special.minTriggeredRuneCountToRefresh;
+			const initialOrbitAngle = target
+				? Math.atan2(target.y - centerY, target.x - centerX)
+				: -Math.PI / 2;
+			const nextDuration =
+				Math.max(1, durationCycles) / Math.max(0.001, pixlProgression.attackSpeed);
+
+			runeCasts.push({
+				sourceWeaponInstanceId,
+				variant: 'judgment-rune',
+				centerX,
+				centerY: centerY - Math.max(36, arenaRadius * 0.2),
+				runeSize: Math.max(12, special.sunRadius * 0.9),
+				color: weapon.projectileVisual.color,
+				glow: weapon.projectileVisual.glow ?? false,
+				age: 0,
+				duration: special.castDuration
+			});
+
+			const existingJudgmentRune = judgmentRunes[0];
+
+			if (existingJudgmentRune && canRefreshPersistentOrb) {
+				existingJudgmentRune.sourceWeaponInstanceId = sourceWeaponInstanceId;
+				existingJudgmentRune.baseDamagePerTick = Math.min(
+					existingJudgmentRune.baseDamagePerTick,
+					special.maxBaseDamagePerTick
+				);
+				existingJudgmentRune.damageMultiplier = Math.max(
+					existingJudgmentRune.damageMultiplier,
+					damageMultiplier
+				);
+				existingJudgmentRune.damagePerTick =
+					existingJudgmentRune.baseDamagePerTick * existingJudgmentRune.damageMultiplier;
+				existingJudgmentRune.damageGrowthPerCycle = special.damageGrowthPerCycle;
+				existingJudgmentRune.maxBaseDamagePerTick = special.maxBaseDamagePerTick;
+				existingJudgmentRune.damageRadius = special.damageRadius;
+				existingJudgmentRune.orbitRadius = special.orbitRadius;
+				existingJudgmentRune.sunRadius = special.sunRadius;
+				existingJudgmentRune.orbitAngularSpeed =
+					Math.PI * 2 * special.orbitsPerCycle * Math.max(0.001, pixlProgression.attackSpeed);
+				existingJudgmentRune.tickInterval = special.tickInterval;
+				existingJudgmentRune.tickTimer = Math.min(
+					existingJudgmentRune.tickTimer,
+					special.tickInterval
+				);
+				existingJudgmentRune.color = weapon.projectileVisual.color;
+				existingJudgmentRune.glow = weapon.projectileVisual.glow ?? false;
+				existingJudgmentRune.duration = Math.max(
+					existingJudgmentRune.duration,
+					existingJudgmentRune.age + nextDuration
+				);
+
+				if (!Number.isFinite(existingJudgmentRune.orbitAngle)) {
+					existingJudgmentRune.orbitAngle = initialOrbitAngle;
+				}
+			} else if (!existingJudgmentRune) {
+				judgmentRunes.push({
+					sourceWeaponInstanceId,
+					baseDamagePerTick: special.baseDamagePerTick,
+					damageMultiplier,
+					damagePerTick: special.baseDamagePerTick * damageMultiplier,
+					damageGrowthPerCycle: special.damageGrowthPerCycle,
+					maxBaseDamagePerTick: special.maxBaseDamagePerTick,
+					nextDamageGrowthSweepIndex: currentSweepIndex + 1,
+					damageRadius: special.damageRadius,
+					orbitRadius: special.orbitRadius,
+					sunRadius: special.sunRadius,
+					orbitAngle: initialOrbitAngle,
+					orbitAngularSpeed:
+						Math.PI * 2 * special.orbitsPerCycle * Math.max(0.001, pixlProgression.attackSpeed),
+					tickInterval: special.tickInterval,
+					tickTimer: special.tickInterval,
+					color: weapon.projectileVisual.color,
+					glow: weapon.projectileVisual.glow ?? false,
+					age: 0,
+					duration: nextDuration
+				});
+			}
+
+			currentSweepTriggeredRuneTypes = new Set<TriggeredSweepRuneType>();
+			currentSweepTriggeredRuneCount = 0;
+
+			return {
+				pendingNextWeaponDamageMultiplier: null,
+				didActivate: true,
+				nextCyclesUntilTrigger: null
+			};
+		};
+
 		const triggerPerimeterMinePayloadAtPoint = ({
 			weapon,
 			sourceWeaponInstanceId,
@@ -4079,10 +5213,10 @@ export function createArenaCombatSketch(
 				glow: utility.definition.utilityVisual?.glow ?? true,
 				age: 0,
 				beamPulse: 0,
-				shieldRatioFromMineDamage: effect.shieldRatioFromMineDamage
+				shieldRatioFromMineDamage: effect.shieldRatioFromMineDamage * PLAYER_SHIELD_GAIN_MULTIPLIER
 			};
 
-			setMineShieldTurretShield(utility.instanceId, shieldAmount);
+			setMineShieldTurretShield(utility.instanceId, shieldAmount * PLAYER_SHIELD_GAIN_MULTIPLIER);
 			activeShieldColor = turretState.color;
 
 			const existingIndex = mineShieldTurrets.findIndex(
@@ -4529,6 +5663,61 @@ export function createArenaCombatSketch(
 				});
 				target.voidTouchedTimer = Math.max(target.voidTouchedTimer, 999);
 			}
+		};
+
+		const spawnNaturesWrath = (
+			weapon: WeaponDefinition,
+			sourceWeaponInstanceId: string,
+			target: { x: number; y: number }
+		): WeaponActivationResult => {
+			const special = weapon.attack.special;
+
+			if (!special || special.type !== 'natures-wrath') {
+				return {
+					pendingNextWeaponDamageMultiplier: null,
+					didActivate: false,
+					nextCyclesUntilTrigger: null
+				};
+			}
+
+			const eligibleTargets = enemies.filter(
+				(enemy) => !isBossEnemy(enemy) && !isEnemyCapturedByVoidTendril(enemy.id)
+			);
+			const primaryTarget =
+				[...eligibleTargets].sort(
+					(left, right) =>
+						Math.hypot(left.x - target.x, left.y - target.y) -
+						Math.hypot(right.x - target.x, right.y - target.y)
+				)[0] ?? null;
+
+			if (!primaryTarget) {
+				return {
+					pendingNextWeaponDamageMultiplier: null,
+					didActivate: false,
+					nextCyclesUntilTrigger: null
+				};
+			}
+
+			naturesWraths.push({
+				sourceWeaponInstanceId,
+				enemyId: primaryTarget.id,
+				targetX: primaryTarget.x,
+				targetY: primaryTarget.y,
+				age: 0,
+				latchDuration: special.latchDuration,
+				duration: special.durationCycles / Math.max(0.001, pixlProgression.attackSpeed),
+				pulseInterval: Math.max(0.05, special.pulseInterval),
+				pulseTimer: Math.max(0.05, special.pulseInterval),
+				healAmount: Math.max(1, Math.round(pixlProgression.health * special.healPulseRatio)),
+				color: weapon.projectileVisual.color,
+				glow: weapon.projectileVisual.glow ?? false
+			});
+
+			return {
+				pendingNextWeaponDamageMultiplier: null,
+				didActivate: true,
+				nextCyclesUntilTrigger: special.successCooldownCycles
+			};
 		};
 
 		const retargetRicochetProjectile = (projectile: ProjectileState) => {
@@ -5050,7 +6239,10 @@ export function createArenaCombatSketch(
 		};
 
 		const activateWeapon = (weapon: EquippedWeaponState, target: { x: number; y: number }) => {
-			if (weapon.definition.attack.special?.type === 'knife-sheath') {
+			if (
+				weapon.definition.attack.special?.type === 'knife-sheath' ||
+				weapon.definition.attack.special?.type === 'pea-ascender'
+			) {
 				return;
 			}
 
@@ -5060,11 +6252,35 @@ export function createArenaCombatSketch(
 			}
 
 			weapon.cyclesUntilTrigger = weapon.cycleInterval;
-			weaponDamageMultiplierByInstanceId[weapon.instanceId] = pendingNextWeaponDamageMultiplier;
+			const queuedDamageMultiplier = pendingNextWeaponDamageMultiplier;
+			weaponDamageMultiplierByInstanceId[weapon.instanceId] = queuedDamageMultiplier;
 			pendingNextWeaponDamageMultiplier = 1;
 
 			const weaponModule = getWeaponModule(weapon.definition.id);
 			const result = weaponModule.activate(weapon, target, {
+				spawnJudgmentRune: (definition, instanceId, judgmentTarget) => {
+					return spawnJudgmentRune(definition, instanceId, judgmentTarget as EnemyState);
+				},
+				spawnAscendanceRune,
+				spawnRuneReiterator,
+				spawnBindingRune: (definition, instanceId, runeTarget) => {
+					spawnBindingRune(definition, instanceId, runeTarget as EnemyState);
+				},
+				spawnSunbrandRune: (definition, instanceId, runeTarget) => {
+					spawnSunbrandRune(definition, instanceId, runeTarget as EnemyState);
+				},
+				spawnSlowingRune: (definition, instanceId, runeTarget) => {
+					spawnSlowingRune(definition, instanceId, runeTarget as EnemyState);
+				},
+				spawnHealingRune: (definition, instanceId, runeTarget) => {
+					spawnHealingRune(definition, instanceId, runeTarget as EnemyState);
+				},
+				spawnSunRune: (definition, instanceId, runeTarget) => {
+					spawnSunRune(definition, instanceId, runeTarget as EnemyState);
+				},
+				spawnNaturesWrath: (definition, instanceId, wrathTarget) => {
+					return spawnNaturesWrath(definition, instanceId, wrathTarget as EnemyState);
+				},
 				spawnForceField,
 				spawnKillSwitchPulse,
 				spawnVulnerablePulse,
@@ -5143,6 +6359,41 @@ export function createArenaCombatSketch(
 				}
 			});
 
+			if (result.didActivate === false) {
+				pendingNextWeaponDamageMultiplier = queuedDamageMultiplier;
+				weapon.cyclesUntilTrigger = weapon.cycleInterval;
+				return;
+			}
+
+			if (result.nextCyclesUntilTrigger !== null && result.nextCyclesUntilTrigger !== undefined) {
+				weapon.cyclesUntilTrigger = Math.max(1, result.nextCyclesUntilTrigger);
+			}
+
+			const activatedSpecialType = weapon.definition.attack.special?.type;
+			const trackedSweepRuneType = trackedSweepRuneSpecialTypes.has(
+				activatedSpecialType as TriggeredSweepRuneType
+			)
+				? (activatedSpecialType as TriggeredSweepRuneType)
+				: null;
+			const replayableRuneType = replayableRuneSpecialTypes.has(
+				activatedSpecialType as PendingRuneEchoState['runeType']
+			)
+				? (activatedSpecialType as PendingRuneEchoState['runeType'])
+				: null;
+
+			if (trackedSweepRuneType) {
+				currentSweepTriggeredRuneTypes.add(trackedSweepRuneType);
+				currentSweepTriggeredRuneCount += 1;
+			}
+
+			if (replayableRuneType) {
+				triggeredRuneReplays.push({
+					runeType: replayableRuneType,
+					weapon: weapon.definition,
+					sourceWeaponInstanceId: weapon.instanceId
+				});
+			}
+
 			if (result.pendingNextWeaponDamageMultiplier !== null) {
 				pendingNextWeaponDamageMultiplier = Math.max(
 					pendingNextWeaponDamageMultiplier,
@@ -5167,9 +6418,13 @@ export function createArenaCombatSketch(
 
 			getUtilityModuleByInstanceId(utility.instanceId).activate(utility, {
 				currentSweepIndex,
+				getTriggeredRuneCount: () => currentSweepTriggeredRuneTypes.size,
 				getShieldPoolForSource: (sourceId) => pixlShieldSources[sourceId] ?? 0,
 				setShieldPoolForSource: (sourceId, shieldPercent) => {
-					setPixlShieldSourceAmount(sourceId, Math.ceil(pixlProgression.health * shieldPercent));
+					setPixlShieldSourceAmount(
+						sourceId,
+						Math.ceil(pixlProgression.health * shieldPercent * PLAYER_SHIELD_GAIN_MULTIPLIER)
+					);
 				},
 				getUtilityShieldOutputMultiplier,
 				getMineWeaponDamageTotal,
@@ -5187,6 +6442,7 @@ export function createArenaCombatSketch(
 				},
 				spawnOathbreakerSigil,
 				spawnMirrorArray,
+				applyVanishRune,
 				applyCycleDamageBoost: (damageMultiplier, expiresAfterSweepIndex) => {
 					cycleDamageMultiplier = Math.max(cycleDamageMultiplier, damageMultiplier);
 					cycleDamageBuffExpiresAfterSweepIndex = expiresAfterSweepIndex;
@@ -5217,6 +6473,10 @@ export function createArenaCombatSketch(
 		};
 
 		const activateWeaponsAtColumn = (column: number) => {
+			if (hasActiveVanishRune()) {
+				return;
+			}
+
 			for (const utility of triggeredUtilities) {
 				if (utility.triggerColumn !== column) {
 					continue;
@@ -5239,6 +6499,10 @@ export function createArenaCombatSketch(
 				);
 
 			for (const weapon of weaponsAtColumn) {
+				if (hasActiveAscender && weapon.definition.id === 'pea-shooter') {
+					continue;
+				}
+
 				const requiredInfusion = weapon.definition.attack.requiredInfusion;
 				const baseRequiredInfusionCount = Math.max(
 					1,
@@ -5272,6 +6536,65 @@ export function createArenaCombatSketch(
 			}
 		};
 
+		const updateAscendedPeaShooterBeams = (dt: number) => {
+			if (!hasActiveAscender || hasActiveVanishRune()) {
+				return;
+			}
+
+			for (const peaShooter of ascendedPeaShooters) {
+				const target = getEnemyWeaponTarget(peaShooter.targeting);
+
+				if (!target) {
+					ascenderBeamTickTimersByInstanceId[peaShooter.instanceId] = Math.min(
+						0.2,
+						(ascenderBeamTickTimersByInstanceId[peaShooter.instanceId] ?? 0.2) + dt
+					);
+					continue;
+				}
+
+				ascenderBeamTickTimersByInstanceId[peaShooter.instanceId] =
+					(ascenderBeamTickTimersByInstanceId[peaShooter.instanceId] ?? 0.2) - dt;
+
+				while ((ascenderBeamTickTimersByInstanceId[peaShooter.instanceId] ?? 0) <= 0) {
+					const deltaX = target.x - centerX;
+					const deltaY = target.y - centerY;
+					const distance = Math.hypot(deltaX, deltaY) || 1;
+					const directionX = deltaX / distance;
+					const directionY = deltaY / distance;
+					const beamLength = Math.max(arenaRadius * 2.6, Math.hypot(p.width, p.height));
+					const beamWidth = 10 + Math.sin(pixlAuraClock * 8 + peaShooter.placementX) * 0.8;
+					const elapsedRampMultiplier = 1 + currentLevelElapsedTime * 0.03;
+					const beamTickDamage = getAdjustedWeaponDamage(
+						peaShooter.definition,
+						2.2 * Math.max(0.5, pixlProgression.attackSpeed) * elapsedRampMultiplier,
+						peaShooter.instanceId
+					);
+
+					for (let enemyIndex = enemies.length - 1; enemyIndex >= 0; enemyIndex -= 1) {
+						const enemy = enemies[enemyIndex];
+						const offsetX = enemy.x - centerX;
+						const offsetY = enemy.y - centerY;
+						const alongBeam = offsetX * directionX + offsetY * directionY;
+
+						if (alongBeam < 0 || alongBeam > beamLength) {
+							continue;
+						}
+
+						const perpendicularDistance = Math.abs(offsetX * -directionY + offsetY * directionX);
+						const hitWidth = beamWidth / 2 + ENEMY_VISUALS[enemy.kind].radius;
+
+						if (perpendicularDistance > hitWidth) {
+							continue;
+						}
+
+						applyDamageToEnemy(enemyIndex, beamTickDamage, 0.09, peaShooter.instanceId);
+					}
+
+					ascenderBeamTickTimersByInstanceId[peaShooter.instanceId] += 0.2;
+				}
+			}
+		};
+
 		const triggerSweepColumns = (startColumn: number, endColumn: number) => {
 			for (const column of equippedWeaponColumns) {
 				if (column >= startColumn && column < endColumn) {
@@ -5302,6 +6625,10 @@ export function createArenaCombatSketch(
 
 				if (sweepProgress >= loadoutColumnCount) {
 					for (const utility of triggeredUtilities) {
+						if (hasActiveVanishRune()) {
+							break;
+						}
+
 						if (utility.definition.effect.type !== 'elemental-mastery') {
 							continue;
 						}
@@ -5317,6 +6644,8 @@ export function createArenaCombatSketch(
 							(cumulativeDamageByWeaponInstanceId[weapon.instanceId] ?? 0) / currentSweepIndex
 						])
 					) as Record<string, number>;
+					currentSweepTriggeredRuneTypes = new Set<TriggeredSweepRuneType>();
+					currentSweepTriggeredRuneCount = 0;
 
 					if (
 						cycleDamageBuffExpiresAfterSweepIndex !== null &&
@@ -5363,26 +6692,44 @@ export function createArenaCombatSketch(
 			pixlProgression = applyXpGain(pixlProgression, waveXp);
 			bankedXp = pixlProgression.xp;
 
-			highestClearedLevel = Math.max(highestClearedLevel, currentLevel.campaignLevel);
+			highestClearedLevel = Math.max(highestClearedLevel, getResolvedLevelNumber(currentLevel));
 
 			if (endlessMode) {
-				highestUnlockedLevel = Math.max(highestUnlockedLevel, currentLevel.campaignLevel + 1);
+				if (Math.random() < 0.01) {
+					dungeonKeys = {
+						...dungeonKeys,
+						'dungeon-1-key': (dungeonKeys['dungeon-1-key'] ?? 0) + 1
+					};
+				}
+
+				highestUnlockedLevel = Math.max(
+					highestUnlockedLevel,
+					getResolvedLevelNumber(currentLevel) + 1
+				);
 				persistProgress(
-					currentLevel.campaignLevel + 1,
+					getResolvedLevelNumber(currentLevel) + 1,
 					rewardPacks,
-					currentLevel.campaignLevel,
+					getResolvedLevelNumber(currentLevel),
 					false
 				);
 			} else if (status === 'complete') {
 				completed = true;
 				highestUnlockedLevel = campaign.totalLevels;
-				persistProgress(campaign.totalLevels, rewardPacks, currentLevel.campaignLevel, false);
-			} else {
-				highestUnlockedLevel = Math.max(highestUnlockedLevel, currentLevel.campaignLevel + 1);
 				persistProgress(
-					currentLevel.campaignLevel + 1,
+					campaign.totalLevels,
 					rewardPacks,
-					currentLevel.campaignLevel,
+					getResolvedLevelNumber(currentLevel),
+					false
+				);
+			} else {
+				highestUnlockedLevel = Math.max(
+					highestUnlockedLevel,
+					getResolvedLevelNumber(currentLevel) + 1
+				);
+				persistProgress(
+					getResolvedLevelNumber(currentLevel) + 1,
+					rewardPacks,
+					getResolvedLevelNumber(currentLevel),
 					false
 				);
 			}
@@ -5414,7 +6761,7 @@ export function createArenaCombatSketch(
 
 			while (spawnAccumulator >= 1 && spawnQueue.length > 0) {
 				spawnAccumulator -= 1;
-				spawnEnemy(spawnQueue.shift() as GlitchKind);
+				spawnEnemy(spawnQueue.shift() as CombatEnemyKind);
 			}
 
 			advanceSweep(dt);
@@ -5946,6 +7293,250 @@ export function createArenaCombatSketch(
 		};
 
 		const updateBurningGrounds = (dt: number) => {
+			for (let index = runeCasts.length - 1; index >= 0; index -= 1) {
+				const runeCast = runeCasts[index];
+				runeCast.age += dt;
+
+				if (runeCast.age >= runeCast.duration) {
+					runeCasts.splice(index, 1);
+				}
+			}
+
+			for (let index = sunRunes.length - 1; index >= 0; index -= 1) {
+				const sunRune = sunRunes[index];
+				const previousAge = sunRune.age;
+				sunRune.age += dt;
+				const previousProgress = Math.min(1, previousAge / Math.max(0.0001, sunRune.duration));
+				const currentProgress = Math.min(1, sunRune.age / Math.max(0.0001, sunRune.duration));
+				const previousWaveRadius = sunRune.radius * (1 - Math.pow(1 - previousProgress, 2.4));
+				const currentWaveRadius = sunRune.radius * (1 - Math.pow(1 - currentProgress, 2.4));
+				const bandMin = Math.max(
+					0,
+					Math.min(previousWaveRadius, currentWaveRadius) - sunRune.waveThickness
+				);
+				const bandMax = Math.max(previousWaveRadius, currentWaveRadius) + sunRune.waveThickness;
+
+				for (let enemyIndex = enemies.length - 1; enemyIndex >= 0; enemyIndex -= 1) {
+					const enemy = enemies[enemyIndex];
+
+					if (sunRune.hitEnemyIds.includes(enemy.id)) {
+						continue;
+					}
+
+					const enemyRadius = ENEMY_VISUALS[enemy.kind].radius;
+					const distance = Math.hypot(enemy.x - sunRune.centerX, enemy.y - sunRune.centerY);
+
+					if (distance + enemyRadius < bandMin || distance - enemyRadius > bandMax) {
+						continue;
+					}
+
+					sunRune.hitEnemyIds.push(enemy.id);
+					applyDamageToEnemy(
+						enemyIndex,
+						sunRune.damagePerPulse,
+						0.05,
+						sunRune.sourceWeaponInstanceId
+					);
+				}
+
+				if (sunRune.age >= sunRune.duration) {
+					sunRunes.splice(index, 1);
+				}
+			}
+
+			for (let index = healingRunes.length - 1; index >= 0; index -= 1) {
+				const healingRune = healingRunes[index];
+				healingRune.age += dt;
+
+				if (healingRune.age >= healingRune.duration) {
+					healingRunes.splice(index, 1);
+				}
+			}
+
+			for (let index = slowingRunes.length - 1; index >= 0; index -= 1) {
+				const slowingRune = slowingRunes[index];
+				const previousAge = slowingRune.age;
+				slowingRune.age += dt;
+				const previousProgress = Math.min(1, previousAge / Math.max(0.0001, slowingRune.duration));
+				const currentProgress = Math.min(
+					1,
+					slowingRune.age / Math.max(0.0001, slowingRune.duration)
+				);
+				const previousWaveRadius = slowingRune.radius * (1 - Math.pow(1 - previousProgress, 2.2));
+				const currentWaveRadius = slowingRune.radius * (1 - Math.pow(1 - currentProgress, 2.2));
+				const bandMin = Math.max(
+					0,
+					Math.min(previousWaveRadius, currentWaveRadius) - slowingRune.waveThickness
+				);
+				const bandMax = Math.max(previousWaveRadius, currentWaveRadius) + slowingRune.waveThickness;
+
+				for (let enemyIndex = enemies.length - 1; enemyIndex >= 0; enemyIndex -= 1) {
+					const enemy = enemies[enemyIndex];
+
+					if (slowingRune.hitEnemyIds.includes(enemy.id)) {
+						continue;
+					}
+
+					const enemyRadius = ENEMY_VISUALS[enemy.kind].radius;
+					const distance = Math.hypot(enemy.x - slowingRune.centerX, enemy.y - slowingRune.centerY);
+
+					if (distance + enemyRadius < bandMin || distance - enemyRadius > bandMax) {
+						continue;
+					}
+
+					slowingRune.hitEnemyIds.push(enemy.id);
+					enemy.slowTimer = Math.max(enemy.slowTimer, slowingRune.slowDuration);
+					enemy.slowMultiplier = Math.min(enemy.slowMultiplier, slowingRune.slowMultiplier);
+				}
+
+				if (slowingRune.age >= slowingRune.duration) {
+					slowingRunes.splice(index, 1);
+				}
+			}
+
+			for (let index = bindingRunes.length - 1; index >= 0; index -= 1) {
+				const bindingRune = bindingRunes[index];
+				const previousAge = bindingRune.age;
+				bindingRune.age += dt;
+				const previousProgress = Math.min(1, previousAge / Math.max(0.0001, bindingRune.duration));
+				const currentProgress = Math.min(
+					1,
+					bindingRune.age / Math.max(0.0001, bindingRune.duration)
+				);
+				const previousWaveRadius = bindingRune.radius * (1 - Math.pow(1 - previousProgress, 2.2));
+				const currentWaveRadius = bindingRune.radius * (1 - Math.pow(1 - currentProgress, 2.2));
+				const bandMin = Math.max(
+					0,
+					Math.min(previousWaveRadius, currentWaveRadius) - bindingRune.waveThickness
+				);
+				const bandMax = Math.max(previousWaveRadius, currentWaveRadius) + bindingRune.waveThickness;
+
+				for (let enemyIndex = enemies.length - 1; enemyIndex >= 0; enemyIndex -= 1) {
+					const enemy = enemies[enemyIndex];
+
+					if (bindingRune.hitEnemyIds.includes(enemy.id)) {
+						continue;
+					}
+
+					const enemyRadius = ENEMY_VISUALS[enemy.kind].radius;
+					const distance = Math.hypot(enemy.x - bindingRune.centerX, enemy.y - bindingRune.centerY);
+
+					if (distance + enemyRadius < bandMin || distance - enemyRadius > bandMax) {
+						continue;
+					}
+
+					bindingRune.hitEnemyIds.push(enemy.id);
+					enemy.bindingRuneHitCount = Math.max(enemy.bindingRuneHitCount, 1);
+					enemy.bindingRuneDamageMultiplierPerHit = Math.max(
+						enemy.bindingRuneDamageMultiplierPerHit,
+						bindingRune.damageMultiplierPerHit
+					);
+					enemy.bindingRuneSourceWeaponInstanceId = bindingRune.sourceWeaponInstanceId;
+				}
+
+				if (bindingRune.age >= bindingRune.duration) {
+					bindingRunes.splice(index, 1);
+				}
+			}
+
+			for (let index = sunbrandRunes.length - 1; index >= 0; index -= 1) {
+				const rune = sunbrandRunes[index];
+				const previousAge = rune.age;
+				rune.age += dt;
+				const previousProgress = Math.min(1, previousAge / Math.max(0.0001, rune.duration));
+				const currentProgress = Math.min(1, rune.age / Math.max(0.0001, rune.duration));
+				const previousWaveRadius = rune.radius * (1 - Math.pow(1 - previousProgress, 2.3));
+				const currentWaveRadius = rune.radius * (1 - Math.pow(1 - currentProgress, 2.3));
+				const bandMin = Math.max(
+					0,
+					Math.min(previousWaveRadius, currentWaveRadius) - rune.waveThickness
+				);
+				const bandMax = Math.max(previousWaveRadius, currentWaveRadius) + rune.waveThickness;
+
+				for (let enemyIndex = enemies.length - 1; enemyIndex >= 0; enemyIndex -= 1) {
+					const enemy = enemies[enemyIndex];
+
+					if (rune.hitEnemyIds.includes(enemy.id)) {
+						continue;
+					}
+
+					const enemyRadius = ENEMY_VISUALS[enemy.kind].radius;
+					const distance = Math.hypot(enemy.x - rune.centerX, enemy.y - rune.centerY);
+
+					if (distance + enemyRadius < bandMin || distance - enemyRadius > bandMax) {
+						continue;
+					}
+
+					rune.hitEnemyIds.push(enemy.id);
+					enemy.sunbrandTimer = Math.max(enemy.sunbrandTimer, rune.brandDuration);
+					enemy.sunbrandBaseDamage = Math.max(enemy.sunbrandBaseDamage, rune.burstBaseDamage);
+					enemy.sunbrandTriggerDamageMultiplier = Math.max(
+						enemy.sunbrandTriggerDamageMultiplier,
+						rune.triggerDamageMultiplier
+					);
+					enemy.sunbrandSourceWeaponInstanceId = rune.sourceWeaponInstanceId;
+				}
+
+				if (rune.age >= rune.duration) {
+					sunbrandRunes.splice(index, 1);
+				}
+			}
+
+			for (let index = pendingRuneEchoes.length - 1; index >= 0; index -= 1) {
+				const pendingEcho = pendingRuneEchoes[index];
+				pendingEcho.delay -= dt;
+
+				if (pendingEcho.delay > 0) {
+					continue;
+				}
+
+				if (pendingEcho.runeType === 'sun-rune') {
+					spawnSunRune(
+						pendingEcho.weapon,
+						pendingEcho.sourceWeaponInstanceId,
+						null,
+						pendingEcho.efficiencyMultiplier,
+						false
+					);
+				} else if (pendingEcho.runeType === 'healing-rune') {
+					spawnHealingRune(
+						pendingEcho.weapon,
+						pendingEcho.sourceWeaponInstanceId,
+						null,
+						pendingEcho.efficiencyMultiplier,
+						false
+					);
+				} else if (pendingEcho.runeType === 'slowing-rune') {
+					spawnSlowingRune(
+						pendingEcho.weapon,
+						pendingEcho.sourceWeaponInstanceId,
+						null,
+						pendingEcho.efficiencyMultiplier,
+						false
+					);
+				} else if (pendingEcho.runeType === 'binding-rune') {
+					spawnBindingRune(
+						pendingEcho.weapon,
+						pendingEcho.sourceWeaponInstanceId,
+						null,
+						pendingEcho.efficiencyMultiplier,
+						false
+					);
+				} else if (pendingEcho.runeType === 'ascendance-rune') {
+					spawnAscendanceRune(pendingEcho.weapon, pendingEcho.sourceWeaponInstanceId);
+				} else {
+					spawnSunbrandRune(
+						pendingEcho.weapon,
+						pendingEcho.sourceWeaponInstanceId,
+						null,
+						pendingEcho.efficiencyMultiplier,
+						false
+					);
+				}
+
+				pendingRuneEchoes.splice(index, 1);
+			}
+
 			for (let index = burningGrounds.length - 1; index >= 0; index -= 1) {
 				const ground = burningGrounds[index];
 				ground.age += dt;
@@ -6225,10 +7816,55 @@ export function createArenaCombatSketch(
 			}
 		};
 
-		const fireEnemyProjectile = (
-			enemy: EnemyState,
-			stats: (typeof combatProfile.glitches)[GlitchKind]
-		) => {
+		const updateJudgmentRunes = (dt: number) => {
+			for (let index = judgmentRunes.length - 1; index >= 0; index -= 1) {
+				const judgment = judgmentRunes[index];
+				judgment.age += dt;
+				judgment.orbitAngle += judgment.orbitAngularSpeed * dt;
+
+				while (
+					currentSweepIndex >= judgment.nextDamageGrowthSweepIndex &&
+					judgment.baseDamagePerTick < judgment.maxBaseDamagePerTick
+				) {
+					judgment.baseDamagePerTick = Math.min(
+						judgment.maxBaseDamagePerTick,
+						judgment.baseDamagePerTick + judgment.damageGrowthPerCycle
+					);
+					judgment.damagePerTick = judgment.baseDamagePerTick * judgment.damageMultiplier;
+					judgment.nextDamageGrowthSweepIndex += 1;
+				}
+
+				judgment.tickTimer -= dt;
+
+				while (judgment.tickTimer <= 0) {
+					judgment.tickTimer += judgment.tickInterval;
+					const sunX = centerX + Math.cos(judgment.orbitAngle) * judgment.orbitRadius;
+					const sunY = centerY + Math.sin(judgment.orbitAngle) * judgment.orbitRadius;
+
+					for (let enemyIndex = enemies.length - 1; enemyIndex >= 0; enemyIndex -= 1) {
+						const enemy = enemies[enemyIndex];
+						const distance = Math.hypot(enemy.x - sunX, enemy.y - sunY);
+
+						if (distance > judgment.damageRadius + ENEMY_VISUALS[enemy.kind].radius) {
+							continue;
+						}
+
+						applyDamageToEnemy(
+							enemyIndex,
+							judgment.damagePerTick,
+							0.08,
+							judgment.sourceWeaponInstanceId
+						);
+					}
+				}
+
+				if (judgment.age >= judgment.duration) {
+					judgmentRunes.splice(index, 1);
+				}
+			}
+		};
+
+		const fireEnemyProjectile = (enemy: EnemyState, stats: GlitchStats) => {
 			const dx = centerX - enemy.x;
 			const dy = centerY - enemy.y;
 			const distance = Math.hypot(dx, dy) || 1;
@@ -6255,6 +7891,29 @@ export function createArenaCombatSketch(
 			});
 		};
 
+		const startEnemyBeam = (enemy: EnemyState, stats: GlitchStats) => {
+			const beamDuration = stats.beamDuration ?? 0;
+			const tickInterval = stats.beamTickInterval ?? 0;
+			const beamDamage = stats.beamDamage ?? 0;
+
+			if (beamDuration <= 0 || tickInterval <= 0 || beamDamage <= 0) {
+				return;
+			}
+
+			enemyBeams = enemyBeams.filter((beam) => beam.sourceEnemyId !== enemy.id);
+			enemyBeams.push({
+				sourceEnemyId: enemy.id,
+				age: 0,
+				duration: beamDuration,
+				tickInterval,
+				tickTimer: 0,
+				damage: beamDamage,
+				width: stats.beamWidth ?? 20,
+				color: stats.beamColor ?? '#ffd36b',
+				glow: true
+			});
+		};
+
 		const updateEnemies = (dt: number) => {
 			ensureMarkedEnemy();
 			const mineGravityAugmentEffect = getActiveMineGravityAugmentEffect();
@@ -6265,12 +7924,24 @@ export function createArenaCombatSketch(
 				}
 
 				const enemy = enemies[index];
-				const stats = combatProfile.glitches[enemy.kind];
+				const stats = getEnemyStats(enemy.kind);
 				const contactRange = getEnemyContactRange(enemy.kind);
 				const isSiege = stats.attackPattern === 'siege';
 				const isHybrid = stats.attackPattern === 'hybrid';
+				const isBeam = stats.attackPattern === 'beam';
+				const prefersRangeControl = isSiege || isBeam;
 				enemy.hitFlash = Math.max(0, enemy.hitFlash - dt);
 				enemy.confusionTimer = Math.max(0, enemy.confusionTimer - dt);
+				enemy.slowTimer = Math.max(0, enemy.slowTimer - dt);
+				if (enemy.slowTimer <= 0) {
+					enemy.slowMultiplier = 1;
+				}
+				enemy.sunbrandTimer = Math.max(0, enemy.sunbrandTimer - dt);
+				if (enemy.sunbrandTimer <= 0) {
+					enemy.sunbrandBaseDamage = 0;
+					enemy.sunbrandTriggerDamageMultiplier = 0;
+					enemy.sunbrandSourceWeaponInstanceId = null;
+				}
 				enemy.voidTouchedTimer = Math.max(0, enemy.voidTouchedTimer - dt);
 				enemy.fireExposedTimer = Math.max(0, enemy.fireExposedTimer - dt);
 				enemy.lifeStealMarkTimer = Math.max(0, enemy.lifeStealMarkTimer - dt);
@@ -6297,6 +7968,10 @@ export function createArenaCombatSketch(
 
 				enemy.shieldPulseTimer = Math.max(0, enemy.shieldPulseTimer - dt);
 				enemy.shieldPulseCooldown = Math.max(0, enemy.shieldPulseCooldown - dt);
+
+				if (isBeam && enemyBeams.some((beam) => beam.sourceEnemyId === enemy.id)) {
+					continue;
+				}
 
 				if (isEnemyCapturedByVoidTendril(enemy.id)) {
 					continue;
@@ -6463,12 +8138,21 @@ export function createArenaCombatSketch(
 				const confusionMultiplier = enemy.confusionTimer > 0 ? 0.67 : 1;
 				const chillMultiplier = enemy.frozenTimer > 0 ? 0 : 1 - enemy.chillAmount;
 				const oathbreakerSlowMultiplier = getOathbreakerSlowMultiplier(enemy.id);
+				const runeSlowMultiplier = enemy.slowTimer > 0 ? enemy.slowMultiplier : 1;
 				const moveSpeedMultiplier =
-					confusionMultiplier * chillMultiplier * oathbreakerSlowMultiplier;
+					confusionMultiplier * chillMultiplier * oathbreakerSlowMultiplier * runeSlowMultiplier;
 				const effectiveMoveSpeed =
 					stats.moveSpeed * moveSpeedMultiplier * enemy.moveSpeedMultiplier;
 
 				if (immobilized) {
+					continue;
+				}
+
+				if (hasActiveVanishRune()) {
+					const retreatDistance = Math.hypot(enemy.x - centerX, enemy.y - centerY) || 1;
+					const retreatStep = Math.max(10, effectiveMoveSpeed * 0.35) * dt;
+					enemy.x += ((enemy.x - centerX) / retreatDistance) * retreatStep;
+					enemy.y += ((enemy.y - centerY) / retreatDistance) * retreatStep;
 					continue;
 				}
 
@@ -6549,7 +8233,7 @@ export function createArenaCombatSketch(
 				const dy = movementTargetY - enemy.y;
 				const distance = Math.hypot(dx, dy) || 1;
 
-				if (isSiege) {
+				if (prefersRangeControl) {
 					const distanceDelta = distance - desiredRange;
 
 					if (Math.abs(distanceDelta) > 10) {
@@ -6569,11 +8253,14 @@ export function createArenaCombatSketch(
 					const step = Math.min(distance - contactRange, effectiveMoveSpeed * dt);
 					enemy.x += (dx / distance) * step;
 					enemy.y += (dy / distance) * step;
+					const blockingStoneWard = clampEnemyOutsideStoneWard(enemy);
 
-					if (!isHybrid) {
+					if (!isHybrid && !blockingStoneWard) {
 						continue;
 					}
 				}
+
+				const blockingStoneWard = clampEnemyOutsideStoneWard(enemy);
 
 				enemy.attackTimer -= dt;
 
@@ -6597,6 +8284,27 @@ export function createArenaCombatSketch(
 						continue;
 					}
 
+					if (stats.supportPattern === 'heal-frontline-ally') {
+						const target = getFrontlineHealTarget(enemy.id);
+
+						if (target) {
+							const healAmount = Math.max(
+								stats.allyHealAmount ?? 0,
+								Math.round(target.maxHealth * (stats.allyHealRatio ?? 0))
+							);
+
+							if (healAmount > 0) {
+								target.health = Math.min(target.maxHealth, target.health + healAmount);
+								target.hitFlash = Math.max(target.hitFlash, 0.08);
+							}
+						}
+					}
+
+					if (isBeam) {
+						startEnemyBeam(enemy, stats);
+						continue;
+					}
+
 					if (isSiege || isHybrid) {
 						fireEnemyProjectile(enemy, stats);
 
@@ -6605,12 +8313,16 @@ export function createArenaCombatSketch(
 						}
 					}
 
-					applyDamageToPixl(
-						Math.max(
-							1,
-							Math.round(stats.contactDamage * enemy.damageMultiplier + enemy.damageBonus)
-						)
+					const contactDamage = Math.max(
+						1,
+						Math.round(stats.contactDamage * enemy.damageMultiplier + enemy.damageBonus)
 					);
+
+					if (blockingStoneWard) {
+						applyDamageToShieldSource(blockingStoneWard.sourceUtilityInstanceId, contactDamage);
+					} else {
+						applyDamageToPixl(contactDamage);
+					}
 
 					if (pixlHealth === 0) {
 						return;
@@ -6619,16 +8331,69 @@ export function createArenaCombatSketch(
 			}
 		};
 
+		const updateEnemyBeams = (dt: number) => {
+			for (let index = enemyBeams.length - 1; index >= 0; index -= 1) {
+				const beam = enemyBeams[index];
+				const sourceEnemy = enemies.find((enemy) => enemy.id === beam.sourceEnemyId);
+
+				if (!sourceEnemy) {
+					enemyBeams.splice(index, 1);
+					continue;
+				}
+
+				beam.age += dt;
+				beam.tickTimer -= dt;
+
+				while (beam.tickTimer <= 0) {
+					beam.tickTimer += beam.tickInterval;
+					if (!hasActiveVanishRune()) {
+						applyDamageToPixl(beam.damage);
+					}
+
+					if (pixlHealth === 0) {
+						return;
+					}
+				}
+
+				if (beam.age >= beam.duration) {
+					enemyBeams.splice(index, 1);
+				}
+			}
+		};
+
 		const updateEnemyProjectiles = (dt: number) => {
 			for (let index = enemyProjectiles.length - 1; index >= 0; index -= 1) {
 				const projectile = enemyProjectiles[index];
+				const previousDistance = Math.hypot(projectile.x - centerX, projectile.y - centerY);
 				projectile.age += dt;
 				projectile.x += projectile.vx * dt;
 				projectile.y += projectile.vy * dt;
+				const activeStoneWards = [...getActiveStoneWards()].sort(
+					(left, right) => right.radius - left.radius
+				);
+				let interceptedByStoneWard = false;
+
+				for (const ward of activeStoneWards) {
+					const interceptionRadius = ward.radius + projectile.size * 0.5;
+					const currentDistance = Math.hypot(projectile.x - centerX, projectile.y - centerY);
+
+					if (previousDistance > interceptionRadius && currentDistance <= interceptionRadius) {
+						applyDamageToShieldSource(ward.sourceUtilityInstanceId, projectile.damage);
+						enemyProjectiles.splice(index, 1);
+						interceptedByStoneWard = true;
+						break;
+					}
+				}
+
+				if (interceptedByStoneWard) {
+					continue;
+				}
 
 				const hitDistance = Math.hypot(projectile.x - centerX, projectile.y - centerY);
 				if (hitDistance <= combatProfile.collision.pixlRadius + projectile.size * 0.5) {
-					applyDamageToPixl(projectile.damage);
+					if (!hasActiveVanishRune()) {
+						applyDamageToPixl(projectile.damage);
+					}
 					enemyProjectiles.splice(index, 1);
 					continue;
 				}
@@ -6642,6 +8407,19 @@ export function createArenaCombatSketch(
 				) {
 					enemyProjectiles.splice(index, 1);
 				}
+			}
+		};
+
+		const updateVanishRune = (dt: number) => {
+			if (!activeVanishRune) {
+				return;
+			}
+
+			activeVanishRune.age += dt;
+			activeVanishRune.pulse += dt;
+
+			if (activeVanishRune.age >= activeVanishRune.duration) {
+				activeVanishRune = null;
 			}
 		};
 
@@ -7044,6 +8822,42 @@ export function createArenaCombatSketch(
 
 					voidTendrils.splice(index, 1);
 				}
+			}
+		};
+
+		const updateNaturesWraths = (dt: number) => {
+			for (let index = naturesWraths.length - 1; index >= 0; index -= 1) {
+				const wrath = naturesWraths[index];
+				wrath.age += dt;
+				wrath.pulseTimer -= dt;
+
+				const trackedTarget =
+					(wrath.enemyId !== null && enemies.find((enemy) => enemy.id === wrath.enemyId)) ?? null;
+
+				if (!trackedTarget) {
+					naturesWraths.splice(index, 1);
+					continue;
+				}
+
+				wrath.targetX = trackedTarget.x;
+				wrath.targetY = trackedTarget.y;
+
+				while (wrath.pulseTimer <= 0) {
+					healPixl(wrath.healAmount);
+					wrath.pulseTimer += wrath.pulseInterval;
+				}
+
+				if (wrath.age < wrath.duration) {
+					continue;
+				}
+
+				const enemyIndex = enemies.findIndex((enemy) => enemy.id === trackedTarget.id);
+
+				if (enemyIndex >= 0) {
+					consumeEnemyIntoNatureHeal(enemyIndex);
+				}
+
+				naturesWraths.splice(index, 1);
 			}
 		};
 
@@ -8129,6 +9943,105 @@ export function createArenaCombatSketch(
 				);
 			}
 
+			for (const runeCast of runeCasts) {
+				getWeaponModuleByInstanceId(runeCast.sourceWeaponInstanceId).renderArenaEffect(p, {
+					kind: 'rune-cast',
+					variant: runeCast.variant,
+					centerX: runeCast.centerX,
+					centerY: runeCast.centerY,
+					runeSize: runeCast.runeSize,
+					color: runeCast.color,
+					glow: runeCast.glow,
+					age: runeCast.age,
+					duration: runeCast.duration
+				});
+			}
+
+			for (const sunRune of sunRunes) {
+				getWeaponModuleByInstanceId(sunRune.sourceWeaponInstanceId).renderArenaEffect(p, {
+					kind: 'sun-rune',
+					centerX: sunRune.centerX,
+					centerY: sunRune.centerY,
+					radius: sunRune.radius,
+					impactSize: sunRune.impactSize,
+					color: sunRune.color,
+					glow: sunRune.glow,
+					age: sunRune.age,
+					duration: sunRune.duration
+				});
+			}
+
+			for (const healingRune of healingRunes) {
+				getWeaponModuleByInstanceId(healingRune.sourceWeaponInstanceId).renderArenaEffect(p, {
+					kind: 'healing-rune',
+					centerX: healingRune.centerX,
+					centerY: healingRune.centerY,
+					radius: healingRune.radius,
+					color: healingRune.color,
+					glow: healingRune.glow,
+					age: healingRune.age,
+					duration: healingRune.duration
+				});
+			}
+
+			for (const bindingRune of bindingRunes) {
+				getWeaponModuleByInstanceId(bindingRune.sourceWeaponInstanceId).renderArenaEffect(p, {
+					kind: 'binding-rune',
+					centerX: bindingRune.centerX,
+					centerY: bindingRune.centerY,
+					radius: bindingRune.radius,
+					impactSize: bindingRune.impactSize,
+					color: bindingRune.color,
+					glow: bindingRune.glow,
+					age: bindingRune.age,
+					duration: bindingRune.duration
+				});
+			}
+
+			for (const rune of sunbrandRunes) {
+				getWeaponModuleByInstanceId(rune.sourceWeaponInstanceId).renderArenaEffect(p, {
+					kind: 'sunbrand-rune',
+					centerX: rune.centerX,
+					centerY: rune.centerY,
+					radius: rune.radius,
+					impactSize: rune.impactSize,
+					color: rune.color,
+					glow: rune.glow,
+					age: rune.age,
+					duration: rune.duration
+				});
+			}
+
+			for (const slowingRune of slowingRunes) {
+				getWeaponModuleByInstanceId(slowingRune.sourceWeaponInstanceId).renderArenaEffect(p, {
+					kind: 'slowing-rune',
+					centerX: slowingRune.centerX,
+					centerY: slowingRune.centerY,
+					radius: slowingRune.radius,
+					impactSize: slowingRune.impactSize,
+					color: slowingRune.color,
+					glow: slowingRune.glow,
+					age: slowingRune.age,
+					duration: slowingRune.duration
+				});
+			}
+
+			for (const judgment of judgmentRunes) {
+				getWeaponModuleByInstanceId(judgment.sourceWeaponInstanceId).renderArenaEffect(p, {
+					kind: 'judgment-rune-sun',
+					centerX,
+					centerY,
+					orbitRadius: judgment.orbitRadius,
+					orbitAngle: judgment.orbitAngle,
+					sunRadius: judgment.sunRadius,
+					damageRadius: judgment.damageRadius,
+					age: judgment.age,
+					duration: judgment.duration,
+					color: judgment.color,
+					glow: judgment.glow
+				});
+			}
+
 			for (const ground of burningGrounds) {
 				if (
 					getWeaponModuleByInstanceId(ground.sourceWeaponInstanceId).renderArenaEffect(p, {
@@ -8269,6 +10182,44 @@ export function createArenaCombatSketch(
 				) {
 					continue;
 				}
+			}
+
+			for (const ward of getActiveStoneWards()) {
+				if (
+					getUtilityModuleByInstanceId(ward.sourceUtilityInstanceId).renderArenaEffect(p, {
+						kind: 'stone-ward',
+						arenaCenterX: centerX,
+						arenaCenterY: centerY,
+						radius: ward.radius,
+						lineWidth: ward.lineWidth,
+						color: ward.color,
+						glow: ward.glow,
+						pulse: ward.pulse,
+						shieldRatio: ward.maxShield > 0 ? ward.shield / ward.maxShield : 1
+					})
+				) {
+					continue;
+				}
+			}
+
+			if (
+				activeVanishRune &&
+				getUtilityModuleByInstanceId(activeVanishRune.sourceUtilityInstanceId).renderArenaEffect(
+					p,
+					{
+						kind: 'vanish-rune',
+						arenaCenterX: centerX,
+						arenaCenterY: centerY,
+						radius: activeVanishRune.radius,
+						age: activeVanishRune.age,
+						duration: activeVanishRune.duration,
+						pulse: activeVanishRune.pulse,
+						color: activeVanishRune.color,
+						glow: activeVanishRune.glow
+					}
+				)
+			) {
+				// effect handled by the vanish utility module
 			}
 
 			for (const bomb of delayedBombs) {
@@ -8484,6 +10435,42 @@ export function createArenaCombatSketch(
 				p.circle(beamX, beamY, sweep.beamWidth * 0.9);
 			}
 
+			if (hasActiveAscender && !hasActiveVanishRune()) {
+				for (const peaShooter of ascendedPeaShooters) {
+					const target = getEnemyWeaponTarget(peaShooter.targeting);
+
+					if (!target) {
+						continue;
+					}
+
+					const beamColor = ascenderWeapon?.definition.projectileVisual.color ?? '#7dd3fc';
+					const glow = ascenderWeapon?.definition.projectileVisual.glow ?? true;
+					const beamWidth = 10 + Math.sin(pixlAuraClock * 8 + peaShooter.placementX) * 0.8;
+					const deltaX = target.x - centerX;
+					const deltaY = target.y - centerY;
+					const distance = Math.hypot(deltaX, deltaY) || 1;
+					const beamLength = Math.max(arenaRadius * 2.6, Math.hypot(p.width, p.height));
+					const beamEndX = centerX + (deltaX / distance) * beamLength;
+					const beamEndY = centerY + (deltaY / distance) * beamLength;
+
+					if (glow) {
+						p.stroke(`${beamColor}44`);
+						p.strokeWeight(beamWidth * 2.1);
+						p.line(centerX, centerY, beamEndX, beamEndY);
+					}
+
+					p.stroke(beamColor);
+					p.strokeWeight(beamWidth);
+					p.line(centerX, centerY, beamEndX, beamEndY);
+
+					p.noStroke();
+					p.fill('#e0f2fecc');
+					p.circle(target.x, target.y, beamWidth * 1.25);
+					p.fill(beamColor);
+					p.circle(target.x, target.y, beamWidth * 0.72);
+				}
+			}
+
 			for (const projectile of projectiles) {
 				projectile.animation.age = projectile.age;
 				projectile.animation.directionX = projectile.directionX;
@@ -8508,6 +10495,32 @@ export function createArenaCombatSketch(
 				p.circle(projectile.x, projectile.y, projectile.size * 2.2);
 				p.fill(projectile.color);
 				p.circle(projectile.x, projectile.y, projectile.size);
+			}
+
+			for (const beam of enemyBeams) {
+				const sourceEnemy = enemies.find((enemy) => enemy.id === beam.sourceEnemyId);
+
+				if (!sourceEnemy) {
+					continue;
+				}
+
+				const pulse = 0.88 + Math.sin(beam.age * 14) * 0.12;
+				const alphaHex = Math.round((1 - beam.age / Math.max(0.0001, beam.duration)) * 216)
+					.toString(16)
+					.padStart(2, '0');
+
+				if (beam.glow) {
+					p.stroke(`${beam.color}28`);
+					p.strokeWeight(beam.width * 1.8 * pulse);
+					p.line(sourceEnemy.x, sourceEnemy.y, centerX, centerY);
+				}
+
+				p.stroke(`${beam.color}${alphaHex}`);
+				p.strokeWeight(beam.width * pulse);
+				p.line(sourceEnemy.x, sourceEnemy.y, centerX, centerY);
+				p.noStroke();
+				p.fill(`${beam.color}${alphaHex}`);
+				p.circle(centerX, centerY, beam.width * 0.9);
 			}
 
 			for (const lock of sniperLocks) {
@@ -8964,6 +10977,22 @@ export function createArenaCombatSketch(
 				}
 			}
 
+			for (const wrath of naturesWraths) {
+				getWeaponModuleByInstanceId(wrath.sourceWeaponInstanceId).renderArenaEffect(p, {
+					kind: 'natures-wrath',
+					arenaCenterX: centerX,
+					arenaCenterY: centerY,
+					targetX: wrath.targetX,
+					targetY: wrath.targetY,
+					age: wrath.age,
+					duration: wrath.latchDuration,
+					pulseInterval: wrath.pulseInterval,
+					color: wrath.color,
+					glow: wrath.glow,
+					easeInQuad
+				});
+			}
+
 			p.pop();
 		};
 
@@ -9096,7 +11125,7 @@ export function createArenaCombatSketch(
 				}
 
 				if (enemy.shieldPulseTimer > 0) {
-					const stats = combatProfile.glitches[enemy.kind];
+					const stats = getEnemyStats(enemy.kind);
 					const shieldColor = stats.shieldColor ?? '#ffe6a3';
 					const pulseStrength =
 						enemy.shieldPulseTimer / Math.max(0.01, stats.onHitShieldDuration ?? 1);
@@ -9126,6 +11155,32 @@ export function createArenaCombatSketch(
 					p.stroke('#ffd166cc');
 					p.strokeWeight(1.8);
 					p.circle(enemy.x, enemy.y, visual.radius * 2.55);
+				}
+
+				if (enemy.sunbrandTimer > 0) {
+					const brandPulse = 0.55 + Math.sin(p.frameCount * 0.18) * 0.2;
+					p.noFill();
+					p.stroke('#fb923ccc');
+					p.strokeWeight(2);
+					p.circle(enemy.x, enemy.y, visual.radius * (2.9 + brandPulse * 0.18));
+					p.noStroke();
+					p.fill('#fde68abb');
+					p.circle(enemy.x, enemy.y - visual.radius * 2.1, 4.5 + brandPulse * 1.5);
+				}
+
+				if (enemy.bindingRuneHitCount > 0) {
+					const bindingPulse = 0.45 + Math.sin(p.frameCount * 0.12 + enemy.id) * 0.18;
+					p.noFill();
+					p.stroke('#e7c989cc');
+					p.strokeWeight(1.8);
+					p.circle(enemy.x, enemy.y, visual.radius * (2.7 + bindingPulse * 0.22));
+					p.noStroke();
+					p.fill('#faedd0dd');
+					p.circle(
+						enemy.x + visual.radius * 1.55,
+						enemy.y - visual.radius * 1.55,
+						3.8 + bindingPulse
+					);
 				}
 
 				if (enemy.parasiteBloomTimer > 0) {
@@ -9238,7 +11293,9 @@ export function createArenaCombatSketch(
 
 			syncCanvasSize();
 			if (runMode === 'combat' && status === 'running') {
+				currentLevelElapsedTime += dt;
 				updateWaveFlow(dt);
+				updateVanishRune(dt);
 				updateForceFields(dt);
 				updateKillSwitchPulses(dt);
 				updateVulnerablePulses(dt);
@@ -9258,6 +11315,7 @@ export function createArenaCombatSketch(
 				updateMineShieldTurrets(dt);
 				updateDelayedBombs(dt);
 				updateLaserSweeps(dt);
+				updateJudgmentRunes(dt);
 				updateNeedleBursts(dt);
 				updateExecutionLatticeStrikes(dt);
 				updateForkLightningBursts(dt);
@@ -9266,9 +11324,12 @@ export function createArenaCombatSketch(
 				updateBlizzardStorms(dt);
 				updatePixlSwallowPulses(dt);
 				updateVoidTendrils(dt);
+				updateNaturesWraths(dt);
+				updateAscendedPeaShooterBeams(dt);
 				updateHemorrhageBursts(dt);
 				updateKnifeTrailSegments(dt);
 				updateEnemies(dt);
+				updateEnemyBeams(dt);
 				updateEnemyProjectiles(dt);
 				updateSniperChainBursts(dt);
 				updateSniperLocks(dt);
@@ -9292,13 +11353,13 @@ export function createArenaCombatSketch(
 						commitLevelRewards();
 
 						if (endlessMode) {
-							emitProgressState(currentLevel.campaignLevel + 1);
+							emitProgressState(getResolvedLevelNumber(currentLevel) + 1);
 							startLevel(currentLevelIndex + 1);
 						} else if (status === 'complete') {
 							emitProgressState(campaign.totalLevels);
 							startLevel(0);
 						} else {
-							emitProgressState(currentLevel.campaignLevel + 1);
+							emitProgressState(getResolvedLevelNumber(currentLevel) + 1);
 							startLevel(currentLevelIndex + 1);
 						}
 					}

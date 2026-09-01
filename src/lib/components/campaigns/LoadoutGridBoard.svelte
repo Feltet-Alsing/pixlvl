@@ -1,8 +1,11 @@
 <script lang="ts">
-	import { targetingAbbreviationByKind } from '$lib/game/weapon-targeting';
+	import {
+		isSelectableWeaponTargetingKind,
+		targetingAbbreviationByKind
+	} from '$lib/game/weapon-targeting';
 	import type {
+		LoadoutPlacementTargetingKind,
 		LoadoutRotation,
-		WeaponTargetingKind,
 		UtilityDefinition,
 		WeaponDefinition,
 		WeaponShape
@@ -35,7 +38,7 @@
 		x: number;
 		y: number;
 		rotation: LoadoutRotation;
-		targeting?: WeaponTargetingKind;
+		targeting?: LoadoutPlacementTargetingKind;
 	}
 
 	interface Props {
@@ -81,7 +84,10 @@
 	function getWeaponLabel(weapon: LoadoutWeapon) {
 		if (weapon.category === 'weapon') {
 			const targetingKind = weapon.targeting ?? weapon.attack?.targeting;
-			const targetingLabel = targetingKind ? targetingAbbreviationByKind[targetingKind] : null;
+			const targetingLabel =
+				targetingKind && isSelectableWeaponTargetingKind(targetingKind)
+					? targetingAbbreviationByKind[targetingKind]
+					: null;
 
 			if (targetingLabel) {
 				return targetingLabel;

@@ -1,5 +1,8 @@
 import { getLoadoutItemDefinition } from '$lib/data';
-import { allSelectableWeaponTargetingKinds } from '$lib/game/weapon-targeting';
+import {
+	allSelectableWeaponTargetingKinds,
+	vanishRuneCycleTargets
+} from '$lib/game/weapon-targeting';
 import {
 	getPlacementMirrored,
 	getPlacementRotation,
@@ -10,6 +13,7 @@ import {
 
 import type {
 	LoadoutPlacement,
+	LoadoutPlacementTargetingKind,
 	LoadoutSlotIndex,
 	LoadoutSlots,
 	OwnedWeaponInstance,
@@ -83,9 +87,10 @@ export function normalizeLoadoutPlacements(
 	}
 
 	const ownedWeaponIds = new Set(ownedWeapons.map((weapon) => weapon.instanceId));
-	const validTargetingKinds = new Set<WeaponTargetingKind>([
+	const validTargetingKinds = new Set<LoadoutPlacementTargetingKind>([
 		'current-target',
-		...allSelectableWeaponTargetingKinds
+		...allSelectableWeaponTargetingKinds,
+		...vanishRuneCycleTargets
 	]);
 
 	return loadoutPlacements
@@ -96,7 +101,7 @@ export function normalizeLoadoutPlacements(
 			y: placement.y,
 			rotation: normalizeLoadoutRotation(placement.rotation),
 			mirrored: getPlacementMirrored(placement),
-			targeting: validTargetingKinds.has(placement.targeting as WeaponTargetingKind)
+			targeting: validTargetingKinds.has(placement.targeting as LoadoutPlacementTargetingKind)
 				? placement.targeting
 				: undefined
 		}));

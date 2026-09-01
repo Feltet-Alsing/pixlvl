@@ -13,6 +13,46 @@ export interface WeaponTargetState {
 }
 
 export interface WeaponActivationContext {
+	spawnJudgmentRune: (
+		weapon: WeaponDefinition,
+		sourceWeaponInstanceId: string,
+		target: WeaponTargetState
+	) => WeaponActivationResult;
+	spawnAscendanceRune: (
+		weapon: WeaponDefinition,
+		sourceWeaponInstanceId: string
+	) => WeaponActivationResult;
+	spawnRuneReiterator: (weapon: WeaponDefinition, sourceWeaponInstanceId: string) => void;
+	spawnBindingRune: (
+		weapon: WeaponDefinition,
+		sourceWeaponInstanceId: string,
+		target: WeaponTargetState
+	) => void;
+	spawnSunbrandRune: (
+		weapon: WeaponDefinition,
+		sourceWeaponInstanceId: string,
+		target: WeaponTargetState
+	) => void;
+	spawnSlowingRune: (
+		weapon: WeaponDefinition,
+		sourceWeaponInstanceId: string,
+		target: WeaponTargetState
+	) => void;
+	spawnHealingRune: (
+		weapon: WeaponDefinition,
+		sourceWeaponInstanceId: string,
+		target: WeaponTargetState
+	) => void;
+	spawnSunRune: (
+		weapon: WeaponDefinition,
+		sourceWeaponInstanceId: string,
+		target: WeaponTargetState
+	) => void;
+	spawnNaturesWrath: (
+		weapon: WeaponDefinition,
+		sourceWeaponInstanceId: string,
+		target: WeaponTargetState
+	) => WeaponActivationResult;
 	spawnForceField: (weapon: WeaponDefinition, sourceWeaponInstanceId: string) => void;
 	spawnKillSwitchPulse: (weapon: WeaponDefinition, sourceWeaponInstanceId: string) => void;
 	spawnVulnerablePulse: (weapon: WeaponDefinition, sourceWeaponInstanceId: string) => void;
@@ -106,6 +146,8 @@ export interface WeaponActivationContext {
 
 export interface WeaponActivationResult {
 	pendingNextWeaponDamageMultiplier: number | null;
+	didActivate?: boolean;
+	nextCyclesUntilTrigger?: number | null;
 }
 
 export type WeaponActivator = (

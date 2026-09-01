@@ -182,7 +182,7 @@ export const controlWeapons: LoadoutItemDefinition[] = [
 			stageEnd: 2,
 			perLevelDropChance: 0.09
 		},
-		role: 'Early fan-fire weapon that converts damage dealt into shield at a 100% rate'
+		role: 'Early fan-fire weapon that converts damage dealt into shield at an effective 200% rate'
 	},
 	{
 		id: 'ember-lance',
@@ -435,7 +435,7 @@ export const controlWeapons: LoadoutItemDefinition[] = [
 			stageEnd: 5,
 			perLevelDropChance: 0.08
 		},
-		role: 'Defensive utility that adds shield equal to 5% of max health, then starts a three-sweep recharge after it breaks'
+		role: 'Defensive utility that adds shield equal to an effective 10% of max health, then starts a three-sweep recharge after it breaks'
 	},
 	{
 		id: 'shield-array',
@@ -475,7 +475,7 @@ export const controlWeapons: LoadoutItemDefinition[] = [
 			stageEnd: 5,
 			perLevelDropChance: 0.05
 		},
-		role: 'Magic shield utility that adds shield equal to 10% of max health, then starts a three-sweep recharge after it breaks'
+		role: 'Magic shield utility that adds shield equal to an effective 20% of max health, then starts a three-sweep recharge after it breaks'
 	},
 	{
 		id: 'shield-bastion',
@@ -519,7 +519,7 @@ export const controlWeapons: LoadoutItemDefinition[] = [
 			stageEnd: 5,
 			perLevelDropChance: 0.03
 		},
-		role: 'Rare shield utility that starts with a 20% max health shield, then starts a four-sweep recharge after it breaks'
+		role: 'Rare shield utility that starts with an effective 40% max health shield, then starts a four-sweep recharge after it breaks'
 	},
 	{
 		id: 'cycle-booster',

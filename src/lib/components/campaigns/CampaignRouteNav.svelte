@@ -11,9 +11,7 @@
 			loadout: number;
 			packs: number;
 		};
-		showCampaignMenuToggle?: boolean;
-		campaignMenuEnabled?: boolean;
-		onToggleCampaignMenu?: () => void;
+
 		showSweeperToggle?: boolean;
 		sweeperEnabled?: boolean;
 		onToggleSweeper?: () => void;
@@ -31,9 +29,7 @@
 		campaignId,
 		active,
 		notificationCounts = { stats: 0, loadout: 0, packs: 0 },
-		showCampaignMenuToggle = false,
-		campaignMenuEnabled = false,
-		onToggleCampaignMenu,
+
 		showSweeperToggle = false,
 		sweeperEnabled = false,
 		onToggleSweeper,

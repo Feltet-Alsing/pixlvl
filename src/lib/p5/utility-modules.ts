@@ -3,6 +3,8 @@ import type P5 from 'p5';
 import {
 	drawMineShieldTurretEffect,
 	drawOathbreakerSigilEffect,
+	drawStoneWardEffect,
+	drawVanishRuneEffect,
 	type UtilityArenaEffectProps
 } from '$lib/p5/utility-component';
 import {
@@ -16,6 +18,7 @@ import {
 	activatePassiveUtilityBehavior,
 	activateShieldPoolUtility,
 	activateUtilityBehavior,
+	activateVanishRuneUtility,
 	type UtilityActivationContext
 } from '$lib/p5/utility-behaviors';
 import type { EquippedUtilityState } from '$lib/p5/campaign-runtime';
@@ -49,6 +52,18 @@ const shieldPoolUtilityModule: Partial<UtilityModule> = {
 			context,
 			effect.shieldPercent * context.getUtilityShieldOutputMultiplier(utility.instanceId)
 		);
+	}
+};
+
+const stoneWardUtilityModule: Partial<UtilityModule> = {
+	activate: shieldPoolUtilityModule.activate,
+	renderArenaEffect: (p, effect) => {
+		if (effect.kind !== 'stone-ward') {
+			return false;
+		}
+
+		drawStoneWardEffect(p, effect);
+		return true;
 	}
 };
 
@@ -145,6 +160,32 @@ const mineShieldTurretUtilityModule: Partial<UtilityModule> = {
 	}
 };
 
+const vanishRuneUtilityModule: Partial<UtilityModule> = {
+	activate: (utility, context) => {
+		const effect = utility.definition.effect;
+
+		if (effect.type !== 'vanish-rune') {
+			return;
+		}
+
+		activateVanishRuneUtility(
+			utility,
+			context,
+			effect.requiredUniqueRuneCount,
+			effect.durationCycles,
+			effect.successCooldownCycles
+		);
+	},
+	renderArenaEffect: (p, effect) => {
+		if (effect.kind !== 'vanish-rune') {
+			return false;
+		}
+
+		drawVanishRuneEffect(p, effect);
+		return true;
+	}
+};
+
 const defaultUtilityIds = [
 	'cycle-booster',
 	'shield-booster',
@@ -168,6 +209,7 @@ const utilityModulesById: Record<string, Partial<UtilityModule>> = {
 	'shield-matrix': shieldPoolUtilityModule,
 	'shield-array': shieldPoolUtilityModule,
 	'shield-bastion': shieldPoolUtilityModule,
+	'stone-ward': stoneWardUtilityModule,
 	'shield-turret': mineShieldTurretUtilityModule,
 	'damage-spire': damageSpireUtilityModule,
 	'fire-infuser': elementalInfuserUtilityModule,
@@ -180,7 +222,8 @@ const utilityModulesById: Record<string, Partial<UtilityModule>> = {
 	'void-boost': elementalCycleBoostUtilityModule,
 	'elemental-mastery': elementalMasteryUtilityModule,
 	'oathbreaker-sigil': oathbreakerUtilityModule,
-	'mirror-array': mirrorArrayUtilityModule
+	'mirror-array': mirrorArrayUtilityModule,
+	'vanish-rune': vanishRuneUtilityModule
 };
 
 export function getUtilityModule(utilityId: string): UtilityModule {

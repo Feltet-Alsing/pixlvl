@@ -154,9 +154,9 @@
 	function formatUtilityEffect(item: Extract<LoadoutItemDefinition, { category: 'utility' }>) {
 		switch (item.effect.type) {
 			case 'shield-pool':
-				return `Shield ${Math.round(item.effect.shieldPercent * 100)}%`;
+				return `Shield ${Math.round(item.effect.shieldPercent * 200)}%`;
 			case 'mine-shield-turret':
-				return `Mine shield ${Math.round(item.effect.shieldRatioFromMineDamage * 100)}%`;
+				return `Mine shield ${Math.round(item.effect.shieldRatioFromMineDamage * 200)}%`;
 			case 'elemental-infuser':
 				return `${formatLabel(item.effect.element)} infusion`;
 			case 'cycle-adjacency-reduction':

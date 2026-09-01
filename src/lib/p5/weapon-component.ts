@@ -49,6 +49,99 @@ export interface ForceFieldEffectProps {
 	age: number;
 }
 
+export interface RuneCastEffectProps {
+	kind: 'rune-cast';
+	variant:
+		| 'judgment-rune'
+		| 'ascendance-rune'
+		| 'sun-rune'
+		| 'healing-rune'
+		| 'slowing-rune'
+		| 'sunbrand-rune'
+		| 'binding-rune'
+		| 'rune-reiterator';
+	centerX: number;
+	centerY: number;
+	runeSize: number;
+	color: string;
+	glow: boolean;
+	age: number;
+	duration: number;
+}
+
+export interface SunRuneEffectProps {
+	kind: 'sun-rune';
+	centerX: number;
+	centerY: number;
+	radius: number;
+	impactSize: number;
+	color: string;
+	glow: boolean;
+	age: number;
+	duration: number;
+}
+
+export interface HealingRuneEffectProps {
+	kind: 'healing-rune';
+	centerX: number;
+	centerY: number;
+	radius: number;
+	color: string;
+	glow: boolean;
+	age: number;
+	duration: number;
+}
+
+export interface SlowingRuneEffectProps {
+	kind: 'slowing-rune';
+	centerX: number;
+	centerY: number;
+	radius: number;
+	impactSize: number;
+	color: string;
+	glow: boolean;
+	age: number;
+	duration: number;
+}
+
+export interface SunbrandRuneEffectProps {
+	kind: 'sunbrand-rune';
+	centerX: number;
+	centerY: number;
+	radius: number;
+	impactSize: number;
+	color: string;
+	glow: boolean;
+	age: number;
+	duration: number;
+}
+
+export interface BindingRuneEffectProps {
+	kind: 'binding-rune';
+	centerX: number;
+	centerY: number;
+	radius: number;
+	impactSize: number;
+	color: string;
+	glow: boolean;
+	age: number;
+	duration: number;
+}
+
+export interface JudgmentRuneSunEffectProps {
+	kind: 'judgment-rune-sun';
+	centerX: number;
+	centerY: number;
+	orbitRadius: number;
+	orbitAngle: number;
+	sunRadius: number;
+	damageRadius: number;
+	age: number;
+	duration: number;
+	color: string;
+	glow: boolean;
+}
+
 export interface KillSwitchPulseEffectProps {
 	kind: 'kill-switch-pulse';
 	centerX: number;
@@ -323,7 +416,28 @@ export interface VoidTendrilEffectProps {
 	easeInQuad: (value: number) => number;
 }
 
+export interface NaturesWrathEffectProps {
+	kind: 'natures-wrath';
+	arenaCenterX: number;
+	arenaCenterY: number;
+	targetX: number;
+	targetY: number;
+	age: number;
+	duration: number;
+	pulseInterval: number;
+	color: string;
+	glow: boolean;
+	easeInQuad: (value: number) => number;
+}
+
 export type WeaponArenaEffectProps =
+	| RuneCastEffectProps
+	| SunRuneEffectProps
+	| HealingRuneEffectProps
+	| SlowingRuneEffectProps
+	| SunbrandRuneEffectProps
+	| BindingRuneEffectProps
+	| JudgmentRuneSunEffectProps
 	| ForceFieldEffectProps
 	| KillSwitchPulseEffectProps
 	| VulnerablePulseEffectProps
@@ -345,7 +459,8 @@ export type WeaponArenaEffectProps =
 	| ForkLightningEffectProps
 	| IceSpikeEffectProps
 	| BlizzardStormEffectProps
-	| VoidTendrilEffectProps;
+	| VoidTendrilEffectProps
+	| NaturesWrathEffectProps;
 
 export function createWeaponVisualProps(
 	visual: WeaponProjectileVisual,
@@ -456,6 +571,373 @@ export function drawWeaponComponent(p: P5, { x, y, visual, animation }: WeaponCo
 
 export function drawDefaultWeaponComponent(p: P5, props: WeaponVariantComponentProps) {
 	drawWeaponComponent(p, props);
+}
+
+export function drawRuneCastEffect(p: P5, effect: RuneCastEffectProps) {
+	const progress = Math.min(1, effect.age / Math.max(0.0001, effect.duration));
+	const fade = 1 - progress;
+	const lift = effect.centerY - 14 - progress * 12;
+	const alpha = 0.45 + fade * 0.4;
+	const pixelSize = Math.max(4, effect.runeSize * 0.34);
+	const gap = Math.max(1.5, pixelSize * 0.18);
+	const filledCells: Array<[number, number]> =
+		effect.variant === 'judgment-rune'
+			? [
+					[0, 0],
+					[1, 0],
+					[2, 0],
+					[0, 1],
+					[1, 1],
+					[2, 1],
+					[0, 2],
+					[0, 3]
+				]
+			: effect.variant === 'ascendance-rune'
+				? [
+						[0, 0],
+						[2, 0],
+						[3, 0],
+						[5, 0],
+						[0, 1],
+						[1, 1],
+						[2, 1],
+						[3, 1],
+						[4, 1],
+						[5, 1]
+					]
+				: effect.variant === 'healing-rune'
+					? [
+							[0, 0],
+							[1, 1],
+							[2, 1],
+							[1, 2],
+							[3, 2],
+							[2, 3]
+						]
+					: effect.variant === 'slowing-rune'
+						? [
+								[1, 0],
+								[0, 1],
+								[1, 1],
+								[2, 1],
+								[1, 2],
+								[2, 2]
+							]
+						: effect.variant === 'sunbrand-rune'
+							? [
+									[1, 0],
+									[2, 0],
+									[0, 1],
+									[1, 1],
+									[2, 1],
+									[1, 2],
+									[2, 2]
+								]
+							: effect.variant === 'binding-rune'
+								? [
+										[1, 0],
+										[0, 1],
+										[1, 1],
+										[2, 1],
+										[1, 2]
+									]
+								: effect.variant === 'rune-reiterator'
+									? [
+											[0, 0],
+											[1, 0],
+											[2, 0],
+											[0, 1],
+											[1, 1],
+											[2, 1],
+											[1, 2],
+											[2, 2]
+										]
+									: [
+											[1, 0],
+											[3, 0],
+											[1, 1],
+											[2, 1],
+											[3, 1],
+											[3, 2]
+										];
+	const gridWidth =
+		effect.variant === 'ascendance-rune'
+			? 6
+			: effect.variant === 'judgment-rune'
+				? 3
+				: effect.variant === 'healing-rune' || effect.variant === 'sunbrand-rune'
+					? 4
+					: 3;
+	const gridHeight =
+		effect.variant === 'healing-rune'
+			? 4
+			: effect.variant === 'ascendance-rune'
+				? 2
+				: effect.variant === 'judgment-rune'
+					? 4
+					: 3;
+	const totalWidth = pixelSize * gridWidth + gap * (gridWidth - 1);
+	const totalHeight = pixelSize * gridHeight + gap * (gridHeight - 1);
+	const startX = -totalWidth / 2 + pixelSize / 2;
+	const startY = -totalHeight / 2 + pixelSize / 2;
+
+	p.push();
+	p.translate(effect.centerX, lift);
+	p.rectMode(p.CENTER);
+	p.noStroke();
+	p.fill(`rgba(255, 236, 179, ${alpha})`);
+
+	for (const [cellX, cellY] of filledCells) {
+		const x = startX + cellX * (pixelSize + gap);
+		const y = startY + cellY * (pixelSize + gap);
+		p.square(x, y, pixelSize);
+	}
+	p.pop();
+}
+
+export function drawSunRuneEffect(p: P5, effect: SunRuneEffectProps) {
+	const pulseProgress = Math.min(1, effect.age / Math.max(0.0001, effect.duration));
+	const easedPulseProgress = 1 - Math.pow(1 - pulseProgress, 2.4);
+	const waveRadius = Math.max(effect.impactSize * 1.1, effect.radius * easedPulseProgress);
+	const coreRadius = Math.max(7, effect.impactSize * 0.5);
+	const ringFade = Math.max(0, 1 - easedPulseProgress);
+	const glowAlpha = 0.55 * ringFade;
+	const haloAlpha = 0.38 * ringFade;
+
+	if (effect.glow) {
+		p.noStroke();
+		p.fill(`rgba(255, 234, 184, ${glowAlpha})`);
+		p.circle(effect.centerX, effect.centerY, Math.max(coreRadius * 3.6, waveRadius * 1.65));
+	}
+
+	const gradientRadius = Math.max(coreRadius * 2.3, waveRadius * 1.18);
+	const ctx = p.drawingContext as CanvasRenderingContext2D;
+	const gradient = ctx.createRadialGradient(
+		effect.centerX,
+		effect.centerY,
+		0,
+		effect.centerX,
+		effect.centerY,
+		gradientRadius
+	);
+	gradient.addColorStop(0, `rgba(255, 252, 241, ${Math.max(0.24, 0.76 * ringFade)})`);
+	gradient.addColorStop(0.22, `rgba(255, 238, 191, ${Math.max(0.2, 0.62 * ringFade)})`);
+	gradient.addColorStop(0.48, `rgba(250, 214, 126, ${Math.max(0.16, 0.46 * ringFade)})`);
+	gradient.addColorStop(0.76, `rgba(255, 241, 205, ${Math.max(0.1, haloAlpha)})`);
+	gradient.addColorStop(1, 'rgba(255, 241, 205, 0)');
+
+	ctx.save();
+	ctx.fillStyle = gradient;
+	ctx.beginPath();
+	ctx.arc(effect.centerX, effect.centerY, gradientRadius, 0, Math.PI * 2);
+	ctx.fill();
+	ctx.restore();
+}
+
+export function drawHealingRuneEffect(p: P5, effect: HealingRuneEffectProps) {
+	const progress = Math.min(1, effect.age / Math.max(0.0001, effect.duration));
+	const easedProgress = 1 - Math.pow(1 - progress, 2);
+	const radius = Math.max(10, effect.radius * easedProgress);
+	const alpha = 1 - progress;
+	const ctx = p.drawingContext as CanvasRenderingContext2D;
+	const gradient = ctx.createRadialGradient(
+		effect.centerX,
+		effect.centerY,
+		0,
+		effect.centerX,
+		effect.centerY,
+		radius
+	);
+	gradient.addColorStop(0, `rgba(241, 255, 248, ${Math.max(0.18, 0.62 * (1 - progress))})`);
+	gradient.addColorStop(0.5, `rgba(130, 242, 198, ${Math.max(0.12, 0.42 * (1 - progress))})`);
+	gradient.addColorStop(1, 'rgba(130, 242, 198, 0)');
+
+	ctx.save();
+	ctx.fillStyle = gradient;
+	ctx.beginPath();
+	ctx.arc(effect.centerX, effect.centerY, radius, 0, Math.PI * 2);
+	ctx.fill();
+	ctx.restore();
+
+	p.push();
+	p.rectMode(p.CENTER);
+	p.noStroke();
+	const plusCells: Array<[number, number]> = [
+		[1, 0],
+		[0, 1],
+		[1, 1],
+		[2, 1],
+		[1, 2]
+	];
+
+	for (let plusIndex = 0; plusIndex < 5; plusIndex += 1) {
+		const orbitAngle = -Math.PI / 2 + plusIndex * ((Math.PI * 2) / 5);
+		const orbitDistance = radius * (0.18 + plusIndex * 0.08);
+		const drift = progress * (16 + plusIndex * 5);
+		const plusX = effect.centerX + Math.cos(orbitAngle) * orbitDistance;
+		const plusY = effect.centerY + Math.sin(orbitAngle) * orbitDistance - drift;
+		const cellSize = 2.2 + plusIndex * 0.38;
+		const cellGap = Math.max(0.6, cellSize * 0.12);
+		const glyphWidth = cellSize * 3 + cellGap * 2;
+		const glyphHeight = cellSize * 3 + cellGap * 2;
+		const startX = plusX - glyphWidth / 2 + cellSize / 2;
+		const startY = plusY - glyphHeight / 2 + cellSize / 2;
+		const plusAlpha = Math.max(0, alpha * (0.72 - plusIndex * 0.08));
+
+		if (plusAlpha <= 0) {
+			continue;
+		}
+
+		p.fill(`rgba(134, 239, 172, ${plusAlpha})`);
+
+		for (const [cellX, cellY] of plusCells) {
+			p.square(
+				startX + cellX * (cellSize + cellGap),
+				startY + cellY * (cellSize + cellGap),
+				cellSize
+			);
+		}
+	}
+
+	p.pop();
+}
+
+export function drawSlowingRuneEffect(p: P5, effect: SlowingRuneEffectProps) {
+	const progress = Math.min(1, effect.age / Math.max(0.0001, effect.duration));
+	const easedProgress = 1 - Math.pow(1 - progress, 2.2);
+	const waveRadius = Math.max(effect.impactSize * 1.1, effect.radius * easedProgress);
+	const waveThickness = Math.max(2, effect.impactSize * 0.16);
+	const ringFade = Math.max(0, 1 - progress);
+
+	if (effect.glow) {
+		p.noStroke();
+		p.fill(`rgba(173, 232, 255, ${0.2 * ringFade})`);
+		p.circle(effect.centerX, effect.centerY, Math.max(effect.impactSize * 4.8, waveRadius * 2.2));
+	}
+
+	const ctx = p.drawingContext as CanvasRenderingContext2D;
+	const gradient = ctx.createRadialGradient(
+		effect.centerX,
+		effect.centerY,
+		Math.max(0, waveRadius - waveThickness * 2),
+		effect.centerX,
+		effect.centerY,
+		waveRadius + waveThickness * 1.8
+	);
+	gradient.addColorStop(0, 'rgba(142, 219, 255, 0)');
+	gradient.addColorStop(0.45, `rgba(191, 242, 255, ${0.14 * ringFade})`);
+	gradient.addColorStop(0.7, `rgba(142, 219, 255, ${0.62 * ringFade})`);
+	gradient.addColorStop(0.88, `rgba(97, 189, 255, ${0.92 * ringFade})`);
+	gradient.addColorStop(1, 'rgba(142, 219, 255, 0)');
+
+	ctx.save();
+	ctx.fillStyle = gradient;
+	ctx.beginPath();
+	ctx.arc(effect.centerX, effect.centerY, waveRadius + waveThickness * 1.8, 0, Math.PI * 2);
+	ctx.fill();
+	ctx.restore();
+
+	p.noFill();
+	p.stroke(`rgba(220, 248, 255, ${0.9 * ringFade})`);
+	p.strokeWeight(Math.max(1.4, waveThickness * 0.3));
+	p.circle(effect.centerX, effect.centerY, waveRadius * 2);
+}
+
+export function drawSunbrandRuneEffect(p: P5, effect: SunbrandRuneEffectProps) {
+	const progress = Math.min(1, effect.age / Math.max(0.0001, effect.duration));
+	const easedProgress = 1 - Math.pow(1 - progress, 2.3);
+	const waveRadius = Math.max(effect.impactSize * 1.15, effect.radius * easedProgress);
+	const waveThickness = Math.max(2, effect.impactSize * 0.14);
+	const ringFade = Math.max(0, 1 - progress);
+
+	if (effect.glow) {
+		p.noStroke();
+		p.fill(`rgba(251, 146, 60, ${0.18 * ringFade})`);
+		p.circle(effect.centerX, effect.centerY, Math.max(effect.impactSize * 5.2, waveRadius * 2.25));
+	}
+
+	const ctx = p.drawingContext as CanvasRenderingContext2D;
+	const gradient = ctx.createRadialGradient(
+		effect.centerX,
+		effect.centerY,
+		Math.max(0, waveRadius - waveThickness * 2),
+		effect.centerX,
+		effect.centerY,
+		waveRadius + waveThickness * 2
+	);
+	gradient.addColorStop(0, 'rgba(251, 146, 60, 0)');
+	gradient.addColorStop(0.42, `rgba(255, 222, 173, ${0.14 * ringFade})`);
+	gradient.addColorStop(0.72, `rgba(251, 191, 36, ${0.52 * ringFade})`);
+	gradient.addColorStop(0.88, `rgba(251, 146, 60, ${0.9 * ringFade})`);
+	gradient.addColorStop(1, 'rgba(251, 146, 60, 0)');
+
+	ctx.save();
+	ctx.fillStyle = gradient;
+	ctx.beginPath();
+	ctx.arc(effect.centerX, effect.centerY, waveRadius + waveThickness * 2, 0, Math.PI * 2);
+	ctx.fill();
+	ctx.restore();
+
+	p.noFill();
+	p.stroke(`rgba(255, 232, 184, ${0.9 * ringFade})`);
+	p.strokeWeight(Math.max(1.5, waveThickness * 0.3));
+	p.circle(effect.centerX, effect.centerY, waveRadius * 2);
+}
+
+export function drawBindingRuneEffect(p: P5, effect: BindingRuneEffectProps) {
+	const progress = Math.min(1, effect.age / Math.max(0.0001, effect.duration));
+	const easedProgress = 1 - Math.pow(1 - progress, 2.15);
+	const waveRadius = Math.max(effect.impactSize * 1.05, effect.radius * easedProgress);
+	const waveThickness = Math.max(2, effect.impactSize * 0.15);
+	const ringFade = Math.max(0, 1 - progress);
+	const latticeAlpha = 0.72 * ringFade;
+
+	if (effect.glow) {
+		p.noStroke();
+		p.fill(`rgba(231, 201, 137, ${0.16 * ringFade})`);
+		p.circle(effect.centerX, effect.centerY, Math.max(effect.impactSize * 5, waveRadius * 2.18));
+	}
+
+	const ctx = p.drawingContext as CanvasRenderingContext2D;
+	const gradient = ctx.createRadialGradient(
+		effect.centerX,
+		effect.centerY,
+		Math.max(0, waveRadius - waveThickness * 2),
+		effect.centerX,
+		effect.centerY,
+		waveRadius + waveThickness * 1.9
+	);
+	gradient.addColorStop(0, 'rgba(231, 201, 137, 0)');
+	gradient.addColorStop(0.46, `rgba(250, 240, 211, ${0.12 * ringFade})`);
+	gradient.addColorStop(0.74, `rgba(231, 201, 137, ${0.5 * ringFade})`);
+	gradient.addColorStop(0.9, `rgba(181, 145, 87, ${0.88 * ringFade})`);
+	gradient.addColorStop(1, 'rgba(231, 201, 137, 0)');
+
+	ctx.save();
+	ctx.fillStyle = gradient;
+	ctx.beginPath();
+	ctx.arc(effect.centerX, effect.centerY, waveRadius + waveThickness * 1.9, 0, Math.PI * 2);
+	ctx.fill();
+	ctx.restore();
+
+	p.noFill();
+	p.stroke(`rgba(250, 240, 211, ${0.9 * ringFade})`);
+	p.strokeWeight(Math.max(1.4, waveThickness * 0.28));
+	p.circle(effect.centerX, effect.centerY, waveRadius * 2);
+
+	p.stroke(`rgba(181, 145, 87, ${latticeAlpha})`);
+	p.strokeWeight(Math.max(1.1, waveThickness * 0.18));
+	for (let spokeIndex = 0; spokeIndex < 4; spokeIndex += 1) {
+		const angle = (Math.PI / 2) * spokeIndex + progress * 0.35;
+		const innerRadius = Math.max(6, waveRadius - effect.impactSize * 0.5);
+		const outerRadius = waveRadius + effect.impactSize * 0.18;
+		p.line(
+			effect.centerX + Math.cos(angle) * innerRadius,
+			effect.centerY + Math.sin(angle) * innerRadius,
+			effect.centerX + Math.cos(angle) * outerRadius,
+			effect.centerY + Math.sin(angle) * outerRadius
+		);
+	}
 }
 
 export function drawNapalmGrenadeComponent(
@@ -1148,6 +1630,54 @@ export function drawSniperLockEffect(p: P5, effect: SniperLockEffectProps) {
 	p.circle(effect.targetX, effect.targetY, 18 + Math.sin(progress * Math.PI * 4) * 3);
 }
 
+export function drawJudgmentRuneSunEffect(p: P5, effect: JudgmentRuneSunEffectProps) {
+	const life = Math.max(0, 1 - effect.age / Math.max(0.0001, effect.duration));
+	const pulse = 0.92 + Math.sin(effect.age * 10) * 0.08;
+	const sunX = effect.centerX + Math.cos(effect.orbitAngle) * effect.orbitRadius;
+	const sunY = effect.centerY + Math.sin(effect.orbitAngle) * effect.orbitRadius;
+	const auraRadius = effect.damageRadius * (0.96 + Math.sin(effect.age * 6) * 0.04);
+
+	p.noFill();
+	p.stroke(`rgba(255, 220, 128, ${0.16 + life * 0.18})`);
+	p.strokeWeight(1.4);
+	p.circle(effect.centerX, effect.centerY, effect.orbitRadius * 2);
+
+	if (effect.glow) {
+		const ctx = p.drawingContext as CanvasRenderingContext2D;
+		const gradient = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, auraRadius * 1.7);
+		gradient.addColorStop(0, `rgba(255, 249, 220, ${0.34 + life * 0.16})`);
+		gradient.addColorStop(0.16, `rgba(255, 232, 163, ${0.28 + life * 0.12})`);
+		gradient.addColorStop(0.42, `rgba(255, 214, 102, ${0.16 + life * 0.12})`);
+		gradient.addColorStop(0.72, `rgba(245, 158, 11, ${0.06 + life * 0.06})`);
+		gradient.addColorStop(1, 'rgba(245, 158, 11, 0)');
+		ctx.save();
+		ctx.fillStyle = gradient;
+		ctx.beginPath();
+		ctx.arc(sunX, sunY, auraRadius * 1.7, 0, Math.PI * 2);
+		ctx.fill();
+		ctx.restore();
+	}
+
+	p.noFill();
+	p.stroke(`rgba(255, 240, 196, ${0.18 + life * 0.12})`);
+	p.strokeWeight(1.1);
+	p.circle(sunX, sunY, auraRadius * 2);
+	p.stroke(`rgba(255, 223, 143, ${0.08 + life * 0.08})`);
+	p.strokeWeight(0.8);
+	p.circle(sunX, sunY, auraRadius * 2.7);
+	p.stroke(`rgba(255, 236, 184, ${0.05 + life * 0.05})`);
+	p.strokeWeight(0.6);
+	p.circle(sunX, sunY, auraRadius * 3.15);
+
+	p.noStroke();
+	p.fill(`rgba(255, 248, 224, ${0.85})`);
+	p.circle(sunX, sunY, effect.sunRadius * 1.25 * pulse);
+	p.fill(`rgba(251, 191, 36, ${0.88})`);
+	p.circle(sunX, sunY, effect.sunRadius * pulse);
+	p.fill(`rgba(245, 158, 11, ${0.92})`);
+	p.circle(sunX, sunY, effect.sunRadius * 0.58 * pulse);
+}
+
 export function drawSniperChainBurstEffect(p: P5, effect: SniperChainBurstEffectProps) {
 	const fade = 1 - effect.age / Math.max(0.0001, effect.duration);
 	const alpha = Math.round(255 * fade)
@@ -1476,5 +2006,42 @@ export function drawVoidTendrilEffect(p: P5, effect: VoidTendrilEffectProps) {
 		const clawTipX = reachX + Math.cos(clawAngle) * clawLength * lengthMultiplier;
 		const clawTipY = reachY + Math.sin(clawAngle) * clawLength * lengthMultiplier;
 		p.line(clawBaseX, clawBaseY, clawTipX, clawTipY);
+	}
+}
+
+export function drawNaturesWrathEffect(p: P5, effect: NaturesWrathEffectProps) {
+	drawVoidTendrilEffect(p, {
+		kind: 'void-tendril',
+		arenaCenterX: effect.arenaCenterX,
+		arenaCenterY: effect.arenaCenterY,
+		targetX: effect.targetX,
+		targetY: effect.targetY,
+		age: effect.age,
+		duration: Math.max(0.001, effect.duration),
+		color: effect.color,
+		glow: effect.glow,
+		easeInQuad: effect.easeInQuad
+	});
+
+	const pulsePhase =
+		effect.pulseInterval > 0 ? (effect.age % effect.pulseInterval) / effect.pulseInterval : 0;
+	const pulseRadius = p.lerp(24, Math.min(p.width, p.height) * 0.42, pulsePhase);
+	const alphaHex = Math.round((1 - pulsePhase) * 130)
+		.toString(16)
+		.padStart(2, '0');
+
+	p.noFill();
+	p.stroke(`${effect.color}${alphaHex}`);
+	p.strokeWeight(2.2 - pulsePhase * 1.2);
+	p.circle(effect.arenaCenterX, effect.arenaCenterY, pulseRadius * 2);
+
+	if (effect.glow) {
+		p.noStroke();
+		p.fill(
+			`${effect.color}${Math.round((1 - pulsePhase) * 38)
+				.toString(16)
+				.padStart(2, '0')}`
+		);
+		p.circle(effect.arenaCenterX, effect.arenaCenterY, pulseRadius * 1.15);
 	}
 }

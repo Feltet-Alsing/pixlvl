@@ -1,3 +1,4 @@
+import { ancientWeaponModulesById } from '$lib/p5/weapon-modules/ancient';
 import { anomalyWeaponModulesById } from '$lib/p5/weapon-modules/anomaly';
 import { controlWeaponModulesById } from '$lib/p5/weapon-modules/control';
 import { defaultWeaponModule, defaultWeaponModulesById } from '$lib/p5/weapon-modules/default';
@@ -8,6 +9,7 @@ import type { WeaponModule } from '$lib/p5/weapon-module-types';
 export type { WeaponModule } from '$lib/p5/weapon-module-types';
 
 const weaponModulesById: Record<string, Partial<WeaponModule>> = {
+	...ancientWeaponModulesById,
 	...defaultWeaponModulesById,
 	...precisionWeaponModulesById,
 	...controlWeaponModulesById,

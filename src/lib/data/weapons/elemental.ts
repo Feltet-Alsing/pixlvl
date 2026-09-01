@@ -43,7 +43,7 @@ export const elementalWeapons: LoadoutItemDefinition[] = [
 			stageEnd: 3,
 			perLevelDropChance: 0.07
 		},
-		role: 'Magic shield-support weapon that sprays weak arc bolts and converts the damage dealt into pixl shielding, giving fragile multihit boards room to stabilize'
+		role: 'Magic shield-support weapon that sprays weak arc bolts and now converts the damage dealt into doubled pixl shielding, giving fragile multihit boards room to stabilize'
 	},
 	{
 		id: 'prism-brand',

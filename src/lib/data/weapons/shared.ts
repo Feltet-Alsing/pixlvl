@@ -1084,7 +1084,7 @@ export const sharedWeapons: LoadoutItemDefinition[] = [
 			stageEnd: 5,
 			perLevelDropChance: 0.05
 		},
-		role: 'Magic mine utility that deploys a perimeter shield turret; while active, it converts 10% of mine-family damage into shield and stays online until that shield is broken'
+		role: 'Magic mine utility that deploys a perimeter shield turret; while active, it converts an effective 20% of mine-family damage into shield and stays online until that shield is broken'
 	},
 	{
 		id: 'heavy-orb',
@@ -1177,7 +1177,7 @@ export const sharedWeapons: LoadoutItemDefinition[] = [
 			stageEnd: 5,
 			perLevelDropChance: 0.03
 		},
-		role: 'Exotic knife frame whose hollow core sockets The Knife and boosts its direct-hit damage by 5x'
+		role: 'Exotic knife frame whose hollow core sockets The Knife and boosts its direct-hit damage by 2.5x'
 	},
 	{
 		id: 'tide-caster',

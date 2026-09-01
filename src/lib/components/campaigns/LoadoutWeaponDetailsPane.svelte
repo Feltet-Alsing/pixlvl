@@ -32,6 +32,7 @@
 		canMirror?: boolean;
 		isMirrored?: boolean;
 		canChangeTargeting?: boolean;
+		targetingLabel?: string;
 	}
 
 	interface Props {
@@ -128,7 +129,7 @@
 
 		{#if detail.canChangeTargeting && detail.targetingValue && onTargetingChange}
 			<label class="targeting-field">
-				<span>Targeting</span>
+				<span>{detail.targetingLabel ?? 'Targeting'}</span>
 				<select
 					value={detail.targetingValue}
 					onchange={(event) => onTargetingChange((event.currentTarget as HTMLSelectElement).value)}

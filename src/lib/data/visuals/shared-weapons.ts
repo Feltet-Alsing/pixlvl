@@ -8,6 +8,83 @@ export const sharedProjectileVisualById = {
 		trail: 'pulse',
 		glow: true
 	},
+	'judgment-rune': {
+		color: '#ffd36b',
+		size: 'medium',
+		shape: 'spark',
+		trail: 'pulse',
+		glow: true
+	},
+	'ascendance-rune': {
+		color: '#fff0a8',
+		size: 'medium',
+		shape: 'spark',
+		trail: 'pulse',
+		glow: true
+	},
+	'rune-reiterator': {
+		color: '#f3d58a',
+		size: 'medium',
+		shape: 'spark',
+		trail: 'pulse',
+		glow: true
+	},
+	'sun-rune': {
+		color: '#f6c453',
+		size: 'medium',
+		shape: 'spark',
+		trail: 'pulse',
+		glow: true
+	},
+	'binding-rune': {
+		color: '#e7c989',
+		size: 'medium',
+		shape: 'spark',
+		trail: 'pulse',
+		glow: true
+	},
+	'sunbrand-rune': {
+		color: '#fb923c',
+		size: 'medium',
+		shape: 'spark',
+		trail: 'pulse',
+		glow: true
+	},
+	'idol-of-echoes': {
+		color: '#e8d7a7',
+		size: 'medium',
+		shape: 'diamond',
+		trail: 'pulse',
+		glow: true
+	},
+	'slowing-rune': {
+		color: '#8edbff',
+		size: 'medium',
+		shape: 'spark',
+		trail: 'pulse',
+		glow: true
+	},
+	'healing-rune': {
+		color: '#82f2c6',
+		size: 'medium',
+		shape: 'spark',
+		trail: 'pulse',
+		glow: true
+	},
+	'natures-wrath': {
+		color: '#86efac',
+		size: 'medium',
+		shape: 'spark',
+		trail: 'pulse',
+		glow: true
+	},
+	'the-ascender': {
+		color: '#7dd3fc',
+		size: 'medium',
+		shape: 'spark',
+		trail: 'pulse',
+		glow: true
+	},
 	'the-knife': {
 		color: '#f1f5f9',
 		size: 'small',
@@ -222,6 +299,16 @@ export const sharedUtilityVisualById = {
 	},
 	'oathbreaker-sigil': {
 		color: '#f59e0b',
+		shape: 'ring',
+		glow: true
+	},
+	'stone-ward': {
+		color: '#cbd5e1',
+		shape: 'ring',
+		glow: true
+	},
+	'vanish-rune': {
+		color: '#86efac',
 		shape: 'ring',
 		glow: true
 	}

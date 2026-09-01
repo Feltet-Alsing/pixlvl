@@ -151,6 +151,10 @@
 	let selectedPackIds = $state<string[]>([]);
 
 	function getPackKindLabel(pack: (typeof rewardPacks)[number]) {
+		if (pack.kind === 'dungeon') {
+			return 'Dungeon pack';
+		}
+
 		if (pack.kind === 'special') {
 			return 'Special pack';
 		}
@@ -163,6 +167,10 @@
 	}
 
 	function getPackKindBadge(pack: (typeof rewardPacks)[number]) {
+		if (pack.kind === 'dungeon') {
+			return 'dungeon pack';
+		}
+
 		if (pack.kind === 'special') {
 			return 'special pack';
 		}

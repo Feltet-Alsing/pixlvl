@@ -1,8 +1,10 @@
 import { error, fail } from '@sveltejs/kit';
 
 import {
+	dungeons,
 	getCampaign,
 	getCampaignCombatProfile,
+	getDungeon,
 	getLoadoutItemDefinition,
 	getCampaignWeaponPool
 } from '$lib/data';
@@ -110,6 +112,46 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		const combatProfile = getCampaignCombatProfile(campaignId);
 		const weaponPool = getCampaignWeaponPool(campaignId);
 		const gameState = locals.user ? await getOrCreateGameState(locals.user.id) : null;
+		const linkedDungeon =
+			campaign.mode === 'campaign' && campaignId <= 5
+				? (() => {
+						try {
+							const dungeon = getDungeon(campaignId);
+
+							return {
+								dungeonId: dungeon.dungeonId,
+								keyId: dungeon.keyId,
+								name: dungeon.name
+							};
+						} catch {
+							return null;
+						}
+					})()
+				: null;
+		const dungeonShortcut = (() => {
+			if (!gameState) {
+				return null;
+			}
+
+			const matchingLinkedDungeonHasKey =
+				linkedDungeon && (gameState.pixlState.dungeonKeys[linkedDungeon.keyId] ?? 0) > 0;
+
+			if (matchingLinkedDungeonHasKey && linkedDungeon) {
+				return linkedDungeon;
+			}
+
+			for (const dungeon of Object.values(dungeons)) {
+				if ((gameState.pixlState.dungeonKeys[dungeon.keyId] ?? 0) > 0) {
+					return {
+						dungeonId: dungeon.dungeonId,
+						keyId: dungeon.keyId,
+						name: dungeon.name
+					};
+				}
+			}
+
+			return null;
+		})();
 		const campaignState = locals.user
 			? await getCampaignProgressForUser(locals.user.id, campaignId)
 			: null;
@@ -119,6 +161,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			campaign,
 			combatProfile,
 			weaponPool,
+			linkedDungeon,
+			dungeonShortcut,
 			gameState,
 			campaignState
 		};

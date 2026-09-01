@@ -10,13 +10,26 @@ import type {
 type WeaponAttackSpecialType = NonNullable<WeaponAttackBehavior['special']>['type'];
 
 function noPendingMultiplier(): WeaponActivationResult {
-	return { pendingNextWeaponDamageMultiplier: null };
+	return {
+		pendingNextWeaponDamageMultiplier: null,
+		didActivate: true,
+		nextCyclesUntilTrigger: null
+	};
 }
 
 export const activateNoopSpecial: WeaponActivator = () => noPendingMultiplier();
 
+export const activateAscendanceRune: WeaponActivator = (weapon, _target, context) => {
+	return context.spawnAscendanceRune(weapon.definition, weapon.instanceId);
+};
+
+export const activateJudgmentRune: WeaponActivator = (weapon, target, context) => {
+	return context.spawnJudgmentRune(weapon.definition, weapon.instanceId, target);
+};
+
 export function createUntargetedSpecialActivator(
 	spawnKey:
+		| 'spawnRuneReiterator'
 		| 'spawnForceField'
 		| 'spawnKillSwitchPulse'
 		| 'spawnVulnerablePulse'
@@ -36,6 +49,12 @@ export function createUntargetedSpecialActivator(
 
 export function createTargetedSpecialActivator(
 	spawnKey:
+		| 'spawnNaturesWrath'
+		| 'spawnBindingRune'
+		| 'spawnSunbrandRune'
+		| 'spawnSlowingRune'
+		| 'spawnHealingRune'
+		| 'spawnSunRune'
 		| 'spawnLaserRod'
 		| 'spawnPerimeterMine'
 		| 'spawnTurretMine'
@@ -111,10 +130,21 @@ export const activateProjectilePattern: WeaponActivator = (weapon, target, conte
 };
 
 export const specialTypeActivators: Partial<Record<WeaponAttackSpecialType, WeaponActivator>> = {
+	'judgment-rune': activateJudgmentRune,
+	'ascendance-rune': activateAscendanceRune,
+	'rune-reiterator': createUntargetedSpecialActivator('spawnRuneReiterator'),
+	'binding-rune': createTargetedSpecialActivator('spawnBindingRune'),
+	'sunbrand-rune': createTargetedSpecialActivator('spawnSunbrandRune'),
+	'idol-of-echoes': activateNoopSpecial,
+	'slowing-rune': createTargetedSpecialActivator('spawnSlowingRune'),
+	'healing-rune': createTargetedSpecialActivator('spawnHealingRune'),
+	'sun-rune': createTargetedSpecialActivator('spawnSunRune'),
+	'natures-wrath': createTargetedSpecialActivator('spawnNaturesWrath'),
 	'force-field': createUntargetedSpecialActivator('spawnForceField'),
 	'kill-switch': createUntargetedSpecialActivator('spawnKillSwitchPulse'),
 	'vulnerable-pulse': createUntargetedSpecialActivator('spawnVulnerablePulse'),
 	'laser-sweep': createUntargetedSpecialActivator('spawnLaserSweep'),
+	'pea-ascender': activateNoopSpecial,
 	'knife-sheath': activateNoopSpecial,
 	'laser-rod-network': createTargetedSpecialActivator('spawnLaserRod'),
 	'perimeter-mine': createTargetedSpecialActivator('spawnPerimeterMine'),

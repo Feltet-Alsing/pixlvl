@@ -12,6 +12,7 @@ import {
 } from 'drizzle-orm/pg-core';
 
 import type {
+	DungeonKeyInventory,
 	OwnedWeaponInstance,
 	PersistedLoadoutState,
 	PersistedRewardPackCard
@@ -38,6 +39,12 @@ export const pixlState = pgTable('pixl_state', {
 		.$type<string[]>()
 		.notNull()
 		.default(sql`'[]'::jsonb`),
+	dungeonKeys: jsonb('dungeon_keys')
+		.$type<DungeonKeyInventory>()
+		.notNull()
+		.default(
+			sql`'{"dungeon-1-key":0,"dungeon-2-key":0,"dungeon-3-key":0,"dungeon-4-key":0,"dungeon-5-key":0}'::jsonb`
+		),
 	ownedWeapons: jsonb('owned_weapons')
 		.$type<OwnedWeaponInstance[]>()
 		.notNull()
@@ -106,6 +113,31 @@ export const rewardPack = pgTable(
 	]
 );
 
+export const dungeonProgress = pgTable(
+	'dungeon_progress',
+	{
+		userId: text('user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		dungeonId: integer('dungeon_id').notNull(),
+		currentFloor: integer('current_floor').notNull().default(1),
+		highestUnlockedFloor: integer('highest_unlocked_floor').notNull().default(1),
+		highestClearedFloor: integer('highest_cleared_floor').notNull().default(0),
+		runActive: boolean('run_active').notNull().default(false),
+		completed: boolean('completed').notNull().default(false),
+		lastPlayedAt: timestamp('last_played_at').defaultNow().notNull(),
+		createdAt: timestamp('created_at').defaultNow().notNull(),
+		updatedAt: timestamp('updated_at')
+			.defaultNow()
+			.$onUpdate(() => new Date())
+			.notNull()
+	},
+	(table) => [
+		primaryKey({ columns: [table.userId, table.dungeonId] }),
+		index('dungeon_progress_user_id_idx').on(table.userId)
+	]
+);
+
 export const progressionLeaderboard = pgTable(
 	'progression_leaderboard',
 	{
@@ -151,6 +183,13 @@ export const campaignProgressRelations = relations(campaignProgress, ({ one }) =
 export const rewardPackRelations = relations(rewardPack, ({ one }) => ({
 	user: one(user, {
 		fields: [rewardPack.ownerUserId],
+		references: [user.id]
+	})
+}));
+
+export const dungeonProgressRelations = relations(dungeonProgress, ({ one }) => ({
+	user: one(user, {
+		fields: [dungeonProgress.userId],
 		references: [user.id]
 	})
 }));

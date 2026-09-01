@@ -37,7 +37,35 @@ export interface MineShieldTurretEffectProps {
 	shieldRatioFromMineDamage: number;
 }
 
-export type UtilityArenaEffectProps = OathbreakerSigilEffectProps | MineShieldTurretEffectProps;
+export interface StoneWardEffectProps {
+	kind: 'stone-ward';
+	arenaCenterX: number;
+	arenaCenterY: number;
+	radius: number;
+	lineWidth: number;
+	color: string;
+	glow: boolean;
+	pulse: number;
+	shieldRatio: number;
+}
+
+export interface VanishRuneEffectProps {
+	kind: 'vanish-rune';
+	arenaCenterX: number;
+	arenaCenterY: number;
+	radius: number;
+	age: number;
+	duration: number;
+	pulse: number;
+	color: string;
+	glow: boolean;
+}
+
+export type UtilityArenaEffectProps =
+	| OathbreakerSigilEffectProps
+	| MineShieldTurretEffectProps
+	| StoneWardEffectProps
+	| VanishRuneEffectProps;
 
 export function drawOathbreakerSigilEffect(p: P5, sigil: OathbreakerSigilEffectProps) {
 	const life = 1 - sigil.age / Math.max(0.0001, sigil.sweepDuration + sigil.duration);
@@ -203,4 +231,78 @@ export function drawMineShieldTurretEffect(p: P5, turret: MineShieldTurretEffect
 	p.circle(turret.arenaCenterX, turret.arenaCenterY, turret.markerSize * 0.78);
 	p.fill(`${turret.color}66`);
 	p.circle(turret.arenaCenterX, turret.arenaCenterY, turret.markerSize * (1.2 + beamPulse * 0.28));
+}
+
+export function drawStoneWardEffect(p: P5, ward: StoneWardEffectProps) {
+	const alphaHex = Math.round((0.35 + ward.shieldRatio * 0.45) * 255)
+		.toString(16)
+		.padStart(2, '0');
+	const glowAlphaHex = Math.round((0.12 + ward.shieldRatio * 0.18) * 255)
+		.toString(16)
+		.padStart(2, '0');
+	const stoneCount = 10;
+	const orbitRadius = ward.radius + ward.lineWidth * 0.15;
+
+	if (ward.glow) {
+		p.noFill();
+		p.stroke(`${ward.color}${glowAlphaHex}`);
+		p.strokeWeight(ward.lineWidth * 1.8);
+		p.circle(ward.arenaCenterX, ward.arenaCenterY, ward.radius * 2.06);
+	}
+
+	p.noFill();
+	p.stroke(`#e2e8f0${alphaHex}`);
+	p.strokeWeight(Math.max(1.5, ward.lineWidth * 0.34));
+	p.circle(ward.arenaCenterX, ward.arenaCenterY, ward.radius * 2.02);
+
+	p.stroke(`${ward.color}${alphaHex}`);
+	p.strokeWeight(ward.lineWidth);
+	p.circle(ward.arenaCenterX, ward.arenaCenterY, ward.radius * 2);
+
+	for (let stoneIndex = 0; stoneIndex < stoneCount; stoneIndex += 1) {
+		const angle = (p.TWO_PI * stoneIndex) / stoneCount + ward.pulse * 0.22;
+		const stoneX = ward.arenaCenterX + Math.cos(angle) * orbitRadius;
+		const stoneY = ward.arenaCenterY + Math.sin(angle) * orbitRadius;
+		const stoneSize = ward.lineWidth * (0.62 + (stoneIndex % 3) * 0.12);
+
+		p.noStroke();
+		p.fill(`#02061766`);
+		p.circle(stoneX + 1.2, stoneY + 1.2, stoneSize * 1.05);
+		p.fill(stoneIndex % 2 === 0 ? `#e2e8f0${alphaHex}` : `${ward.color}${alphaHex}`);
+		p.circle(stoneX, stoneY, stoneSize);
+	}
+}
+
+export function drawVanishRuneEffect(p: P5, effect: VanishRuneEffectProps) {
+	const life = Math.max(0, 1 - effect.age / Math.max(0.0001, effect.duration));
+	const pulse = 0.92 + Math.sin(effect.pulse * 5.4) * 0.08;
+	const ringRadius = effect.radius * (1 + (1 - life) * 0.08);
+	const alphaHex = Math.round((0.24 + life * 0.42) * 255)
+		.toString(16)
+		.padStart(2, '0');
+
+	if (effect.glow) {
+		p.noStroke();
+		p.fill(`${effect.color}18`);
+		p.circle(effect.arenaCenterX, effect.arenaCenterY, ringRadius * 2.9 * pulse);
+		p.fill(`#dcfce722`);
+		p.circle(effect.arenaCenterX, effect.arenaCenterY, ringRadius * 2.15 * pulse);
+	}
+
+	p.noFill();
+	p.stroke(`#f0fdf4${alphaHex}`);
+	p.strokeWeight(2.2);
+	p.circle(effect.arenaCenterX, effect.arenaCenterY, ringRadius * 1.96);
+	p.stroke(`${effect.color}${alphaHex}`);
+	p.strokeWeight(3.2);
+	p.circle(effect.arenaCenterX, effect.arenaCenterY, ringRadius * 2.2);
+
+	for (let shardIndex = 0; shardIndex < 6; shardIndex += 1) {
+		const angle = (p.TWO_PI * shardIndex) / 6 + effect.pulse * 0.6;
+		const shardX = effect.arenaCenterX + Math.cos(angle) * ringRadius * 1.18;
+		const shardY = effect.arenaCenterY + Math.sin(angle) * ringRadius * 1.18;
+		p.noStroke();
+		p.fill(shardIndex % 2 === 0 ? `${effect.color}${alphaHex}` : `#f0fdf4${alphaHex}`);
+		p.circle(shardX, shardY, 5.5 * pulse);
+	}
 }

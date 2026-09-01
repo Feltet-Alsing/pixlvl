@@ -61,6 +61,7 @@ export interface RewardPackRow {
 	sourceCampaignLevel: number;
 	cardCount: number;
 	kind: PersistedRewardPack['kind'];
+	isSpecial: boolean;
 	guaranteedSlotLabel: 'Exotic / Legendary' | null;
 }
 
@@ -128,6 +129,7 @@ export function buildRewardPackRows(rewardPacks: PersistedRewardPack[]) {
 		sourceCampaignLevel: pack.sourceCampaignLevel,
 		cardCount: pack.cardCount,
 		kind: pack.kind,
+		isSpecial: pack.kind !== 'normal',
 		guaranteedSlotLabel: pack.guaranteedSlotIndex >= 0 ? 'Exotic / Legendary' : null
 	})) satisfies RewardPackRow[];
 }

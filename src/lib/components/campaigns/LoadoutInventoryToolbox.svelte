@@ -85,7 +85,6 @@
 		) => void;
 		onGroupPick?: (group: InventoryWeaponGroup) => void;
 		formatGroupStatus: (group: InventoryWeaponGroup) => string;
-		isShapeCellFilled: (shape: WeaponShape, x: number, y: number) => boolean;
 	}
 
 	interface PendingMobileDrag {
@@ -122,8 +121,7 @@
 		onGroupPointerDown,
 		onGroupMobileDragStart,
 		onGroupPick,
-		formatGroupStatus,
-		isShapeCellFilled
+		formatGroupStatus
 	}: Props = $props();
 
 	let pendingMobileDrag: PendingMobileDrag | null = null;

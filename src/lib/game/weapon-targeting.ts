@@ -1,7 +1,12 @@
-import type { WeaponTargetingKind } from '$lib/data/types';
+import type { VanishRuneCycleTarget, WeaponTargetingKind } from '$lib/data/types';
 
 export interface WeaponTargetingOption {
 	value: WeaponTargetingKind;
+	label: string;
+}
+
+export interface PlacementSelectorOption {
+	value: string;
 	label: string;
 }
 
@@ -44,6 +49,20 @@ export const targetingLabelByKind: Record<WeaponTargetingKind, string> = {
 	'bottom-right': 'bottom right'
 };
 
+export const vanishRuneCycleTargets = [
+	'cycle-1',
+	'cycle-2',
+	'cycle-3',
+	'cycle-4'
+] as const satisfies VanishRuneCycleTarget[];
+
+export const vanishRuneCycleLabelByTarget: Record<VanishRuneCycleTarget, string> = {
+	'cycle-1': 'cycle 1',
+	'cycle-2': 'cycle 2',
+	'cycle-3': 'cycle 3',
+	'cycle-4': 'cycle 4'
+};
+
 export const standardWeaponTargetingOptions = standardWeaponTargetingKinds.map((value) => ({
 	value,
 	label: targetingLabelByKind[value]
@@ -53,6 +72,11 @@ export const placementWeaponTargetingOptions = placementWeaponTargetingKinds.map
 	value,
 	label: targetingLabelByKind[value]
 })) satisfies WeaponTargetingOption[];
+
+export const vanishRuneCycleOptions = vanishRuneCycleTargets.map((value) => ({
+	value,
+	label: vanishRuneCycleLabelByTarget[value]
+})) satisfies PlacementSelectorOption[];
 
 export const targetingAbbreviationByKind: Partial<Record<WeaponTargetingKind, string>> = {
 	'current-target': 'NT',
@@ -84,6 +108,19 @@ export function isSelectableWeaponTargetingKind(
 	return allSelectableWeaponTargetingKinds.includes(
 		targeting as (typeof allSelectableWeaponTargetingKinds)[number]
 	);
+}
+
+export function isVanishRuneCycleTarget(
+	targeting: string | null | undefined
+): targeting is VanishRuneCycleTarget {
+	return vanishRuneCycleTargets.includes(targeting as VanishRuneCycleTarget);
+}
+
+export function normalizeVanishRuneCycleTarget(
+	targeting: string | null | undefined,
+	fallback: VanishRuneCycleTarget = 'cycle-1'
+) {
+	return isVanishRuneCycleTarget(targeting) ? targeting : fallback;
 }
 
 export function normalizeSelectableWeaponTargeting(

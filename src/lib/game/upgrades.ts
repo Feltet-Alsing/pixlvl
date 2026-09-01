@@ -29,7 +29,7 @@ const UPGRADE_RULES: Record<UpgradeKey, UpgradeRule> = {
 			defence: state.defence + 1,
 			agility: state.agility
 		}),
-		describe: (state) => `+10% health -> ${Math.ceil(state.health * 1.1)}`
+		describe: (state) => `+10 health -> ${state.health + 10}`
 	},
 	agility: {
 		label: 'Agility',
@@ -89,7 +89,8 @@ export function createUpgradeablePixlState(
 	const maxAgility = Math.max(0, totalPerkPoints - defence);
 	const agility = Math.max(0, Math.min(Math.floor(input?.agility ?? 0), maxAgility));
 	const perkPoints = totalPerkPoints - defence - agility;
-	const health = Math.ceil(baselineCombatProfile.pixl.health * Math.pow(1.1, defence));
+	const baseHealth = baselineCombatProfile.pixl.health + Math.max(0, level - 1) * 2;
+	const health = Math.ceil(baseHealth + baselineCombatProfile.pixl.health * defence * 0.1);
 	const attackSpeed = Number(
 		(baselineCombatProfile.pixl.attackSpeed * Math.pow(1.01, agility)).toFixed(3)
 	);

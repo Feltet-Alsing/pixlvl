@@ -4,6 +4,8 @@
 	import { resolve } from '$app/paths';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { fade } from 'svelte/transition';
+	import { dungeons } from '$lib/data';
+	import ArenaScaffold from '$lib/components/campaigns/ArenaScaffold.svelte';
 	import ArenaStatsOverlay from '$lib/components/campaigns/ArenaStatsOverlay.svelte';
 	import CampaignStageDrawer from '$lib/components/campaigns/CampaignStageDrawer.svelte';
 	import CampaignRouteNav from '$lib/components/campaigns/CampaignRouteNav.svelte';
@@ -52,6 +54,7 @@
 		| 'attackSpeed'
 		| 'loadoutRows'
 		| 'loadoutColumns'
+		| 'dungeonKeys'
 		| 'ownedWeapons'
 	>;
 	type CampaignStateOverride = Pick<
@@ -69,6 +72,7 @@
 		attackSpeed: number;
 		loadoutRows: number;
 		loadoutColumns: number;
+		dungeonKeys: LivePixlState['dungeonKeys'];
 		ownedWeapons: LivePixlState['ownedWeapons'];
 		rewardPacks: PersistedRewardPack[];
 		currentLevel: number;
@@ -285,6 +289,23 @@
 		...data.notificationCounts,
 		packs: livePackNotificationCount
 	});
+	let dungeonShortcut = $derived.by(() => {
+		const liveDungeonKeys = livePixlState?.dungeonKeys ?? null;
+
+		if (liveDungeonKeys) {
+			for (const dungeon of Object.values(dungeons)) {
+				if ((liveDungeonKeys[dungeon.keyId] ?? 0) > 0) {
+					return {
+						dungeonId: dungeon.dungeonId,
+						keyId: dungeon.keyId,
+						name: dungeon.name
+					};
+				}
+			}
+		}
+
+		return data.dungeonShortcut ?? null;
+	});
 	let defaultCampaignMenuOpen = $derived(page.url.searchParams.get('menu') !== 'closed');
 	let defaultStatsOverlayOpen = $derived(page.url.searchParams.get('stats') === 'open');
 	let showDesktopCampaignRail = $derived(
@@ -302,6 +323,13 @@
 			(total, row) => total + row.averageDamagePerCycle,
 			0
 		);
+	});
+	let dungoensDungeonId = $derived.by(() => {
+		if (!dungeonShortcut) {
+			return null;
+		}
+
+		return dungeonShortcut.dungeonId;
 	});
 	function formatDamageValue(value: number) {
 		return Number.isInteger(value)
@@ -627,6 +655,14 @@
 				attackSpeed: resumedUpgradeState.attackSpeed,
 				loadoutRows: resumedUpgradeState.loadoutRows,
 				loadoutColumns: resumedUpgradeState.loadoutColumns,
+				dungeonKeys: data.gameState?.pixlState.dungeonKeys ??
+					livePixlState?.dungeonKeys ?? {
+						'dungeon-1-key': 0,
+						'dungeon-2-key': 0,
+						'dungeon-3-key': 0,
+						'dungeon-4-key': 0,
+						'dungeon-5-key': 0
+					},
 				ownedWeapons: mergedSnapshotOwnedWeapons
 			};
 
@@ -808,6 +844,7 @@
 				attackSpeed: update.attackSpeed,
 				loadoutRows: update.loadoutRows,
 				loadoutColumns: update.loadoutColumns,
+				dungeonKeys: update.dungeonKeys,
 				ownedWeapons: update.ownedWeapons
 			};
 		}
@@ -980,6 +1017,14 @@
 					attackSpeed: nextUpgradeState.attackSpeed,
 					loadoutRows: nextUpgradeState.loadoutRows,
 					loadoutColumns: nextUpgradeState.loadoutColumns,
+					dungeonKeys: livePixlState?.dungeonKeys ??
+						data.gameState?.pixlState?.dungeonKeys ?? {
+							'dungeon-1-key': 0,
+							'dungeon-2-key': 0,
+							'dungeon-3-key': 0,
+							'dungeon-4-key': 0,
+							'dungeon-5-key': 0
+						},
 					ownedWeapons
 				};
 			}
@@ -1016,6 +1061,14 @@
 					attackSpeed: nextUpgradeState.attackSpeed,
 					loadoutRows: nextUpgradeState.loadoutRows,
 					loadoutColumns: nextUpgradeState.loadoutColumns,
+					dungeonKeys: livePixlState?.dungeonKeys ??
+						data.gameState?.pixlState?.dungeonKeys ?? {
+							'dungeon-1-key': 0,
+							'dungeon-2-key': 0,
+							'dungeon-3-key': 0,
+							'dungeon-4-key': 0,
+							'dungeon-5-key': 0
+						},
 					ownedWeapons
 				};
 			}
@@ -1107,6 +1160,32 @@
 			submit={selectStage}
 		/>
 	{/if}
+{/snippet}
+
+{#snippet campaignMenuButtons(isInline = false)}
+	<div class={['campaign-menu-button-row', isInline ? 'inline' : 'floating']}>
+		<button
+			class={[
+				'campaign-menu-toggle-float',
+				isInline ? 'campaign-menu-toggle-inline' : '',
+				showStageDrawer ? 'open' : ''
+			]}
+			type="button"
+			aria-expanded={showStageDrawer}
+			aria-controls="campaign-menu-drawer"
+			onclick={() => {
+				setCampaignMenuOpen(!showStageDrawer);
+			}}
+		>
+			{showStageDrawer ? 'Hide menu' : 'Campaigns'}
+		</button>
+
+		{#if dungoensDungeonId !== null}
+			<a class="dungeon-shortcut-button" href={resolve(`/dungeons/${dungoensDungeonId}`)}>
+				Dungoens
+			</a>
+		{/if}
+	</div>
 {/snippet}
 
 {#snippet statsOverlayPanel()}
@@ -1241,169 +1320,138 @@
 {/snippet}
 
 <div class="page">
-	<div class={['arena-shell', runMode === 'combat' && showLoadoutPreview ? 'preview-enabled' : '']}>
-		<div class="utility-bar">
-			{#if runMode === 'combat'}
-				<div class="utility-secondary">
-					<CampaignRouteNav
-						campaignId={data.campaignId}
-						active="arena"
-						notificationCounts={routeNotificationCounts}
-						showRecentToggle={true}
-						recentOpen={showChangeLogPopup}
-						recentUnreadCount={unreadChangeLogCount}
-						showCampaignMenuToggle={false}
-						showSweeperToggle={true}
-						showStatsToggle={true}
-						onToggleRecent={toggleChangeLogPopup}
-						onNavigateSection={handleRouteNavigation}
-						onToggleCampaignMenu={() => {
-							setCampaignMenuOpen(!showStageDrawer);
-						}}
-						campaignMenuEnabled={showStageDrawer}
-						onToggleSweeper={() => {
-							showLoadoutPreview = !showLoadoutPreview;
-						}}
-						sweeperEnabled={showLoadoutPreview}
-						onToggleStats={() => {
-							showStatsOverlay = !showStatsOverlay;
-						}}
-						statsEnabled={showStatsOverlay}
-					/>
-				</div>
-			{/if}
-		</div>
-
-		{#if showChangeLogPopup}
+	{#if showChangeLogPopup}
+		<div
+			class="change-log-overlay"
+			role="button"
+			tabindex="0"
+			aria-label="Close recent changes"
+			onclick={closeChangeLogPopup}
+			onkeydown={(event) => {
+				if (event.key === 'Enter' || event.key === ' ' || event.key === 'Escape') {
+					event.preventDefault();
+					closeChangeLogPopup();
+				}
+			}}
+			in:fade={{ duration: 140 }}
+			out:fade={{ duration: 180 }}
+		>
 			<div
-				class="change-log-overlay"
-				role="button"
-				tabindex="0"
-				aria-label="Close recent changes"
-				onclick={closeChangeLogPopup}
-				onkeydown={(event) => {
-					if (event.key === 'Enter' || event.key === ' ' || event.key === 'Escape') {
-						event.preventDefault();
-						closeChangeLogPopup();
-					}
-				}}
-				in:fade={{ duration: 140 }}
-				out:fade={{ duration: 180 }}
+				class="change-log-popover"
+				aria-label="Recent campaign changes"
+				role="dialog"
+				aria-modal="true"
+				tabindex="-1"
+				onclick={(event) => event.stopPropagation()}
+				onkeydown={(event) => event.stopPropagation()}
 			>
-				<div
-					class="change-log-popover"
-					aria-label="Recent campaign changes"
-					role="dialog"
-					aria-modal="true"
-					tabindex="-1"
-					onclick={(event) => event.stopPropagation()}
-					onkeydown={(event) => event.stopPropagation()}
-				>
-					<div class="change-log-head">
-						<div>
-							<p class="change-log-eyebrow">Recent changes</p>
-						</div>
-						<button
-							class="purchase slim-toggle change-log-close"
-							type="button"
-							onclick={closeChangeLogPopup}>Close</button
-						>
+				<div class="change-log-head">
+					<div>
+						<p class="change-log-eyebrow">Recent changes</p>
 					</div>
-
-					{#if changeLogEntries.length > 0}
-						<div class="change-log-list">
-							{#each changeLogEntries as entry (entry.id)}
-								<article
-									class={[
-										'change-log-entry',
-										`tone-${entry.tone}`,
-										entry.rarity ? `rarity-${entry.rarity}` : ''
-									]}
-								>
-									<div class="change-log-entry-head">
-										<strong>{entry.title}</strong>
-										<time>{formatChangeLogTime(entry.timestamp)}</time>
-									</div>
-									<p>{entry.detail}</p>
-								</article>
-							{/each}
-						</div>
-					{:else}
-						<p class="change-log-empty">Loadout changes and fresh drops show up here.</p>
-					{/if}
-				</div>
-			</div>
-		{/if}
-
-		<div class={['arena-layout', !isMobileLayout && runMode === 'combat' ? 'combat-enabled' : '']}>
-			<section class="canvas-stage">
-				{#key sketchRemountKey}
-					<P5Canvas class="canvas-frame" sketch={campaignSketch} />
-				{/key}
-
-				{#if runMode === 'combat' && (!showStageDrawer || isMobileLayout)}
 					<button
-						class={['campaign-menu-toggle-float', showStageDrawer ? 'open' : '']}
+						class="purchase slim-toggle change-log-close"
 						type="button"
-						aria-expanded={showStageDrawer}
-						aria-controls="campaign-menu-drawer"
-						onclick={() => {
-							setCampaignMenuOpen(!showStageDrawer);
-						}}
+						onclick={closeChangeLogPopup}>Close</button
 					>
-						{showStageDrawer ? 'Hide menu' : 'Campaigns'}
-					</button>
+				</div>
+
+				{#if changeLogEntries.length > 0}
+					<div class="change-log-list">
+						{#each changeLogEntries as entry (entry.id)}
+							<article
+								class={[
+									'change-log-entry',
+									`tone-${entry.tone}`,
+									entry.rarity ? `rarity-${entry.rarity}` : ''
+								]}
+							>
+								<div class="change-log-entry-head">
+									<strong>{entry.title}</strong>
+									<time>{formatChangeLogTime(entry.timestamp)}</time>
+								</div>
+								<p>{entry.detail}</p>
+							</article>
+						{/each}
+					</div>
+				{:else}
+					<p class="change-log-empty">Loadout changes and fresh drops show up here.</p>
 				{/if}
-
-				<div class="overlay-layout">
-					{@render transientArenaOverlays()}
-				</div>
-			</section>
-
-			{#if showDesktopCampaignRail}
-				<div class="desktop-panel-rail desktop-panel-rail-float-start" id="campaign-menu-drawer">
-					<button
-						class={[
-							'campaign-menu-toggle-float',
-							'campaign-menu-toggle-inline',
-							showStageDrawer ? 'open' : ''
-						]}
-						type="button"
-						aria-expanded={showStageDrawer}
-						aria-controls="campaign-menu-drawer"
-						onclick={() => {
-							setCampaignMenuOpen(!showStageDrawer);
-						}}
-					>
-						Hide menu
-					</button>
-					{@render campaignDrawerPanel()}
-				</div>
-			{/if}
-
-			{#if showDesktopSideRail}
-				<div class="desktop-panel-rail desktop-panel-rail-end">
-					{@render statsOverlayPanel()}
-
-					{#if showLoadoutPreview}
-						{@render loadoutPreviewPanel()}
-					{/if}
-				</div>
-			{/if}
+			</div>
 		</div>
-		{#if isMobileLayout}
-			<div class="mobile-panel-stack">
-				{#if showStageDrawer}
-					{@render campaignDrawerPanel()}
-				{/if}
-				{@render statsOverlayPanel()}
+	{/if}
 
-				{#if runMode === 'combat' && showLoadoutPreview}
-					{@render loadoutPreviewPanel()}
-				{/if}
-			</div>
-		{/if}
-	</div>
+	<ArenaScaffold
+		{isMobileLayout}
+		combatEnabled={!isMobileLayout && runMode === 'combat'}
+		showUtility={runMode === 'combat'}
+		showDesktopStartRail={showDesktopCampaignRail}
+		showDesktopEndRail={showDesktopSideRail}
+		showMobilePanels={isMobileLayout}
+		shellClass={runMode === 'combat' && showLoadoutPreview ? 'preview-enabled' : ''}
+		desktopStartRailId="campaign-menu-drawer"
+	>
+		{#snippet utility()}
+			<CampaignRouteNav
+				campaignId={data.campaignId}
+				active="arena"
+				notificationCounts={routeNotificationCounts}
+				showRecentToggle={true}
+				recentOpen={showChangeLogPopup}
+				recentUnreadCount={unreadChangeLogCount}
+				showSweeperToggle={true}
+				showStatsToggle={true}
+				onToggleRecent={toggleChangeLogPopup}
+				onNavigateSection={handleRouteNavigation}
+				onToggleSweeper={() => {
+					showLoadoutPreview = !showLoadoutPreview;
+				}}
+				sweeperEnabled={showLoadoutPreview}
+				onToggleStats={() => {
+					showStatsOverlay = !showStatsOverlay;
+				}}
+				statsEnabled={showStatsOverlay}
+			/>
+		{/snippet}
+
+		{#snippet canvas()}
+			{#key sketchRemountKey}
+				<P5Canvas class="canvas-frame" sketch={campaignSketch} />
+			{/key}
+
+			{#if runMode === 'combat' && (!showStageDrawer || isMobileLayout)}
+				{@render campaignMenuButtons(false)}
+			{/if}
+		{/snippet}
+
+		{#snippet overlay()}
+			{@render transientArenaOverlays()}
+		{/snippet}
+
+		{#snippet desktopStartRail()}
+			{@render campaignMenuButtons(true)}
+			{@render campaignDrawerPanel()}
+		{/snippet}
+
+		{#snippet desktopEndRail()}
+			{@render statsOverlayPanel()}
+
+			{#if showLoadoutPreview}
+				{@render loadoutPreviewPanel()}
+			{/if}
+		{/snippet}
+
+		{#snippet mobilePanels()}
+			{#if showStageDrawer}
+				{@render campaignDrawerPanel()}
+			{/if}
+			{@render statsOverlayPanel()}
+
+			{#if runMode === 'combat' && showLoadoutPreview}
+				{@render loadoutPreviewPanel()}
+			{/if}
+		{/snippet}
+	</ArenaScaffold>
 </div>
 
 <style>
@@ -1498,6 +1546,46 @@
 		overflow-y: auto;
 		padding-right: 0.2rem;
 		pointer-events: auto;
+	}
+
+	.campaign-menu-button-row {
+		display: flex;
+		align-items: center;
+		gap: 0.55rem;
+		flex-wrap: wrap;
+	}
+
+	.campaign-menu-button-row.floating {
+		position: absolute;
+		left: 1rem;
+		top: 1rem;
+		z-index: 6;
+		width: min(calc(100% - 2rem), 28rem);
+	}
+
+	.campaign-menu-button-row.inline {
+		position: static;
+		width: 100%;
+	}
+
+	.dungeon-shortcut-button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 2.5rem;
+		padding: 0.65rem 0.85rem;
+		border-radius: 999px;
+		border-color: rgba(244, 187, 68, 0.3);
+		border: 1px solid rgba(244, 187, 68, 0.3);
+		background: rgba(244, 187, 68, 0.08);
+		color: #f8e7b1;
+		text-decoration: none;
+		font: inherit;
+		font-size: 0.82rem;
+		font-weight: 700;
+		letter-spacing: 0.04em;
+		box-shadow: 0 18px 38px rgba(0, 0, 0, 0.32);
+		backdrop-filter: blur(12px);
 	}
 
 	.desktop-panel-rail-end {
@@ -2254,19 +2342,6 @@
 
 	.compact-stats {
 		gap: 0.55rem;
-	}
-
-	:global(.canvas-frame) {
-		width: 100%;
-		height: 100%;
-		background: #000000;
-		touch-action: pan-y;
-	}
-
-	:global(.canvas-frame canvas) {
-		display: block;
-		width: 100%;
-		height: 100%;
 	}
 
 	:global(.preview-canvas-frame) {

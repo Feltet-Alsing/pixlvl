@@ -112,6 +112,9 @@
 					<a class="jump" href={resolve(`/campaigns/${data.campaignId}/shop`)}>Open shop</a>
 					<a class="jump" href={resolve(`/campaigns/${data.campaignId}?stats=open`)}>Open stats</a>
 					<a class="jump" href={resolve(`/campaigns/${data.campaignId}/loadout`)}>Open loadout</a>
+					{#if data.campaignId <= 5}
+						<a class="jump" href={resolve(`/dungeons/${data.campaignId}`)}>Open dungeon</a>
+					{/if}
 				</div>
 			</div>
 		</section>

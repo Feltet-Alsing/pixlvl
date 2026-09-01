@@ -3,6 +3,10 @@ import type P5 from 'p5';
 import { getLoadoutItemDefinition, isUtilityDefinition, isWeaponDefinition } from '$lib/data';
 import { getActiveLoadoutPlacements } from '$lib/game/loadout-slots';
 import {
+	normalizeSelectableWeaponTargeting,
+	normalizeVanishRuneCycleTarget
+} from '$lib/game/weapon-targeting';
+import {
 	getPlacementMirrored,
 	getPlacementRotation,
 	transformWeaponShape
@@ -10,11 +14,16 @@ import {
 import { createUpgradedWeaponDefinition } from '$lib/game/weapon-upgrades';
 
 import type {
+	CombatEnemyKind,
+	CombatLevelDefinition,
 	CampaignLevel,
+	DungeonWaveComposition,
 	GlitchKind,
 	LoadoutItemDefinition,
+	LoadoutPlacementTargetingKind,
 	OwnedWeaponInstance,
 	UtilityDefinition,
+	WaveComposition,
 	WeaponDefinition,
 	WeaponProjectileSize,
 	WeaponRarity,
@@ -38,7 +47,7 @@ export const WEAPON_FILL_BY_RARITY: Record<WeaponRarity, [number, number, number
 };
 
 export const ENEMY_VISUALS: Record<
-	GlitchKind,
+	CombatEnemyKind,
 	{
 		radius: number;
 		fill: [number, number, number];
@@ -80,6 +89,24 @@ export const ENEMY_VISUALS: Record<
 		stroke: [220, 236, 255],
 		shape: 'circle'
 	},
+	soldier: {
+		radius: 9,
+		fill: [215, 132, 52],
+		stroke: [255, 226, 184],
+		shape: 'diamond'
+	},
+	golem: {
+		radius: 18,
+		fill: [133, 101, 73],
+		stroke: [227, 210, 188],
+		shape: 'square'
+	},
+	sunpriest: {
+		radius: 12,
+		fill: [244, 187, 68],
+		stroke: [255, 244, 200],
+		shape: 'triangle'
+	},
 	zerglitch: {
 		radius: 22,
 		fill: [188, 72, 72],
@@ -103,23 +130,33 @@ export const ENEMY_VISUALS: Record<
 		fill: [122, 78, 188],
 		stroke: [255, 228, 185],
 		shape: 'diamond'
+	},
+	'high-priest': {
+		radius: 34,
+		fill: [214, 167, 58],
+		stroke: [255, 242, 194],
+		shape: 'diamond'
 	}
 };
 
-export const glitchOrder: GlitchKind[] = [
+export const glitchOrder: CombatEnemyKind[] = [
 	'biter',
 	'swarmer',
+	'soldier',
 	'tanker',
 	'shard',
+	'golem',
 	'bulwark',
 	'shielder',
+	'sunpriest',
 	'zerglitch',
 	'boss-melee',
 	'boss-ranged',
-	'boss-hybrid'
+	'boss-hybrid',
+	'high-priest'
 ];
 
-export const compositionKeyByKind = {
+export const compositionKeyByKind: Record<GlitchKind, keyof WaveComposition> = {
 	biter: 'biters',
 	swarmer: 'swarmers',
 	tanker: 'tankers',
@@ -131,6 +168,22 @@ export const compositionKeyByKind = {
 	'boss-ranged': 'bossRanged',
 	'boss-hybrid': 'bossHybrid'
 } as const;
+
+type CombatComposition = WaveComposition | DungeonWaveComposition;
+
+export function getCombatCompositionCount(
+	input: Pick<CombatLevelDefinition, 'composition'> | CombatComposition,
+	kind: CombatEnemyKind
+) {
+	const composition = ('composition' in input ? input.composition : input) as Record<
+		string,
+		number | undefined
+	>;
+	const legacyKey =
+		kind in compositionKeyByKind ? compositionKeyByKind[kind as GlitchKind] : undefined;
+
+	return composition[kind] ?? (legacyKey ? composition[legacyKey] : 0) ?? 0;
+}
 
 export interface EquippedWeaponState {
 	instanceId: string;
@@ -151,6 +204,7 @@ export interface EquippedUtilityState {
 	triggerColumn: number;
 	placementX: number;
 	placementY: number;
+	targeting: LoadoutPlacementTargetingKind | undefined;
 	cycleInterval: number;
 	cyclesUntilTrigger: number;
 }
@@ -160,17 +214,17 @@ export interface EquippedLoadoutEntry {
 	ownedWeapon: OwnedWeaponInstance;
 	definition: LoadoutItemDefinition;
 	shape: WeaponShape;
-	targeting: WeaponTargetingKind | undefined;
+	targeting: LoadoutPlacementTargetingKind | undefined;
 	triggerColumn: number;
 	placementX: number;
 	placementY: number;
 }
 
-export function buildSpawnQueue(level: CampaignLevel): GlitchKind[] {
-	const queue: GlitchKind[] = [];
+export function buildSpawnQueue(level: CombatLevelDefinition): CombatEnemyKind[] {
+	const queue: CombatEnemyKind[] = [];
 
 	for (const kind of glitchOrder) {
-		for (let index = 0; index < (level.composition[compositionKeyByKind[kind]] ?? 0); index += 1) {
+		for (let index = 0; index < getCombatCompositionCount(level, kind); index += 1) {
 			queue.push(kind);
 		}
 	}
@@ -264,7 +318,7 @@ export function buildEquippedLoadoutEntries(
 		const triggerColumn = getLoadoutItemTriggerColumn(shape, placement.x);
 		const targeting = isWeaponDefinition(definition)
 			? (placement.targeting ?? definition.attack.targeting)
-			: undefined;
+			: placement.targeting;
 
 		if (triggerColumn < 0 || triggerColumn >= loadoutColumnCount) {
 			continue;
@@ -300,7 +354,7 @@ export function buildEquippedWeapons(entries: EquippedLoadoutEntry[]) {
 				instanceId: entry.instanceId,
 				definition,
 				shape: entry.shape,
-				targeting: entry.targeting ?? definition.attack.targeting,
+				targeting: normalizeSelectableWeaponTargeting(entry.targeting, definition.attack.targeting),
 				triggerColumn: entry.triggerColumn,
 				placementX: entry.placementX,
 				placementY: entry.placementY,
@@ -315,16 +369,28 @@ export function buildEquippedUtilities(entries: EquippedLoadoutEntry[]) {
 		.filter((entry): entry is EquippedLoadoutEntry & { definition: UtilityDefinition } =>
 			isUtilityDefinition(entry.definition)
 		)
-		.map((entry) => ({
-			instanceId: entry.instanceId,
-			definition: entry.definition,
-			shape: entry.shape,
-			triggerColumn: entry.triggerColumn,
-			placementX: entry.placementX,
-			placementY: entry.placementY,
-			cycleInterval: Math.max(1, entry.definition.cycleInterval ?? 1),
-			cyclesUntilTrigger: Math.max(1, entry.definition.cycleInterval ?? 1)
-		})) satisfies EquippedUtilityState[];
+		.map((entry) => {
+			const cycleInterval = Math.max(1, entry.definition.cycleInterval ?? 1);
+			const cyclesUntilTrigger =
+				entry.definition.effect.type === 'vanish-rune'
+					? Number.parseInt(
+							normalizeVanishRuneCycleTarget(entry.targeting, 'cycle-1').slice(-1),
+							10
+						)
+					: cycleInterval;
+
+			return {
+				instanceId: entry.instanceId,
+				definition: entry.definition,
+				shape: entry.shape,
+				triggerColumn: entry.triggerColumn,
+				placementX: entry.placementX,
+				placementY: entry.placementY,
+				targeting: entry.targeting,
+				cycleInterval,
+				cyclesUntilTrigger
+			};
+		}) satisfies EquippedUtilityState[];
 }
 
 export function getPlacedShapeCells(

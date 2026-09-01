@@ -3,6 +3,7 @@ import type { EquippedUtilityState } from '$lib/p5/campaign-runtime';
 
 export interface UtilityActivationContext {
 	currentSweepIndex: number;
+	getTriggeredRuneCount: () => number;
 	getShieldPoolForSource: (sourceId: string) => number;
 	setShieldPoolForSource: (sourceId: string, amount: number) => void;
 	getUtilityShieldOutputMultiplier: (sourceId: string) => number;
@@ -15,6 +16,7 @@ export interface UtilityActivationContext {
 	spendElementalInfusion: (element: ElementalInfusionType, amount: number) => void;
 	spawnOathbreakerSigil: (utility: EquippedUtilityState) => void;
 	spawnMirrorArray: (utility: EquippedUtilityState) => void;
+	applyVanishRune: (utility: EquippedUtilityState, durationCycles: number) => void;
 	applyCycleDamageBoost: (damageMultiplier: number, expiresAfterSweepIndex: number) => void;
 	applyElementalCycleBoost: (
 		element: ElementalInfusionType,
@@ -98,6 +100,30 @@ export function activateMirrorArrayUtility(
 	}
 
 	context.spawnMirrorArray(utility);
+}
+
+export function activateVanishRuneUtility(
+	utility: EquippedUtilityState,
+	context: UtilityActivationContext,
+	requiredUniqueRuneCount: number,
+	durationCycles: number,
+	successCooldownCycles: number
+) {
+	if (utility.definition.activationKind !== 'triggered') {
+		return;
+	}
+
+	if (utility.cyclesUntilTrigger > 1) {
+		utility.cyclesUntilTrigger -= 1;
+		return;
+	}
+
+	if (context.getTriggeredRuneCount() < requiredUniqueRuneCount) {
+		return;
+	}
+
+	utility.cyclesUntilTrigger = Math.max(1, successCooldownCycles);
+	context.applyVanishRune(utility, durationCycles);
 }
 
 export function activateCycleDamageBoostUtility(

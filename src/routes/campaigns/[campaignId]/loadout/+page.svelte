@@ -17,10 +17,14 @@
 		normalizePersistedLoadoutState
 	} from '$lib/game/loadout-slots';
 	import {
+		normalizeVanishRuneCycleTarget,
 		normalizeSelectableWeaponTargeting,
 		placementWeaponTargetingOptions,
 		standardWeaponTargetingOptions,
 		targetingLabelByKind,
+		vanishRuneCycleLabelByTarget,
+		vanishRuneCycleOptions,
+		type PlacementSelectorOption,
 		type WeaponTargetingOption
 	} from '$lib/game/weapon-targeting';
 	import {
@@ -68,6 +72,7 @@
 	import type {
 		LoadoutItemDefinition,
 		LoadoutPlacement,
+		LoadoutPlacementTargetingKind,
 		LoadoutRotation,
 		LoadoutSlotIndex,
 		OwnedWeaponInstance,
@@ -119,7 +124,10 @@
 		canMirror?: boolean;
 		isMirrored?: boolean;
 		canChangeTargeting?: boolean;
+		targetingLabel?: string;
 	}
+
+	const VANISH_RUNE_DEFINITION_ID = 'vanish-rune';
 
 	interface ScrapDialogState {
 		definitionId: string;
@@ -190,7 +198,7 @@
 	let draggedWeaponAnchor = $state<{ x: number; y: number } | null>(null);
 	let draggedWeaponRotation = $state<LoadoutRotation>(0);
 	let draggedWeaponMirrored = $state(false);
-	let draggedWeaponTargeting = $state<WeaponTargetingKind>('nearest-target');
+	let draggedWeaponTargeting = $state<LoadoutPlacementTargetingKind>('nearest-target');
 	let draggedWeaponPointerId = $state<number | null>(null);
 	let dragPreviewPointer = $state<{ x: number; y: number } | null>(null);
 	let hoveredGridOrigin = $state<{ x: number; y: number } | null>(null);
@@ -511,6 +519,8 @@
 		attack?: { special?: { type?: string } };
 	}): WeaponTargetingOption[] =>
 		isLaserRodWeapon(weapon) ? placementWeaponTargetingOptions : standardWeaponTargetingOptions;
+	const isVanishRune = (item: { definitionId: string }) =>
+		item.definitionId === VANISH_RUNE_DEFINITION_ID;
 	const getTargetingFallbackForWeapon = (weapon: {
 		family?: 'mine' | 'pylon' | 'laser-rod';
 		attack?: { targeting?: WeaponTargetingKind; special?: { type?: string } };
@@ -521,19 +531,81 @@
 
 		return normalizeSelectableWeaponTargeting(weapon.attack?.targeting, 'nearest-target');
 	};
-	let selectedTargetingOptions = $derived.by(() => {
-		if (selectedPlacedWeapon?.category === 'weapon') {
-			return getTargetingOptionsForWeapon(selectedPlacedWeapon);
+	const getPlacementTargetingOptions = (item: {
+		definitionId: string;
+		category: 'weapon' | 'utility';
+		family?: 'mine' | 'pylon' | 'laser-rod';
+		attack?: { special?: { type?: string } };
+	}): PlacementSelectorOption[] => {
+		if (item.category === 'weapon') {
+			return getTargetingOptionsForWeapon(item);
 		}
 
-		return standardWeaponTargetingOptions;
+		if (isVanishRune(item)) {
+			return vanishRuneCycleOptions;
+		}
+
+		return [];
+	};
+	const getPlacementTargetingFallback = (item: {
+		definitionId: string;
+		category: 'weapon' | 'utility';
+		family?: 'mine' | 'pylon' | 'laser-rod';
+		attack?: { targeting?: WeaponTargetingKind; special?: { type?: string } };
+	}): LoadoutPlacementTargetingKind => {
+		if (item.category === 'weapon') {
+			return getTargetingFallbackForWeapon(item);
+		}
+
+		if (isVanishRune(item)) {
+			return 'cycle-1';
+		}
+
+		return 'nearest-target';
+	};
+	const normalizePlacementTargeting = (
+		item: {
+			definitionId: string;
+			category: 'weapon' | 'utility';
+			family?: 'mine' | 'pylon' | 'laser-rod';
+			attack?: { targeting?: WeaponTargetingKind; special?: { type?: string } };
+		},
+		targeting: string | null | undefined
+	): LoadoutPlacementTargetingKind => {
+		if (item.category === 'weapon') {
+			return normalizeSelectableWeaponTargeting(
+				targeting,
+				getPlacementTargetingFallback(item) as WeaponTargetingKind
+			);
+		}
+
+		if (isVanishRune(item)) {
+			return normalizeVanishRuneCycleTarget(targeting, 'cycle-1');
+		}
+
+		return getPlacementTargetingFallback(item);
+	};
+	const getPlacementTargetingLabel = (item: {
+		definitionId: string;
+		category: 'weapon' | 'utility';
+	}) => (isVanishRune(item) ? 'Cycle' : 'Targeting');
+	const formatPlacementTargetingLabel = (targeting: LoadoutPlacementTargetingKind) =>
+		targeting in vanishRuneCycleLabelByTarget
+			? vanishRuneCycleLabelByTarget[targeting as keyof typeof vanishRuneCycleLabelByTarget]
+			: (targetingLabelByKind[targeting as WeaponTargetingKind] ?? targeting);
+	let selectedTargetingOptions = $derived.by(() => {
+		if (selectedPlacedWeapon) {
+			return getPlacementTargetingOptions(selectedPlacedWeapon);
+		}
+
+		return [];
 	});
 	let selectedWeaponDetails = $derived.by(() => {
 		if (selectedPlacedWeapon) {
-			const targetingFallback = getTargetingFallbackForWeapon(selectedPlacedWeapon);
+			const targetingOptions = getPlacementTargetingOptions(selectedPlacedWeapon);
 			const targetingValue =
-				selectedPlacedWeapon.category === 'weapon'
-					? normalizeSelectableWeaponTargeting(selectedPlacedWeapon.targeting, targetingFallback)
+				targetingOptions.length > 0
+					? normalizePlacementTargeting(selectedPlacedWeapon, selectedPlacedWeapon.targeting)
 					: undefined;
 
 			return {
@@ -584,7 +656,8 @@
 				targetingValue,
 				canRotate: true,
 				canMirror: true,
-				canChangeTargeting: selectedPlacedWeapon.category === 'weapon'
+				canChangeTargeting: targetingOptions.length > 0,
+				targetingLabel: getPlacementTargetingLabel(selectedPlacedWeapon)
 			} satisfies SelectedWeaponDetails;
 		}
 
@@ -1544,9 +1617,16 @@
 		draggedWeaponInstanceId = weaponInstanceId;
 		draggedWeaponRotation = rotation;
 		draggedWeaponMirrored = mirrored;
-		draggedWeaponTargeting = isWeaponDefinition(definition)
-			? getTargetingFallbackForWeapon(definition)
-			: 'nearest-target';
+		draggedWeaponTargeting = normalizePlacementTargeting(
+			{
+				definitionId: definition.id,
+				category: isWeaponDefinition(definition) ? 'weapon' : 'utility',
+				...(isWeaponDefinition(definition) ? { family: definition.family } : {}),
+				attack: isWeaponDefinition(definition) ? definition.attack : undefined
+			},
+			draftLoadoutPlacements.find((placement) => placement.weaponInstanceId === weaponInstanceId)
+				?.targeting
+		);
 		draggedWeaponAnchor = getDefaultDragAnchor(
 			transformWeaponShape(definition.shape, rotation, mirrored)
 		);
@@ -1583,7 +1663,7 @@
 		anchor: { x: number; y: number },
 		rotation: LoadoutRotation,
 		mirrored: boolean,
-		targeting: WeaponTargetingKind
+		targeting: LoadoutPlacementTargetingKind
 	) {
 		if (event.cancelable) {
 			event.preventDefault();
@@ -1920,7 +2000,7 @@
 			getPlacedWeaponDragAnchor(event, weapon.shape),
 			weapon.rotation,
 			weapon.mirrored,
-			normalizeSelectableWeaponTargeting(weapon.targeting, getTargetingFallbackForWeapon(weapon))
+			normalizePlacementTargeting(weapon, weapon.targeting)
 		);
 	}
 
@@ -1948,7 +2028,7 @@
 			anchor,
 			0,
 			false,
-			getTargetingFallbackForWeapon(weapon)
+			getPlacementTargetingFallback(weapon)
 		);
 	}
 
@@ -1992,7 +2072,7 @@
 		draggedWeaponAnchor = getDefaultDragAnchor(weapon.shape);
 		draggedWeaponRotation = 0;
 		draggedWeaponMirrored = false;
-		draggedWeaponTargeting = getTargetingFallbackForWeapon(weapon);
+		draggedWeaponTargeting = getPlacementTargetingFallback(weapon);
 		draggedWeaponPointerId = gesture.pointerId;
 		dragPreviewPointer = { x: gesture.clientX, y: gesture.clientY };
 		hoveredGridOrigin = null;
@@ -2086,13 +2166,13 @@
 			(entry) => entry.weaponInstanceId === weaponInstanceId
 		);
 
-		if (!currentWeapon || currentWeapon.category !== 'weapon') {
+		if (!currentWeapon) {
 			return;
 		}
 
-		const normalizedTargeting = getTargetingOptionsForWeapon(currentWeapon).find(
+		const normalizedTargeting = getPlacementTargetingOptions(currentWeapon).find(
 			(option) => option.value === targeting
-		)?.value;
+		)?.value as LoadoutPlacementTargetingKind | undefined;
 
 		if (!normalizedTargeting || currentPlacement?.targeting === normalizedTargeting) {
 			return;
@@ -2105,7 +2185,7 @@
 		);
 		pushChangeLogEntry(
 			`Retargeted ${getLoadoutItemName(weaponInstanceId)}`,
-			targetingLabelByKind[normalizedTargeting] ?? normalizedTargeting,
+			formatPlacementTargetingLabel(normalizedTargeting),
 			'neutral'
 		);
 	}

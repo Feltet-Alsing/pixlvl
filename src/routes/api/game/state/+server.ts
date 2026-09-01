@@ -31,7 +31,8 @@ export const PATCH: RequestHandler = async ({ locals, request }) => {
 		!body ||
 		(body.pixlState === undefined &&
 			body.rewardPacks === undefined &&
-			body.campaignProgress === undefined)
+			body.campaignProgress === undefined &&
+			body.dungeonProgress === undefined)
 	) {
 		return json({ message: 'No game-state changes provided' }, { status: 400 });
 	}

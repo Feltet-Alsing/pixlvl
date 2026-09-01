@@ -705,6 +705,43 @@ Usage notes:
 - update `acknowledged_weapon_definition_ids` in the same write so the newly seeded items do not look unread or partially registered
 - if the loadout UI still does not show the new items immediately, reopen the page against a fresh server response before assuming the seed failed
 
+#### Dev dungeon key seeding workflow
+
+Dungeon entry testing should use a matching dev key grant command instead of ad-hoc SQL edits.
+
+The canonical workflow mirrors the shared inventory script: it reads the repo `.env`, targets the default dev account unless overridden, and writes the full `dungeon_keys` JSON shape back into `pixl_state`.
+
+Standard command:
+
+```bash
+yarn grant:dev-dungeon-keys dungeon-1-key
+```
+
+Optional alternate target account:
+
+```bash
+yarn grant:dev-dungeon-keys --email someone@example.com dungeon-1-key
+```
+
+Optional bulk increment:
+
+```bash
+yarn grant:dev-dungeon-keys --count 3 dungeon-1-key
+```
+
+Underlying script:
+
+```bash
+yarn grant:dev-dungeon-keys --help
+```
+
+Usage notes:
+
+- the command defaults to `alsing3520@gmail.com`, so the normal flow only needs one or more dungeon key ids as trailing arguments
+- valid ids currently match the finite dungeon ladder: `dungeon-1-key` through `dungeon-5-key`
+- each trailing key id increments that specific counter, and `--count` applies that increment per provided key id
+- this preserves the other dungeon key counters instead of replacing the whole inventory manually
+
 #### Shared-pool design goals
 
 - low-damage weapons must never become dead items that are simply outscaled by later raw DPS
@@ -1668,262 +1705,930 @@ What is already working:
 
 This means the project no longer needs base-loop rediscovery work.
 
-### Milestone 1: finish Campaign 4
+### Milestone 1: dungeons
 
-This is the current active milestone and immediate content priority.
+This is now the biggest missing feature in the project.
 
 Goal:
 
-- make Campaign 4 feel complete as the control-combo campaign
+- add a separate side-progression lane with its own entry rules, run structure, and rewards
 
 Required outcomes:
 
-- finish the remaining incomplete or weak-feeling Campaign 4 weapons
-- ensure Campaign 4 weapons solve recognizably different combat problems
-- add enough persistent AOE and positional-payoff tools to complete the control loop
-- rebalance the full Campaign 4 pool as one unit instead of isolated weapon tweaks
+- define how dungeons unlock and how keys are earned or consumed
+- build the dungeon access flow and campaign-shell navigation
+- define dungeon-specific progression, scaling, and fail-state rules
+- add dungeon-exclusive rewards that justify the mode existing beside campaigns and endless
+- make the dungeon loop legible as a major feature rather than a one-off side room
 
 Exit criteria:
 
-- the Campaign 4 roster has no obvious placeholder-feeling weapons
-- the campaign supports a full manipulation-and-payoff loadout fantasy
-- weak or overlapping Campaign 4 weapons have been reviewed and resolved
+- dungeons feel like a real parallel progression system
+- dungeon rewards are meaningfully distinct from standard campaign rewards
+- the feature is large enough to function as the next major content pillar after the current campaign set
 
-### Milestone 2: build Campaign 5
+#### Dungeon role in the game
 
-Campaign 5 is the next mainline expansion after Campaign 4 is complete.
+Dungeons should be the most active gameplay loop in `pixlvl`.
 
-Goal:
+The rest of the game can remain strongly idle or semi-afk, but dungeons should be the payoff mode that asks the player to pay closer attention and make more moment-to-moment decisions.
 
-- add a new campaign whose difficulty comes from a new boss mechanic layer, not only bigger numbers
+Design intent:
 
-Required outcomes:
+- campaigns remain the steady progression ladder
+- endless remains the long-run scaling and endgame pressure lane
+- dungeons become the high-attention payoff activity that breaks up otherwise passive progression
 
-- formalize the Campaign 5 boss mechanic direction
-- define Campaign 5 level structure and reward pool
-- add any missing Campaign 5 weapons required by that content
-- deliver a boss readability pass so the new mechanic is understandable in play
+This means dungeons should feel more demanding, more eventful, and more hand-authored than standard campaign runs.
 
-Campaign 5 scaling direction:
+#### Dungeon access model
 
-- Campaign 5 should scale primarily through enemy health and enemy damage rather than through a major further increase in body count
-- the campaign should keep the battlefield cleaner than late Campaign 4 while making each enemy matter more
-- this should preserve readability and help keep normal runs inside the global `120` second pacing cap
-- Campaign 5 should keep the full Campaign 4 enemy roster as its baseline roster instead of introducing another general wave enemy expansion
-- the main new encounter layer should be a true stage-ending boss at the end of each stage
+Dungeons should require keys.
 
-Locked first-pass tuning direction relative to Campaign 4:
+Core access rules:
 
-- increase stage health scaling by roughly an additional `30%`
-- increase stage damage scaling by roughly an additional `15%`
-- keep spawn density flatter than Campaign 4 instead of trying to top Campaign 4's flood profile
+- a dungeon run can only be started by consuming a matching dungeon key
+- dungeon keys are consumables, not permanent unlock tokens
+- each dungeon entry costs exactly `1` matching key
+- the key is consumed immediately when the run begins
+- each real campaign should have its own key drop
+- Campaigns `1` through `5` should therefore each feed one dungeon access path
+- endless mode should not have its own dungeon key because it is not part of the finite campaign ladder
 
-Roster direction:
+This produces a clean source-to-destination structure:
 
-- keep `biter`, `swarmer`, `tanker`, `shard`, `bulwark`, `shielder`, and `zerglitch` as the full normal-wave roster
-- do not add another standard wave enemy just to create variety
-- spend the novelty budget on boss mechanics, elite pressure, and clearer priority-target moments instead of more ambient bodies
-- each stage should culminate in a real boss encounter that acts as the campaign's main new build check
+- Campaign `1` drops the key for Dungeon `1`
+- Campaign `2` drops the key for Dungeon `2`
+- Campaign `3` drops the key for Dungeon `3`
+- Campaign `4` drops the key for Dungeon `4`
+- Campaign `5` drops the key for Dungeon `5`
 
-Boss structure direction:
+Design purpose:
 
-- Campaign 5 should currently be built around `2` core boss archetypes reused across stages with escalating modifiers
-- Stage `5` should end in a distinct boss-of-bosses encounter that combines both archetypes into one final capstone fight
-- the purpose of the archetypes is to create recognizable build checks without requiring five completely unrelated boss systems at once
-- for boss cadence planning, `1` cycle should currently be treated as `1` second
+- campaigns stay relevant even after the player has unlocked later systems
+- dungeon access remains paced instead of being infinitely spammable
+- each dungeon run has a real entry cost and reward expectation
+- each dungeon naturally inherits progression placement from its parent campaign
 
-Stage boss order:
+#### Dungeon count and structure
 
-- Stage `1`: melee damage-check boss
-- Stage `2`: ranged survivability-check boss
-- Stage `3`: melee damage-check boss
-- Stage `4`: ranged survivability-check boss
-- Stage `5`: hybrid mega-boss that combines both archetypes
+The first dungeon release should contain `5` dungeons total.
 
-Boss archetype 1: damage-check boss
+Core structure rules:
 
-- role: single-target DPS check
-- movement: melee boss that slowly but relentlessly encroaches on the pixl
-- pacing: should feel oppressive because it keeps coming, not because it moves quickly
-- build test: asks whether the player's build can sustain strong focused damage before the boss reaches lethal contact range
+- there should be exactly `1` dungeon tied to each of the `5` real campaigns
+- each dungeon consists of a single stage
+- each dungeon stage contains `5` levels
+- each dungeon should culminate in a unique boss fight
+
+This means each dungeon is shorter than a full campaign, but denser and more deliberate.
+
+Pacing intent:
+
+- a dungeon should feel like a concentrated challenge run rather than a second full campaign ladder
+- the five-level structure is long enough to build tension and escalation
+- the one-stage format keeps the mode readable and repeatable
+
+#### Dungeon combat identity
+
+Dungeons should not feel like recolored campaign levels.
+
+Each dungeon should have:
+
+- its own unique boss
+- its own unique glitch or glitch family
+- its own encounter identity
+- a stronger atmosphere treatment than a normal campaign route
+
+Encounter design rule:
+
+- the boss should be the signature build-check and memory anchor for that dungeon
+- the unique glitch should change how the run is played before the boss arrives
+- dungeon mechanics should create more active player attention than the normal idle combat flow
+
+Atmosphere rule:
+
+- every dungeon route should use a visibly different background atmosphere layer
+- a strong gradient treatment is the preferred baseline signal
+- the player should be able to tell at a glance that they are inside a dungeon and not a standard campaign arena
+
+The visual goal is not only polish.
+It is mode clarity.
+
+#### Dungeon rewards
+
+Dungeon rewards should be exclusive.
+
+Completion rule:
+
+- completing a dungeon awards a new sealed reward pack named after that dungeon
+- the pack naming format should be `[Dungeon Name] Pack`
+- dungeon pack contents should come only from that dungeon's exclusive reward pool
+- dungeon packs award `2` item drops per pack, not the normal `5` cards used by standard reward packs
+
+Dungeon item marker rule:
+
+- dungeon weapons and utilities should carry an `ancient` sub-marker
+- `ancient` is used to show that these items are not part of the normal campaign or shop item bands
+- an `ancient` item still keeps its base rarity such as `normal`, `magic`, `rare`, `exotic`, or `legendary`
+- the `ancient` marker indicates that the item is a stronger dungeon-tier version of that rarity band rather than a standard item from the same rarity
+- `ancient` is a visual subcategory only, not a separate rarity bucket for sorting or filtering
+- if the player filters or groups by rarity, `ancient rare` should still appear under `rare`, `ancient magic` under `magic`, and so on
+
+This means each dungeon becomes a targeted chase lane instead of another source of generic shared items.
+
+#### Dungeon pack rarity model
+
+Each dungeon pack should roll its `2` item drops using the following rarity rates:
+
+- `25%` normal
+- `30%` magic
+- `20%` rare
+- `15%` exotic
+- `10%` legendary
+
+Design implications:
+
+- dungeon packs should feel richer and more exciting than ordinary campaign packs even though they contain fewer total drops
+- `magic` and above should dominate the expected reward texture
+- the `10%` legendary rate is high enough to make dungeon completion feel special without making legendary rewards routine everywhere else
+
+Guardrails:
+
+- dungeon-exclusive rewards should not dilute the identity of standard campaign or endless rewards
+- dungeon packs should stay exclusive to successful dungeon completion
+- dungeon loot should be strong enough to justify the active-play demand and key cost
+- the lower `2`-drop pack size should help keep dungeon rewards punchy and curated instead of turning them into another high-volume loot source
+
+#### Dungeon implementation priorities
+
+The first dungeon implementation pass should answer these concrete questions:
+
+- what the five dungeon names and themes are
+- what key drop rules each source campaign uses
+- what the five unique dungeon glitch types or glitch packages are
+- what the five unique dungeon bosses are
+- what each dungeon-exclusive loot pool contains
+- how dungeon difficulty and reward pacing scale relative to their source campaigns
+
+The main principle is simple:
+
+> campaigns build the account, dungeons cash in that power through active play, and dungeon packs deliver exclusive payoff.
+
+#### Dungeon route model
+
+Each dungeon should live on its own dedicated subpage rather than being hidden only inside the standard campaign arena route.
+
+Core route rules:
+
+- each dungeon should have an individual route entry
+- the route should act as a dungeon hub and staging page before the active fight begins
+- the page should visually foreground the dungeon fantasy instead of looking like a plain menu
+
+Dungeon `1` page direction:
+
+- the subpage should present the player inside a ruin arena space
+- it should contain `5` circular doors representing the `5` dungeon floors
+- doors begin locked and are opened by spending the matching dungeon key for the run
+- once opened, the player should be able to continue into the next floor of the dungeon
+- if the player dies during the run, the spent key is lost, the run ends immediately, and the player is thrown out of the dungeon
+- dungeon rewards are granted only after the full five-floor clear; partial runs pay out nothing
+
+Design purpose:
+
+- makes dungeon entry feel ceremonial and valuable
+- turns keys into a visible unlock action instead of a hidden resource subtraction
+- gives dungeon routes a stronger visual identity than ordinary campaign selection
+
+#### Per-dungeon completion template
+
+Dungeons should be designed and finished one at a time.
+
+That is the preferred production model because each dungeon needs its own gameplay identity, reward identity, and aesthetic identity.
+
+For a dungeon to count as fully defined, all of the following must be locked:
+
+#### 1. Loot package
+
+Each dungeon needs a complete exclusive loot pool with `13` total definitions.
+
+Required rarity split per dungeon:
+
+- `3` normal
+- `4` magic
+- `3` rare
+- `2` exotic
+- `1` legendary
+
+Design rule:
+
+- the pool should feel like a coherent package instead of a random mini-catalog
+- the legendary should function as the capstone chase item for that dungeon
+- the normal and magic items should establish the dungeon's basic mechanic shell
+- the rare and exotic items should deepen the package into real build paths
+- every item in the pool should be marked as `ancient` so the player can immediately recognize it as dungeon-tier loot
+
+Presentation and balance rule:
+
+- `ancient normal`, `ancient magic`, `ancient rare`, `ancient exotic`, and `ancient legendary` should all read as stronger than their standard counterparts
+- this is a sub-marker layered on top of rarity, not a replacement for the existing rarity ladder
+- the marker should be visible anywhere the item is surfaced: packs, inventory, tooltips, and reward summaries
+
+Exit check:
+
+- the dungeon has a full `13`-item exclusive reward pool with the locked rarity spread above
+- every item in that pool has a clearly defined `ancient` identity and presentation treatment
+
+#### 2. Core theme
+
+Each dungeon needs a strong gameplay theme that is immediately legible.
+
+Required definition work:
+
+- what the dungeon fantasy is
+- what combat problem the dungeon is built around
+- what kind of active attention the player is expected to pay during the run
+- how the dungeon differs from both its source campaign and the other dungeons
+
+Design rule:
+
+- the theme should affect both encounters and rewards
+- if the dungeon theme does not change how the run feels, it is not strong enough yet
+
+Exit check:
+
+- the dungeon can be summarized in one clear sentence that explains its combat identity
+
+#### 3. Unique enemies
+
+Each dungeon needs unique enemies, not only recycled campaign pressure.
+
+Required definition work:
+
+- at least one unique glitch or glitch family
+- the tactical role of that glitch
+- how it pressures the player's build or attention differently from standard campaign enemies
+- how it supports the dungeon's central theme
+
+Design rule:
+
+- the unique glitch should matter before the boss fight
+- it should create the dungeon's baseline tension, not just act as a decorative extra
+
+Exit check:
+
+- the dungeon has a unique enemy package that meaningfully changes wave play before level `5`
+
+#### 4. Boss
+
+Each dungeon needs a unique boss that acts as the dungeon's signature build check.
+
+Required definition work:
+
+- boss fantasy and visual identity
+- core mechanic
+- what it tests in the player's build
+- how it escalates the dungeon's unique enemy or theme rules instead of ignoring them
+
+Design rule:
+
+- the boss should feel like the final expression of the dungeon's theme
+- it should not just be a campaign boss with bigger numbers
+
+Exit check:
+
+- the boss fight is mechanically distinct and clearly tied to the dungeon's identity
+
+#### 5. Aesthetic package
+
+Each dungeon needs its own visual atmosphere.
+
+Required definition work:
+
+- background gradient direction
+- any secondary atmosphere treatment such as fog, haze, embers, scanlines, particles, or lighting shifts
+- the dominant color language
+- how the route visually signals danger, rarity, or mood before combat details are even parsed
+
+Design rule:
+
+- the dungeon should be visually recognizable from a screenshot
+- gradients are the baseline signal, but additional styling should reinforce the theme where useful
+
+Exit check:
+
+- the dungeon has a locked aesthetic brief that can be implemented directly in route styling and arena presentation
+
+#### Per-dungeon signoff rule
+
+We should not consider a dungeon finished until all five of these are defined:
+
+- exclusive `13`-item loot package
+- core gameplay theme
+- unique enemy package
+- unique boss
+- locked aesthetic treatment
+
+This keeps the dungeon pipeline clear:
+
+> define one dungeon completely -> validate that its rewards, encounters, and visuals all reinforce the same theme -> then move to the next dungeon.
+
+#### Dungeon 1: Ancient ruins
+
+Dungeon `1` should be the first fully defined dungeon and the baseline template for the rest.
+
+Current locked direction:
+
+- theme: ancient ruins
+- visual inspiration: old temple and ruin spaces with an Aztec or Maya-like stone-civilization feel
+- item marker: all rewards are still dungeon-tier `ancient` items
+
+##### Core theme
+
+Dungeon `1` should feel like a forgotten ruin complex that has been reactivated by glitch corruption.
+
+Combat identity:
+
+- the run should feel old, heavy, ritualistic, and dangerous
+- the dungeon's weapons should feel like relics, temple mechanisms, cursed idols, stone constructs, solar beams, or ritual traps rather than improvised tech
+- the dungeon should establish the idea that dungeon rewards are stronger, older, and more mythic than the normal campaign weapon pool
+
+One-sentence identity:
+
+> Dungeon `1` is the ancient-ruins dungeon where relic weapons, temple traps, and ritual pressure turn the run into a deliberate mythic gauntlet rather than a normal campaign clear.
+
+##### Weapon style direction
+
+Dungeon `1` weapons should fit the ancient-ruins theme directly.
+
+Weapon style rules:
+
+- names should sound like relics, idols, rites, obelisks, altars, runes, stone mechanisms, sun devices, serpent motifs, or temple guardians
+- silhouettes should feel carved, ritualized, geometric, or monumental rather than industrial or modern
+- effects should lean toward stone, jade, gold, solar fire, cursed rune energy, trap pulses, collapsing force, or sacred-beam motifs
+- even the lower-rarity dungeon items should look authored as ancient artifacts rather than ordinary weapons with a skin change
+
+Thematic examples of the right flavor:
+
+- sun altars
+- jade serpent launchers
+- obsidian lances
+- rune traps
+- stone sentinel emitters
+- ruin-beam relays
+
+##### Core mechanic shell
+
+Dungeon `1` should revolve around ancient constructs, ritual marks, and temple payoff windows.
+
+Primary gameplay rule:
+
+- this dungeon should reward the player for setting up marked zones and then cashing them out at the right moment
+
+The intended feel is more active than normal idle play:
+
+- the player should care about when threats are clustering inside ruin zones
+- the player should care about whether temple effects are primed before the biggest pressure wave arrives
+- the dungeon should create obvious payoff moments where a prepared board converts setup into a heavy relic burst
+
+Core system direction:
+
+- some Dungeon `1` weapons should place runes, seals, idols, or temple zones
+- some should strengthen, echo, or charge those marked zones
+- some should detonate, collapse, beam through, or otherwise cash out those prepared zones for major payoff
+- the full package should feel like building and triggering an ancient mechanism rather than simply firing standalone weapons on cooldown
+
+Combat identity rule:
+
+- the dungeon should create ritual pressure, not generic sustained DPS
+- weaker enemies should help prime or feed the setup space
+- tougher enemies should test whether the player can hold them inside the payoff window long enough to convert the setup
+
+Active-attention rule:
+
+- Dungeon `1` should ask the player to watch for setup and payoff timing more than a normal campaign run does
+- the mode should feel best when the player notices a cluster, sees the ruin engine come online, and watches a deliberate burst sequence resolve
+
+Weapon-package rule:
+
+- the `3` normal and `4` magic items should mostly establish the rune, relic, and zone-setup shell
+- the `3` rare items should introduce the first real payoff and chaining pieces
+- the `2` exotic items should create strong board-shaping or ritual-conversion moments
+- the `1` legendary should act as the final temple-engine capstone that makes the whole package feel mythic
+
+This gives Dungeon `1` a clean mechanical identity:
+
+> mark the ruin space -> charge the ritual shell -> hold enemies in the kill zone -> cash out with ancient payoff bursts.
+
+##### Aesthetic package
+
+Dungeon `1` should use a green-stone ruin palette.
+
+Locked color direction:
+
+- primary tones: moss green, jade green, desaturated jungle green
+- secondary tones: stone grey, weathered slate, temple dust, muted limestone
+- accent tones: small amounts of aged gold, dim turquoise, or solar amber where ritual energy needs contrast
+
+Background and atmosphere rules:
+
+- the arena background should use a strong green-grey gradient as the baseline signal
+- the route should feel like a temple ruin chamber rather than an open field or abstract void
+- gradients can be layered with faint stone texture, carved-pattern silhouettes, ruin haze, drifting dust, or low ritual glow
+- atmosphere should feel humid, ancient, and dormant-but-awake rather than fiery, mechanical, or cosmic
+
+Screenshot test:
+
+- if the player sees the arena without UI context, they should still read it as ancient ruins immediately
+
+##### Unique glitch package
+
+Dungeon `1` should use a ruin-themed enemy package built around heavy frontliners, supporting backliners, and sudden melee rush pressure.
+
+Locked unique enemies:
+
+- `Golems`
+- `Sunpriests`
+- `Soldiers`
+
+###### Golems
+
+Role:
+
+- large slow-moving frontliner
 
 Behavior direction:
 
-- the boss should begin outside the center and steadily close distance over the course of the fight
-- it should not flood the screen with add clutter by default
-- its danger should come from its health pool, contact threat, and refusal to give the player infinite time
-- once it reaches the pixl, it should deal heavy contact damage every cycle so failed DPS checks collapse quickly rather than dragging out
-- the encounter should reward clean mark, vulnerability, sniper, anti-tank, and other focused-damage packages
+- very high health
+- high contact damage
+- slow movement speed
+- functions as the dungeon's main wall unit that occupies space and forces sustained answers
 
-Design intent:
+Design purpose:
 
-- this boss proves that Campaign 5 is not about surviving chaos alone
-- it creates a pure readability check for single-target damage output
-- it gives slower control or support-heavy boards a clear failure case if they cannot convert setup into real boss damage
+- golems create the feeling of ancient stone guardians pushing forward relentlessly
+- they hold the front line long enough for support enemies and faster threats to matter
+- they test whether the player's build can break durable ruin defenders before the rest of the wave compounds behind them
 
-Boss archetype 2: survivability-check boss
+###### Sunpriests
 
-- role: ranged survival and mitigation check
-- movement: hovers around the arena like a siege enemy instead of closing directly into melee
-- pacing: should feel threatening because it keeps line-of-fire pressure on the pixl rather than because it floods the screen with adds
-- build test: asks whether the player's build can survive repeated high-damage projectile pressure while still maintaining enough uptime to kill the boss
+Role:
+
+- ranged support enemy
 
 Behavior direction:
 
-- the boss should stay mobile around the outer or mid ring of the arena
-- it should fire heavy projectiles that punish weak shielding, weak sustain, or lack of backline reach
-- it should fire one large, readable projectile every cycle so the threat stays constant without becoming cluttered spam
-- it should not need extreme health to be threatening because part of its danger budget is already spent on ranged burst pressure
-- the encounter should reward anti-ranged tools, shielding, sustain, priority targeting, and weapons that can reach siege-style threats reliably
+- attacks from range
+- prioritizes healing enemies in the front ranks
+- should prefer high-value long-range support positioning instead of walking into the frontline early
 
-Design intent:
+Design purpose:
 
-- this boss proves that Campaign 5 also tests defence, not only DPS
-- it creates a clean survivability check without turning the arena into a cluttered bullet-hell screen
-- it punishes boards that can clear waves but cannot withstand repeated boss projectile spikes
+- sunpriests reinforce the temple and ritual identity of the dungeon
+- they make golems and other front pressure units harder to clean up efficiently
+- they create a clear priority-target problem because leaving them alive prolongs the whole wave
 
-Boss health budgeting direction:
+###### Soldiers
 
-- the two archetypes should not share identical health budgets
-- the melee damage-check boss should have the higher health budget because most of its threat comes from surviving long enough to reach the pixl
-- the ranged survivability-check boss should have lower health because part of its threat budget is already invested in heavy projectile pressure and uptime denial
+Role:
 
-Preferred first-pass health model:
+- fast melee pressure enemy
 
-- pick the strongest normal-wave health anchor in the Campaign 5 roster after stage scaling
-- use that anchored health value as the boss-scaling reference rather than inventing a disconnected number system
+Behavior direction:
 
-Recommended first-pass boss health multipliers by stage:
+- unusually high movement speed
+- hard-hitting melee contact damage
+- reaches the pixl much faster than the dungeon's other frontline units
 
-- all stage bosses should currently live somewhere inside a `10x` to `20x` health band relative to the tankiest normal-wave enemy in that stage
-- early-stage bosses should sit closer to the low end of that band so the mechanic is learned before the raw numbers become oppressive
-- later-stage bosses can push toward the upper end once the player is expected to have stronger scaling, better support pieces, and more coherent archetypes
-- the melee damage-check boss should usually sit above the ranged survivability boss within that same band because more of its threat budget is tied up in raw soak
-- the ranged survivability boss should still remain somewhat less tanky than the melee boss because its projectile pressure already consumes part of the encounter's total danger budget
+Design purpose:
 
-Suggested first-pass targets inside that band:
+- soldiers stop the dungeon from becoming only a slow attrition check
+- they create sudden pressure windows that force the player to respect leaks and timing
+- they make the active-play identity stronger because the wave is not only about slowly grinding down stone tanks
 
-- damage-check boss: roughly `12x`, `14x`, `16x`, `18x` the tankiest normal-wave enemy health for stages `1` through `4`
-- survivability-check boss: roughly `10x`, `12x`, `14x`, `16x` the tankiest normal-wave enemy health for stages `1` through `4`
-- Stage `5` mega-boss: `40x` the tankiest normal-wave enemy health for the final stage, because it combines the core pressure patterns of both archetypes into one encounter
+##### Dungeon 1 wave composition
 
-Stage `5` mega-boss direction:
+Dungeon `1` should mix its unique ruin enemies with selected baseline swarm and ranged pressure.
 
-- movement: slowly encroaches on the pixl like the melee damage-check boss
-- offence: maintains heavy ranged projectile pressure like the survivability-check boss
-- role: final Campaign 5 hybrid check that asks for both survivability and sustained focused damage in the same fight
-- cadence: fires one large projectile every cycle, while contact damage should also hit every cycle if the boss reaches the pixl
-- pacing: should feel like a long-form capstone encounter, but must still respect the global `120` second outer bound
-- screen rule: it should not rely on large add clutter; the boss itself should be the event
+Core wave composition:
 
-Boss damage budgeting direction:
+- golems as the main heavy frontline
+- soldiers as the fast melee punish unit
+- sunpriests as the healing backline support
+- swarmers as supplemental pressure and spacing disruption
+- standard ranged enemies as additional backline threat
 
-- expected pixl durability by this point should be at least roughly `1000` effective health
-- melee boss contact damage should therefore be tuned as a near-fail-state hit: if it reaches the pixl, a single contact cycle should deal `1000` base damage at Stage `1`
-- ranged boss projectile damage should start at `250` base damage per hit at Stage `1`
-- both boss damage profiles should scale by `20%` per stage
-- practical formula: `stageDamage = baseDamage * (1 + 0.2 * (stage - 1))`
+Composition identity:
 
-Suggested first-pass damage targets by stage:
+- golems hold space
+- sunpriests extend frontline durability
+- soldiers punish weak leak control
+- swarmers and ranged units stop the run from becoming a single-lane boss check
 
-- melee damage-check boss contact hit: `1000`, `1200`, `1400`, `1600`, `1800`
-- survivability-check boss projectile hit: `250`, `300`, `350`, `400`, `450`
-- Stage `5` mega-boss should inherit both values at the Stage `5` tier: `1800` contact damage per second if it reaches the pixl and `450` damage from one large projectile every second
+This should create a good layered wave profile for Dungeon `1`:
 
-Worked temporary example using the current Campaign `4` `zerglitch` as the placeholder health anchor:
+- durable front pressure
+- meaningful backline priority targets
+- fast melee panic moments
+- enough ambient swarm and ranged pressure to keep the run active
 
-- Stage `1`
-  - anchor health: `146`
-  - damage-check boss: `1752` HP
-  - survivability-check boss: `1460` HP
-- Stage `2`
-  - anchor health: `196`
-  - damage-check boss: `2744` HP
-  - survivability-check boss: `2352` HP
-- Stage `3`
-  - anchor health: `245`
-  - damage-check boss: `3920` HP
-  - survivability-check boss: `3430` HP
-- Stage `4`
-  - anchor health: `295`
-  - damage-check boss: `5310` HP
-  - survivability-check boss: `4720` HP
-- Stage `5` mega-boss
-  - placeholder anchor health using the same current `zerglitch` base and Campaign `5` health scaling model: `345`
-  - mega-boss: `13,800` HP
+Player-facing combat read:
 
-These numbers are only a temporary worked example.
-Once Campaign `5` has its own combat profile, boss HP should be recalculated from the actual tankiest Campaign `5` normal-wave enemy after stage scaling.
+- kill or reach the sunpriests before they keep the frontline alive too long
+- survive soldier leak windows
+- maintain enough sustained damage to break golems before the arena clogs
 
-Balancing rule:
+This gives Dungeon `1` a cleaner enemy-side identity:
 
-- if the survivability boss is already threatening because the pixl is dying to projectile spikes, reduce its health before reducing its projectile identity
-- if the damage-check boss is consistently reaching the pixl without creating enough real burn window, reduce its movement pressure before collapsing its health budget
-- the survivability boss should usually end up somewhat less tanky than the melee damage-check boss at the same stage, but both should remain inside the `10x` to `20x` anchor band
-- the mega-boss is the one deliberate exception to that normal band, and should sit at `40x` because it is the campaign capstone rather than a standard stage boss
+> stone tanks hold the line, sunpriests sustain the push, and fast soldiers punish any lapse in control.
 
-This means the first Campaign 5 baseline should target something close to:
+##### Boss: The High Priest
 
-- `healthPerStage: 0.34`
-- `damagePerStage: 0.28`
+Dungeon `1` should end with `The High Priest` as its unique boss.
 
-Design intent:
+Visual identity:
 
-- health is the main pacing scaler
-- damage is the main tension scaler
-- enemy count is a secondary pressure lever, not the primary difficulty source
-- boss and elite mechanics should create the real build checks instead of ambient screen clutter
-- stage bosses should be the primary source of new mechanic complexity, not extra baseline enemy types
+- the boss should have a tall vertical-rectangle silhouette
+- it should read as a ritual authority figure rather than a beast or brute
+- the shape should feel like a moving carved idol, priestly monolith, or temple avatar
 
-Exit criteria:
+Core role:
 
-- Campaign 5 has a distinct pressure identity
-- boss encounters create new build checks instead of pure stat walls
+- ranged boss with heavy sustain support
 
-### Milestone 3: dungeon side progression
+Primary attack:
 
-Dungeon Keys and dungeon-exclusive stages come after the next mainline campaign is stable.
+- the high priest attacks with a solar beam
+- the beam should deal high persistent damage to the pixl
+- the attack animation should read as a beam cast down from above the top of the screen onto the pixl
+- the visual should feel ceremonial and punishing, as if the boss is calling down temple light rather than firing a normal projectile
+
+Support behavior:
+
+- the high priest also heals frontline enemies
+- it should use the same general front-rank healing idea as the sunpriests
+- its healing output should be much higher than a normal sunpriest's healing
+- this should make the boss fight feel like a true escalation of the dungeon's sustain pressure rather than a separate unrelated encounter
+
+Build-check identity:
+
+- the fight tests whether the player can survive sustained solar beam pressure
+- the fight tests whether the player can break through heavily healed frontline units fast enough
+- the fight should force the player to respect both incoming boss damage and the extended life of the boss's supporting frontline
+
+Design purpose:
+
+- the high priest is the natural capstone of the ruin enemy package
+- golems create the body wall
+- sunpriest-style healing scales up into boss-tier sustain
+- the solar beam gives the fight a stronger direct threat than the normal support enemies provide
+
+Player-facing combat read:
+
+- if the frontline stays alive too long, the boss becomes much harder to reach or kill
+- if the player cannot withstand the solar beam, the fight collapses even if add clear is acceptable
+- the encounter should feel like breaking a protected temple command unit under constant sacred fire
+
+This gives the dungeon boss a clear identity:
+
+> the high priest stands behind the ruin frontline, calls solar judgment down onto the pixl, and massively prolongs the enemy wall through superior healing.
+
+##### Dungeon 1 floor progression
+
+Dungeon `1` should stay relatively close to the normal wave-scaling model rather than becoming a wildly inflated side mode.
+
+Scaling rule:
+
+- start from a small opening floor of `50` enemies
+- increase enemy count by roughly `20%` per floor
+- on the final floor, apply an additional natural `20%` bump on top of that escalation before the boss layer is accounted for
+- the boss itself should then carry the real final-floor difficulty through very high health and sustained beam pressure
+
+Pacing rule:
+
+- use `totalEnemies / spawnRatePerSecond` as the first pacing proxy
+- normal dungeon floors should stay below the `120` second outer bound
+- the boss floor can run close to the cap, but should still respect it in real play
+
+Recommended first-pass floor numbers:
+
+- Floor `1`: `50` enemies at `0.56` spawn rate per second
+- Floor `2`: `60` enemies at `0.63` spawn rate per second
+- Floor `3`: `72` enemies at `0.72` spawn rate per second
+- Floor `4`: `86` enemies at `0.82` spawn rate per second
+- Floor `5`: `124` support enemies at `1.06` spawn rate per second, plus `The High Priest` boss
+
+First-pass pacing proxy:
+
+- Floor `1`: `50 / 0.56 = 89.3` seconds
+- Floor `2`: `60 / 0.63 = 95.2` seconds
+- Floor `3`: `72 / 0.72 = 100` seconds
+- Floor `4`: `86 / 0.82 = 104.9` seconds
+- Floor `5`: `124 / 1.06 = 117` seconds before factoring the boss's remaining life window
+
+This keeps the ordinary spawn flow inside the established cap while still letting the final floor feel dense and dangerous.
+
+Floor identity:
+
+- Floor `1` should introduce the ruin mood with a light mix of swarmers and early soldiers, while golems appear in small numbers as clear elite bodies
+- Floor `2` should introduce consistent sunpriest support so the player starts recognizing backline healing as a core dungeon rule
+- Floor `3` should become the first true layered floor where golems, soldiers, and sunpriests all matter at once
+- Floor `4` should pressure leak control and target priority harder by increasing soldier surges behind sturdier golem fronts
+- Floor `5` should open with a reinforced ruin frontline, then transition into the High Priest encounter as the capstone sustain-and-beam check
+
+Final-floor structure:
+
+- the final floor should not spawn the boss alone in an empty arena
+- the High Priest should arrive with or behind a real supporting frontline
+- golems should act as the main body wall on the boss floor
+- sunpriest-style sustain should already be established before the boss appears so the healing escalation is readable
+- soldiers should remain dangerous enough that the player cannot tunnel only on the boss beam and ignore leaks
+
+Boss health direction:
+
+- the High Priest should have very high health relative to the dungeon's normal enemies
+- the fight's difficulty should come from both boss durability and the fact that its healing prolongs the frontline body wall
+- the first-pass boss health target should be high enough that the fight reads as a real dungeon capstone, not a slightly stronger ranged elite
+
+Recommended first-pass health anchor:
+
+- treat the floor `5` golem as the normal-wave health anchor for the dungeon
+- set the High Priest at roughly `14x` to `18x` that floor `5` golem health on the first balancing pass
+- start near the middle of that band unless playtests show the sustain pressure is already doing too much work alone
+
+This means Dungeon `1` now has a defined encounter pattern:
+
+> start with moderate ruin pressure -> layer in healing support -> raise soldier leak threats -> finish on a dense frontline protecting a high-health solar-beam boss.
+
+##### Ancient weapon package
+
+Dungeon `1` now needs an ancient weapon package built around spell-casting runes and serves as a post-clear reward set.
+
+Core package goals:
+
+- create rune-casting build paths that feel magical, ancient, and ceremonial
+- split the package roughly in half between rune-focused weapons or utilities and generally strong standalone weapons
+- make dungeon rewards feel stronger and more mythic than standard gear at the same base rarity
+- make the dungeon clear feel worth chasing even though the player must beat the dungeon first with their existing inventory
+- open new build directions for later campaigns, later dungeons, and endless play rather than acting as the intended starter solution to Dungeon `1`
+
+All items in this package are `ancient` dungeon-tier items.
+
+Progression rule:
+
+- the player is expected to clear Dungeon `1` with an already functional build made from existing non-dungeon gear
+- Dungeon `1` ancient items are awarded only after successful clears through `Dungeon 1 Pack` rewards
+- these items should therefore be designed as powerful chase rewards, not as mandatory answers the player must already own to beat the dungeon
+
+Core presentation rule:
+
+- the ancient-ruins package should now be built around spell-casting runes
+- the baseline animation language should show the active rune appearing above the pixl before the spell is cast
+- the rune display should be a major part of the package identity, so the player clearly reads these items as ritual spell weapons rather than ordinary projectiles or traps
+
+Shared rune-state rule:
+
+- when a rune weapon is triggered, that rune should count as `triggered` for the rest of the current sweep cycle
+- other follow-up weapons later in the same cycle can then check which runes have already been triggered
+- this allows the package to create combo effects based on rune order and rune sequencing within the cycle
+- the triggered-rune state should reset when the sweep cycle resets
+
+Timing rule:
+
+- for the rune package, `1 turn` should be treated as `1` full sweep cycle unless a weapon explicitly says otherwise
+
+#### Ancient normal weapons
+
+##### Sun Rune
+
+- rarity: `ancient normal`
+- role: general-purpose damage rune
+- behavior direction: shows a solar rune above the pixl, then places a glowing ruin rune on the ground that pulses light damage in a small area for a short duration
+
+- purpose: establishes the dungeon's core idea of visible rune casting while still being a simple general-purpose damage spell
+
+##### Healing Rune
+
+- rarity: `ancient normal`
+- role: pixl sustain rune
+- behavior direction: shows a restoration rune above the pixl, then releases a healing rune effect that restores pixl health
+- purpose: gives the rune package a clean sustain spell that immediately reads as ancient support magic
+
+##### Slowing Rune
+
+- rarity: `ancient normal`
+- role: slow and debuff rune
+- behavior direction: shows a control rune above the pixl, then sends out a lightwave around the pixl that applies a slowing debuff to enemies for a duration
+- purpose: gives the package an early crowd-control rune that fits the visible spell-casting identity
+
+#### Ancient magic weapons
+
+##### Idol of Echoes
+
+- rarity: `ancient magic`
+- role: rune amplifier
+- behavior direction: boosts active runes so nearby rune spells echo an additional pulse or repeat their payoff once
+- purpose: upgrades the basic rune shell without needing a full payoff engine yet
+
+##### Sunbrand Rune
+
+- rarity: `ancient magic`
+- role: delayed burst rune
+- behavior direction: shows a solar rune above the pixl, then sends out a lightwave around the pixl that applies a sun brand debuff to glitches; when a branded target next takes direct damage, the rune triggers and deals high damage
+- purpose: adds a more explosive rune payoff that still works with any direct-damage follow-up, not only other rune spells
+
+##### Stone Ward
+
+- rarity: `ancient magic`
+- type: `utility`
+- role: defensive wall utility
+- behavior direction: summons a rock-textured wall ring or shield barrier around the pixl with health equal to `20%` of the pixl's max health
+- purpose: gives the package a clearly visible ancient defensive tool and lets the ruin theme show through stone-like pixl-art construction
+
+##### Binding Rune
+
+- rarity: `ancient magic`
+- role: persistent scaling rune
+- behavior direction: shows a binding rune above the pixl, then sends out a lightwave around the pixl that marks enemies hit with a persistent rune effect lasting until they die
+- effect rule: each consecutive direct hit against a marked target is multiplied by `x1.33`, causing damage against that specific target to ramp upward hit by hit until the target is killed
+- purpose: gives the package a strong single-target scaling rune without relying on root or bind control
+
+#### Ancient rare weapons
+
+##### Rune Reiterator
+
+- rarity: `ancient rare`
+- role: cycle replay payoff spell
+- behavior direction: when triggered, Rune Reiterator checks which runes have been triggered since that same Rune Reiterator last activated and then rapidly replays those rune effects one after another in quick succession
+- combo rule: it replays every eligible rune that fired in between its own triggers, not only the current sweep
+- purpose: turns the shared triggered-rune state into a real payoff mechanic and rewards deliberate cycle sequencing instead of only raw stat scaling
+
+##### Ascendance Rune
+
+- rarity: `ancient rare`
+- role: multi-rune ascension buff
+- shape:
+  `x-xx-x`
+  `xxxxxx`
+- trigger rule: it only activates if `4` different runes have already been triggered in the current sweep cycle
+- behavior direction: when the condition is met, Ascendance Rune grants a major ritual buff instead of a normal direct attack spell
+- buff effect: fully heals the pixl, then doubles the damage of all weapons for `2` cycles
+- cooldown rule: after activating successfully, Ascendance Rune goes on a `4` cycle cooldown
+- purpose: rewards building toward a broad rune package instead of only repeating one strong spell, and gives the set a major comeback or power-spike moment
+
+##### Judgment Rune
+
+- rarity: `ancient rare`
+- role: rune cash-out finisher
+- shape:
+  `xxx`
+  `xxx`
+  `x--`
+  `x--`
+- trigger rule: it activates once every `3` cycles and scales from the number of runes already triggered in the current sweep cycle
+- behavior direction: shows a judgment rune above the pixl, then conjures an orbiting solar sphere around the pixl that burns glitches caught in its perimeter as it circles
+- overlap rule: only `1` Judgment Rune sun can be active at a time; if it triggers again while the sun already exists, the same orb can only refresh or extend if at least `5` runes were triggered before the cast, otherwise the existing orb simply continues unchanged
+- consume rule: after the spell resolves, it consumes all currently triggered runes for the rest of that cycle
+- duration rule: the sun lasts for `1` base cycle plus `1` additional cycle for each unique rune already triggered before the cast
+- damage rule: the sun deals `3` damage every `0.1` seconds to glitches inside its orbiting perimeter, gains `+0.3x` damage for each rune already triggered before the cast, then gains `+2` base damage after each full sweep cycle up to a base-damage cap of `9`
+- purpose: gives the package a clean sacrificial finisher that turns stored cycle setup into one large payoff instead of another replay or buff effect
+
+#### Ancient exotic weapons
+
+##### Vanish Rune
+
+- rarity: `ancient exotic`
+- type: `utility`
+- role: intangibility utility rune
+- trigger rule: it requires `2` unique runes to have already triggered before it can activate
+- behavior direction: when triggered, Vanish Rune makes the pixl intangible for `1` turn
+- cooldown rule: after activating successfully, Vanish Rune goes on a `4` cycle cooldown
+- gameplay rule: while intangible, no weapons in the loadout activate
+- defence rule: while intangible, the pixl takes no damage and cannot be targeted by glitches or projectiles
+- visual direction: enemy projectiles should pass through the pixl instead of colliding, and nearby glitches should stop advancing and drift or backtrack slowly backward while the intangibility window is active
+- purpose: gives the rune package a high-skill defensive reset that trades one full turn of offense for complete short-window safety
+
+##### Nature's Wrath
+
+- rarity: `ancient exotic`
+- role: sustain capture spell
+- behavior direction: functions similarly to `Void Tendrils`, but instead of capturing multiple targets or converting them into temporary health, it uses one green tendril to grab a single enemy and channel restorative pulses outward to the edge of the screen
+- healing rule: each pulse heals the pixl for `10%` of maximum health
+- cadence: it pulses `2` times per second
+- duration: the effect lasts for `3` cycles
+- cooldown rule: after activating successfully, Nature's Wrath goes on a `2` cycle cooldown
+- purpose: gives the rune package a stronger long-window sustain exotic that feels ancient, natural, and visually dramatic without overlapping the short safety role of Vanish Rune
+
+Implementation status:
+
+- now implemented as `natures-wrath`
+- current behavior: captures `1` non-boss target, heals the pixl for `10%` max health every `0.5` seconds for `3` cycles, then consumes the captive and enters a `2` cycle success cooldown
+
+#### Ancient legendary weapon
+
+##### The Ascender
+
+- rarity: `ancient legendary`
+- type: `utility-booster`
+- role: peashooter ascension legendary
+- shape: `1x1`
+- behavior direction: The Ascender transforms the `Peashooter` from its normal sweep-triggered projectile logic into a continuously firing lightning beam
+- conversion rule: while The Ascender is active, the Peashooter no longer behaves like a normal intermittent starter weapon and instead uses beam logic continuously at all times
+- uptime rule: the ascended lightning beam never goes on cooldown
+- design purpose: gives the starter weapon a mythic endgame transformation and lets a humble baseline weapon become a permanent beam engine through dungeon-tier progression
+
+Implementation status:
+
+- now implemented as `the-ascender`
+- current behavior: if at least one `Pea Shooter` is equipped, The Ascender suppresses its normal projectile fire and replaces it with a continuous lightning beam that retargets live enemies and ticks damage every `0.2` seconds
+
+#### Package structure summary
+
+The package should be read in layers:
+
+- normals establish basic rune casting and visible spell setup
+- magics strengthen rune repetition, rune payoff, and defensive utility
+- rares should introduce the first strong payoff spells
+- exotics should create the real rune-engine identity
+- the legendary should unify the whole shell into a finished temple spell package
+
+Progression summary:
+
+- Dungeon `1` should be cleared first with the player's existing campaign-ready build
+- the ancient ruin package is the reward for succeeding in that challenge
+- these items should then strengthen the player's account for later dungeon clears, later campaigns, and endless progression
+
+##### Remaining work to finish Dungeon 1
+
+Dungeon `1` is now fully defined at the design level, including its complete rune reward package.
+
+Design priority for the next pass:
+
+- convert the final package into concrete item definitions, enemy stats, and encounter implementation values
+
+### Milestone 2: finish the weapon milestone
+
+The current roster is already broad, but the Season `1` weapon-definition target is still not finished.
 
 Goal:
 
-- add a higher-risk side progression path with exclusive rewards
+- complete the remaining roster work until the planned weapon milestone is actually reached
 
 Required outcomes:
 
-- dungeon key acquisition source
-- dungeon access flow and UI
-- dungeon-specific scaling rules
-- dungeon-exclusive loot pool
-- dungeon-specific enemies or variants where needed
+- close the gap to the `150` total loadout-definition target
+- keep utilities counting toward the milestone alongside weapons
+- preserve clear archetypes and synergy packages instead of filling the roster with stat-only padding
+- continue reviewing weak, overlapping, or unclear items as the remaining definitions are added
 
 Exit criteria:
 
-- dungeon content is clearly legible as separate progression
-- dungeon rewards feel meaningfully different from campaign rewards
+- the Season `1` definition target is reached
+- the added items deepen real build diversity instead of inflating counts only
 
-### Milestone 4: weapon revision pass
+### Milestone 3: daily quests
 
-This happens after Campaign 4, Campaign 5, and dungeons expose the real roster gaps.
+Daily quests are not the main expansion pillar, but they are a strong short-session progression boost.
 
 Goal:
 
-- run a purpose-and-identity pass across the full weapon roster
+- add a lightweight recurring objective layer that rewards regular play without replacing the main progression ladder
 
 Required outcomes:
 
-- identify stale or overlapping weapons
-- add weapons where the current game lacks meaningful decisions
-- rebalance unclear, weak, dominant, or filler-feeling items
-- answer which weapons are mandatory, optional, or redundant
+- define a small set of repeatable daily objectives
+- wire reward payouts into the existing progression economy
+- keep the system readable, fast to claim, and useful for retention
+- ensure daily quests complement campaigns, packs, shop progression, and upgrades rather than overshadow them
 
 Exit criteria:
 
-- each weapon has a clearer gameplay purpose
-- obvious filler and overlap have been reduced
+- daily quests create a meaningful login and progression nudge
+- the rewards feel helpful without becoming mandatory or economy-breaking
 
-### Milestone 5: broader systems depth
+### Milestone 4: endgame weapon system and Glitch Essence
 
-These are important expansion pillars, but they should layer onto the content roadmap above rather than replace it.
+The endgame weapon layer still needs to be sorted into a coherent system.
+
+Goal:
+
+- define and implement the late-game Glitch Essence economy and the weapon progression or unlock path attached to it
+
+Required outcomes:
+
+- decide exactly how `Glitch Essence` is earned from endless or other endgame play
+- define what the endgame weapon system actually grants, unlocks, upgrades, or modifies
+- connect `Glitch Essence` to a clear spend sink with real chase value
+- ensure the endgame weapon system extends finished accounts instead of destabilizing campaign progression
+
+Exit criteria:
+
+- `Glitch Essence` has a stable source and a clear purpose
+- the endgame weapon system is understandable, rewarding, and worth pushing endless for
+
+### Milestone 5: broader systems depth and polish
+
+These remain important, but they should follow the major missing systems above.
 
 System priorities inside this milestone:
 
@@ -1935,22 +2640,15 @@ System priorities inside this milestone:
 
 Key directions:
 
-- ranged enemies
-- support enemies
-- split-on-death enemies
-- elite variants
-- boss mechanics beyond simple stat spikes
-- on-hit effects
-- piercing
-- chain attacks
-- splash
-- adjacency or column-based synergies
-- stronger duplicate economy and shop loops
+- elite and support pressure tuning
+- additional payoff and synergy hooks
+- stronger duplicate-economy and shop follow-up depth
 - pacing and reward readability improvements
+- cleanup of unclear, stale, or redundant edge-case systems
 
 Near-term note:
 
-- prestige is still a valid long-term system, but it should come after the game has a stronger duplicate economy and shop loop
+- prestige is still a valid long-term system, but it remains behind dungeons, the remaining weapon milestone, daily quests, and the Glitch Essence endgame layer
 
 ### Endless mode
 
@@ -2176,17 +2874,18 @@ Design intent of the update:
 
 The current recommended order is:
 
-1. finish Campaign 4 weapon content
-2. formalize and build Campaign 5 boss mechanics and progression
-3. implement Dungeon Keys, dungeon stages, and dungeon-exclusive rewards
-4. run the broader weapon revision and stale-gameplay pass after the new content is in place
-5. expand deeper systemic layers once the larger content roadmap has exposed the real gaps
+1. implement dungeons as the next major feature
+2. finish the Season `1` weapon milestone
+3. add daily quests as a lightweight progression boost
+4. sort the endgame weapon system and `Glitch Essence` economy
+5. expand deeper systemic layers once those pillars are in place
 
 Reason:
 
-- the weapon revision pass will be much stronger after the roster and progression structure are closer to their intended full shape
-- dungeon rewards and Campaign 5 mechanics may expose weapon gaps that are not visible yet
-- system-depth work is easier to prioritize once the content spine is stable
+- dungeons are the largest remaining missing feature and should define the next big expansion phase
+- the remaining weapon milestone should be finished against the real post-campaign content shape rather than in isolation
+- daily quests are valuable, but they are a support layer rather than the main progression pillar
+- the `Glitch Essence` endgame should be finalized after the surrounding progression structure is clearer
 
 ---
 
@@ -2194,9 +2893,9 @@ Reason:
 
 The immediate design task after this document should be:
 
-> fully define the remaining Campaign 4 completion work with the same level of clarity before expanding the codebase into Campaign 5 or dungeon systems.
+> fully define dungeons, daily quests, the remaining weapon-milestone gap, and the endgame `Glitch Essence` weapon layer as the current unimplemented systems roadmap.
 
-That is the clearest next step because Campaign 4 is the current active milestone and the rest of the roadmap depends on it being meaningfully complete.
+That is the clearest next step because the campaign spine already extends through Campaigns `5` and `6`, while the biggest missing work now sits in these adjacent progression and endgame systems.
 
 ---
 

@@ -15,9 +15,9 @@ import {
 import type {
 	LoadoutItemDefinition,
 	LoadoutPlacement,
+	LoadoutPlacementTargetingKind,
 	LoadoutRotation,
 	OwnedWeaponInstance,
-	WeaponTargetingKind,
 	UtilityDefinition,
 	WeaponDefinition,
 	WeaponShape
@@ -45,7 +45,7 @@ export interface LoadoutWeapon {
 	y: number;
 	rotation: LoadoutRotation;
 	mirrored: boolean;
-	targeting?: WeaponTargetingKind;
+	targeting?: LoadoutPlacementTargetingKind;
 }
 
 export interface InventoryWeapon {
