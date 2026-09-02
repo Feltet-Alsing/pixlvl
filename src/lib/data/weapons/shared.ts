@@ -1016,21 +1016,14 @@ export const sharedWeapons: LoadoutItemDefinition[] = [
 		category: 'utility',
 		rarity: 'exotic',
 		shape: {
-			width: 4,
-			height: 4,
+			width: 3,
+			height: 3,
 			cells: [
 				[1, 0],
-				[2, 0],
 				[0, 1],
 				[1, 1],
 				[2, 1],
-				[3, 1],
-				[0, 2],
-				[1, 2],
-				[2, 2],
-				[3, 2],
-				[1, 3],
-				[2, 3]
+				[1, 2]
 			]
 		},
 		activationKind: 'passive',
@@ -1038,8 +1031,8 @@ export const sharedWeapons: LoadoutItemDefinition[] = [
 		requiredInfusionCount: 1,
 		effect: {
 			type: 'mine-gravity-augment',
-			pullRadius: 76,
-			pullStrength: 88
+			pullRadius: 92,
+			pullStrength: 180
 		},
 		utilityVisual: sharedUtilityVisualById['gravity-mine-augment'],
 		drop: {

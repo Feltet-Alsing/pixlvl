@@ -8189,7 +8189,7 @@ export function createArenaCombatSketch(
 							);
 						const pullStep = Math.min(
 							Math.max(0, closestMineDistance - closestMine.triggerRadius * 0.35),
-							mineGravityAugmentEffect.pullStrength * (0.45 + pullFalloff * 0.55) * dt
+							mineGravityAugmentEffect.pullStrength * (0.85 + pullFalloff * 0.75) * dt
 						);
 
 						enemy.x += (pullVectorX / closestMineDistance) * pullStep;
