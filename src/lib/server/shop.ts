@@ -152,6 +152,10 @@ function buildEligibleOffers(gameState: GameState) {
 			continue;
 		}
 
+		if (item.drop.mode !== 'shop') {
+			continue;
+		}
+
 		const ownedCount = ownedDefinitionCountById.get(item.id) ?? 0;
 		const weight = getOfferWeight(item.rarity, ownedCount);
 
