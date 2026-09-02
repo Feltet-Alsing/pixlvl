@@ -289,18 +289,30 @@
 		...data.notificationCounts,
 		packs: livePackNotificationCount
 	});
-	let dungeonShortcut = $derived.by(() => {
-		const liveDungeonKeys = livePixlState?.dungeonKeys ?? null;
+	let dungeonKeyEntries = $derived.by(() => {
+		const dungeonKeys = livePixlState?.dungeonKeys ?? data.gameState?.pixlState.dungeonKeys ?? null;
 
-		if (liveDungeonKeys) {
-			for (const dungeon of Object.values(dungeons)) {
-				if ((liveDungeonKeys[dungeon.keyId] ?? 0) > 0) {
-					return {
-						dungeonId: dungeon.dungeonId,
-						keyId: dungeon.keyId,
-						name: dungeon.name
-					};
-				}
+		if (!dungeonKeys) {
+			return [];
+		}
+
+		return Object.values(dungeons)
+			.map((dungeon) => ({
+				dungeonId: dungeon.dungeonId,
+				keyId: dungeon.keyId,
+				name: dungeon.name,
+				count: dungeonKeys[dungeon.keyId] ?? 0
+			}))
+			.filter((entry) => entry.count > 0);
+	});
+	let dungeonShortcut = $derived.by(() => {
+		for (const entry of dungeonKeyEntries) {
+			if (entry.count > 0) {
+				return {
+					dungeonId: entry.dungeonId,
+					keyId: entry.keyId,
+					name: entry.name
+				};
 			}
 		}
 
@@ -950,7 +962,8 @@
 				pixlState: {
 					xp: Math.max(livePixlState.xp, combatOverlay.bankedXp),
 					defence: livePixlState.defence,
-					agility: livePixlState.agility
+					agility: livePixlState.agility,
+					dungeonKeys: livePixlState.dungeonKeys
 				},
 				rewardPacks: rewardPacksToPersist,
 				campaignProgress: [
@@ -1184,6 +1197,16 @@
 			<a class="dungeon-shortcut-button" href={resolve(`/dungeons/${dungoensDungeonId}`)}>
 				Dungoens
 			</a>
+		{/if}
+
+		{#if dungeonKeyEntries.length > 0}
+			<div class="dungeon-key-strip" aria-label="Dungeon keys">
+				{#each dungeonKeyEntries as entry (entry.keyId)}
+					<span class="dungeon-key-pill">
+						{entry.name} Key x{entry.count}
+					</span>
+				{/each}
+			</div>
 		{/if}
 	</div>
 {/snippet}
@@ -1586,6 +1609,29 @@
 		letter-spacing: 0.04em;
 		box-shadow: 0 18px 38px rgba(0, 0, 0, 0.32);
 		backdrop-filter: blur(12px);
+	}
+
+	.dungeon-key-strip {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.45rem;
+		width: 100%;
+	}
+
+	.dungeon-key-pill {
+		display: inline-flex;
+		align-items: center;
+		min-height: 2rem;
+		padding: 0.4rem 0.72rem;
+		border-radius: 999px;
+		border: 1px solid rgba(244, 187, 68, 0.24);
+		background: rgba(244, 187, 68, 0.12);
+		color: #f8e7b1;
+		font-size: 0.76rem;
+		font-weight: 700;
+		letter-spacing: 0.03em;
+		box-shadow: 0 14px 28px rgba(0, 0, 0, 0.24);
+		backdrop-filter: blur(10px);
 	}
 
 	.desktop-panel-rail-end {

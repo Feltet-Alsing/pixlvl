@@ -6695,7 +6695,9 @@ export function createArenaCombatSketch(
 			highestClearedLevel = Math.max(highestClearedLevel, getResolvedLevelNumber(currentLevel));
 
 			if (endlessMode) {
-				if (Math.random() < 0.01) {
+				const didAwardDungeonKey = Math.random() < 0.01;
+
+				if (didAwardDungeonKey) {
 					dungeonKeys = {
 						...dungeonKeys,
 						'dungeon-1-key': (dungeonKeys['dungeon-1-key'] ?? 0) + 1
@@ -6710,7 +6712,7 @@ export function createArenaCombatSketch(
 					getResolvedLevelNumber(currentLevel) + 1,
 					rewardPacks,
 					getResolvedLevelNumber(currentLevel),
-					false
+					didAwardDungeonKey
 				);
 			} else if (status === 'complete') {
 				completed = true;
