@@ -50,6 +50,9 @@
 		| 'perkPoints'
 		| 'defence'
 		| 'agility'
+		| 'power'
+		| 'armour'
+		| 'shieldCapacity'
 		| 'health'
 		| 'attackSpeed'
 		| 'loadoutRows'
@@ -165,9 +168,22 @@
 	});
 	let combatOverlayOverride = $state<CombatOverlayState | null>(null);
 	let combatOverlay = $derived(combatOverlayOverride ?? createInitialCombatOverlay(data));
-	let upgradeState = $derived(
-		livePixlState ?? data.gameState?.pixlState ?? createBaselineUpgradeablePixlState()
-	);
+	let upgradeState = $derived.by(() => {
+		const basePixlState = livePixlState ?? data.gameState?.pixlState ?? null;
+
+		if (!basePixlState) {
+			return createBaselineUpgradeablePixlState();
+		}
+
+		return createUpgradeablePixlState({
+			xp: basePixlState.xp,
+			defence: basePixlState.defence,
+			agility: basePixlState.agility,
+			power: basePixlState.power,
+			armour: basePixlState.armour,
+			shieldCapacity: basePixlState.shieldCapacity
+		});
+	});
 	let overlayUpgradeOptions = $derived(getUpgradeOptions(upgradeState));
 	let overlayStatCards = $derived(buildOverlayStatCards(upgradeState));
 	let weaponDefinitionById = $derived(
@@ -222,7 +238,7 @@
 	);
 	let previewPixlState = $derived(livePixlState ?? data.gameState?.pixlState ?? null);
 	let progressionSignature = $derived(
-		`${upgradeState.xp}:${upgradeState.defence}:${upgradeState.agility}:${upgradeState.health}:${upgradeState.attackSpeed}:${upgradeState.loadoutRows}:${upgradeState.loadoutColumns}`
+		`${upgradeState.xp}:${upgradeState.defence}:${upgradeState.agility}:${upgradeState.power}:${upgradeState.armour}:${upgradeState.shieldCapacity}:${upgradeState.health}:${upgradeState.attackSpeed}:${upgradeState.loadoutRows}:${upgradeState.loadoutColumns}`
 	);
 	let sketchRemountKey = $derived(
 		`${data.campaignId}:${runMode}:${sketchCampaignLevel}:${loadoutSignature}:${progressionSignature}`
@@ -663,6 +679,10 @@
 				perkPoints: resumedUpgradeState.perkPoints,
 				defence: snapshot.defence,
 				agility: snapshot.agility,
+				power: livePixlState?.power ?? data.gameState?.pixlState.power ?? 0,
+				armour: livePixlState?.armour ?? data.gameState?.pixlState.armour ?? 0,
+				shieldCapacity:
+					livePixlState?.shieldCapacity ?? data.gameState?.pixlState.shieldCapacity ?? 0,
 				health: resumedUpgradeState.health,
 				attackSpeed: resumedUpgradeState.attackSpeed,
 				loadoutRows: resumedUpgradeState.loadoutRows,
@@ -852,6 +872,9 @@
 				perkPoints: update.perkPoints,
 				defence: update.defence,
 				agility: update.agility,
+				power: livePixlState.power,
+				armour: livePixlState.armour,
+				shieldCapacity: livePixlState.shieldCapacity,
 				health: update.health,
 				attackSpeed: update.attackSpeed,
 				loadoutRows: update.loadoutRows,
@@ -963,6 +986,9 @@
 					xp: Math.max(livePixlState.xp, combatOverlay.bankedXp),
 					defence: livePixlState.defence,
 					agility: livePixlState.agility,
+					power: livePixlState.power,
+					armour: livePixlState.armour,
+					shieldCapacity: livePixlState.shieldCapacity,
 					dungeonKeys: livePixlState.dungeonKeys
 				},
 				rewardPacks: rewardPacksToPersist,
@@ -996,6 +1022,7 @@
 
 	const purchaseUpgrade: SubmitFunction = ({ formData }) => {
 		const selectedUpgrade = formData.get('upgrade');
+		const purchaseAmount = Number(formData.get('amount') ?? 1);
 
 		if (typeof sessionStorage !== 'undefined' && typeof window !== 'undefined') {
 			sessionStorage.setItem(
@@ -1016,7 +1043,11 @@
 				typeof selectedUpgrade === 'string' &&
 				isUpgradeKey(selectedUpgrade)
 			) {
-				const nextUpgradeState = applyUpgradePurchase(selectedUpgrade, upgradeState);
+				const nextUpgradeState = applyUpgradePurchase(
+					selectedUpgrade,
+					upgradeState,
+					purchaseAmount
+				);
 				const ownedWeapons =
 					livePixlState?.ownedWeapons ?? data.gameState?.pixlState?.ownedWeapons ?? [];
 
@@ -1026,6 +1057,9 @@
 					perkPoints: nextUpgradeState.perkPoints,
 					defence: nextUpgradeState.defence,
 					agility: nextUpgradeState.agility,
+					power: nextUpgradeState.power,
+					armour: nextUpgradeState.armour,
+					shieldCapacity: nextUpgradeState.shieldCapacity,
 					health: nextUpgradeState.health,
 					attackSpeed: nextUpgradeState.attackSpeed,
 					loadoutRows: nextUpgradeState.loadoutRows,
@@ -1070,6 +1104,9 @@
 					perkPoints: nextUpgradeState.perkPoints,
 					defence: nextUpgradeState.defence,
 					agility: nextUpgradeState.agility,
+					power: nextUpgradeState.power,
+					armour: nextUpgradeState.armour,
+					shieldCapacity: nextUpgradeState.shieldCapacity,
 					health: nextUpgradeState.health,
 					attackSpeed: nextUpgradeState.attackSpeed,
 					loadoutRows: nextUpgradeState.loadoutRows,

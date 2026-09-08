@@ -883,6 +883,9 @@ type SharedPixlStateInput = Pick<
 	PersistedPixlState,
 	'xp' | 'defence' | 'agility' | 'ownedWeapons' | 'loadoutPlacements'
 > & {
+	power?: PersistedPixlState['power'];
+	armour?: PersistedPixlState['armour'];
+	shieldCapacity?: PersistedPixlState['shieldCapacity'];
 	dungeonKeys?: PersistedPixlState['dungeonKeys'];
 };
 
@@ -1056,7 +1059,10 @@ export function createArenaCombatSketch(
 		let pixlProgression = createUpgradeablePixlState({
 			xp: options.pixlState?.xp ?? 0,
 			defence: options.pixlState?.defence ?? 0,
-			agility: options.pixlState?.agility ?? 0
+			agility: options.pixlState?.agility ?? 0,
+			power: options.pixlState?.power ?? 0,
+			armour: options.pixlState?.armour ?? 0,
+			shieldCapacity: options.pixlState?.shieldCapacity ?? 0
 		});
 		const equippedLoadoutEntries = buildEquippedLoadoutEntries(
 			options.pixlState?.ownedWeapons,
@@ -1875,7 +1881,10 @@ export function createArenaCombatSketch(
 			options.onResumeStateChange?.(resumeState);
 		};
 
-		const getPixlShieldCap = () => pixlProgression.health * PIXL_SHIELD_CAP_MULTIPLIER;
+		const getPixlShieldCap = () =>
+			pixlProgression.health *
+			PIXL_SHIELD_CAP_MULTIPLIER *
+			pixlProgression.shieldCapacityMultiplier;
 
 		const getOtherPixlShieldTotal = (sourceId: string) =>
 			Object.entries(pixlShieldSources).reduce(
@@ -2230,6 +2239,7 @@ export function createArenaCombatSketch(
 				1,
 				Math.round(
 					weapon.baseDamage *
+						pixlProgression.damageMultiplier *
 						cycleDamageMultiplier *
 						elementalDamageMultiplier *
 						familyDamageMultiplier *
@@ -3743,7 +3753,11 @@ export function createArenaCombatSketch(
 			}
 
 			if (remainingDamage > 0) {
-				pixlHealth = Math.max(0, pixlHealth - remainingDamage);
+				const mitigatedDamage = Math.max(
+					1,
+					Math.round(remainingDamage * (1 - pixlProgression.armourDamageReduction))
+				);
+				pixlHealth = Math.max(0, pixlHealth - mitigatedDamage);
 			}
 
 			pixlFlash = 0.16;
@@ -11395,7 +11409,10 @@ export function createLoadoutSweepPreviewSketch(options: LoadoutSweepPreviewOpti
 		const pixlProgression = createUpgradeablePixlState({
 			xp: options.pixlState?.xp ?? 0,
 			defence: options.pixlState?.defence ?? 0,
-			agility: options.pixlState?.agility ?? 0
+			agility: options.pixlState?.agility ?? 0,
+			power: options.pixlState?.power ?? 0,
+			armour: options.pixlState?.armour ?? 0,
+			shieldCapacity: options.pixlState?.shieldCapacity ?? 0
 		});
 		const equippedLoadoutEntries = buildEquippedLoadoutEntries(
 			options.pixlState?.ownedWeapons,

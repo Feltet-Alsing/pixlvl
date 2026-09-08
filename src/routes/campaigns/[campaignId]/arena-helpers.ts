@@ -142,13 +142,22 @@ export function buildOverlayStatCards(upgradeState: {
 	attackSpeed: number;
 	loadoutRows: number;
 	loadoutColumns: number;
+	damageMultiplier: number;
+	armourDamageReduction: number;
+	shieldCapacityMultiplier: number;
 }) {
 	return [
 		{ label: 'Level', value: upgradeState.level },
 		{ label: 'Perk points', value: upgradeState.perkPoints },
+		{ label: 'Max health', value: upgradeState.health },
+		{ label: 'Damage bonus', value: `+${Math.round((upgradeState.damageMultiplier - 1) * 100)}%` },
+		{ label: 'Armour', value: `${Math.round(upgradeState.armourDamageReduction * 100)}%` },
+		{
+			label: 'Shield cap',
+			value: `+${Math.round((upgradeState.shieldCapacityMultiplier - 1) * 100)}%`
+		},
+		{ label: 'Sweep speed', value: `${upgradeState.attackSpeed.toFixed(2)}/s` },
 		{ label: 'XP', value: upgradeState.xp },
-		{ label: 'Health', value: upgradeState.health },
-		{ label: 'Attack speed', value: `${upgradeState.attackSpeed.toFixed(1)}/s` },
 		{ label: 'Loadout size', value: `${upgradeState.loadoutRows} x ${upgradeState.loadoutColumns}` }
 	];
 }

@@ -35,9 +35,22 @@
 	</div>
 	<p>{option.description}</p>
 	<small>Allocated {option.level} point{option.level === 1 ? '' : 's'}</small>
-	<button class="purchase" type="submit" disabled={!option.canSpend}>
-		{option.canSpend ? enabledLabel : disabledLabel}
-	</button>
+	<div class="purchase-row">
+		{#each [1, 5, 10] as amount (amount)}
+			<button
+				class="purchase"
+				type="submit"
+				name="amount"
+				value={amount}
+				disabled={!option.purchaseAmounts.includes(amount)}
+				aria-label={option.purchaseAmounts.includes(amount)
+					? `${enabledLabel} +${amount}`
+					: `${disabledLabel} +${amount}`}
+			>
+				+{amount}
+			</button>
+		{/each}
+	</div>
 </form>
 
 <style>
@@ -94,5 +107,11 @@
 	.purchase:disabled {
 		opacity: 0.45;
 		cursor: not-allowed;
+	}
+
+	.purchase-row {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 0.45rem;
 	}
 </style>

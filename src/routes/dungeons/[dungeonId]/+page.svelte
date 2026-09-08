@@ -181,7 +181,10 @@
 		return createUpgradeablePixlState({
 			xp: combatOverlay?.bankedXp ?? basePixlState?.xp ?? 0,
 			defence: basePixlState?.defence ?? 0,
-			agility: basePixlState?.agility ?? 0
+			agility: basePixlState?.agility ?? 0,
+			power: basePixlState?.power ?? 0,
+			armour: basePixlState?.armour ?? 0,
+			shieldCapacity: basePixlState?.shieldCapacity ?? 0
 		});
 	});
 	let currentXpProgress = $derived(getXpProgress(upgradeState));

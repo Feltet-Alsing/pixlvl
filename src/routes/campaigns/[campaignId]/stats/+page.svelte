@@ -6,6 +6,7 @@
 	import { getActiveLoadoutPlacements } from '$lib/game/loadout-slots';
 	import {
 		applyUpgradePurchase,
+		createUpgradeablePixlState,
 		createBaselineUpgradeablePixlState,
 		getUpgradeOptions,
 		isUpgradeKey,
@@ -23,6 +24,9 @@
 		| 'perkPoints'
 		| 'defence'
 		| 'agility'
+		| 'power'
+		| 'armour'
+		| 'shieldCapacity'
 		| 'health'
 		| 'attackSpeed'
 		| 'loadoutRows'
@@ -30,14 +34,27 @@
 	>;
 
 	let pixlStateOverride = $state.raw<PixlStateOverride | null>(null);
-	let upgradeState = $derived(
-		(data.gameState?.pixlState
+	let upgradeState = $derived.by(() => {
+		const basePixlState = data.gameState?.pixlState
 			? {
 					...data.gameState.pixlState,
 					...(pixlStateOverride ?? {})
 				}
-			: null) ?? createBaselineUpgradeablePixlState()
-	);
+			: null;
+
+		if (!basePixlState) {
+			return createBaselineUpgradeablePixlState();
+		}
+
+		return createUpgradeablePixlState({
+			xp: basePixlState.xp,
+			defence: basePixlState.defence,
+			agility: basePixlState.agility,
+			power: basePixlState.power,
+			armour: basePixlState.armour,
+			shieldCapacity: basePixlState.shieldCapacity
+		});
+	});
 	let upgradeOptions = $derived(getUpgradeOptions(upgradeState));
 	let equippedWeaponCount = $derived(
 		data.gameState
@@ -49,8 +66,11 @@
 		{ label: 'Level', value: upgradeState.level },
 		{ label: 'Perk points', value: upgradeState.perkPoints },
 		{ label: 'XP', value: upgradeState.xp },
-		{ label: 'Health', value: upgradeState.health },
-		{ label: 'Attack speed', value: `${upgradeState.attackSpeed.toFixed(1)}/s` },
+		{ label: 'Max health', value: upgradeState.health },
+		{ label: 'Damage bonus', value: `+${Math.round((upgradeState.damageMultiplier - 1) * 100)}%` },
+		{ label: 'Armour', value: `${Math.round(upgradeState.armourDamageReduction * 100)}%` },
+		{ label: 'Shield cap', value: `+${Math.round((upgradeState.shieldCapacityMultiplier - 1) * 100)}%` },
+		{ label: 'Sweep speed', value: `${upgradeState.attackSpeed.toFixed(2)}/s` },
 		{ label: 'Equipped', value: equippedWeaponCount },
 		{ label: 'Owned weapons', value: ownedWeaponCount },
 		{ label: 'Loadout size', value: `${upgradeState.loadoutRows} x ${upgradeState.loadoutColumns}` }
@@ -58,6 +78,7 @@
 
 	const purchaseUpgrade: SubmitFunction = ({ formData }) => {
 		const selectedUpgrade = formData.get('upgrade');
+		const purchaseAmount = Number(formData.get('amount') ?? 1);
 
 		return async ({ result }) => {
 			if (result.type === 'success' || result.type === 'failure') {
@@ -69,7 +90,11 @@
 				typeof selectedUpgrade === 'string' &&
 				isUpgradeKey(selectedUpgrade)
 			) {
-				const nextUpgradeState = applyUpgradePurchase(selectedUpgrade, upgradeState);
+				const nextUpgradeState = applyUpgradePurchase(
+					selectedUpgrade,
+					upgradeState,
+					purchaseAmount
+				);
 
 				pixlStateOverride = {
 					xp: nextUpgradeState.xp,
@@ -77,6 +102,9 @@
 					perkPoints: nextUpgradeState.perkPoints,
 					defence: nextUpgradeState.defence,
 					agility: nextUpgradeState.agility,
+					power: nextUpgradeState.power,
+					armour: nextUpgradeState.armour,
+					shieldCapacity: nextUpgradeState.shieldCapacity,
 					health: nextUpgradeState.health,
 					attackSpeed: nextUpgradeState.attackSpeed,
 					loadoutRows: nextUpgradeState.loadoutRows,
@@ -101,6 +129,9 @@
 					perkPoints: nextUpgradeState.perkPoints,
 					defence: nextUpgradeState.defence,
 					agility: nextUpgradeState.agility,
+					power: nextUpgradeState.power,
+					armour: nextUpgradeState.armour,
+					shieldCapacity: nextUpgradeState.shieldCapacity,
 					health: nextUpgradeState.health,
 					attackSpeed: nextUpgradeState.attackSpeed,
 					loadoutRows: nextUpgradeState.loadoutRows,

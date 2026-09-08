@@ -207,17 +207,20 @@ The `pixl` uses an XP-driven permanent progression model.
 
 The current permanent progression stats are:
 
-- `defence`
+- `max health`
+- `power`
+- `armour`
+- `shield capacity`
 - `agility`
 - `loadout size`
 
-### Defence
+### Max Health
 
-`Defence` increases max health.
+`Max Health` increases the pixl's health pool directly.
 
 Current rule:
 
-- each point gives roughly `+10%` health multiplicatively
+- each point gives `+12` max health
 
 ### Agility
 
@@ -225,7 +228,36 @@ Current rule:
 
 Current rule:
 
-- each point gives roughly `+1%` sweep speed multiplicatively
+- each point gives `+2%` sweep speed multiplicatively
+- cap: `15` points for roughly `+35%` total sweep speed
+
+### Power
+
+`Power` increases outgoing weapon damage.
+
+Current rule:
+
+- each point gives `+5%` damage
+- cap: `10` points for `+50%`
+
+### Armour
+
+`Armour` reduces health damage after shields are depleted.
+
+Current rule:
+
+- each point gives `+5%` post-shield damage reduction
+- cap: `10` points for `50%`
+
+### Shield Capacity
+
+`Shield Capacity` increases the pixl's maximum shield pool.
+
+Current rule:
+
+- each point gives `+5%` max shield pool
+- cap: `20` points for `+100%`
+- it multiplies the existing shield cap instead of replacing it
 
 ### Loadout size
 
@@ -255,8 +287,9 @@ $$
 
 Current perk rule:
 
-- each level after level `1` grants `1` perk point
-- perk points can currently be spent on `defence` or `agility`
+- each level after level `1` grants `2` perk points
+- perk points can currently be spent on `max health`, `power`, `armour`, `shield capacity`, or `agility`
+- the upgrade UI supports bulk allocation in `+1`, `+5`, or `+10` steps when enough points remain and the stat cap allows it
 
 ---
 

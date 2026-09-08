@@ -54,7 +54,16 @@ export interface GameStatePatch {
 	pixlState?: Partial<
 		Pick<
 			PersistedPixlState,
-			'xp' | 'scrap' | 'defence' | 'agility' | 'dungeonKeys' | 'ownedWeapons' | 'loadoutPlacements'
+			| 'xp'
+			| 'scrap'
+			| 'defence'
+			| 'agility'
+			| 'power'
+			| 'armour'
+			| 'shieldCapacity'
+			| 'dungeonKeys'
+			| 'ownedWeapons'
+			| 'loadoutPlacements'
 		>
 	>;
 	rewardPacks?: PersistedRewardPack[];
@@ -398,6 +407,9 @@ function createDefaultPixlState(userId: string): InferInsertModel<typeof pixlSta
 		scrap: 0,
 		defence: baselineState.defence,
 		agility: baselineState.agility,
+		power: baselineState.power,
+		armour: baselineState.armour,
+		shieldCapacity: baselineState.shieldCapacity,
 		health: baselineState.health,
 		attackSpeed: baselineState.attackSpeed,
 		loadoutRows: baselineState.loadoutRows,
@@ -525,7 +537,10 @@ async function ensureGameState(userId: string) {
 	const normalizedProgression = createUpgradeablePixlState({
 		xp: storedPixlState.xp,
 		defence: storedPixlState.defence,
-		agility: storedPixlState.agility
+		agility: storedPixlState.agility,
+		power: storedPixlState.power,
+		armour: storedPixlState.armour,
+		shieldCapacity: storedPixlState.shieldCapacity
 	});
 	const normalizedLoadoutPlacements = normalizePersistedLoadoutState(
 		storedPixlState.loadoutPlacements,
@@ -562,6 +577,9 @@ async function ensureGameState(userId: string) {
 		normalizedScrap !== storedPixlState.scrap ||
 		normalizedProgression.defence !== storedPixlState.defence ||
 		normalizedProgression.agility !== storedPixlState.agility ||
+		normalizedProgression.power !== storedPixlState.power ||
+		normalizedProgression.armour !== storedPixlState.armour ||
+		normalizedProgression.shieldCapacity !== storedPixlState.shieldCapacity ||
 		normalizedProgression.health !== storedPixlState.health ||
 		normalizedProgression.attackSpeed !== storedPixlState.attackSpeed ||
 		normalizedProgression.loadoutRows !== storedPixlState.loadoutRows ||
@@ -581,6 +599,9 @@ async function ensureGameState(userId: string) {
 				scrap: normalizedScrap,
 				defence: normalizedProgression.defence,
 				agility: normalizedProgression.agility,
+				power: normalizedProgression.power,
+				armour: normalizedProgression.armour,
+				shieldCapacity: normalizedProgression.shieldCapacity,
 				health: normalizedProgression.health,
 				attackSpeed: normalizedProgression.attackSpeed,
 				loadoutRows: normalizedProgression.loadoutRows,
@@ -889,10 +910,21 @@ export async function updateGameState(userId: string, patch: GameStatePatch): Pr
 		const scrap = toNonNegativeInteger(patch.pixlState.scrap) ?? storedPixlState.scrap;
 		const defence = toNonNegativeInteger(patch.pixlState.defence) ?? storedPixlState.defence;
 		const agility = toNonNegativeInteger(patch.pixlState.agility) ?? storedPixlState.agility;
+		const power = toNonNegativeInteger(patch.pixlState.power) ?? storedPixlState.power;
+		const armour = toNonNegativeInteger(patch.pixlState.armour) ?? storedPixlState.armour;
+		const shieldCapacity =
+			toNonNegativeInteger(patch.pixlState.shieldCapacity) ?? storedPixlState.shieldCapacity;
 		const dungeonKeys = patch.pixlState.dungeonKeys
 			? normalizeDungeonKeys(patch.pixlState.dungeonKeys)
 			: undefined;
-		const normalizedProgression = createUpgradeablePixlState({ xp, defence, agility });
+		const normalizedProgression = createUpgradeablePixlState({
+			xp,
+			defence,
+			agility,
+			power,
+			armour,
+			shieldCapacity
+		});
 		const ownedWeapons = Array.isArray(patch.pixlState.ownedWeapons)
 			? normalizeOwnedWeapons(patch.pixlState.ownedWeapons)
 			: undefined;
@@ -913,6 +945,9 @@ export async function updateGameState(userId: string, patch: GameStatePatch): Pr
 		nextPixlState.scrap = scrap;
 		nextPixlState.defence = normalizedProgression.defence;
 		nextPixlState.agility = normalizedProgression.agility;
+		nextPixlState.power = normalizedProgression.power;
+		nextPixlState.armour = normalizedProgression.armour;
+		nextPixlState.shieldCapacity = normalizedProgression.shieldCapacity;
 		nextPixlState.health = normalizedProgression.health;
 		nextPixlState.attackSpeed = normalizedProgression.attackSpeed;
 		nextPixlState.loadoutRows = normalizedProgression.loadoutRows;

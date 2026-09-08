@@ -13,7 +13,12 @@ import {
 	normalizePersistedLoadoutState,
 	setActiveLoadoutPlacements
 } from '$lib/game/loadout-slots';
-import { applyUpgradePurchase, isUpgradeKey } from '$lib/game/upgrades';
+import {
+	applyUpgradePurchase,
+	getNormalizedUpgradePurchaseAmount,
+	getUpgradeLabel,
+	isUpgradeKey
+} from '$lib/game/upgrades';
 import {
 	getCampaignProgressForUser,
 	getOrCreateGameState,
@@ -344,6 +349,7 @@ export const actions: Actions = {
 
 		const formData = await request.formData();
 		const rawUpgrade = formData.get('upgrade');
+		const purchaseAmount = getNormalizedUpgradePurchaseAmount(formData.get('amount'));
 
 		if (typeof rawUpgrade !== 'string' || !isUpgradeKey(rawUpgrade)) {
 			return fail(400, { purchaseError: 'Unknown upgrade selection.' });
@@ -352,18 +358,21 @@ export const actions: Actions = {
 		const gameState = await getOrCreateGameState(locals.user.id);
 
 		try {
-			const nextPixlState = applyUpgradePurchase(rawUpgrade, gameState.pixlState);
+			const nextPixlState = applyUpgradePurchase(rawUpgrade, gameState.pixlState, purchaseAmount);
 
 			await updateGameState(locals.user.id, {
 				pixlState: {
 					xp: nextPixlState.xp,
 					defence: nextPixlState.defence,
-					agility: nextPixlState.agility
+					agility: nextPixlState.agility,
+					power: nextPixlState.power,
+					armour: nextPixlState.armour,
+					shieldCapacity: nextPixlState.shieldCapacity
 				}
 			});
 
 			return {
-				purchaseSuccess: `${rawUpgrade} upgraded`
+				purchaseSuccess: `${getUpgradeLabel(rawUpgrade)} +${purchaseAmount}`
 			};
 		} catch (err) {
 			return fail(400, {

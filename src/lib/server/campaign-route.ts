@@ -14,7 +14,13 @@ import {
 	normalizePersistedLoadoutState,
 	setActiveLoadoutPlacements
 } from '$lib/game/loadout-slots';
-import { applyUpgradePurchase, isUpgradeKey, resetUpgradeAllocations } from '$lib/game/upgrades';
+import {
+	applyUpgradePurchase,
+	getNormalizedUpgradePurchaseAmount,
+	getUpgradeLabel,
+	isUpgradeKey,
+	resetUpgradeAllocations
+} from '$lib/game/upgrades';
 import {
 	acknowledgePerkNotificationsForUser,
 	acknowledgeWeaponNotificationsForUser,
@@ -899,6 +905,7 @@ export async function purchaseUpgradeForUser(
 	}
 
 	const rawUpgrade = formData.get('upgrade');
+	const purchaseAmount = getNormalizedUpgradePurchaseAmount(formData.get('amount'));
 
 	if (typeof rawUpgrade !== 'string' || !isUpgradeKey(rawUpgrade)) {
 		return { ok: false, status: 400, data: { purchaseError: 'Unknown upgrade selection.' } };
@@ -907,17 +914,23 @@ export async function purchaseUpgradeForUser(
 	const gameState = await getOrCreateGameState(userId);
 
 	try {
-		const nextPixlState = applyUpgradePurchase(rawUpgrade, gameState.pixlState);
+		const nextPixlState = applyUpgradePurchase(rawUpgrade, gameState.pixlState, purchaseAmount);
 
 		await updateGameState(userId, {
 			pixlState: {
 				xp: nextPixlState.xp,
 				defence: nextPixlState.defence,
-				agility: nextPixlState.agility
+				agility: nextPixlState.agility,
+				power: nextPixlState.power,
+				armour: nextPixlState.armour,
+				shieldCapacity: nextPixlState.shieldCapacity
 			}
 		});
 
-		return { ok: true, data: { purchaseSuccess: `${rawUpgrade} upgraded` } };
+		return {
+			ok: true,
+			data: { purchaseSuccess: `${getUpgradeLabel(rawUpgrade)} +${purchaseAmount}` }
+		};
 	} catch (err) {
 		return {
 			ok: false,
@@ -950,7 +963,10 @@ export async function resetUpgradesForUser(
 		pixlState: {
 			xp: nextPixlState.xp,
 			defence: nextPixlState.defence,
-			agility: nextPixlState.agility
+			agility: nextPixlState.agility,
+			power: nextPixlState.power,
+			armour: nextPixlState.armour,
+			shieldCapacity: nextPixlState.shieldCapacity
 		}
 	});
 
