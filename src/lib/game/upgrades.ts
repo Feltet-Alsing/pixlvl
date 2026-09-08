@@ -4,15 +4,13 @@ export type UpgradeKey = 'power' | 'armour' | 'shieldCapacity' | 'defence' | 'ag
 
 export const upgradePurchaseAmounts = [1, 5, 10] as const;
 
-const POWER_MAX_RANK = 10;
 const ARMOUR_MAX_RANK = 10;
 const SHIELD_CAPACITY_MAX_RANK = 20;
-const AGILITY_MAX_RANK = 15;
 const MAX_HEALTH_PER_DEFENCE_POINT = 12;
-const DAMAGE_BONUS_PER_POWER_POINT = 0.05;
-const ARMOUR_DAMAGE_REDUCTION_PER_POINT = 0.05;
-const SHIELD_CAPACITY_BONUS_PER_POINT = 0.05;
-const AGILITY_ATTACK_SPEED_PER_POINT = 0.02;
+const DAMAGE_BONUS_PER_POWER_POINT = 0.01;
+const ARMOUR_DAMAGE_REDUCTION_PER_POINT = 0.025;
+const SHIELD_CAPACITY_BONUS_PER_POINT = 0.025;
+const AGILITY_ATTACK_SPEED_PER_POINT = 0.01;
 
 export interface UpgradeablePixlState {
 	xp: number;
@@ -52,23 +50,23 @@ const UPGRADE_RULES: Record<UpgradeKey, UpgradeRule> = {
 	power: {
 		label: 'Power',
 		upgradeField: 'power',
-		maxRank: POWER_MAX_RANK,
+		maxRank: null,
 		describe: (state) =>
-			`Current +${Math.round((state.damageMultiplier - 1) * 100)}% damage. Cap +50%.`
+			`Current +${Math.round((state.damageMultiplier - 1) * 100)}% damage. +1% per point.`
 	},
 	armour: {
 		label: 'Armour',
 		upgradeField: 'armour',
 		maxRank: ARMOUR_MAX_RANK,
 		describe: (state) =>
-			`Current ${Math.round(state.armourDamageReduction * 100)}% post-shield damage reduction. Cap 50%.`
+			`Current ${Math.round(state.armourDamageReduction * 100)}% post-shield damage reduction. +2.5% per point, cap 25%.`
 	},
 	shieldCapacity: {
 		label: 'Shield Capacity',
 		upgradeField: 'shieldCapacity',
 		maxRank: SHIELD_CAPACITY_MAX_RANK,
 		describe: (state) =>
-			`Current +${Math.round((state.shieldCapacityMultiplier - 1) * 100)}% max shield pool. Cap +100%.`
+			`Current +${Math.round((state.shieldCapacityMultiplier - 1) * 100)}% max shield pool. +2.5% per point, cap +50%.`
 	},
 	defence: {
 		label: 'Max Health',
@@ -80,9 +78,9 @@ const UPGRADE_RULES: Record<UpgradeKey, UpgradeRule> = {
 	agility: {
 		label: 'Agility',
 		upgradeField: 'agility',
-		maxRank: AGILITY_MAX_RANK,
+		maxRank: null,
 		describe: (state) =>
-			`Current +${Math.round((state.attackSpeed / baselineCombatProfile.pixl.attackSpeed - 1) * 100)}% sweep speed. Cap +35%.`
+			`Current +${Math.round((state.attackSpeed / baselineCombatProfile.pixl.attackSpeed - 1) * 100)}% sweep speed. +1% per point.`
 	}
 };
 
@@ -131,15 +129,9 @@ export function createUpgradeablePixlState(input?: UpgradeablePixlStateInput) {
 	let remainingPerkPoints = totalPerkPoints;
 	const defence = Math.max(0, Math.min(Math.floor(input?.defence ?? 0), remainingPerkPoints));
 	remainingPerkPoints -= defence;
-	const agility = Math.max(
-		0,
-		Math.min(Math.floor(input?.agility ?? 0), Math.min(AGILITY_MAX_RANK, remainingPerkPoints))
-	);
+	const agility = Math.max(0, Math.min(Math.floor(input?.agility ?? 0), remainingPerkPoints));
 	remainingPerkPoints -= agility;
-	const power = Math.max(
-		0,
-		Math.min(Math.floor(input?.power ?? 0), Math.min(POWER_MAX_RANK, remainingPerkPoints))
-	);
+	const power = Math.max(0, Math.min(Math.floor(input?.power ?? 0), remainingPerkPoints));
 	remainingPerkPoints -= power;
 	const armour = Math.max(
 		0,

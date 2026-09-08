@@ -228,8 +228,8 @@ Current rule:
 
 Current rule:
 
-- each point gives `+2%` sweep speed multiplicatively
-- cap: `15` points for roughly `+35%` total sweep speed
+- each point gives `+1%` sweep speed multiplicatively
+- currently uncapped
 
 ### Power
 
@@ -237,8 +237,8 @@ Current rule:
 
 Current rule:
 
-- each point gives `+5%` damage
-- cap: `10` points for `+50%`
+- each point gives `+1%` damage
+- currently uncapped
 
 ### Armour
 
@@ -246,8 +246,8 @@ Current rule:
 
 Current rule:
 
-- each point gives `+5%` post-shield damage reduction
-- cap: `10` points for `50%`
+- each point gives `+2.5%` post-shield damage reduction
+- cap: `10` points for `25%`
 
 ### Shield Capacity
 
@@ -255,8 +255,8 @@ Current rule:
 
 Current rule:
 
-- each point gives `+5%` max shield pool
-- cap: `20` points for `+100%`
+- each point gives `+2.5%` max shield pool
+- cap: `20` points for `+50%`
 - it multiplies the existing shield cap instead of replacing it
 
 ### Loadout size
