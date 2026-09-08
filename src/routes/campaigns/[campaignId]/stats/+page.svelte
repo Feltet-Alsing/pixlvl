@@ -69,7 +69,10 @@
 		{ label: 'Max health', value: upgradeState.health },
 		{ label: 'Damage bonus', value: `+${Math.round((upgradeState.damageMultiplier - 1) * 100)}%` },
 		{ label: 'Armour', value: `${Math.round(upgradeState.armourDamageReduction * 100)}%` },
-		{ label: 'Shield cap', value: `+${Math.round((upgradeState.shieldCapacityMultiplier - 1) * 100)}%` },
+		{
+			label: 'Shield cap',
+			value: `+${Math.round((upgradeState.shieldCapacityMultiplier - 1) * 100)}%`
+		},
 		{ label: 'Sweep speed', value: `${upgradeState.attackSpeed.toFixed(2)}/s` },
 		{ label: 'Equipped', value: equippedWeaponCount },
 		{ label: 'Owned weapons', value: ownedWeaponCount },
