@@ -6,6 +6,7 @@
 		subtitle: string;
 		detailText?: string | null;
 		keyCount: number;
+		keyProgressLabel?: string | null;
 		floors: DungeonFloorMenuItem[];
 		selectedFloor: number | null;
 		canStartRun: boolean;
@@ -22,6 +23,7 @@
 		subtitle,
 		detailText = null,
 		keyCount,
+		keyProgressLabel = null,
 		floors,
 		selectedFloor,
 		canStartRun,
@@ -38,7 +40,7 @@
 	<div class="copy-block">
 		<p class="eyebrow">{subtitle}</p>
 		<h2>{title}</h2>
-		<p class="support-copy">Keys remaining: {keyCount}</p>
+		<p class="support-copy">{keyProgressLabel ?? `Keys remaining: ${keyCount}`}</p>
 		{#if detailText}
 			<p class="support-copy">{detailText}</p>
 		{/if}

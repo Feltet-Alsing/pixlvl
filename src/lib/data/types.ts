@@ -691,6 +691,8 @@ export type DungeonKeyId =
 
 export type DungeonKeyInventory = Record<DungeonKeyId, number>;
 
+export type DungeonSealInventory = Record<DungeonKeyId, number>;
+
 export interface PersistedRewardPackCard {
 	slotIndex: number;
 	definitionId: string;

@@ -1,6 +1,11 @@
 import type P5 from 'p5';
 
 import { getCampaignLevel, getWeaponDefinition } from '$lib/data';
+import {
+	applyCampaignDungeonSealAwards,
+	createDefaultDungeonKeys,
+	createDefaultDungeonSeals
+} from '$lib/game/dungeon-keys';
 import { isPlacementWeaponTargetingKind } from '$lib/game/weapon-targeting';
 import { rollLevelRewardPacks as buildRewardPacksForLevel } from '$lib/game/reward-packs';
 import { applyXpGain, createUpgradeablePixlState } from '$lib/game/upgrades';
@@ -887,6 +892,7 @@ type SharedPixlStateInput = Pick<
 	armour?: PersistedPixlState['armour'];
 	shieldCapacity?: PersistedPixlState['shieldCapacity'];
 	dungeonKeys?: PersistedPixlState['dungeonKeys'];
+	dungeonSeals?: PersistedPixlState['dungeonSeals'];
 };
 
 interface ArenaCombatSketchOptions {
@@ -956,6 +962,7 @@ interface ArenaCombatSketchOptions {
 		loadoutRows: number;
 		loadoutColumns: number;
 		dungeonKeys: PersistedPixlState['dungeonKeys'];
+		dungeonSeals: PersistedPixlState['dungeonSeals'];
 		ownedWeapons: OwnedWeaponInstance[];
 		rewardPacks: PersistedRewardPack[];
 		currentLevel: number;
@@ -1476,11 +1483,12 @@ export function createArenaCombatSketch(
 		let sweepProgress = 0;
 		let bankedXp = pixlProgression.xp;
 		let dungeonKeys: PersistedPixlState['dungeonKeys'] = {
-			'dungeon-1-key': options.pixlState?.dungeonKeys?.['dungeon-1-key'] ?? 0,
-			'dungeon-2-key': options.pixlState?.dungeonKeys?.['dungeon-2-key'] ?? 0,
-			'dungeon-3-key': options.pixlState?.dungeonKeys?.['dungeon-3-key'] ?? 0,
-			'dungeon-4-key': options.pixlState?.dungeonKeys?.['dungeon-4-key'] ?? 0,
-			'dungeon-5-key': options.pixlState?.dungeonKeys?.['dungeon-5-key'] ?? 0
+			...createDefaultDungeonKeys(),
+			...(options.pixlState?.dungeonKeys ?? {})
+		};
+		let dungeonSeals: PersistedPixlState['dungeonSeals'] = {
+			...createDefaultDungeonSeals(),
+			...(options.pixlState?.dungeonSeals ?? {})
 		};
 		const ownedWeapons = [...(options.pixlState?.ownedWeapons ?? [])];
 		let waveXp = 0;
@@ -1595,6 +1603,7 @@ export function createArenaCombatSketch(
 					loadoutRows: pixlProgression.loadoutRows,
 					loadoutColumns: pixlProgression.loadoutColumns,
 					dungeonKeys,
+					dungeonSeals,
 					ownedWeapons,
 					rewardPacks,
 					currentLevel: optimisticCurrentLevel,
@@ -1620,6 +1629,7 @@ export function createArenaCombatSketch(
 						defence: pixlProgression.defence,
 						agility: pixlProgression.agility,
 						dungeonKeys,
+						dungeonSeals,
 						ownedWeapons
 					},
 					rewardPacks,
@@ -1650,6 +1660,7 @@ export function createArenaCombatSketch(
 				loadoutRows: pixlProgression.loadoutRows,
 				loadoutColumns: pixlProgression.loadoutColumns,
 				dungeonKeys,
+				dungeonSeals,
 				ownedWeapons,
 				rewardPacks: [],
 				currentLevel: nextCurrentLevel,
@@ -6697,6 +6708,30 @@ export function createArenaCombatSketch(
 			statusTimer = status === 'complete' ? CAMPAIGN_LOOP_DELAY : LEVEL_CLEAR_DELAY;
 			commitLevelRewards(rewardPacks);
 		};
+		const awardCurrentCampaignBossSeals = () => {
+			if (endlessMode || !isCampaignLevel(currentLevel) || !currentLevel.isStageBoss) {
+				return false;
+			}
+
+			if (campaign.campaign < 1 || campaign.campaign > 5) {
+				return false;
+			}
+
+			const awarded = applyCampaignDungeonSealAwards({
+				campaignId: campaign.campaign,
+				previousHighestClearedLevel: highestClearedLevel - 1,
+				nextHighestClearedLevel: highestClearedLevel,
+				levelsPerStage: campaign.levelsPerStage,
+				totalLevels: campaign.totalLevels,
+				dungeonKeys,
+				dungeonSeals
+			});
+
+			dungeonKeys = awarded.dungeonKeys;
+			dungeonSeals = awarded.dungeonSeals;
+
+			return awarded.bossSealsAwarded > 0 || awarded.bonusSealsAwarded > 0;
+		};
 
 		const commitLevelRewards = (rewardPacks: PersistedRewardPack[] = []) => {
 			if (levelRewardsCommitted || status === 'defeated') {
@@ -6707,17 +6742,9 @@ export function createArenaCombatSketch(
 			bankedXp = pixlProgression.xp;
 
 			highestClearedLevel = Math.max(highestClearedLevel, getResolvedLevelNumber(currentLevel));
+			const didAwardDungeonProgress = awardCurrentCampaignBossSeals();
 
 			if (endlessMode) {
-				const didAwardDungeonKey = Math.random() < 0.01;
-
-				if (didAwardDungeonKey) {
-					dungeonKeys = {
-						...dungeonKeys,
-						'dungeon-1-key': (dungeonKeys['dungeon-1-key'] ?? 0) + 1
-					};
-				}
-
 				highestUnlockedLevel = Math.max(
 					highestUnlockedLevel,
 					getResolvedLevelNumber(currentLevel) + 1
@@ -6726,7 +6753,7 @@ export function createArenaCombatSketch(
 					getResolvedLevelNumber(currentLevel) + 1,
 					rewardPacks,
 					getResolvedLevelNumber(currentLevel),
-					didAwardDungeonKey
+					false
 				);
 			} else if (status === 'complete') {
 				completed = true;
@@ -6735,7 +6762,7 @@ export function createArenaCombatSketch(
 					campaign.totalLevels,
 					rewardPacks,
 					getResolvedLevelNumber(currentLevel),
-					false
+					didAwardDungeonProgress
 				);
 			} else {
 				highestUnlockedLevel = Math.max(
@@ -6746,7 +6773,7 @@ export function createArenaCombatSketch(
 					getResolvedLevelNumber(currentLevel) + 1,
 					rewardPacks,
 					getResolvedLevelNumber(currentLevel),
-					false
+					didAwardDungeonProgress
 				);
 			}
 

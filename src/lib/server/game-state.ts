@@ -13,6 +13,11 @@ import {
 	createPersistedLoadoutState,
 	normalizePersistedLoadoutState
 } from '$lib/game/loadout-slots';
+import {
+	createDefaultDungeonKeys,
+	createDefaultDungeonSeals,
+	reconcileDungeonKeyProgress
+} from '$lib/game/dungeon-keys';
 import { getWeaponTotalScrapInvested, getWeaponUpgradeLevel } from '$lib/game/weapon-upgrades';
 import { createBaselineUpgradeablePixlState, createUpgradeablePixlState } from '$lib/game/upgrades';
 import { db } from '$lib/server/db';
@@ -26,8 +31,6 @@ import {
 import { syncProgressionLeaderboardForUser } from '$lib/server/leaderboard';
 
 import type {
-	DungeonKeyId,
-	DungeonKeyInventory,
 	LoadoutPlacement,
 	OwnedWeaponInstance,
 	PersistedLoadoutState,
@@ -62,6 +65,7 @@ export interface GameStatePatch {
 			| 'armour'
 			| 'shieldCapacity'
 			| 'dungeonKeys'
+			| 'dungeonSeals'
 			| 'ownedWeapons'
 			| 'loadoutPlacements'
 		>
@@ -140,16 +144,6 @@ function createStarterLoadoutPlacements(): LoadoutPlacement[] {
 			rotation: 0
 		}
 	];
-}
-
-function createDefaultDungeonKeys(): DungeonKeyInventory {
-	return {
-		'dungeon-1-key': 0,
-		'dungeon-2-key': 0,
-		'dungeon-3-key': 0,
-		'dungeon-4-key': 0,
-		'dungeon-5-key': 0
-	};
 }
 
 function createOwnedWeaponInstanceId() {
@@ -372,26 +366,6 @@ function normalizeScrap(value: unknown) {
 	return Math.max(0, Math.floor(value));
 }
 
-function normalizeDungeonKeys(value: DungeonKeyInventory | null | undefined): DungeonKeyInventory {
-	const defaults = createDefaultDungeonKeys();
-
-	if (!value || typeof value !== 'object') {
-		return defaults;
-	}
-
-	const normalizedEntries = Object.entries(defaults).map(([key, fallback]) => {
-		const nextValue = (value as Partial<Record<DungeonKeyId, unknown>>)[key as DungeonKeyId];
-
-		if (typeof nextValue !== 'number' || !Number.isFinite(nextValue)) {
-			return [key, fallback] as const;
-		}
-
-		return [key, Math.max(0, Math.floor(nextValue))] as const;
-	});
-
-	return Object.fromEntries(normalizedEntries) as DungeonKeyInventory;
-}
-
 function createStarterLoadoutState(): PersistedLoadoutState {
 	return createPersistedLoadoutState(0, [createStarterLoadoutPlacements(), [], []]);
 }
@@ -417,6 +391,7 @@ function createDefaultPixlState(userId: string): InferInsertModel<typeof pixlSta
 		acknowledgedPerkPoints: baselineState.perkPoints,
 		acknowledgedWeaponDefinitionIds: [starterWeaponId],
 		dungeonKeys: createDefaultDungeonKeys(),
+		dungeonSeals: createDefaultDungeonSeals(),
 		ownedWeapons: createStarterOwnedWeapons(),
 		loadoutPlacements: createStarterLoadoutState()
 	};
@@ -552,7 +527,12 @@ async function ensureGameState(userId: string) {
 	const normalizedAcknowledgedPerkPoints = normalizeAcknowledgedPerkPoints(
 		storedPixlState.acknowledgedPerkPoints
 	);
-	const normalizedDungeonKeys = normalizeDungeonKeys(storedPixlState.dungeonKeys);
+	const normalizedDungeonProgress = reconcileDungeonKeyProgress({
+		dungeonKeys: storedPixlState.dungeonKeys,
+		dungeonSeals: storedPixlState.dungeonSeals
+	});
+	const normalizedDungeonKeys = normalizedDungeonProgress.dungeonKeys;
+	const normalizedDungeonSeals = normalizedDungeonProgress.dungeonSeals;
 	const normalizedAcknowledgedWeaponDefinitionIds = normalizeAcknowledgedWeaponDefinitionIds(
 		storedPixlState.acknowledgedWeaponDefinitionIds,
 		normalizedOwnedWeapons
@@ -586,6 +566,7 @@ async function ensureGameState(userId: string) {
 		normalizedProgression.loadoutColumns !== storedPixlState.loadoutColumns ||
 		normalizedAcknowledgedPerkPoints !== storedPixlState.acknowledgedPerkPoints ||
 		normalizedDungeonKeys !== storedPixlState.dungeonKeys ||
+		normalizedDungeonSeals !== storedPixlState.dungeonSeals ||
 		normalizedAcknowledgedWeaponDefinitionIds !== storedPixlState.acknowledgedWeaponDefinitionIds ||
 		normalizedOwnedWeapons !== storedPixlState.ownedWeapons ||
 		normalizedLoadoutPlacements !== storedPixlState.loadoutPlacements
@@ -608,6 +589,7 @@ async function ensureGameState(userId: string) {
 				loadoutColumns: normalizedProgression.loadoutColumns,
 				acknowledgedPerkPoints: normalizedAcknowledgedPerkPoints,
 				dungeonKeys: normalizedDungeonKeys,
+				dungeonSeals: normalizedDungeonSeals,
 				acknowledgedWeaponDefinitionIds: normalizedAcknowledgedWeaponDefinitionIds,
 				ownedWeapons: normalizedOwnedWeapons,
 				loadoutPlacements: normalizedLoadoutPlacements,
@@ -914,9 +896,13 @@ export async function updateGameState(userId: string, patch: GameStatePatch): Pr
 		const armour = toNonNegativeInteger(patch.pixlState.armour) ?? storedPixlState.armour;
 		const shieldCapacity =
 			toNonNegativeInteger(patch.pixlState.shieldCapacity) ?? storedPixlState.shieldCapacity;
-		const dungeonKeys = patch.pixlState.dungeonKeys
-			? normalizeDungeonKeys(patch.pixlState.dungeonKeys)
-			: undefined;
+		const normalizedDungeonProgress =
+			patch.pixlState.dungeonKeys !== undefined || patch.pixlState.dungeonSeals !== undefined
+				? reconcileDungeonKeyProgress({
+						dungeonKeys: patch.pixlState.dungeonKeys ?? storedPixlState.dungeonKeys,
+						dungeonSeals: patch.pixlState.dungeonSeals ?? storedPixlState.dungeonSeals
+					})
+				: null;
 		const normalizedProgression = createUpgradeablePixlState({
 			xp,
 			defence,
@@ -952,7 +938,10 @@ export async function updateGameState(userId: string, patch: GameStatePatch): Pr
 		nextPixlState.attackSpeed = normalizedProgression.attackSpeed;
 		nextPixlState.loadoutRows = normalizedProgression.loadoutRows;
 		nextPixlState.loadoutColumns = normalizedProgression.loadoutColumns;
-		if (dungeonKeys !== undefined) nextPixlState.dungeonKeys = dungeonKeys;
+		if (normalizedDungeonProgress !== null) {
+			nextPixlState.dungeonKeys = normalizedDungeonProgress.dungeonKeys;
+			nextPixlState.dungeonSeals = normalizedDungeonProgress.dungeonSeals;
+		}
 		if (ownedWeapons !== undefined) nextPixlState.ownedWeapons = ownedWeapons;
 		if (loadoutPlacements !== undefined) nextPixlState.loadoutPlacements = loadoutPlacements;
 

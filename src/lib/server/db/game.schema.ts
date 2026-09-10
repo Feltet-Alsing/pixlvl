@@ -13,6 +13,7 @@ import {
 
 import type {
 	DungeonKeyInventory,
+	DungeonSealInventory,
 	OwnedWeaponInstance,
 	PersistedLoadoutState,
 	PersistedRewardPackCard
@@ -44,6 +45,12 @@ export const pixlState = pgTable('pixl_state', {
 		.default(sql`'[]'::jsonb`),
 	dungeonKeys: jsonb('dungeon_keys')
 		.$type<DungeonKeyInventory>()
+		.notNull()
+		.default(
+			sql`'{"dungeon-1-key":0,"dungeon-2-key":0,"dungeon-3-key":0,"dungeon-4-key":0,"dungeon-5-key":0}'::jsonb`
+		),
+	dungeonSeals: jsonb('dungeon_seals')
+		.$type<DungeonSealInventory>()
 		.notNull()
 		.default(
 			sql`'{"dungeon-1-key":0,"dungeon-2-key":0,"dungeon-3-key":0,"dungeon-4-key":0,"dungeon-5-key":0}'::jsonb`

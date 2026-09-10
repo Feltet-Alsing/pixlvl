@@ -10,6 +10,7 @@
 		DungeonWeaponDamageRow
 	} from '$lib/components/dungeons/types';
 	import type { CampaignDefinition, CombatProfile, DungeonDefinition } from '$lib/data/types';
+	import { DUNGEON_SEALS_PER_KEY } from '$lib/game/dungeon-keys';
 	import { createUpgradeablePixlState, getXpProgress } from '$lib/game/upgrades';
 	import {
 		createArenaCombatSketch,
@@ -78,6 +79,10 @@
 
 	let progress = $derived(data.dungeonState ?? fallbackProgress);
 	let remainingKeys = $derived(data.gameState?.pixlState.dungeonKeys[data.dungeon.keyId] ?? 0);
+	let remainingSeals = $derived(data.gameState?.pixlState.dungeonSeals[data.dungeon.keyId] ?? 0);
+	let keyProgressLabel = $derived(
+		`Keys remaining: ${remainingKeys} · Seals: ${remainingSeals}/${DUNGEON_SEALS_PER_KEY}`
+	);
 	let floorNumbers = $derived(
 		Array.from({ length: data.dungeon.totalLevels }, (_, index) => index + 1)
 	);
@@ -518,6 +523,7 @@
 			subtitle={`Dungeon ${data.dungeonId} · Source Campaign ${data.sourceCampaign.campaign}`}
 			detailText={currentFloorDetail}
 			keyCount={remainingKeys}
+			{keyProgressLabel}
 			floors={floorMenuItems}
 			{selectedFloor}
 			{canStartRun}

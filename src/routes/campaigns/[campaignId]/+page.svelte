@@ -12,6 +12,11 @@
 	import LevelResultsPopup from '$lib/components/campaigns/LevelResultsPopup.svelte';
 	import P5Canvas from '$lib/components/P5Canvas.svelte';
 	import { applyPendingPixlvlSaveWipe } from '$lib/game/client-storage';
+	import {
+		createDefaultDungeonKeys,
+		createDefaultDungeonSeals,
+		DUNGEON_SEALS_PER_KEY
+	} from '$lib/game/dungeon-keys';
 	import { getActiveLoadoutPlacements } from '$lib/game/loadout-slots';
 	import {
 		buildCurrentLoadoutRows,
@@ -58,6 +63,7 @@
 		| 'loadoutRows'
 		| 'loadoutColumns'
 		| 'dungeonKeys'
+		| 'dungeonSeals'
 		| 'ownedWeapons'
 	>;
 	type CampaignStateOverride = Pick<
@@ -76,6 +82,7 @@
 		loadoutRows: number;
 		loadoutColumns: number;
 		dungeonKeys: LivePixlState['dungeonKeys'];
+		dungeonSeals: LivePixlState['dungeonSeals'];
 		ownedWeapons: LivePixlState['ownedWeapons'];
 		rewardPacks: PersistedRewardPack[];
 		currentLevel: number;
@@ -307,8 +314,10 @@
 	});
 	let dungeonKeyEntries = $derived.by(() => {
 		const dungeonKeys = livePixlState?.dungeonKeys ?? data.gameState?.pixlState.dungeonKeys ?? null;
+		const dungeonSeals =
+			livePixlState?.dungeonSeals ?? data.gameState?.pixlState.dungeonSeals ?? null;
 
-		if (!dungeonKeys) {
+		if (!dungeonKeys || !dungeonSeals) {
 			return [];
 		}
 
@@ -317,9 +326,15 @@
 				dungeonId: dungeon.dungeonId,
 				keyId: dungeon.keyId,
 				name: dungeon.name,
-				count: dungeonKeys[dungeon.keyId] ?? 0
+				count: dungeonKeys[dungeon.keyId] ?? 0,
+				sealCount: dungeonSeals[dungeon.keyId] ?? 0
 			}))
-			.filter((entry) => entry.count > 0);
+			.filter(
+				(entry) =>
+					entry.count > 0 ||
+					entry.sealCount > 0 ||
+					entry.dungeonId === data.linkedDungeon?.dungeonId
+			);
 	});
 	let dungeonShortcut = $derived.by(() => {
 		for (const entry of dungeonKeyEntries) {
@@ -687,14 +702,14 @@
 				attackSpeed: resumedUpgradeState.attackSpeed,
 				loadoutRows: resumedUpgradeState.loadoutRows,
 				loadoutColumns: resumedUpgradeState.loadoutColumns,
-				dungeonKeys: data.gameState?.pixlState.dungeonKeys ??
-					livePixlState?.dungeonKeys ?? {
-						'dungeon-1-key': 0,
-						'dungeon-2-key': 0,
-						'dungeon-3-key': 0,
-						'dungeon-4-key': 0,
-						'dungeon-5-key': 0
-					},
+				dungeonKeys:
+					data.gameState?.pixlState.dungeonKeys ??
+					livePixlState?.dungeonKeys ??
+					createDefaultDungeonKeys(),
+				dungeonSeals:
+					data.gameState?.pixlState.dungeonSeals ??
+					livePixlState?.dungeonSeals ??
+					createDefaultDungeonSeals(),
 				ownedWeapons: mergedSnapshotOwnedWeapons
 			};
 
@@ -880,6 +895,7 @@
 				loadoutRows: update.loadoutRows,
 				loadoutColumns: update.loadoutColumns,
 				dungeonKeys: update.dungeonKeys,
+				dungeonSeals: update.dungeonSeals,
 				ownedWeapons: update.ownedWeapons
 			};
 		}
@@ -989,7 +1005,8 @@
 					power: livePixlState.power,
 					armour: livePixlState.armour,
 					shieldCapacity: livePixlState.shieldCapacity,
-					dungeonKeys: livePixlState.dungeonKeys
+					dungeonKeys: livePixlState.dungeonKeys,
+					dungeonSeals: livePixlState.dungeonSeals
 				},
 				rewardPacks: rewardPacksToPersist,
 				campaignProgress: [
@@ -1064,14 +1081,14 @@
 					attackSpeed: nextUpgradeState.attackSpeed,
 					loadoutRows: nextUpgradeState.loadoutRows,
 					loadoutColumns: nextUpgradeState.loadoutColumns,
-					dungeonKeys: livePixlState?.dungeonKeys ??
-						data.gameState?.pixlState?.dungeonKeys ?? {
-							'dungeon-1-key': 0,
-							'dungeon-2-key': 0,
-							'dungeon-3-key': 0,
-							'dungeon-4-key': 0,
-							'dungeon-5-key': 0
-						},
+					dungeonKeys:
+						livePixlState?.dungeonKeys ??
+						data.gameState?.pixlState?.dungeonKeys ??
+						createDefaultDungeonKeys(),
+					dungeonSeals:
+						livePixlState?.dungeonSeals ??
+						data.gameState?.pixlState?.dungeonSeals ??
+						createDefaultDungeonSeals(),
 					ownedWeapons
 				};
 			}
@@ -1111,14 +1128,14 @@
 					attackSpeed: nextUpgradeState.attackSpeed,
 					loadoutRows: nextUpgradeState.loadoutRows,
 					loadoutColumns: nextUpgradeState.loadoutColumns,
-					dungeonKeys: livePixlState?.dungeonKeys ??
-						data.gameState?.pixlState?.dungeonKeys ?? {
-							'dungeon-1-key': 0,
-							'dungeon-2-key': 0,
-							'dungeon-3-key': 0,
-							'dungeon-4-key': 0,
-							'dungeon-5-key': 0
-						},
+					dungeonKeys:
+						livePixlState?.dungeonKeys ??
+						data.gameState?.pixlState?.dungeonKeys ??
+						createDefaultDungeonKeys(),
+					dungeonSeals:
+						livePixlState?.dungeonSeals ??
+						data.gameState?.pixlState?.dungeonSeals ??
+						createDefaultDungeonSeals(),
 					ownedWeapons
 				};
 			}
@@ -1240,7 +1257,7 @@
 			<div class="dungeon-key-strip" aria-label="Dungeon keys">
 				{#each dungeonKeyEntries as entry (entry.keyId)}
 					<span class="dungeon-key-pill">
-						{entry.name} Key x{entry.count}
+						{entry.name} Key x{entry.count} · {entry.sealCount}/{DUNGEON_SEALS_PER_KEY} seals
 					</span>
 				{/each}
 			</div>

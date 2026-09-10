@@ -91,7 +91,7 @@ export const baselineCombatProfile: CombatProfile = {
 		},
 		'boss-melee': {
 			health: 1752,
-			contactDamage: 1000,
+			contactDamage: 240,
 			attackSpeed: 1,
 			moveSpeed: 18
 		},
@@ -104,18 +104,18 @@ export const baselineCombatProfile: CombatProfile = {
 			preferredRange: 210,
 			orbitSpeed: 18,
 			projectileSpeed: 210,
-			projectileDamage: 250,
+			projectileDamage: 90,
 			projectileColor: '#9be7ff',
 			projectileSize: 18
 		},
 		'boss-hybrid': {
 			health: 13800,
-			contactDamage: 1000,
+			contactDamage: 240,
 			attackSpeed: 1,
 			moveSpeed: 16,
 			attackPattern: 'hybrid',
 			projectileSpeed: 220,
-			projectileDamage: 250,
+			projectileDamage: 90,
 			projectileColor: '#ffd36b',
 			projectileSize: 20
 		},

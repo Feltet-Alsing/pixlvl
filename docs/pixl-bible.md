@@ -50,13 +50,14 @@ The current project state is materially larger than the original V1 foundation.
 
 Current implemented content counts:
 
-- `5` defined campaigns
-- `50` levels per campaign
-- `72` unique loadout definitions in the core campaign registry
-- `51` weapons
-- `21` utilities
-- `72` definitions in the shared reward-pack pool
-- `23` definitions currently seeded into the cross-campaign shared pool
+- `6` defined campaigns total (`5` finite campaigns plus `1` endless campaign)
+- `50` levels in each finite campaign
+- `1` implemented dungeon
+- `92` unique loadout definitions across the campaign and dungeon registries
+- `62` weapons
+- `30` utilities
+- `79` definitions currently eligible in the shared standard reward-pack pool
+- `30` definitions currently seeded into the cross-campaign shared pool
 
 Current meta systems:
 
@@ -66,19 +67,20 @@ Current meta systems:
 
 Current per-campaign definition counts:
 
-- Campaign `1`: `30` definitions (`24` weapons, `6` utilities)
-- Campaign `2`: `37` definitions (`26` weapons, `11` utilities)
-- Campaign `3`: `40` definitions (`25` weapons, `15` utilities)
-- Campaign `4`: `34` definitions (`27` weapons, `7` utilities)
-- Campaign `5`: `34` definitions (`27` weapons, `7` utilities)
+- Campaign `1`: `37` definitions (`24` weapons, `13` utilities)
+- Campaign `2`: `44` definitions (`26` weapons, `18` utilities)
+- Campaign `3`: `47` definitions (`25` weapons, `22` utilities)
+- Campaign `4`: `41` definitions (`27` weapons, `14` utilities)
+- Campaign `5`: `41` definitions (`27` weapons, `14` utilities)
+- Campaign `6` (endless): `41` definitions (`27` weapons, `14` utilities)
 
 Current rarity distribution across unique definitions:
 
-- `11` normal
-- `16` magic
-- `22` rare
-- `12` exotic
-- `11` legendary
+- `15` normal
+- `22` magic
+- `25` rare
+- `17` exotic
+- `13` legendary
 
 ## Risk overview
 
@@ -123,13 +125,13 @@ The first public release / Season `1` content target should be much larger than 
 Weapon milestone:
 
 - target `150` total loadout definitions for the Season `1` roster
-- current implemented count is `73` definitions
-- remaining gap is `77` additional definitions
+- current implemented count is `92` definitions
+- remaining gap is `58` additional definitions
 
 Important counting rule:
 
 - utilities count toward this milestone
-- the current `73 / 150` progress includes both `51` weapons and `22` utilities
+- the current `92 / 150` progress includes both `62` weapons and `30` utilities
 
 Target rarity mix for the full Season `1` weapon roster:
 
@@ -638,71 +640,27 @@ Guardrails that still matter:
 
 ### Cross-campaign weapon expansion state
 
-The codebase already has a first shared cross-campaign pool.
+The codebase now has a broad shared cross-campaign pool rather than a small pilot set.
 
 Current shared-pool state:
 
-- a curated shared pool of `9` definitions is seeded into Campaigns `2` through `4`
-- the current shared set is focused on mark, execute, bleed, and precision-damage packages
-- this shared pool already helps later campaigns avoid being completely isolated from earlier build shells
+- `30` definitions are currently seeded into Campaigns `2` through `6`
+- the live shared set now covers mark, execute, bleed, mine, rod, pylon, sustain, and precision-damage packages
+- this pool is now a real connective layer between campaigns rather than a tentative experiment
 
 The current campaign-local pools are still not large enough on their own to guarantee satisfying long-run variety, especially once pack rewards and late-game repetition are taken into account.
 
-The next weapon-expansion pass should therefore grow the existing shared pool rather than invent it from scratch.
-
-The next concrete weapon pass should be `mines`.
-That pass should be treated as a full shared archetype package rather than a single one-off weapon.
+The next weapon-expansion pass should therefore keep growing the existing shared pool rather than reinventing it.
 
 These should not erase campaign identity.
 They should fill tactical gaps, deepen synergy options, and prevent later pools from collapsing into the same few repeated high-rarity outcomes.
 
-#### Next pass: mines
+Current live shared-package highlights:
 
-The next serious content pass should focus on mine weapons and mine-adjacent support pieces.
-
-Mine design intent:
-
-- give the roster a real delayed-detonation / area-denial package
-- support anti-swarm, lane denial, and staged burst patterns that do not rely on direct instant-fire weapons
-- create weapons that reward prediction, setup, clustering, forced pathing, or repeated trigger zones
-- open room for synergy hooks like pulls, slows, freezes, marks, vulnerable windows, chained detonations, or corpse-style cleanup effects
-
-Core mine-package rule:
-
-- mines should explicitly synergize with other mines in the same build
-- each additional mine should contribute a shared bonus that improves the whole mine package rather than only its own local effect
-- the baseline mine-family scaling rule should be additive and easy to read so future mine variants can build on top of it cleanly
-
-Baseline shared mine scaling:
-
-- each copy of `The Mine` adds `+20%` damage to all mine effects triggered in that sweep cycle
-- this bonus should be treated as a mine-family multiplier, not a self-contained stat line that only affects one placed instance
-
-##### The Mine
-
-- rarity: `normal`
-- type: `weapon`
-- role: baseline mine keystone and simple perimeter trap
-
-Behavior:
-
-- places a persistent mine in a perimeter ring outside the `pixl`
-- the mine remains armed until a glitch collides with it
-- on collision, the mine explodes and deals its damage in that contact area
-- each copy of `The Mine` adds `+20%` damage to all mines in the sweep cycle
-
-Design purpose:
-
-- establish the mine family as a real archetype from the normal tier upward
-- give early mine builds a readable anchor piece that scales naturally when the player commits to more mines
-- make additional mine placements feel like a package upgrade rather than disconnected duplicate filler
-
-Mine rarity direction:
-
-- normal and magic mines should establish basic trap cadence, delayed pop, or cheap space control
-- rare mines should introduce tactical payoffs such as chaining, shaped blast zones, or anti-elite conversion
-- exotic mines should become build-defining area-control engines or synergy anchors
-- legendary mines should significantly alter board construction, sweep planning, or how enemies are funneled into kill zones
+- the mine package is live, with `The Mine` still acting as the baseline family-damage anchor
+- the knife and bleed package is live as a named shared ladder rather than a loose later-note concept
+- pylons and linked laser rods are live as helper systems that reinforce existing builds instead of replacing them
+- later campaigns already reuse these packages through the shared pool, which is the right long-term direction for retention and build recognition
 
 #### Dev inventory seeding workflow
 
@@ -1302,10 +1260,11 @@ V1 progression is organized by:
 
 Current shipped structure for the first campaign:
 
-- `1` campaign
-- `5` stages
+- `5` finite campaigns
+- `5` stages per finite campaign
 - `10` levels per stage
-- `50` total levels
+- `50` total levels per finite campaign
+- `1` endless campaign unlocked as the first explicit post-campaign mode
 
 Progression expectations:
 
@@ -1415,7 +1374,7 @@ Pack structure:
 Core rule for the guaranteed slot:
 
 - only special packs guarantee `1` `exotic` or `legendary` card
-- the guaranteed slot currently splits `50 / 50` between `exotic` and `legendary`
+- the guaranteed slot currently splits `80 / 20` in favor of `exotic`
 
 This guaranteed high-rarity slot is important because special pack openings should feel like a distinct reward spike.
 
@@ -1542,18 +1501,15 @@ Design intent:
 
 #### Eligible item selection
 
-Pack contents should still come from the current campaign's eligible pool.
+Pack contents now come from the shared campaign reward-pack pool rather than the active campaign's local loot table.
 
 Eligibility should continue to respect:
 
-- campaign membership
-- stage gates where relevant
 - item availability rules such as disabled or placeholder content
 
 Current content rules:
 
-- a Campaign `1` pack can only open into Campaign `1` weapons
-- a Campaign `4` pack can only open into Campaign `4` weapons
+- campaign reward packs draw from the same shared eligible pool regardless of which campaign dropped them
 - pack contents are rolled at pack drop time, not at pack open time
 - duplicate cards inside a pack are currently prevented
 - the `4` normal slots can roll any rarity
@@ -1561,11 +1517,11 @@ Current content rules:
 
 Current normal-slot rarity weighting direction:
 
-- `normal`: `5x`
-- `magic`: `4x`
-- `rare`: `3x`
-- `exotic`: `2x`
-- `legendary`: `1x`
+- `normal`: `10`
+- `magic`: `6`
+- `rare`: `2.5`
+- `exotic`: `0.35`
+- `legendary`: `0.08`
 
 This means normal slots are still capable of producing exciting outcomes, but the pack's guaranteed high-rarity slot remains the main excitement anchor.
 
@@ -1576,7 +1532,7 @@ This means the main balancing knobs become:
 - whether a level awards a pack at all
 - how many cards appear in a pack
 - how the guaranteed `exotic` / `legendary` slot is resolved
-- how likely each specific item is inside its eligible campaign pool
+- how likely each specific item is inside the shared eligible pool
 
 This keeps reward rolls stable while allowing fine-grained tuning at both the pack level and the item level.
 
@@ -1613,14 +1569,12 @@ These points still need explicit cleanup or balancing decisions:
 - unopened and opened packs are stored as first-class persisted records
 - level clear now awards sealed packs instead of direct item drops
 - pack contents are rolled at drop time and opened atomically later
-- the `Packs` route exists as a dedicated management surface
 - packs can be opened individually or in bulk
-- reveal and summary flows are already implemented, including `new` markers
 - notification and route wiring already understand unopened packs as a real progression surface
 
 #### Remaining cleanup and polish
 
-- confirm and stabilize pack persistence during arena-to-route handoff, especially when the player already has unopened packs
+- confirm the current client-side pack management and reveal flow feel finished end to end, especially when the player already has unopened packs
 - keep tuning rarity weights, guaranteed-slot odds, and drop frequency around the sealed-pack model rather than the old direct-drop model
 - decide the final presentation split between sealed-pack notifications, reveal summaries, and recent-feed history
 - review whether campaign identity inside pack contents needs to be tighter than the current shared reward pool
@@ -1632,7 +1586,7 @@ Implementation tasks:
 
 - measure pack drop feel in Campaign `1` early progression
 - verify the `5% / 10%` and `10% / 20%` campaign rules are sparse enough
-- check whether the guaranteed high-rarity slot overfeeds `legendary` inventory because of the current `50 / 50` split
+- check whether the guaranteed high-rarity slot still overfeeds `legendary` inventory despite the current `80 / 20` exotic-leaning split
 - tune per-item authored chances after real playtests
 
 Preferred outcome:
@@ -1784,24 +1738,59 @@ Core access rules:
 - dungeon keys are consumables, not permanent unlock tokens
 - each dungeon entry costs exactly `1` matching key
 - the key is consumed immediately when the run begins
-- each real campaign should have its own key drop
+- each real campaign should have its own matching key-progression track
 - Campaigns `1` through `5` should therefore each feed one dungeon access path
 - endless mode should not have its own dungeon key because it is not part of the finite campaign ladder
 
 This produces a clean source-to-destination structure:
 
-- Campaign `1` drops the key for Dungeon `1`
-- Campaign `2` drops the key for Dungeon `2`
-- Campaign `3` drops the key for Dungeon `3`
-- Campaign `4` drops the key for Dungeon `4`
-- Campaign `5` drops the key for Dungeon `5`
+- Campaign `1` feeds the key track for Dungeon `1`
+- Campaign `2` feeds the key track for Dungeon `2`
+- Campaign `3` feeds the key track for Dungeon `3`
+- Campaign `4` feeds the key track for Dungeon `4`
+- Campaign `5` feeds the key track for Dungeon `5`
+
+The acquisition loop should be deterministic rather than random.
+
+Key acquisition rules:
+
+- dungeon keys should no longer be treated as opaque drop outcomes
+- each linked campaign boss clear should award `1` matching dungeon seal
+- `5` matching dungeon seals should automatically convert into `1` dungeon key
+- seal progress should be stored per dungeon and shown as a visible meter such as `3 / 5`
+- boss clears that generate seals should be renewable through replay, not one-time-only rewards
+- the first clear of a campaign's final boss should still give immediate access momentum by granting enough seals to finish the first key right away if needed
+
+This means the intended repeat loop is:
+
+1. push or revisit the linked campaign
+2. clear boss levels in that campaign
+3. earn visible seal progress for the matching dungeon
+4. convert `5 / 5` seals into `1` key
+5. spend that key on a dungeon run
+
+Boss-seal rules:
+
+- only boss clears should feed dungeon keys; ordinary level clears should not
+- every stage boss in a finite campaign should count, not only the final boss
+- the stage `5` boss should be the first-time unlock anchor, but repeat key generation should remain spread across all boss checkpoints so the loop does not require replaying all `50` levels every time
+- later tuning can increase seal payout from harder bosses, but the first implementation should keep all boss seals worth `1` for clarity
+
+Inventory and UI rules:
+
+- the player should always see both whole keys and partial seal progress for each dungeon
+- if the player has enough seals to create multiple keys, conversion should happen automatically instead of asking for a craft click
+- dungeon cards, campaign dungeon shortcuts, and dungeon-route entry UI should all show the same remaining-key and seal-progress information
+- the system should favor readability over simulation detail; the player should never need to ask where a key came from or how close the next key is
 
 Design purpose:
 
 - campaigns stay relevant even after the player has unlocked later systems
 - dungeon access remains paced instead of being infinitely spammable
+- dungeon access becomes predictable instead of luck-driven
 - each dungeon run has a real entry cost and reward expectation
 - each dungeon naturally inherits progression placement from its parent campaign
+- the player gets a clean reason to revisit stage bosses without the mode collapsing into full-campaign refarms
 
 #### Dungeon count and structure
 
@@ -2065,6 +2054,49 @@ We should not consider a dungeon finished until all five of these are defined:
 This keeps the dungeon pipeline clear:
 
 > define one dungeon completely -> validate that its rewards, encounters, and visuals all reinforce the same theme -> then move to the next dungeon.
+
+#### Reuse-first dungeon pipeline
+
+Dungeon `1` should remain the implementation anchor for the remaining four dungeons.
+
+The goal is not to reinvent the process each time.
+The goal is to reuse the same structure, the same authoring order, and as much of the same implementation surface as possible.
+
+Required reuse rules:
+
+- every new dungeon should reuse the same top-level definition shape as Dungeon `1`: one dungeon file, one exclusive reward-pool file, one combat-profile entry only if the theme truly needs bespoke combat tuning, and the shared dungeon route/UI wherever possible
+- every new dungeon should keep the same `5`-floor structure, the same `13`-item reward-pool structure, the same `ancient` reward marker, and the same source-campaign linkage model unless there is a strong reason to diverge
+- every new dungeon should be designed as a package first and as individual weapons second
+- every new dungeon should try to reuse existing special-behavior primitives before adding new bespoke runtime systems
+- every new dungeon should treat new runtime work as the exception, not the default success criterion
+
+Recommended authoring order for each new dungeon:
+
+1. lock the one-sentence dungeon identity
+2. lock the unique enemy package and boss around that identity
+3. lock the `13`-item reward package with the required rarity split
+4. map that package onto existing combat primitives, statuses, targeting rules, and UI treatments
+5. only then add any new runtime behavior that the package cannot express with current systems
+
+Implementation template to reuse from Dungeon `1`:
+
+1. create `src/lib/data/dungeons/dungeon-X.ts` using the same floor-definition pattern as Dungeon `1`
+2. create `src/lib/data/dungeons/rewards/dungeon-X.ts` using the same exclusive reward-pool pattern as Dungeon `1`
+3. register the dungeon and reward pool through the shared data registry instead of creating route-specific wiring
+4. reuse the existing dungeon route, menu, reward-pack flow, and key/seal loop with only data-driven changes where possible
+5. add combat-profile or weapon-runtime extensions only where the current shared systems genuinely cannot express the dungeon theme
+
+Reuse guardrails for weapon design:
+
+- start by asking what existing package shape can be remixed rather than what entirely new weapon family needs to be invented
+- prefer one or two new mechanical ideas per dungeon, then let the rest of the reward pool express that identity through tuning, shape, payoff order, and synergy
+- use dungeon rewards to deepen the account-wide roster, not to create isolated one-dungeon gimmicks that cannot support later builds
+- if a reward can be expressed as an ancient twist on an existing archetype, that is usually better than adding a brand-new subsystem
+
+Exit check for reuse discipline:
+
+- if a new dungeon requires broad new route logic, many new persistence rules, and a large cluster of bespoke combat exceptions, the design should be challenged before implementation continues
+- if a new dungeon mainly adds authored data, a coherent reward package, a small amount of targeted runtime support, and reuses the existing dungeon shell, the process is staying on the right track
 
 #### Dungeon 1: Ancient ruins
 
@@ -2907,28 +2939,19 @@ Design intent of the update:
 
 The current recommended order is:
 
-1. implement dungeons as the next major feature
-2. finish the Season `1` weapon milestone
-3. add daily quests as a lightweight progression boost
-4. sort the endgame weapon system and `Glitch Essence` economy
-5. expand deeper systemic layers once those pillars are in place
+1. implement the campaign-linked dungeon seal and key loop
+2. implement daily missions and other time-scoped content
+3. finish the remaining campaign-linked dungeons
+4. close the remaining Season `1` weapon milestone through shared-pool growth and dungeon reward content
+5. sort the endgame weapon system and `Glitch Essence` economy after those pillars are stable
 
 Reason:
 
-- dungeons are the largest remaining missing feature and should define the next big expansion phase
-- the remaining weapon milestone should be finished against the real post-campaign content shape rather than in isolation
-- daily quests are valuable, but they are a support layer rather than the main progression pillar
+- the dungeon key loop needs to exist before the rest of the dungeon pillar can feel fair or repeatable
+- daily missions and time-scoped content create the return cadence that should sit beside campaigns and dungeons
+- finishing the remaining dungeons becomes more valuable once their entry loop is readable and renewable
+- the remaining weapon milestone should be closed against the real dungeon and reward-pack shape rather than in isolation
 - the `Glitch Essence` endgame should be finalized after the surrounding progression structure is clearer
-
----
-
-## Immediate next design task
-
-The immediate design task after this document should be:
-
-> fully define dungeons, daily quests, the remaining weapon-milestone gap, and the endgame `Glitch Essence` weapon layer as the current unimplemented systems roadmap.
-
-That is the clearest next step because the campaign spine already extends through Campaigns `5` and `6`, while the biggest missing work now sits in these adjacent progression and endgame systems.
 
 ---
 
@@ -2936,476 +2959,20 @@ That is the clearest next step because the campaign spine already extends throug
 
 `pixlvl` V1 is now:
 
-- an idle arena defense game
-- with persistent XP-based pixl growth
-- shape-based weapon loadouts
-- auto-targeted projectile combat
-- local level-reset failure
-- route-based management surfaces
-- campaign progression with stage selection
-- weapon-drop and perk-point notification feedback
+- an idle arena defense game with persistent XP-based pixl growth
+- shape-based loadout building with weapons, utilities, upgrades, scrap, and shop loops
+- auto-targeted projectile combat across `5` finite campaigns plus an endless follow-up mode
+- sealed reward-pack persistence, leaderboard progression tracking, and crown presentation for the top player
+- a playable first dungeon pillar with key-gated entry and dedicated dungeon reward packs
 
 That is a strong version 1 foundation.
-
 The next step is not to rediscover the game.
-The next step is to deepen it.
+The next step is to harden and deepen the systems that now already exist.
 
 ---
 
-## Future design backlog: utilities and Campaign 3
-
-This section remains a useful future design note, but it is not the current milestone order.
-
-Utilities and Campaign 3 ideas should be treated as backlog material to revisit when they fit the active roadmap again.
-
-### Utilities
-
-Utilities should use the same grid as weapons, but they are not damage items.
-They trade loadout space for defensive or tempo-oriented effects.
-
-Initial utility set:
-
-- Shield
-  - normal rarity
-  - 2x2 footprint
-  - triggered utility
-  - grants a 20-point shield pool for 1 cycle
-  - visual: blue circle around the pixl while active
-- Cycle Booster
-  - legendary rarity
-  - 1x1 footprint
-  - passive utility
-  - reduces the cycle interval of touching weapons by 1, minimum 1
-  - only shared-edge contact counts as touching
-- Damage Boost
-  - rare rarity
-  - 1x5 vertical footprint
-  - triggered utility
-  - grants +20% damage to all weapons for the rest of the current cycle
-- Booster utilities
-  - 1x1 footprint
-  - passive utilities
-  - only one copy of each booster can be equipped in a loadout even when the booster is not legendary
-  - `Shield Booster`: normal rarity, adjacent shield utilities grant +25% shield
-  - `Projectile Speed Booster`: magic rarity, adjacent weapons gain +100% projectile speed
-  - `Lifesteal Booster`: rare rarity, adjacent weapons gain +10% lifesteal
-  - `Shieldsteal Booster`: exotic rarity, adjacent weapons gain +10% shield steal
-  - `Damage Booster`: legendary rarity, adjacent weapons deal +50% damage
-
-Utilities should begin dropping in mid-Campaign 2 so the player learns them before Campaign 3 begins to lean on utility-aware builds.
-
-### Campaign 3 direction
-
-Campaign 3 should continue using the Campaign 2 enemy roster:
-
-- biter
-- swarmer
-- tanker
-- shard
-- bulwark
-
-It should then add one new support enemy first, rather than replacing the existing identities.
-
-Campaign 3 should also introduce a new offensive build system:
-
-### Elemental infusions
-
-Campaign 3 weapons should begin introducing `elemental infusions` as a new activation dependency.
-
-The four elemental types are:
-
-- `fire`
-- `lightning`
-- `cold`
-- `void`
-
-Core rule:
-
-- an elemental weapon does not fire just because the sweep reaches its trigger column
-- it also requires a matching elemental infusion to be available
-- when it fires, it consumes one matching infusion
-
-This means Campaign 3 builds should start caring about two linked layers:
-
-- where elemental weapons are placed
-- whether the player is generating the right infusions to feed them
-
-### Infusers
-
-The first source of elemental infusions should be utility items called `Infusers`.
-
-Initial infuser set:
-
-- Fire Infuser
-- Lightning Infuser
-- Cold Infuser
-- Void Infuser
-
-Initial infuser rules:
-
-- each infuser is a `2x2` utility item
-- each infuser generates its own matching elemental infusion
-- elemental weapons then consume those infusions when triggered
-- all four infusers are `normal` rarity
-- infusers should be able to drop throughout all of Campaign 3
-
-### Initial elemental weapon rarity and drop rules
-
-The first elemental weapons introduced alongside the infusion system should all be `exotic` rarity.
-
-Initial rule:
-
-- the first wave of elemental payoff weapons all drop throughout Campaign 3 rather than being restricted to only late stages
-
-This means the early Campaign 3 loop should teach the new system directly:
-
-- infusers can begin appearing across the campaign
-- elemental weapons can also begin appearing across the campaign
-- players are expected to discover the generator-and-consumer relationship while progressing, not only at the very end
-
-Infusion lifecycle rules:
-
-- an infuser generates `1` matching infusion per cycle
-- infusions do not persist between cycles
-- all stored infusions dissipate when the current sweep cycle ends
-- within a single cycle, any number of infusions can be stored if the player generates them
-
-Consumption priority:
-
-- if multiple elemental weapons would consume the same elemental infusion during the same sweep window, priority should resolve from top to bottom
-- the highest placed weapon on the loadout gets first claim on the matching infusion
-- lower placed weapons only fire if enough matching infusions remain after higher placed weapons consume theirs
-- elemental weapons can require more than one matching infusion for a single activation when balance calls for it
-
-Current special case:
-
-- Thor's Hammer consumes `2` lightning infusions per activation
-
-Design intent:
-
-- Campaign 3 should deepen the loadout puzzle beyond raw shape fitting
-- elemental weapons should feel stronger or more specialized, but only when their support utilities are present
-- infusers and elemental weapons should create mini-engines inside the larger sweep system
-
-This should become a defining Campaign 3 mechanic rather than a one-off gimmick.
-
-### New enemy: shielder
-
-The new shielder glitch should:
-
-- use the same movement pattern as shard
-- stay on the outer ring as a ranged support unit
-- have very high HP
-- periodically shield the enemy closest to the pixl
-- never target bulwark
-
-Targeting rule:
-
-- find the non-bulwark enemy closest to the pixl
-- apply or refresh a shield pool on that target
-- if only bulwarks remain, the shielder does not cast on that tick
-
-Role separation is important here:
-
-- bulwark is the self-protecting frontliner
-- shielder is the backline support unit that protects someone else
-
-This avoids the worst stall case where a highly durable bulwark is also the primary support target.
-
----
-
-## Next expansion: Campaign 4 direction
-
-Campaign 4 should pivot the game away from mostly solving raw target damage and toward solving enemy positioning.
-
-The core Campaign 4 identity should be:
-
-- manipulating where glitches are on the screen
-- grouping enemies into better kill windows
-- combining crowd control with loadout timing
-- making the player think much harder about trigger columns, activation order, and combo setup
-
-This means Campaign 4 should push the player to care not only about which weapons are strong on their own, but also about:
-
-- where those weapons are placed in the sweep
-- which weapons should activate earlier to group or stall enemies
-- which weapons should activate later to cash in on that grouping
-- how crowd-control tools and payoff tools can be paired inside the same cycle
-
-### Campaign 4 weapon identity
-
-Campaign 4 weapons should revolve around battlefield control and combo payoff rather than only direct stat scaling.
-
-The design intent should be:
-
-- some weapons move, pull, stall, cluster, or pin enemies
-- some weapons deal better damage when targets are grouped tightly together
-- some weapons should be tuned specifically to follow up after crowd-control setup
-- loadout ordering should matter more than it did in earlier campaigns
-
-This should make Campaign 4 feel like the first campaign where the player is actively building a control engine, not just a damage package.
-
-### Campaign 4 difficulty direction
-
-Campaign 4 should increase combat pressure dramatically, especially through spawn density.
-
-Primary difficulty rule:
-
-- overall spawn rate should be roughly `3x` to `4x` higher than in earlier campaigns
-
-This increase should be strong enough that simple single-target builds begin to fail unless the player uses grouping, crowd control, or better sweep sequencing.
-
-The intent is:
-
-- the screen should feel more crowded
-- target prioritization should become less stable by default
-- players should need tools that shape the wave, not only tools that damage it
-
-### New enemy: Zerglitch
-
-Campaign 4 should introduce a new enemy archetype: `Zerglitch`.
-
-Zerglitch rules:
-
-- it begins as a large single enemy
-- it stays in that large form until killed
-- when it dies, it bursts into `10` small enemies
-
-Design intent:
-
-- the player should have to decide whether they can safely burst the large body immediately
-- killing it at the wrong time can flood the arena with fresh pressure
-- grouping and area control should help manage the spawned swarm
-- crowd control becomes more valuable because the enemy creates a second wave on death
-
-This enemy should reinforce the Campaign 4 identity directly:
-
-- positioning matters
-- kill timing matters
-- sweep order matters
-- crowd control and grouped damage matter
-
-### Campaign 4 note status
-
-This section defines the campaign identity and pressure goals only.
-
-Weapon specifics, exact control mechanics, and final roster details should be documented in a later Campaign 4 weapon pass once the control-combo direction is locked in.
-
-### Early Campaign 4 weapon note: Void Tunnel
-
-One of the first concrete Campaign 4 weapon concepts should be `Void Tunnel`.
-
-`Void Tunnel` should act as a control-first elemental weapon that helps define the campaign's manipulation identity.
-
-Initial spec direction:
-
-- name: `Void Tunnel`
-- rarity: `rare`
-- element: `void`
-- requires `1` void infusion to activate
-- primary role: grouping and compression setup for combo weapons
-
-Proposed shape:
-
-```text
-xxxx
-----
-xxxx
-```
-
-This means:
-
-- width `4`
-- height `3`
-- full occupied top row
-- empty middle row
-- full occupied bottom row
-
-Targeting rule:
-
-- `Void Tunnel` should target the closest enemy when it activates
-
-Effect direction:
-
-- the weapon should spawn one crushing void square above the target area and one below it
-- instead of covering the full arena, the tunnel should affect a large local region around the chosen target
-- the control radius should be large, roughly approaching half the arena, but not fully global
-- enemies in that affected region should be pushed or compressed toward the middle of the tunnel
-
-The reason for this constraint is important:
-
-- full-arena compression is likely too reliable and too strong
-- local compression around a chosen target still creates a powerful combo window
-- this preserves the Campaign 4 identity without making the weapon universally dominant in every build
-
-Debuff direction:
-
-- enemies affected by `Void Tunnel` should receive `void touched`
-- `void touched` should make enemies take `+30%` elemental damage
-- duration: `3` seconds
-
-Design intent:
-
-- `Void Tunnel` should be a setup weapon first, not a pure damage weapon
-- it should reward placing follow-up elemental or area-control weapons later in the sweep
-- it should help make Campaign 4 feel like a combo-timing campaign rather than only a stat-check campaign
-
-### Early Campaign 4 weapon note: Phaseshift
-
-Another key Campaign 4 control weapon should be `Phaseshift`.
-
-`Phaseshift` should serve a different battlefield-control role than `Void Tunnel`.
-Where `Void Tunnel` compresses and groups enemies into a kill window, `Phaseshift` should function as a positional reset tool that throws enemies back out toward the arena edge.
-
-Initial spec direction:
-
-- name: `Phaseshift`
-- rarity: `legendary`
-- primary role: large-scale repositioning and wave reset control
-- shape: `6x1`
-- cycle cooldown: `5`
-- active duration: `3` cycles
-
-Effect direction:
-
-- `Phaseshift` should target a fixed position to the right of the `pixl`
-- it should spawn a large vertical teleporter line at that fixed right-side location
-- the line should be perpendicular and long, covering roughly `50%` of the arena height
-- the affected zone should also occupy a substantial horizontal slice of that right-side space, roughly `50%` of the arena width on that side
-- any glitch that collides with that line while it is active should be teleported back out toward the edge of the arena
-- the destination should be outside the normal arena boundary, roughly `50` pixels beyond the arena edge
-
-Debuff direction:
-
-- `Phaseshift` should apply `confusion` to affected glitches
-- `confusion` should reduce glitch movement speed by `33%`
-- duration: `2` seconds
-
-Design intent:
-
-- `Phaseshift` should not be a damage-first weapon
-- it should buy space by forcibly resetting enemy position
-- it should be especially strong against dense waves that are beginning to overrun the center
-- it should create new timing windows by sending part of the wave back out, effectively re-staggering enemy arrival
-
-This makes `Phaseshift` a strong Campaign 4 identity piece because it reinforces all of the campaign's spatial-control goals:
-
-- where enemies are matters
-- when enemies arrive matters
-- crowd control can be used to change wave shape, not just slow it
-- loadout sequencing can capitalize on re-approach timing after enemies are displaced
-
-Balancing note:
-
-- `Phaseshift` should feel powerful because it is `legendary`, but the `5` cycle cooldown is an important limiter
-- its strength should come from reset utility and combo timing, not from replacing direct damage weapons
-
-### Early Campaign 4 weapon note: Force Field
-
-Another important Campaign 4 control weapon should be `Force Field`.
-
-`Force Field` should act as a temporal trap weapon.
-Unlike `Void Tunnel`, which compresses enemies, or `Phaseshift`, which resets them outward, `Force Field` should lock enemies in place and create a temporary hold zone for follow-up damage.
-
-Initial spec direction:
-
-- name: `Force Field`
-- primary role: trap setup and local crowd lockdown
-- cycle cooldown: `2`
-- hold duration: `1` cycle
-
-Trigger flow:
-
-- `Force Field` should fire a small projectile at the closest enemy
-- on impact, that projectile should expand outward
-- the expansion should then create a circular force field zone
-
-Effect direction:
-
-- glitches caught in that circular zone should be stunned
-- stunned glitches should remain fixed in place while the field is active
-- the field should function like a temporary anchor that prevents those enemies from advancing
-
-Design intent:
-
-- `Force Field` should create a reliable setup window for grouped follow-up hits
-- it should reward placing payoff weapons later in the sweep so they can hit locked targets
-- it should be one of the clearest examples of Campaign 4's crowd-control-and-combo identity
-
-This makes `Force Field` distinct from the other control tools:
-
-- `Void Tunnel` groups enemies inward
-- `Phaseshift` sends enemies back out
-- `Force Field` freezes enemies in place for a short combo window
-
-### Early Campaign 4 weapon note: Napalm Grenade
-
-Campaign 4 should also add at least one persistent-area damage weapon so the player can capitalize on displacement and clustering with longer-lived kill zones.
-
-`Napalm Grenade` is the clearest candidate for that role.
-
-Initial spec direction:
-
-- name: `Napalm Grenade`
-- rarity: `exotic`
-- primary role: persistent AOE payoff for grouped or displaced enemies
-- requires `1` fire infusion to activate
-- cycle cooldown: `3`
-- burned-ground duration: `2` cycles
-
-Effect direction:
-
-- `Napalm Grenade` should launch toward the target area and create a patch of burning ground on impact
-- the burned ground should persist for `2` full cycles
-- enemies standing in or moving through the patch should take repeated fire damage over that duration
-- the weapon should reward pulling enemies inward with `Void Tunnel`, pinning them with `Force Field`, or re-staggering them through `Phaseshift`
-
-Design intent:
-
-- Campaign 4 should not rely only on instant control plus direct burst
-- persistent AOE gives the player a reason to care about where enemies remain after they are moved
-- `Napalm Grenade` should feel like a payoff tool for a control engine rather than a generic fire weapon
-
-Identity role inside Campaign 4:
-
-- `Void Tunnel` groups enemies into the burn zone
-- `Force Field` keeps enemies standing inside the burn zone
-- `Phaseshift` can reset part of a wave while the burn zone finishes another cluster
-
-This makes `Napalm Grenade` an important missing piece in the Campaign 4 control-combo toolkit because it introduces persistent territorial damage rather than only one-moment impact.
-
-### Early Campaign 4 weapon note: The Bomb
-
-The final Campaign 4 weapon should be a delayed burst payoff piece called `The Bomb`.
-
-Unlike the earlier Campaign 4 tools, which focus on displacement, locking, or persistent area denial, `The Bomb` should represent the high-commitment finisher that cashes in after the control setup is already working.
-
-Initial spec direction:
-
-- name: `The Bomb`
-- rarity: `legendary`
-- primary role: delayed massive-damage payoff
-- cycle cooldown: `4`
-- detonation delay: `1` cycle
-
-Effect direction:
-
-- `The Bomb` should place a bomb at the target location when it fires
-- that bomb should remain in place for `1` cycle before detonating
-- when it detonates, it should deal massive damage in a meaningful local area
-- the damage should be balanced around the expectation that the player first groups or holds enemies inside the blast zone
-
-Design intent:
-
-- `The Bomb` should reward players for planning one step ahead instead of only reacting in the current cycle
-- it should feel strongest when paired with `Void Tunnel` or `Force Field`, which help keep enemies inside the future detonation area
-- it should also work as a high-risk follow-up after `Napalm Grenade`, stacking persistent burn pressure with a burst finish
-
-Identity role inside Campaign 4:
-
-- `Void Tunnel` compresses enemies into the future blast zone
-- `Force Field` can pin enemies long enough for the delayed detonation to connect
-- `Napalm Grenade` softens clustered enemies before the burst lands
-- `The Bomb` serves as the campaign's biggest payoff weapon when the full control engine is assembled
-
-This gives Campaign 4 a clearer end-state loadout fantasy: manipulate enemy position, hold them in a kill pocket, layer persistent pressure, and then cash out with a delayed explosive finisher.
+## Clear next steps
+
+1. Implement the campaign-linked dungeon seal and key loop so dungeon entry feels earned, readable, and renewable without relying on ad-hoc grants or opaque pacing.
+2. Implement daily missions and other time-scoped content so the game gains a dependable return loop between major content drops.
+3. Finish the remaining campaign-linked dungeons after the key loop is settled, using each dungeon as both a progression milestone and a source of new reward-pack loot that helps close the Season `1` weapon gap.
